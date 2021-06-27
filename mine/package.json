@@ -1,0 +1,34 @@
+{
+  "name": "@arteon/mine",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "serve": "jsproject --serve www",
+    "compile": "rollup -c",
+    "watch": "rollup -c -w",
+    "b": "browserify node_modules/ethers/dist/ethers.umd.js -o www/third-party/ethers.js --standalone ethers"
+  },
+  "description": "Arteon NFT Mining Platform",
+  "repository": "https://github.com/vandeurenglenn/mine",
+  "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
+  "devDependencies": {
+    "browserify": "^17.0.0",
+    "ethers": "^5.3.1",
+    "rollup": "^2.51.2"
+  },
+  "dependencies": {
+    "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
+    "@arteon/addresses": "^0.1.4",
+    "@vandeurenglenn/custom-select": "^0.1.1",
+    "@vandeurenglenn/flex-elements": "^0.1.0",
+    "custom-drawer": "^1.0.0",
+    "custom-pages": "^0.12.1",
+    "custom-select-mixins": "^0.13.0",
+    "custom-selector": "^0.2.1",
+    "custom-svg-icon": "^0.10.2",
+    "custom-svg-iconset": "^0.9.2",
+    "custom-tabs": "^0.13.1"
+  }
+}
