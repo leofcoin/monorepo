@@ -6,14 +6,24 @@ import './../../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import './../../node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import './../../node_modules/@openzeppelin/contracts/access/Ownable.sol';
 import './../gpu/ArteonGPU.sol';
+import './../token/interfaces/IArteonToken.sol';
 import './ArteonListing.sol';
 
 contract ArteonExchange is Ownable {
   IERC20 public ARTEON_TOKEN;
 
+  struct Listing {
+    address owner;
+    address gpu;
+    uint256 tokenId;
+    uint256 price;
+    uint256 index;
+  }
+
   address[] public listings;
+
   mapping (address => mapping(uint256 => address)) public getListing;
-  mapping (address => uint256[]) private _exchange;
+  mapping (address => Listing) public lists;
 
   event ListingCreated(address ArteonGPU, uint256 tokenId, address listing, uint, uint256 price);
   event Delist(address gpu, uint256 tokenId);
@@ -21,7 +31,7 @@ contract ArteonExchange is Ownable {
   event Buy(address gpu, uint256 tokenId, address listing, uint256 price);
 
   constructor(address token) {
-    ARTEON_TOKEN = IERC20(token);
+    ARTEON_TOKEN = IArteonToken(token);
   }
 
   modifier isListed(address gpu, uint256 tokenId) {
@@ -31,71 +41,90 @@ contract ArteonExchange is Ownable {
     _;
   }
 
-  function listFor(address gpu) external view returns (uint256[] memory) {
-    return _exchange[gpu];
+  function listingLength() external view returns (uint256) {
+    return listings.length;
   }
 
-  function list(address gpu, uint256 tokenId, uint256 price) external onlyOwner returns (address listing) {
+  // function list(address gpu, uint256 tokenId, uint256 price) external returns (address listing) {
+  //   require(getListing[gpu][tokenId] == address(0), 'ArteonExchange: LISTING_EXISTS');
+  //   address owner = IERC721(gpu).ownerOf(tokenId);
+  //   require(owner == msg.sender, 'ArteonExchange: NOT_AN_OWNER');
+  //   bytes memory bytecode = type(ArteonListing).creationCode;
+  //   bytes32 salt = keccak256(abi.encodePacked(gpu, tokenId));
+  //   assembly {
+  //     listing := create2(0, add(bytecode, 32), mload(bytecode), salt)
+  //   }
+  //
+  //   IArteonListing(listing).initialize(msg.sender, address(ARTEON_TOKEN), gpu, tokenId, price);
+  //   getListing[gpu][tokenId] = listing;
+  //   listings.push(listing);
+  //   lists[listing].listing = listing;
+  //   lists[listing].index = listings.length - 1;
+  //
+  //   emit ListingCreated(gpu, tokenId, listing, listings.length, price);
+  // }
+
+  function list(address gpu, uint256 tokenId, uint256 price) external returns (address listing) {
     require(getListing[gpu][tokenId] == address(0), 'ArteonExchange: LISTING_EXISTS');
+    require(IERC721(gpu).ownerOf(tokenId) == msg.sender, 'ArteonExchange: NOT_AN_OWNER');
     bytes memory bytecode = type(ArteonListing).creationCode;
     bytes32 salt = keccak256(abi.encodePacked(gpu, tokenId));
     assembly {
       listing := create2(0, add(bytecode, 32), mload(bytecode), salt)
     }
-    IArteonListing(listing).initialize(gpu, tokenId, price);
-    _exchange[gpu][tokenId] = price;
+
+    // IArteonListing(listing).initialize(msg.sender, address(ARTEON_TOKEN), gpu, tokenId, price);
     getListing[gpu][tokenId] = listing;
     listings.push(listing);
+    lists[listing].owner = msg.sender;
+    lists[listing].gpu = gpu;
+    lists[listing].price = price;
+    lists[listing].tokenId = tokenId;
+    lists[listing].index = listings.length - 1;
 
     emit ListingCreated(gpu, tokenId, listing, listings.length, price);
-  }
-
-  function relist(address gpu, uint256 tokenId, uint256 price) external onlyOwner {
-    address listing = getListing[gpu][tokenId];
-    require(listing != address(0), 'ArteonExchange: LISTING_DOESNT_EXIST');
-
-    _exchange[gpu][tokenId] = price;
-
-    IArteonListing(listing).delist(false);
-    IArteonListing(listing).setPrice(price);
-
-    emit Relist(gpu, tokenId, price);
+    return listing;
   }
 
   function delist(address gpu, uint256 tokenId) external onlyOwner isListed(gpu, tokenId) {
-    address listing = getListing[gpu][tokenId];
-    _removeListing(gpu, tokenId);
-    IArteonListing(listing).delist(true);
+    _removeListing(gpu, tokenId, owner());
 
     emit Delist(gpu, tokenId);
   }
 
   function buy(address gpu, uint256 tokenId) external isListed(gpu, tokenId) {
     address listing = getListing[gpu][tokenId];
-    uint256 price = IArteonListing(listing).getPrice();
-    SafeERC20.safeTransferFrom(ARTEON_TOKEN, msg.sender, address(this), price);
-    IERC721(gpu).safeTransferFrom(address(this), msg.sender, tokenId);
+    require(IERC721(lists[listing].gpu).ownerOf(lists[listing].tokenId) == lists[listing].owner, 'ArteonExchange: SELLER_DOES_NOT_OWN');
+    uint256 balance = ARTEON_TOKEN.balanceOf(msg.sender);
+    require(balance >= lists[listing].price, 'ArteonExchange: NOT_ENOUGH_TOKENS');
 
-    _removeListing(gpu, tokenId);
-    IArteonListing(listing).delist(true);
+    SafeERC20.safeTransferFrom(IERC20(address(ARTEON_TOKEN)), msg.sender, lists[listing].owner, lists[listing].price);
+    IERC721(lists[listing].gpu).safeTransferFrom(lists[listing].owner, msg.sender, lists[listing].tokenId);
+    // IArteonListing arteonListing = IArteonListing(listing);
+    // arteonListing.buy(msg.sender);
+    // arteonListing.delist(true);
+    _removeListing(gpu, tokenId, msg.sender);
 
-    emit Buy(gpu, tokenId, listing, price);
+    emit Buy(gpu, tokenId, listing, lists[listing].price);
   }
 
-  function _removeListing(address gpu, uint256 tokenId) internal onlyOwner {
-    _exchange[gpu][tokenId] = _exchange[gpu][_exchange[gpu].length - 1];
-    delete _exchange[gpu][_exchange[gpu].length - 1];
+  function _removeListing(address gpu, uint256 tokenId, address newOwner) internal {
+    require(IERC721(gpu).ownerOf(tokenId) == newOwner, 'ArteonExchange: NOT_AN_OWNER');
+    address listing = getListing[gpu][tokenId];
+    uint256 index = lists[listing].index;
+    address lastListing = listings[listings.length - 1];
+    listings[index] = lastListing;
+    lists[lastListing].index = index;
+    listings.pop();
   }
 
   function setPrice(address gpu, uint256 tokenId, uint256 price) external onlyOwner isListed(gpu, tokenId) {
     address listing = getListing[gpu][tokenId];
-    IArteonListing(listing).setPrice(price);
+    lists[listing].price = price;
   }
 
   function getPrice(address gpu, uint256 tokenId) external isListed(gpu, tokenId) returns (uint256 price) {
     address listing = getListing[gpu][tokenId];
-    price = IArteonListing(listing).getPrice();
-    return price;
+    return lists[listing].price;
   }
-
 }

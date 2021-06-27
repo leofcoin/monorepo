@@ -1,23 +1,28 @@
 {
-  "name": "miner",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@arteon/contracts",
+  "version": "0.1.0",
+  "description": "Arteon contracts",
+  "files": [
+    "contracts/**",
+    "build/**"
+  ],
   "scripts": {
     "compile-contracts": "truffle compile",
     "deploy-contracts": "truffle deploy --network ropsten",
     "deploy-contracts-mainnet": "truffle deploy --network mainnet",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "arteon",
+    "contracts",
+    "mine",
+    "nft"
+  ],
+  "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "license": "MIT",
-  "dependencies": {
-    "@openzeppelin/contracts": "^4.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@0xsequence/deployer": "^0.23.0",
-    "ethers": "^5.3.1",
-    "truffle": "^5.3.7"
+    "@openzeppelin/contracts": "^4.1.0",
+    "ethers": "^5.3.1"
   }
 }

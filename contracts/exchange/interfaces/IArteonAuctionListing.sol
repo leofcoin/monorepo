@@ -6,4 +6,5 @@ import './IArteonListing.sol';
 
 interface IArteonAuctionListing is IArteonListing {
   function bid(uint256 amount) external;
+  function highestBid() external returns (uint256);
 }

@@ -1,4 +1,6 @@
 pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+
 import "./../../node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./../../node_modules/@openzeppelin/contracts/utils/Counters.sol";
 import './../../node_modules/@openzeppelin/contracts/access/Ownable.sol';
