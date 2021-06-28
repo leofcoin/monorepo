@@ -31,6 +31,8 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   uint256 private _blockTime;
   uint256 private _maxReward;
   uint256 private _lastReward;
+  uint256 private _halvings;
+  uint256 private _nextHalving;
   mapping(address => uint256) private _rewards;
   mapping(address => uint256) private _startTime;
 
@@ -38,11 +40,13 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   event Deactivate(address indexed account, uint256 tokenId);
   event Reward(address account, uint256 reward);
 
-  constructor(address token, address gpu, uint256 blockTime, uint256 maxReward) {
+  constructor(address token, address gpu, uint256 blockTime, uint256 maxReward uint256 halvings) {
     ARTEON_TOKEN = Arteon(token);
     ARTEON_GPU = ArteonGPU(gpu);
     _blockTime = blockTime;
     _maxReward = maxReward;
+    _halvings = halvings;
+    _nextHalving = block.number + halvings;
   }
 
   function _rewardPerGPU() internal returns (uint256) {
@@ -55,6 +59,14 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
       return _lastReward;
     }
     return lastReward;
+  }
+
+  function getHalvings() public view returns (uint256) {
+    return _halvings;
+  }
+
+  function getNextHalving() public view returns (uint256) {
+    return _nextHalving;
   }
 
   function rewards(address account) public view returns (uint256) {
@@ -86,6 +98,7 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   function deactivateGPU(uint256 tokenId) public {
     getReward();
     address account = msg.sender;
+    getReward();
     _deactivateGPU(account, tokenId);
     ARTEON_GPU.safeTransferFrom(address(this), account, tokenId);
     emit Deactivate(account, tokenId);
@@ -110,7 +123,7 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
       reward = reward * remainder;
       reward = reward * _balances[account];
 
-      _rewards[account] = (_rewards[account] / 1e18) + reward;
+      _rewards[account] = _rewards[account] + (reward / 1e18);
 
       _startTime[account] = block.timestamp;
     }
@@ -144,6 +157,7 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     _owners[tokenId] = account;
     _minerCount++;
     _startTime[account] = block.timestamp;
+    _checkHalving();
     _rewardPerGPU();
   }
 
@@ -155,7 +169,15 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     delete _owners[tokenId];
     _minerCount--;
     delete _startTime[account];
+    _checkHalving();
     _rewardPerGPU();
+  }
+
+  function _checkHalving() internal {
+    if (_nextHalving >= block.number) {
+      _nextHalving = block.number + _halvings;
+      _maxreward = _maxReward / 2;
+    }
   }
 
   function _checkOnERC721Received(address from, address to, uint256 tokenId, bytes memory _data) private returns (bool) {

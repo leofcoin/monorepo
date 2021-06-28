@@ -22,6 +22,12 @@ const rewardRates = [
   ethers.utils.parseUnits('0.0028935185185185', 18)
 ]
 
+const halvings = [
+  ethers.BigNumber.from('1170000'),
+  ethers.BigNumber.from('1170000'),
+  ethers.BigNumber.from('1170000')
+]
+
 module.exports = async (deployer, network) => {
   let addresses = {
     pools: {
@@ -50,13 +56,13 @@ console.log(addresses);
   if (!addresses.cards.artx2000) await deployer.deploy(ArteonGPUARTX2000);
   const ARTX2000 = await ArteonGPUARTX2000.deployed()
 
-  if (!addresses.pools.genesis) await deployer.deploy(ArteonPoolGenesis, token.address, Genesis.address, SixtySeconds, rewardRates[0]);
+  if (!addresses.pools.genesis) await deployer.deploy(ArteonPoolGenesis, token.address, Genesis.address, SixtySeconds, rewardRates[0], halvings[0]);
   const GenesisPool = await ArteonPoolGenesis.deployed();
 
-  if (!addresses.pools.artx1000) await deployer.deploy(ArteonPoolARTX1000, token.address, ARTX1000.address, SixtySeconds, rewardRates[1]);
+  if (!addresses.pools.artx1000) await deployer.deploy(ArteonPoolARTX1000, token.address, ARTX1000.address, SixtySeconds, rewardRates[1], halvings[1]);
   const ARTX1000Pool = await ArteonPoolARTX1000.deployed();
 
-  if (!addresses.pools.artx2000) await deployer.deploy(ArteonPoolARTX2000, token.address, ARTX2000.address, SixtySeconds, rewardRates[2]);
+  if (!addresses.pools.artx2000) await deployer.deploy(ArteonPoolARTX2000, token.address, ARTX2000.address, SixtySeconds, rewardRates[2], halvings[2]);
   const ARTX2000Pool = await ArteonPoolARTX2000.deployed();
 
 
