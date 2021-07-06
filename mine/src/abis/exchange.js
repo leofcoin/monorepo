@@ -34,6 +34,12 @@ export default [
 			},
 			{
 				"indexed": false,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": false,
 				"internalType": "uint256",
 				"name": "price",
 				"type": "uint256"
@@ -41,7 +47,7 @@ export default [
 		],
 		"name": "Buy",
 		"type": "event",
-		"signature": "0xa76261e4127b2ebc809716d704216602fdaee4ae5b72745ed9aec0d7bd73b75d"
+		"signature": "0x324dfaaac3975712513fc233f72fb1df65967a5a9fdbf3681d121bfd0339ebc9"
 	},
 	{
 		"anonymous": false,
@@ -127,32 +133,34 @@ export default [
 			{
 				"indexed": false,
 				"internalType": "address",
-				"name": "gpu",
+				"name": "account",
 				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
 			}
 		],
-		"name": "Relist",
+		"name": "Paused",
 		"type": "event",
-		"signature": "0x8cc8e3e58fa781c5eb3e45da48f0893fbec2de8f62bc3e8e63d026171a42900f"
+		"signature": "0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			}
+		],
+		"name": "Unpaused",
+		"type": "event",
+		"signature": "0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa"
 	},
 	{
 		"inputs": [],
 		"name": "ARTEON_TOKEN",
 		"outputs": [
 			{
-				"internalType": "contract IERC20",
+				"internalType": "address",
 				"name": "",
 				"type": "address"
 			}
@@ -267,6 +275,21 @@ export default [
 	},
 	{
 		"inputs": [],
+		"name": "paused",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x5c975abb"
+	},
+	{
+		"inputs": [],
 		"name": "renounceOwnership",
 		"outputs": [],
 		"stateMutability": "nonpayable",
@@ -331,6 +354,25 @@ export default [
 		"stateMutability": "nonpayable",
 		"type": "function",
 		"signature": "0xdda342bb"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "gpu",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "forceDelist",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x2df2982a"
 	},
 	{
 		"inputs": [
@@ -418,5 +460,13 @@ export default [
 		"stateMutability": "nonpayable",
 		"type": "function",
 		"signature": "0x449e815d"
+	},
+	{
+		"inputs": [],
+		"name": "pause",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x8456cb59"
 	}
 ]

@@ -20,10 +20,16 @@ export default [
 				"internalType": "uint256",
 				"name": "maxReward",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "halving",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "nonpayable",
-		"type": "constructor"
+		"type": "constructor",
+		"signature": "constructor"
 	},
 	{
 		"anonymous": false,
@@ -200,6 +206,21 @@ export default [
 	},
 	{
 		"inputs": [],
+		"name": "getHalvings",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x54cba1d1"
+	},
+	{
+		"inputs": [],
 		"name": "getMaxReward",
 		"outputs": [
 			{
@@ -212,6 +233,21 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0xc213f3f9"
+	},
+	{
+		"inputs": [],
+		"name": "getNextHalving",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xd700933b"
 	},
 	{
 		"inputs": [],

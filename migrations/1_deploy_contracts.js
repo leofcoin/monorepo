@@ -39,8 +39,7 @@ module.exports = async (deployer, network) => {
   };
 
   addresses = require(`./../addresses/addresses/${network.replace('-fork', '')}.json`);
-
-console.log(addresses);
+  
   if (!addresses.token) await deployer.deploy(Arteon, 'Arteon', 'ART');
   const token = await Arteon.deployed()
 
@@ -108,42 +107,43 @@ console.log(addresses);
 
     promises = await Promise.all(promises)
 
-    promises.reduce((prev, current, i) => {
+    promises = promises.reduce((prev, current, i) => {
       if (!current) prev.push(token.addMinter(pools[i]))
       return prev
     }, [])
 
     promises = await Promise.all(promises)
+
+    let flats = await Promise.all([
+      execSync('truffle-flattener contracts/pools/ArteonPoolGenesis.sol'),
+      execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
+      execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
+    ])
+
+    flats = flats.map(flat => flat.toString()
+      .replace(/\/\/ SPDX-License-Identifier: MIT/g, '')
+      .replace(/\/\/ File: (.*)\s\s/g, '')
+      .replace(/pragma solidity (.*)\s/g, ''))
+
+    await Promise.all([
+      write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
+      write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
+      write(`build/flats/ArteonExchange.sol`, flats[2])
+    ])
+    console.log({
+      token: token.address,
+      exchange: arteonExchange.address,
+      pools: {
+        genesis: GenesisPool.address,
+        artx1000: ARTX1000Pool.address,
+        artx2000: ARTX2000Pool.address
+      },
+      cards: {
+        genesis: Genesis.address,
+        artx1000: ARTX1000.address,
+        artx2000: ARTX2000.address
+      }
+    });
   }
 
-  let flats = await Promise.all([
-    execSync('truffle-flattener contracts/pools/ArteonPoolGenesis.sol'),
-    execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
-    execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
-  ])
-
-  flats = flats.map(flat => flat.toString()
-    .replace(/\/\/ SPDX-License-Identifier: MIT/g, '')
-    .replace(/\/\/ File: (.*)\s\s/g, '')
-    .replace(/pragma solidity (.*)\s/g, ''))
-
-  await Promise.all([
-    write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
-    write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
-    write(`build/flats/ArteonExchange.sol`, flats[2])
-  ])
-  console.log({
-    token: token.address,
-    exchange: arteonExchange.address,
-    pools: {
-      genesis: GenesisPool.address,
-      artx1000: ARTX1000Pool.address,
-      artx2000: ARTX2000Pool.address
-    },
-    cards: {
-      genesis: Genesis.address,
-      artx1000: ARTX1000.address,
-      artx2000: ARTX2000.address
-    }
-  });
 };

@@ -122,8 +122,10 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     this._selector.addEventListener('selected', this._select)
 
-    this._select({detail: 'pools'})
-    import('./exchange.js')
+    await this._select({detail: 'pools'})
+    setTimeout(() => {
+      import('./exchange.js')
+    }, 100);
   }
 
   async _select({detail}) {
@@ -322,7 +324,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="local-offer"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"></path></g>
         <g id="menu"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></g>
         <g id="memory"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"></path></g>
+        <g id="play"><path d="M8 5v14l11-7z"></path></g>
         <g id="playlist-add"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path></g>
+        <g id="stop"><path d="M6 6h12v12H6z"></path></g>
+        <g id="fan"><path d="M12 12c0-3 2.5-5.5 5.5-5.5S23 9 23 12H12zm0 0c0 3-2.5 5.5-5.5 5.5S1 15 1 12h11zm0 0c-3 0-5.5-2.5-5.5-5.5S9 1 12 1v11zm0 0c3 0 5.5 2.5 5.5 5.5S15 23 12 23V12z"></path></g>
+        <g id="wallet"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"></path></g>
       </defs></svg>
     </custom-svg-iconset>
     <custom-drawer>
@@ -342,11 +348,15 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <span>auction</span>
         </span>
 
-        <!-- <span class="drawer-item" data-route="buy-arteon">
+        <span class="drawer-item" data-route="wallet">
+          <custom-svg-icon icon="wallet"></custom-svg-icon>
+          <span>wallet</span>
+        </span>
+
+        <span class="drawer-item" data-route="buy-arteon">
           <custom-svg-icon icon="local-offer"></custom-svg-icon>
           <span>buy arteon</span>
         </span>
-        -->
       </custom-selector>
 
       <flex-row slot="footer">
@@ -377,6 +387,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       <custom-pages attr-for-selected="data-route">
         <exchange-view data-route="exchange"></exchange-view>
         <pools-view data-route="pools"></pools-view>
+        <wallet-view data-route="wallet"></wallet-view>
         <buy-arteon-view data-route="buy-arteon"></buy-arteon-view>
       </custom-pages>
     </span>

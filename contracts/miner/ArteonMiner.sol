@@ -40,13 +40,14 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   event Deactivate(address indexed account, uint256 tokenId);
   event Reward(address account, uint256 reward);
 
-  constructor(address token, address gpu, uint256 blockTime, uint256 maxReward uint256 halvings) {
+  constructor(address token, address gpu, uint256 blockTime, uint256 maxReward, uint256 halvings) {
     ARTEON_TOKEN = Arteon(token);
     ARTEON_GPU = ArteonGPU(gpu);
     _blockTime = blockTime;
     _maxReward = maxReward;
     _halvings = halvings;
-    _nextHalving = block.number + halvings;
+    uint256 blockHeight = block.number;
+    _nextHalving = blockHeight.add(halvings);
   }
 
   function _rewardPerGPU() internal returns (uint256) {
@@ -54,11 +55,9 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
       return 0;
     }
     uint256 lastReward = _lastReward;
-    _lastReward = _maxReward / _totalSupply;
-    if (lastReward == 0) {
-      return _lastReward;
-    }
-    return lastReward;
+    uint256 max = _maxReward;
+    _lastReward = max / _totalSupply;
+    return lastReward == 0 ? _lastReward : lastReward;
   }
 
   function getHalvings() public view returns (uint256) {
@@ -118,20 +117,16 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     address account = msg.sender;
     uint256 startTime = _startTime[account];
     if (block.timestamp > startTime + _blockTime) {
-      uint256 reward = _rewardPerGPU();
       uint256 remainder = block.timestamp - startTime;
-      reward = reward * remainder;
-      reward = reward * _balances[account];
-
-      _rewards[account] = _rewards[account] + (reward / 1e18);
-
+      uint256 reward = _rewardPerGPU() * _balances[account];
+      _rewards[account] = _rewards[account] + (reward * remainder);
       _startTime[account] = block.timestamp;
     }
     return _rewards[account];
   }
 
   function miners() public view virtual returns (uint256) {
-    return _minerCount;
+    return _totalSupply;
   }
 
   function ownerOf(uint256 tokenId) public view virtual returns (address) {
@@ -155,7 +150,6 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     _totalSupply = _totalSupply.add(1);
     _balances[account] = _balances[account].add(1);
     _owners[tokenId] = account;
-    _minerCount++;
     _startTime[account] = block.timestamp;
     _checkHalving();
     _rewardPerGPU();
@@ -167,16 +161,16 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     _totalSupply = _totalSupply.sub(1);
     _balances[account] = _balances[account].sub(1);
     delete _owners[tokenId];
-    _minerCount--;
     delete _startTime[account];
     _checkHalving();
     _rewardPerGPU();
   }
 
   function _checkHalving() internal {
-    if (_nextHalving >= block.number) {
-      _nextHalving = block.number + _halvings;
-      _maxreward = _maxReward / 2;
+    uint256 blockHeight = block.number;
+    if (blockHeight > _nextHalving) {
+      _nextHalving = blockHeight.add(_halvings);
+      _maxReward = _maxReward.div(2);
     }
   }
 

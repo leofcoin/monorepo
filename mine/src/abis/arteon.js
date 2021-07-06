@@ -13,7 +13,8 @@ export default [
 			}
 		],
 		"stateMutability": "nonpayable",
-		"type": "constructor"
+		"type": "constructor",
+		"signature": "constructor"
 	},
 	{
 		"anonymous": false,

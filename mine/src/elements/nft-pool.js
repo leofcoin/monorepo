@@ -1,14 +1,10 @@
 import MINER_ABI from './../abis/miner.js'
 import GPU_ABI from './../abis/gpu.js'
 import './nft-pool-cards'
+import { scrollbar } from './../styles/shared'
 
 globalThis._contracts = globalThis._contracts || []
 
-const mp4s = {
-  GENESIS: 'Genesis.mp4',
-  'ARTX 1000': 'ARTX1000.mp4',
-  'ARTX 2000': 'ARTX2000.mp4'
-}
 
 export default customElements.define('nft-pool', class NFTPool extends HTMLElement {
   constructor() {
@@ -31,50 +27,78 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     return this._address
   }
 
-  async showAddDialog() {
-    const result = await prompt('enter gpu (token) ID')
-    if (!result) return
-    let cards = await localStorage.getItem(`arteon-gpu-${this.symbol}-${api.chainId}`)
-    cards = cards ? JSON.parse(cards) : []
-    cards.push(result)
-    await localStorage.setItem(`arteon-gpu-${this.symbol}-${api.chainId}`, JSON.stringify(cards))
-    console.log(result);
-  }
-
   async _onclick(event) {
     const target = event.composedPath()[0]
     if (!target.hasAttribute('data-action')) return
 
     const action = target.getAttribute('data-action')
 
-    if (action === 'add') {
-      const balance = await this.gpuContract.callStatic.balanceOf(api.signer.address)
-      if (balance.toNumber() === 0) return this.showBalanceDialog()
-
-      return this.showAddDialog()
-    }
-
     const id = target.dataset.id
     console.log(id);
-    if (action === 'mine') {
+    if (action === 'getReward') {
+      const tx = await this.contract.functions.getReward()
+      await tx.wait()
+      return
+    }
+
+    if (action === 'activate') {
+      const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
+      card.setAttribute('mining', 'true')
+      card.setAttribute('status', 'starting')
       let mine;
+      let approved;
       try {
-        let approved = await this.gpuContract.callStatic.getApproved(id)
-        if (approved !== this.contract.address) {
+        approved = await this.gpuContract.callStatic.isApprovedForAll(api.signer.address, this.contract.address)
+      } catch (e) {
+        approved = await this.gpuContract.callStatic.getApproved(id)
+      }
+      try {
+        if (approved === false) {
+          const tx = await this.gpuContract.setApprovalForAll(this.contract.address, true)
+          await tx.wait()
+        }
+        if (typeof approved !== 'boolean' && approved !== this.contract.address) {
           approved = await this.gpuContract.approve(this.contract.address, id)
           await approved.wait()
         }
+        card.removeAttribute('stopped')
+        card.setAttribute('status', 'booting')
+        card.setAttribute('booting', '')
         mine = await this.contract.functions.activateGPU(id)
+        await mine.wait()
+        card.removeAttribute('booting', '')
+        card.setAttribute('status', 'activated')
       } catch (e) {
         console.error(e);
         // const gasLimit = Number(e.message.match(/want \d*/)[0].replace('want ', '')) + 5000
         // mine = await this.contract.mine(Number(id), {gasLimit})
       }
-      console.log(mine);
       return
     }
 
     if (action === 'deactivate') {
+      let mine;
+      const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
+      try {
+        card.setAttribute('slowing-down', '')
+        card.setAttribute('status', 'shutting down')
+        mine = await this.contract.functions.deactivateGPU(id)
+        setTimeout(() => {
+          card.removeAttribute('slowing-down')
+          card.setAttribute('stopping', '')
+        }, 200);
+      } catch (e) {
+        console.error(e);
+        // const gasLimit = Number(e.message.match(/want \d*/)[0].replace('want ', '')) + 5000
+        // mine = await this.contract.mine(Number(id), {gasLimit})
+      }
+      await mine.wait()
+      card.removeAttribute('stopping')
+      card.setAttribute('stopped', '')
+      setTimeout(() => {
+        card.setAttribute('mining', 'false')
+        card.setAttribute('status', 'deactivated')
+      }, 1600);
       return
     }
 
@@ -84,42 +108,51 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
   }
 
   async _load(address) {
-    console.log(address);
+    this.shadowRoot.querySelector('nft-pool-cards').innerHTML = ''
     this._address = address
+
+    this.shadowRoot.querySelector('pool-selector-item').setAttribute('address', address)
     this.contract = globalThis._contracts[address] ? globalThis._contracts[address] : new ethers.Contract(address, MINER_ABI, api.signer)
     const gpuAddress = await this.contract.callStatic.ARTEON_GPU()
     this.gpuContract = new ethers.Contract(gpuAddress, GPU_ABI, api.signer)
     const symbol = await this.gpuContract.callStatic.symbol()
     this.symbol = symbol
-    const mp4 = mp4s[symbol]
+    let cap = 50;
+    let promises = [
+      this.gpuContract.callStatic.balanceOf(api.signer.address)
+    ]
+    if (symbol !== 'GENESIS') {
+      promises.push(this.gpuContract.callStatic.supplyCap())
+    }
+    promises = await Promise.all(promises)
+    if (promises.length === 2) cap = promises[1]
 
+    promises = []
+    for (var i = 1; i <= Number(cap); i++) {
+      promises.push(this.gpuContract.callStatic.ownerOf(i))
+    }
+    promises = await Promise.allSettled(promises)
+    let cards = []
+    const tokenIdsToCheck = []
+    promises.forEach((result, i) => {
+      if (result.status === 'rejected') tokenIdsToCheck.push(i + 1)
+      else if(result.value) result.value  === api.signer.address ? cards.push({tokenId: i + 1}) : tokenIdsToCheck.push(i + 1)
+    });
 
-    let cards = await localStorage.getItem(`arteon-gpu-${this.symbol}-${api.chainId}`)
-    cards = cards ? JSON.parse(cards) : []
+    console.log(tokenIdsToCheck);
+    promises = []
+    for (const i of tokenIdsToCheck) {
+      promises.push(this.contract.callStatic.ownerOf(i))
+    }
+    promises = await Promise.allSettled(promises)
+    let miningCards = []
+    promises.forEach((result, i) => {
+      if(result.value === api.signer.address) cards.push({tokenId: tokenIdsToCheck[i], mining: true})
+    });
 
-    // promises = []
-    // let i = 0;
-    // let nonce = await api.signer.provider.getTransactionCount(api.signer.address);
-    // for (const card of cards) {
-    //   nonce++
-    //   promises.push(this.contract.ownerOf(card, { nonce }))
-    // }
-    //
-    // promises = await Promise.allSettled(promises)
-    // console.log(promises[0]);
-    // // TODO: test on owner transfer
-    // const notOwned = promises.filter(promise => promise.value ? promise.value !== api.signer.address : true)
-    // console.log(notOwned);
-    // for (const {value} of notOwned) {
-    //   const index = promises.indexOf(value)
-    //   promises.splice(index, 1)
-    //   cards.splice(index, 1)
-    // }
-    await localStorage.setItem(`arteon-gpu-${this.symbol}`, JSON.stringify(cards))
+    cards = cards.sort((a, b) => a.tokenId - b.tokenId)
+
     this.shadowRoot.querySelector('nft-pool-cards')._load(cards)
-    this.shadowRoot.querySelector('pool-selector-item').setAttribute('address', address)
-    console.log(cards);
-    console.log(promises);
   }
 
   get template() {
@@ -203,6 +236,18 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
         padding: 0 24px;
         box-sizing: border-box;
       }
+      .bottom-toolbar {
+        display: flex;
+        padding: 0px 24px 12px 24px;
+        box-sizing: border-box;
+        align-items: center;
+        justify-content: center;
+      }
+      .bottom-toolbar button {
+        border-radius: 24px;
+        height: 40px;
+      }
+      ${scrollbar}
     </style>
 
     <section>
@@ -212,11 +257,9 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     </section>
     <nft-pool-cards></nft-pool-cards>
 
-    <span class="row">
-      <button data-action="add">add</button>
-
-      <span class="flex"></span>
-    </span>
+    <flex-row class="bottom-toolbar">
+      <button data-action="getReward">get reward</button>
+    </flex-row>
     `
   }
 })

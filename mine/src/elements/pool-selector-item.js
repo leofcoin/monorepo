@@ -2,6 +2,8 @@ import MINER_ABI from './../abis/miner.js'
 import GPU_ABI from './../abis/gpu.js'
 import './../array-repeat'
 import './arteon-button'
+import './gpu-img'
+import {rotate} from './../styles/shared'
 export default customElements.define('pool-selector-item', class PoolSelectorItem extends HTMLElement {
   static get observedAttributes() {
     return ['address']
@@ -49,10 +51,8 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     this.maxRewardShort = Math.round(Number(this.maxReward * 1000)) / 1000
     this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
 
-    this.difficulty = (this.miners / api.maximumSupply[this.symbol])
+    this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
     // this.rewards = promises[4]
-    // this.URI = `https://nft.arteon.org/cards/${api.assets[this.symbol]}`
-    this.URI = api.assets[this.symbol]
     // promises = [
       // contract
       // contract.callStatic.maxReward(),
@@ -79,7 +79,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
         border-bottom: 1px solid #333;
         box-sizing: border-box;
         // padding: 12px 48px 12px 48px;
-        padding: 0 24px 12px 24px;
+        padding: 0 24px 24px 24px;
         background: #eee;
         color: #333;
         pointer-events: auto;
@@ -105,16 +105,24 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       custom-svg-icon {
         margin-left: 12px;
       }
-
+      .info {
+        padding-right: 24px;
+        box-sizing: border-box;
+      }
+      flex-row[data-route="overview"] {
+        align-items: flex-end;
+      }
       @media (max-width: 840px) {
         flex-row[data-route="overview"] {
           flex-direction: column !important;
           align-items: center;
         }
       }
+
+      ${rotate}
     </style>
       <flex-row data-route="overview">
-        <flex-column style="width: 100%;">
+        <flex-column class="info" style="width: 100%;">
           <h4><strong>${this.symbol}</strong></h4>
           <flex-row>
             <custom-svg-icon icon="memory"></custom-svg-icon>
@@ -142,7 +150,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
           </flex-row>
           <flex-one></flex-one>
         </flex-column>
-        <img src="${this.URI}" loading="lazy"></img>
+        <gpu-img symbol="${this.symbol}" loading="lazy"></gpu-img>
 
       </flex-row>
       <!-- <custom-svg-icon icon="arrow-drop-down"></custom-svg-icon> -->

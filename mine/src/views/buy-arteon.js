@@ -1,278 +1,169 @@
-import './../elements/swap-coin'
-import './../elements/swap-button'
-import './../elements/swap-price'
-import './../elements/swap-status'
-import './../elements/swap-title'
-
+import { elevation2dp } from './../styles/elevation'
 export default customElements.define('buy-arteon-view', class BuyArteonView extends HTMLElement {
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
-    this.shadowRoot.innerHTML = this.template.innerHTML
+    this.shadowRoot.innerHTML = this.template
 
-    this._onswap = this._onswap.bind(this)
-    this._swapInOut = this._swapInOut.bind(this)
-  }
-
-  get _sellCoin() {
-    return this.shadowRoot.querySelector('.sell')
-  }
-
-  get _buyCoin() {
-    return this.shadowRoot.querySelector('.buy')
-  }
-
-  get _title() {
-    return this.shadowRoot.querySelector('swap-title')
-  }
-
-  get _swap() {
-    return this.shadowRoot.querySelector('custom-svg-icon')
-  }
-
-  _swapInOut() {
-    const sell = this.sell
-    this._sellCoin.selected = this.buy
-    this._buyCoin.selected = sell
+    this._onvalue = this._onvalue.bind(this)
   }
 
   connectedCallback() {
-    /**
-     *
-     */
-    pubsub.subscribe('swap.buy', value => {
-      console.log({buy: value});
-      this.buy = value
-      this._title.tokenIn = value
-      this._observeSwap()
-    })
-    pubsub.subscribe('swap.sell.coin', value => {
-      this.sell = value
-      this._title.tokenOut = value
-      this._observeSwap()
-    })
-
-    pubsub.subscribe('swap.sell.amount', value => {
-      this.amount = value
-      this._observeSwap()
-    })
-
-    pubsub.subscribe('swap.approve', value => {
-      this.swapButton.innerHTML = value.approved ? 'swapping...' : 'approve failed'
-      css.notificationManager.show(`${value.approved ? 'approved' : 'approve failed'} ${value.amount}${value.token.symbol}`)
-    })
-
-    this.shadowRoot.querySelector('swap-button').addEventListener('click', this._onswap)
-    this._swap.addEventListener('click', this._swapInOut)
-    this.reset()
+    this.shadowRoot.querySelector('custom-input').addEventListener('input', this._onvalue)
+    this.shadowRoot.querySelector('button').addEventListener('click', this._swap)
   }
 
-  async _observeSwap() {
-    if (!this.sell) return this.swapButton.innerHTML = 'select coin to sell'
+  async _getPrice(amount) {
+    const response = await fetch(`https://ropsten.api.0x.org/swap/v1/price?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    const price = await response.json()
+    console.log(price);
+    const protocol = price.sources.filter(protocol => protocol.proportion === '1')[0]
+    console.log(protocol);
+    this.shadowRoot.querySelector('.price').innerHTML = `
+    <span style="height: 40px;padding: 12px 0; box-sizing: border-box;">${protocol.name}</span>
+    <flex-one></flex-one>
+    <span style="height: 40px;padding: 12px 0; box-sizing: border-box;">1 ETH = ${Math.round(Number(price.buyTokenToEthRate))}</span>`
 
-    const balance = await api.balanceOf(this.sell, api.signer.address)
-    const balanceToken1 = await api.balanceOf(this.buy, api.signer.address)
-    if (String(balance) === '0') return this.swapButton.innerHTML = "You don't have any coins"
-
-    this.shadowRoot.querySelector('.sell').balance.balance = balance
-
-    if (!this.buy) return this.swapButton.innerHTML = 'select coin to buy'
-    if (this.buy === this.sell) return this.swapButton.innerHTML = 'select a different token'
-    if (this.buy && this.sell) {
-      pubsub.publish('swap.price', {
-        price: await api.price(this.buy, this.sell),
-        pair: [this.sell, this.buy]
-      })
-    }
-    if (!this.amount) return this.swapButton.innerHTML = 'enter amount to sell'
-    let amount = String(this.amount)
-    const enoughBalance = await api.enoughBalance(this.sell, this.amount)
-    if (!enoughBalance) return this.swapButton.innerHTML = 'amount exceeds balance'
-
-    if (this.sell && this.amount && this.buy) {
-
-      this.swapButton.innerHTML = 'swap'
-      this.swapButton.disabled = false
-
-      console.log(this.buy, this.sell);
-      let priceToToken1
-      let priceToToken0
-      // let { price, buyAmount, estimatedGas, sources } =
-      if (this.buy === 'WETH' && this.sell === 'ETH') {
-        priceToToken1 = amount
-        priceToToken0 = amount
-      } else {
-
-         const [executionPrice, nextPrice] = await api.tradePrice(this.buy, this.sell, api.parseUnits(amount, api.tokenInfo(this.sell).decimals))
-         console.log(executionPrice, nextPrice);
-
-         pubsub.publish('swap.sell.balance', balance)
-         pubsub.publish('swap.buy.balance', balanceToken1)
-      }
-      // console.log();
-      // if (!sources) return alert('no source found for' + this.sell)
-      // const dex = sources.filter(c => Number(c.proportion) === 1)
-      // price
-      // console.log(dex);
-      // console.log(price);
-
-
-
-
-
-      // pubsub.publish('swap.estimatedGas', web3.utils.fromWei(String(estimatedGas)))
-      // pubsub.publish('swap.dex', dex[0].name)
-    }
+    this.shadowRoot.querySelector('button').innerHTML = `BUY ${amount} ART FOR ${ethers.utils.formatUnits(price.sellAmount, 18)} ETH`
+    // console.log(ethers.utils.parseUnits(quote.price, 18).toString())
   }
 
-  get swapButton() {
-    return this.shadowRoot.querySelector('swap-button')
+  _onvalue() {
+    this._timeout && clearTimeout(this._timeout)
+
+    this._timeout = () => setTimeout(() => {
+      this._getPrice(this.shadowRoot.querySelector('custom-input').value)
+    }, 200);
+
+    this._timeout()
   }
-
-  get zeroX() {
-    return document.querySelector('custom-zerox')
-  }
-
-  async _onswap() {
-    console.log('click');
-    if (this.buy && this.sell && this.amount) {
-      this.swapButton.innerHTML = 'approving...'
-      const exchange = await api.exchange(this.buy, this.sell, String(this.amount))
-      try {
-        await exchange.approve()
-
-        // pubsub.publish('swap.approve', {
-        //   approved: true,
-        //   amount: this.amount,
-        //   sell: this.sell
-        // })
-
-        await exchange.swap()
-
-        let assets = []
-        if (await css.accountStore.has('assets')) assets = await css.accountStore.get('assets')
-        if (assets.indexOf(this.buy) === -1) assets.push(this.buy)
-        if (String(api.balanceOf(this.sell)) === '0') assets.slice(assets.indexOf(this.sell), 1)
-        await css.accountStore.put('assets', assets)
-        this.reset()
-      } catch (e) {
-        // pubsub.publish('swap.approve', {
-        //   approved: false,
-        //   amount: this.amount,
-        //   sell: this.sell
-        // })
-      }
-    }
-
-  }
-
-  reset() {
-    this.swapButton.innerHTML = 'select coin to buy'
-    console.log(this._sellCoin);
-    this._sellCoin.selected = this.lastSelectedSell || 'WETH'
-    this._sellCoin.input.value = '0.0'
-    this.swapButton.disabled = true
-  }
-
   get template() {
     return `
     <style>
       :host {
         display: flex;
         flex-direction: column;
+        align-items: center;
+        justify-content: center;
         height: 100%;
         width: 100%;
         box-sizing: border-box;
+        color: var(--main-color);
       }
 
-      custom-svg-icon {
-        cursor: pointer;
-        pointer-events: auto;
-        --svg-icon-color: var(--accent-color);
-      }
-
-      .main-hero {
+      .hero {
+        display: flex;
         flex-direction: column;
         max-width: 420px;
         max-height: 420px;
+        min-height: 158px;
         width: 100%;
-        padding: 12px 24px 24px;
+        padding: 24px;
         box-sizing: border-box;
         align-items: center;
         justify-content: center;
         z-index: 1;
         position: relative;
+        border-radius: 24px;
+        background: var(--custom-drawer-background);
+        ${elevation2dp}
       }
 
-      custom-pages {
-        width: 100%;
+      .logo {
+        height: 32px;
+        width: 32px;
+      }
+
+      strong {
+        font-size: 22px;
+      }
+
+      custom-input {
+        box-shadow: none;
+        pointer-events: auto;
+        --custom-input-placeholder-color: var(--main-color);
+        --custom-input-color: var(--main-color);
+      }
+
+      .input {
+        box-sizing: border-box;
+        padding: 0 12px;
+        border-radius: 24px;
         align-items: center;
-        justify-content: center;
-        height: 100%;
+        ${elevation2dp}
+      }
+
+      button {
         display: flex;
-        padding: 24px;
+        align-items: center;
+        background: transparent;
         box-sizing: border-box;
+        padding: 6px 24px;
+        color: var(--main-color);
+        border-color: var(--accent-color);
+        border-radius: 12px;
+        height: 40px;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      strong {
+        padding: 0 6px;
       }
 
-      section {
-        border: none;
-        border-bottom: 1px solid #888;
-        max-width: 320px;
-        padding-bottom: 24px;
-        box-sizing: border-box;
-        padding-top: 48px;
+      [icon="swap-horiz"] {
+        --svg-icon-color: var(--main-color);
+        transform: rotate(90deg);
+      }
+      .spacing {
+        display: flex;
+        padding: 12px 0 0 0;
       }
 
-      swap-coin {
-        max-width: 420px;
-      }
-
-      swap-button {
-        z-index: 101;
-        box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14),
-                    0 1px 8px 0 rgba(0, 0, 0, 0.12),
-                    0 3px 3px -2px rgba(0, 0, 0, 0.4);
-        --button-border-color: transparent;
-      }
-
-      .status {
-        border-top-right-radius: 0;
-        border-top-left-radius: 0;
-        background: #1072f9bf;
-        height: 0px;
-        opacity: 0;
+      .sell {
+        --custom-input-placeholder-color: #333;
         pointer-events: none;
-        max-width: 364px;
       }
 
-      @media (max-width: 460px) {
-        .status {
-          width: calc(100% - 48px);
-        }
+      flex-row {
+        width: 100%;
+      }
+
+      .price {
+        box-sizing: border-box;
+        padding: 0 24px;
+      }
+
+      button {
+        margin-top: 24px;
+        text-transform: uppercase;
       }
     </style>
-    <custom-pages attr-for-selected="data-route">
-      <custom-hero data-route="swap" class="main-hero">
-        <swap-title></swap-title>
-        <swap-coin event="swap.sell" class="sell"></swap-coin>
-        <flex-one></flex-one>
-        <custom-svg-icon icon="swap-vertical"></custom-svg-icon>
-        <flex-one></flex-one>
-        <swap-coin event="swap.buy" buy class="buy"></swap-coin>
-        <flex-two></flex-two>
-        <swap-price event="swap.price"></swap-price>
-        <flex-two></flex-two>
-        <swap-button>enter amount</swap-button>
-      </custom-hero>
 
-      <custom-hero data-route="settings" class="main-hero">
+    <span class="hero">
+      <flex-row class="input">
+        <custom-input placeholder="amount"></custom-input>
+        <flex-row>
+          <img class="logo" src="./assets/arteon.svg"></img>
+          <strong>ART</strong>
+        </flex-row>
+      </flex-row>
+      <!--  <span class="spacing"></span>
+      <custom-svg-icon icon="swap-horiz"></custom-svg-icon>
+      <span class="spacing"></span>
+    <flex-row class="input">
+        <custom-input placeholder="amount" class="sell"></custom-input>
+        <flex-row>
+          <img class="logo" src="https://raw.githubusercontent.com/CoinsSwap/token-list/main/build/icons/color/eth.svg"></img>
+          <strong>ETH</strong>
+        </flex-row>
+      </flex-row>
+      -->
 
-      </custom-hero>
-    </custom-pages>
-
-    <custom-hero class="status">
-      <swap-status></swap-status>
-    </custom-hero>
+      <flex-row class="price">
+      </flex-row>
+      <flex-one></flex-one>
+      <button>enter amount</button>
+    </span>
 
     `
 

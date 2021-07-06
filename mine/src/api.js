@@ -19,9 +19,36 @@ export default class Api {
 
   get assets() {
     return {
-      GENESIS: './assets/cards/GENESIS-720.png',
-      'ARTX 1000': './assets/cards/ARTX 1000-720.png',
-      'ARTX 2000': './assets/cards/ARTX 2000-720.png'
+      cards: {
+        GENESIS: './assets/cards/GENESIS-320.png',
+        'ARTX 1000': './assets/cards/ARTX 1000-320.png',
+        'ARTX 2000': './assets/cards/ARTX 2000-320.png'
+      },
+      fans: {
+        GENESIS: './assets/fans/GENESIS.png',
+        'ARTX 1000': './assets/fans/ARTX 1000.png',
+        'ARTX 2000': './assets/fans/ARTX 2000.png'
+      },
+      configs: {
+        GENESIS: {
+          fans: [
+            ['3.5%', '30%', '76px', '76px'],
+            ['35.5%', '30%', '76px', '76px'],
+            ['67.5%', '30%', '76px', '76px']
+          ] // x, y, h, w
+        },
+        'ARTX 1000': {
+          fans: [
+            ['44.5%', '33%', '48px', '48px'],
+          ] // x, y, h, w
+        },
+        'ARTX 2000': {
+          fans: [
+            ['24%', '12.5%', '75px', '75px'],
+            ['61.3%', '12.5%', '75px', '75px']
+          ] // x, y, h, w
+        }
+      }
     }
   }
 
@@ -68,14 +95,19 @@ export default class Api {
 
   get exchange() {
     return {
-      buy: async (listing, tokenId) => {
-        console.log({listing, tokenId});
+      buy: async (listing, tokenId, maxAllowance) => {
         const exchangeContract = this.getContract(api.addresses.exchange, EXCHANGE_ABI)
         listing = await exchangeContract.callStatic.lists(listing)
-        console.log(listing);
+        if (maxAllowance.lt(listing.price)) return alert(`allowance ${maxAllowance.toString()} < price ${listing.price.toString()}`)
+
         const contract = api.getContract(api.addresses.token, ARTEON_ABI)
-        const approve = await contract.approve(this.addresses.exchange, listing.price)
-        await approve.wait()
+        let allowance = await contract.callStatic.allowance(this.signer.address, this.addresses.exchange)
+        let approved;
+        if (allowance.isZero()) approved = await contract.approve(this.addresses.exchange, maxAllowance)
+        else if (allowance.lt(maxAllowance)) approved = await contract.increaseAllowance(this.addresses.exchange, maxAllowance.sub(allowance))
+        else if (maxAllowance.lt(allowance)) approved = await contract.decreaseAllowance(this.addresses.exchange, allowance.sub(maxAllowance))
+
+        if (approved) await approved.wait()
         return exchangeContract.buy(listing.gpu, listing.tokenId, {gasLimit: 400000})
       }
     }

@@ -39,9 +39,18 @@ export default customElements.define('arteon-dialog', class ArteonDialog extends
           pointer-events: auto !important;
           z-index: 10000;
         }
+
+        .heading {
+          padding-bottom: 18px;
+        }
+
+        [name="title"]::slotted(*) {
+          text-transform: uppercase;
+        }
       </style>
       <span class="dialog">
-        <flex-row>
+        <flex-row class="heading">
+          <slot name="title"></slot>
           <flex-one></flex-one>
           <custom-svg-icon icon="close" data-close></custom-svg-icon>
         </flex-row>

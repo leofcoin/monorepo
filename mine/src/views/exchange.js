@@ -2,12 +2,14 @@ import './../../node_modules/custom-tabs/custom-tabs'
 import './../../node_modules/custom-tabs/custom-tab'
 import EXCHANGE_ABI from './../abis/exchange.js'
 import GPU_ABI from './../abis/gpu.js'
+import ARTEON_ABI from './../abis/arteon';
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import {elevation2dp} from '../styles/elevation'
 import './../elements/arteon-dialog'
 import './../../node_modules/@vandeurenglenn/custom-select/custom-select'
 import './../array-repeat'
 import './../elements/exchange-item'
+import { scrollbar } from './../styles/shared'
 
 export default customElements.define('exchange-view', class ExchangeView extends HTMLElement {
   constructor() {
@@ -58,24 +60,42 @@ export default customElements.define('exchange-view', class ExchangeView extends
   }
 
   async _onclick(event) {
-    console.log(event);
-    console.log(event.target);
-    console.log(event.composedPath());
     const target = event.composedPath()[0]
     if (target.hasAttribute('data-action')) {
       const action = target.getAttribute('data-action')
+      let _target
+      let listing
       switch (action) {
         case 'add':
           this._showDialog(action)
           break;
         case 'buy':
-          const _target = this.shadowRoot.querySelector(`[data-target="${action}"]`)
-          const listing = await this.contract.lists(target.dataset.listing)
+          _target = this.shadowRoot.querySelector(`[data-target="${action}"]`)
+          listing = await this.contract.lists(target.dataset.listing)
           _target.querySelector('[data-input="address"]').value = listing.gpu
           _target.querySelector('[data-input="tokenId"]').value = listing.tokenId
+          const contract = await api.getContract(api.addresses.token, ARTEON_ABI)
+          console.log(contract);
+          const maxAllowance = await contract.callStatic.allowance(api.signer.address, api.addresses.exchange)
+          _target.querySelector('[data-input="allowance"]').value = maxAllowance.lt(listing.price) ? ethers.utils.formatUnits(listing.price, 18) : ethers.utils.formatUnits(maxAllowance, 18)
           _target.querySelector('[data-input="price"]').innerHTML = ethers.utils.formatUnits(listing.price, 18)
           this._showDialog(action)
           break;
+        case 'delist':
+          _target = this.shadowRoot.querySelector(`[data-target="${action}"]`)
+          listing = await this.contract.lists(target.dataset.listing)
+          _target.querySelector('[data-input="address"]').value = listing.gpu
+          _target.querySelector('[data-input="tokenId"]').value = listing.tokenId
+        this._showDialog(action)
+        break;
+        case 'changePrice':
+        _target = this.shadowRoot.querySelector(`[data-target="${action}"]`)
+        listing = await this.contract.lists(target.dataset.listing)
+        _target.querySelector('[data-input="address"]').value = listing.gpu
+        _target.querySelector('[data-input="tokenId"]').value = listing.tokenId
+        _target.querySelector('[data-input="price"]').value = ethers.utils.formatUnits(listing.price, 18)
+        this._showDialog(action)
+        break;
       }
       return
     }
@@ -92,9 +112,23 @@ export default customElements.define('exchange-view', class ExchangeView extends
         case 'buy':
           this._buyCard(value)
           break;
+        case 'buy':
+          this._delistCard(value)
+          break;
+        case 'changePrice':
+          this._changePrice(value)
+          break;
       }
 
     }
+  }
+
+  async _delistCard({address, tokenId}) {
+
+  }
+
+  async _changePrice({address, tokenId, price}) {
+    await this.contract.setPrice()
   }
 
   async _init() {
@@ -104,12 +138,16 @@ export default customElements.define('exchange-view', class ExchangeView extends
     this.contract = globalThis._contracts[address]
     const _listings = await this.contract.callStatic.listingLength();
     console.log(_listings);
-    const listings = []
+    let listings = []
 
     for (var i = 0; i < _listings; i++) {
-      listings.push(await this.contract.callStatic.listings(i))
+      listings.push(this.contract.callStatic.listings(i))
       // array[i]
     }
+
+
+    listings = await Promise.all(listings)
+
     const isOwner = await this._isOwner()
     this.listings = listings.map((listing, index) => {
       return { listing, index, isOwner }
@@ -118,6 +156,63 @@ export default customElements.define('exchange-view', class ExchangeView extends
     this._selector.addEventListener('selected', this._select)
 
     if (isOwner) this._ownerSetup()
+
+    this.contract.on('Delist', (gpu, tokenId) => {
+      console.log({gpu});
+      setTimeout(() => {
+        const item = this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)
+        this.listings = this.listings.filter(item => item.listing !== listing ? item : false)
+        this._arrayRepeat.shadowRoot.removeChild(item)
+      }, 10000);
+    })
+    this.contract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
+      if (this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)) return;
+      this.listings.push({listing, index, tokenId, gpu, isOwner})
+      const item = document.createElement('exchange-item')
+      item.setAttribute('listing', listing)
+      item.setAttribute('is-owner', isOwner)
+      this._arrayRepeat.shadowRoot.appendChild(item)
+
+    })
+
+    this.contract.on('Buy', (gpu, tokenId, listing, owner, price) => {
+      // if (owner === api.signer.address) this.pushNotification(true)
+
+      const item = this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)
+      console.log(item);
+      if (item) {
+        item.setAttribute('sold', 'true')
+        setTimeout(() => {
+          item.style.transform = 'translateY(-110%)';
+        }, 9500);
+        setTimeout(() => {
+          this._arrayRepeat.shadowRoot.removeChild(item)
+        }, 10000);
+      }
+      console.log(gpu, tokenId, listing, price);
+    })
+
+  }
+
+  async sort() {
+    const isOwner = await this._isOwner()
+    const items = this._arrayRepeat.shadowRoot.querySelectorAll('exchange-item')
+    let cardSeriesListed = [...items].reduce((set, item) => {
+      if (!set[item.symbol]) set[item.symbol] = []
+
+      set[item.symbol].push({listing: item.listing, index: item.dataset.index, tokenId: item.tokenId, isOwner})
+      return set
+    }, {})
+
+    let sorted = []
+    Object.keys(cardSeriesListed).forEach((key, i) => {
+      cardSeriesListed[key] = cardSeriesListed[key].sort((a, b) => a.tokenId - b.tokenId)
+    });
+    for (const set of Object.keys(cardSeriesListed)) {
+      sorted = [...sorted, ...cardSeriesListed[set]]
+    }
+
+    this._arrayRepeat.items = sorted
   }
 
   async _addListing({address, tokenId, price, tokenIdTo}) {
@@ -141,9 +236,9 @@ export default customElements.define('exchange-view', class ExchangeView extends
     promises = await Promise.all(promises)
   }
 
-  async _buyCard({address, tokenId, price}) {
+  async _buyCard({address, tokenId, price, allowance}) {
     const listing = await this.contract.callStatic.getListing(address, tokenId)
-    await api.exchange.buy(listing, tokenId)
+    await api.exchange.buy(listing, tokenId, ethers.utils.parseUnits(allowance))
   }
 
   async _removeCard({address, tokenId, price}) {
@@ -176,7 +271,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
 
     const _onGPUSelected = ({detail}) => {
       console.log(detail);
-      this.shadowRoot.querySelector('[data-input="address"]').value = api.addresses.cards[detail]
+      this.shadowRoot.querySelector('[data-target="add"]').querySelector('[data-input="address"]').value = api.addresses.cards[detail]
     }
     _onGPUSelected({detail: 'genesis'})
     this.shadowRoot.querySelector('custom-select').selected = 'genesis'
@@ -328,6 +423,26 @@ export default customElements.define('exchange-view', class ExchangeView extends
         }
       }
 
+      h6, h4 {
+        margin: 0;
+        padding-left: 12px;
+        padding-bottom: 12px;
+        box-sizing: border-box;
+        text-transform: uppercase;
+      }
+      h4 {
+        padding-bottom: 24px;
+      }
+
+      arteon-dialog flex-row.price {
+        padding: 0 12px 12px 12px;
+        box-sizing: border-box;
+      }
+
+      arteon-dialog flex-row.price strong {
+        padding-left: 6px;
+      }
+      ${scrollbar}
     </style>
     <!--<custom-input data-event="search" placeholder="search by name/address"></custom-input>-->
     <custom-pages>
@@ -354,6 +469,32 @@ export default customElements.define('exchange-view', class ExchangeView extends
       </button>
     </flex-row>
 
+    <arteon-dialog class="owner-controls" data-target="delist">
+      <h4 slot="title">Delist card</h4>
+      <h6>gpu</h6>
+      <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
+      <h6>token id</h6>
+      <custom-input data-input="tokenId" placeholder="TokenId"></custom-input>
+      <flex-row style="width: 100%;">
+        <flex-one></flex-one>
+        <strong>
+          Are you sure you want to delist?
+        </strong>
+        <flex-one></flex-one>
+      </flex-row>
+
+    </arteon-dialog>
+
+    <arteon-dialog class="owner-controls" data-target="changePrice">
+      <h4 slot="title">change price</h4>
+      <h6>gpu</h6>
+      <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
+      <h6>token id</h6>
+      <custom-input data-input="tokenId" placeholder="TokenId"></custom-input>
+      <h6>price</h6>
+      <custom-input data-input="price" placeholder="price"></custom-input>
+    </arteon-dialog>
+
     <arteon-dialog class="owner-controls" data-target="add">
       <h4>Add card</h4>
       <custom-select>
@@ -372,12 +513,16 @@ export default customElements.define('exchange-view', class ExchangeView extends
     </arteon-dialog>
 
     <arteon-dialog class="owner-controls" data-target="buy">
-      <h4>buy</h4>
+      <h4 slot="title">buy</h4>
+      <h6>GPU</h6>
       <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
+      <h6>TOKEN ID</h6>
       <custom-input data-input="tokenId" placeholder="TokenId"></custom-input>
-      <flex-row>
-        <strong>for</strong>
-        <flex-one></flex-one>
+      <h6>ALLOWANCE</h6>
+      <custom-input data-input="allowance" placeholder="allowance"></custom-input>
+
+      <h6>FOR</h6>
+      <flex-row class="price">
         <span data-input="price"></span>
         <strong>ART</strong>
       </flex-row>

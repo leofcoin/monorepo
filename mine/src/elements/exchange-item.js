@@ -1,11 +1,11 @@
 import EXCHANGE_ABI from './../abis/exchange'
 import GPU_ABI from './../abis/gpu'
 import {elevation4dp} from '../styles/elevation'
-
+import './gpu-img'
 export default customElements.define('exchange-item', class ExchangeItem extends HTMLElement {
 
   static get observedAttributes() {
-    return ['listing']
+    return ['listing', 'sold']
   }
 
   constructor() {
@@ -27,6 +27,15 @@ export default customElements.define('exchange-item', class ExchangeItem extends
 
   attributeChangedCallback(name, old, value) {
     if(value !== old || !this[name]) this[name] = value
+  }
+
+  set sold(value) {
+    if (value) {
+      const button = this.shadowRoot.querySelector('button')
+      button.dataset.action = 'sold'
+      button.innerHTML = 'SOLD'
+    }
+
   }
 
   set listing(listing) {
@@ -61,15 +70,15 @@ export default customElements.define('exchange-item', class ExchangeItem extends
     this.symbol = await globalThis._contracts[listing.gpu].callStatic.symbol()
     this.tokenId = listing.tokenId.toString()
     this.price = ethers.utils.formatUnits(listing.price, 18)
-    this.asset = api.assets[this.symbol]
+
 
     this._ownerActions = isOwner ? `
       <flex-row class="owner-actions">
-        <custom-svg-icon icon="add-shopping-cart"></custom-svg-icon>
-        <custom-svg-icon icon="remove-shopping-cart"></custom-svg-icon>
-        <custom-svg-icon icon="attach-money"></custom-svg-icon>
+        <!--<custom-svg-icon data-listing="${this.listing}" icon="add-shopping-cart"></custom-svg-icon>
+        <custom-svg-icon data-listing="${this.listing}" icon="remove-shopping-cart"></custom-svg-icon>-->
+        <custom-svg-icon data-action="changePrice" data-listing="${this.listing}" icon="attach-money"></custom-svg-icon>
         <flex-one></flex-one>
-        <custom-svg-icon icon="delete"></custom-svg-icon>
+        <custom-svg-icon data-action="delist" data-listing="${this.listing}" icon="delete"></custom-svg-icon>
       </flex-row>
       ` : ''
 
@@ -82,13 +91,16 @@ export default customElements.define('exchange-item', class ExchangeItem extends
         pointer-events: none;
       }
       :host {
+        position: relative;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
         padding: 12px 24px 12px 24px;
         max-width: 320px;
         max-height: 274px;
+        min-height: 274px;
         height: 100%;
+        width: 100%;
         background: rgba(225,225,225,0.12);
         border-radius: 24px;
         ${elevation4dp}
@@ -118,6 +130,47 @@ export default customElements.define('exchange-item', class ExchangeItem extends
       flex-row {
         align-items: center;
       }
+
+      :host([sold="true"]) {
+        opacity: 0.48;
+        pointer-events: none;
+        transition: opacity 120ms, transform 120ms;
+      }
+
+      custom-svg-icon {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+
+      @-webkit-keyframes rotation {
+        from {
+          -webkit-transform: rotate(0deg);
+          -o-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        to {
+          -webkit-transform: rotate(360deg);
+          -o-transform: rotate(360deg);
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes rotation {
+        from {
+          -ms-transform: rotate(0deg);
+          -moz-transform: rotate(0deg);
+          -webkit-transform: rotate(0deg);
+          -o-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        to {
+          -ms-transform: rotate(360deg);
+          -moz-transform: rotate(360deg);
+          -webkit-transform: rotate(360deg);
+          -o-transform: rotate(360deg);
+          transform: rotate(360deg);
+        }
+      }
     </style>
     ${this._ownerActions}
     <flex-row>
@@ -125,7 +178,7 @@ export default customElements.define('exchange-item', class ExchangeItem extends
       <flex-one></flex-one>
       <strong>${this.tokenId}</strong>
     </flex-row>
-    <img src="${this.asset}" loading="lazy"></img>
+    <gpu-img symbol="${this.symbol}"></gpu-img>
     <flex-one></flex-one>
     <flex-row>
       <span>${this.price}</span>

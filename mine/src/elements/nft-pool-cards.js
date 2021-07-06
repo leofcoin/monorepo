@@ -1,5 +1,6 @@
 import MINER_ABI from './../abis/miner.js'
 import GPU_ABI from './../abis/gpu.js'
+import './nft-pool-card'
 
 const mp4s = {
   GENESIS: 'Genesis.mp4',
@@ -20,15 +21,13 @@ export default customElements.define('nft-pool-cards', class NFTPoolCards extend
     console.log(cards);
       this.innerHTML = ''
 
-    for (const id of cards) {
-      const span = document.createElement('span')
-      span.innerHTML = `<custom-svg-icon icon="fan"></custom-svg-icon>
-      <strong>${id}</strong>
-      <span class="flex"></span>
-      <button data-action="mine" data-id="${id}">mine</button>
-      `
-
-      this.appendChild(span)
+    for (const {tokenId, mining = false} of cards) {
+      const card = document.createElement('nft-pool-card')
+      card.setAttribute('token-id', tokenId)
+      card.setAttribute('mining', mining)
+      card.setAttribute('data-id', tokenId)
+      card.setAttribute('status', mining ? 'activated' : 'deactivated')
+      this.appendChild(card)
     }
   }
 // hardware:toys

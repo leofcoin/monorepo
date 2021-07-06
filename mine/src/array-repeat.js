@@ -339,8 +339,8 @@ export default class ArrayRepeat extends HTMLElement {
       for (let item of items) {
         calls += 1;
         innerHTML += item;
-        if (this.max !== undefined && calls === this.max) {
-          this._queryItems(items, this.max);
+        if (this.max !== undefined && calls === this.max + 16) {
+          this._queryItems(items, this.max + 16);
           return resolve(innerHTML);
         } else if (items.length === calls && this.max !== undefined && calls < this.max) {
           resolve(innerHTML);
