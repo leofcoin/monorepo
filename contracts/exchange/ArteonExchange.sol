@@ -98,6 +98,7 @@ contract ArteonExchange is Ownable, Pausable {
     listings[index] = lastListing;
     lists[lastListing].index = index;
     listings.pop();
+    getListing[gpu][tokenId] = address(0);
     emit Delist(gpu, tokenId);
   }
 
