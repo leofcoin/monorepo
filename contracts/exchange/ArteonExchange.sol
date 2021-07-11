@@ -22,6 +22,7 @@ contract ArteonExchange is Ownable, Pausable {
   }
 
   address[] public listings;
+  mapping(address => uint256[]) public tokenIds;
 
   mapping (address => mapping(uint256 => address)) public getListing;
   mapping (address => Listing) public lists;
@@ -40,6 +41,10 @@ contract ArteonExchange is Ownable, Pausable {
     _;
   }
 
+  function tokenIdsLength(address gpu) external view returns (uint256) {
+    return tokenIds[gpu].length;
+  }
+
   function listingLength() external view returns (uint256) {
     return listings.length;
   }
@@ -55,6 +60,7 @@ contract ArteonExchange is Ownable, Pausable {
 
     getListing[gpu][tokenId] = listing;
     listings.push(listing);
+    tokenIds[gpu].push(tokenId);
     lists[listing].owner = msg.sender;
     lists[listing].gpu = gpu;
     lists[listing].price = price;
@@ -95,9 +101,12 @@ contract ArteonExchange is Ownable, Pausable {
     address listing = getListing[gpu][tokenId];
     uint256 index = lists[listing].index;
     address lastListing = listings[listings.length - 1];
+    uint256 lastTokenId = tokenIds[gpu][tokenIds[gpu].length - 1];
     listings[index] = lastListing;
+    tokenIds[gpu][index] = lastTokenId;
     lists[lastListing].index = index;
     listings.pop();
+    tokenIds[gpu].pop();
     getListing[gpu][tokenId] = address(0);
     emit Delist(gpu, tokenId);
   }

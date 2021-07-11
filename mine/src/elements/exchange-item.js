@@ -5,7 +5,7 @@ import './gpu-img'
 export default customElements.define('exchange-item', class ExchangeItem extends HTMLElement {
 
   static get observedAttributes() {
-    return ['listing', 'sold']
+    return ['gpu', 'price', 'symbol', 'token-id', 'owner', 'sold']
   }
 
   constructor() {
@@ -13,20 +13,15 @@ export default customElements.define('exchange-item', class ExchangeItem extends
     this.attachShadow({mode: 'open'})
 
     this._ownerActions = ''
-    this.asset = 'assets/arteon.svg'
-    this.price = '0'
-    this.symbol = 'ART'
-    this.tokenId = '1'
 
     this.shadowRoot.innerHTML = this.template
   }
 
-  connectedCallback() {
-
-  }
-
   attributeChangedCallback(name, old, value) {
-    if(value !== old || !this[name]) this[name] = value
+    if (value.startsWith('[[') && value.endsWith(']]')) return;
+    if (name === 'token-id') name = 'tokenId'
+
+    if (value !== old || !this[name]) this[name] = value
   }
 
   set sold(value) {
@@ -38,51 +33,82 @@ export default customElements.define('exchange-item', class ExchangeItem extends
 
   }
 
-  set listing(listing) {
+  set price(value) {
+    const formatted = ethers.utils.formatUnits(value, 18)
+    this.shadowRoot.querySelector('.price').innerHTML = formatted
+    this.shadowRoot.querySelector('.price').setAttribute('title', value)
+    this.shadowRoot.querySelector('button').dataset.price = value
+    this.setAttribute('price', value)
+  }
+
+  get price() {
+    return this.getAttribute('price')
+  }
+
+  set tokenId(value) {
+    this.setAttribute('token-id', value)
+    this.shadowRoot.querySelector('.tokenId').innerHTML = value
+    this.shadowRoot.querySelector('button').dataset.id = value
     this._observer()
   }
 
-  get listing() {
-    return this.getAttribute('listing')
+  get tokenId() {
+    return this.getAttribute('token-id')
   }
 
-  set isOwner(isOwner) {
+  set symbol(value) {
+    this.setAttribute('symbol', value)
+    this.shadowRoot.querySelector('gpu-img').setAttribute('symbol', value)
+    this.shadowRoot.querySelector('.symbol').innerHTML = value
+  }
+
+  get symbol() {
+    return this.getAttribute('symbol')
+  }
+  set gpu(value) {
+    this.setAttribute('gpu', value)
+    this.shadowRoot.querySelector('button').dataset.gpu = value
     this._observer()
   }
 
-  get isOwner() {
-    return this.getAttribute('is-owner')
+  get gpu() {
+    return this.getAttribute('gpu')
   }
 
-  _observer() {
-    if (!this.listing || this.isOwner === undefined) return
+  set owner(value) {
+    this.setAttribute('owner', value)
 
-    this._render(this.listing, Boolean(this.isOwner === 'true'))
-  }
-
-  async _render(listing, isOwner) {
-
-    globalThis._contracts[api.addresses.exchange] = globalThis._contracts[api.addresses.exchange] || new ethers.Contract(api.addresses.exchange, EXCHANGE_ABI, api.signer)
-    const exchangeContract = globalThis._contracts[api.addresses.exchange]
-    listing = await exchangeContract.callStatic.lists(listing)
-
-    globalThis._contracts[listing.gpu] = globalThis._contracts[listing.gpu] || new ethers.Contract(listing.gpu, GPU_ABI, api.signer)
-    this.symbol = await globalThis._contracts[listing.gpu].callStatic.symbol()
-    this.tokenId = listing.tokenId.toString()
-    this.price = ethers.utils.formatUnits(listing.price, 18)
-
-
-    this._ownerActions = isOwner ? `
+    if (value === api.signer.address) {
+      this.shadowRoot.querySelector('.owner-actions').innerHTML = `
       <flex-row class="owner-actions">
         <!--<custom-svg-icon data-listing="${this.listing}" icon="add-shopping-cart"></custom-svg-icon>
         <custom-svg-icon data-listing="${this.listing}" icon="remove-shopping-cart"></custom-svg-icon>-->
-        <custom-svg-icon data-action="changePrice" data-listing="${this.listing}" icon="attach-money"></custom-svg-icon>
+        <custom-svg-icon data-action="changePrice" data-gpu="${this.gpu}" data-id="${this.tokenId}" data-price="${this.price}" icon="attach-money"></custom-svg-icon>
         <flex-one></flex-one>
-        <custom-svg-icon data-action="delist" data-listing="${this.listing}" icon="delete"></custom-svg-icon>
+        <custom-svg-icon data-action="delist" data-gpu="${this.gpu}" data-id="${this.tokenId}" data-price="${this.price}" icon="delete"></custom-svg-icon>
       </flex-row>
-      ` : ''
+      `
+    } else {
+      this.shadowRoot.querySelector('.owner-actions').innerHTML = ''
+    }
+  }
 
-    this.shadowRoot.innerHTML = this.template
+  get owner() {
+    return this.getAttribute('owner')
+  }
+
+  set listing(value) {
+    this.setAttribute('listing', value)
+  }
+
+  get listing() {
+    this.getAttribute('listing')
+  }
+
+  _observer() {
+    if (!this.gpu || !this.tokenId || this.isOwner === undefined) return
+
+    if (this.gpu && this.tokenId) this.listing = api.listing.createAddress(this.gpu, this.tokenId);
   }
   get template() {
     return `
@@ -171,20 +197,23 @@ export default customElements.define('exchange-item', class ExchangeItem extends
           transform: rotate(360deg);
         }
       }
+      .price {
+        padding-right: 4px;
+      }
     </style>
-    ${this._ownerActions}
+    <span class="owner-actions"></span>
     <flex-row>
-      <span>${this.symbol}</span>
+      <span class="symbol">loading</span>
       <flex-one></flex-one>
-      <strong>${this.tokenId}</strong>
+      <strong class="tokenId">0</strong>
     </flex-row>
-    <gpu-img symbol="${this.symbol}"></gpu-img>
+    <gpu-img></gpu-img>
     <flex-one></flex-one>
     <flex-row>
-      <span>${this.price}</span>
+      <span class="price"></span>
       <strong>ART</strong>
       <flex-one></flex-one>
-      <button data-action="buy" data-listing="${this.listing}" data-id="${this.tokenId}">BUY</button>
+      <button data-action="buy">BUY</button>
     </flex-row>
       `
   }

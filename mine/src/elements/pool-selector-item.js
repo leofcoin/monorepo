@@ -1,5 +1,7 @@
 import MINER_ABI from './../abis/miner.js'
+import POOL_ABI from './../abis/pool.js'
 import GPU_ABI from './../abis/gpu.js'
+import ARTEON_ABI from './../abis/arteon.js'
 import './../array-repeat'
 import './arteon-button'
 import './gpu-img'
@@ -24,7 +26,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
 
   set address(address) {
     this._address = address
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
     this._render(address);
   }
 
@@ -33,12 +35,47 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
   }
 
   async _render(address) {
-    let contract = globalThis._contracts[address]
-    let promises = [
+    let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
+    const tokens = await contract.callStatic.tokens()
+
+    let promises = []
+
+    for (let i = 0; i < tokens; i++) {
+      promises.push(contract.callStatic.listedTokens(i))
+    }
+
+    promises = await Promise.all(promises)
+    let pools = promises;
+    promises = promises.map(address => {
+      globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
+      return globalThis._contracts[address].callStatic.ARTEON_TOKEN()
+    })
+
+    promises = await Promise.all(promises)
+    console.log(promises);
+    promises = promises.map(address => {
+      globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, ARTEON_ABI, api.signer)
+      return globalThis._contracts[address].callStatic.symbol()
+    })
+
+    promises = await Promise.all(promises)
+    pools = pools.map((address, i) => {
+      return {
+        address,
+        symbol: promises[i]
+      }
+    })
+    const poolAddress = pools[0].address
+
+    globalThis._contracts[poolAddress] = globalThis._contracts[poolAddress] || new ethers.Contract(poolAddress, MINER_ABI, api.signer)
+    contract = globalThis._contracts[poolAddress]
+    console.log(contract);
+    promises = [
       contract.callStatic.ARTEON_GPU(),
       contract.callStatic.miners(),
       contract.callStatic.getMaxReward(),
-      contract.callStatic.earned()
+      contract.callStatic.earned(),
+      contract.callStatic.ARTEON_TOKEN()
     ]
 
     promises = await Promise.all(promises)
@@ -61,6 +98,29 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     // ]
     console.log({...promises});
     this.shadowRoot.innerHTML = this.template
+
+    this.shadowRoot.querySelector('array-repeat').items = pools
+    this.shadowRoot.querySelector('custom-select').selected = pools[0].symbol
+    contract.on('Activate', (address, tokenId) => {
+      this.miners = Number(this.miners) + 1
+      this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
+      this.shadowRoot.innerHTML = this.template
+    })
+
+    contract.on('Deactivate', (address, tokenId) => {
+      this.miners = Number(this.miners) - 1
+      this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
+      this.shadowRoot.innerHTML = this.template
+    })
+
+    setInterval(async () => {
+      const earned = await contract.callStatic.earned()
+      this.earned = ethers.utils.formatUnits(earned, 18)
+      this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
+      const el = this.shadowRoot.querySelector('span.earned')
+      el.title = `earned: ${this.earned}`
+      el.innerHTML = this.earnedShort
+    }, 10000);
   }
 // hardware:toys
   get template() {
@@ -146,12 +206,26 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
             <custom-svg-icon icon="attach-money"></custom-svg-icon>
             <span class="explainer">earned</span>
             <flex-one></flex-one>
-            <span title="${this.earned}">${this.earnedShort}</span>
+            <span title="${this.earned}" class="earned">${this.earnedShort}</span>
           </flex-row>
           <flex-one></flex-one>
+
+          <flex-row>
+            <custom-svg-icon icon="gift"></custom-svg-icon>
+            <span class="explainer">reward</span>
+            <flex-one></flex-one>
+            <custom-select>
+              <array-repeat>
+                <template>
+                  <span class="item" title="[[item.address]]" data-route="[[item.symbol]]" data-address="[[item.address]]">
+                    [[item.symbol]]
+                  </span>
+                </template>
+              </array-repeat>
+            </custom-select>
+          </flex-row>
         </flex-column>
         <gpu-img symbol="${this.symbol}" loading="lazy"></gpu-img>
-
       </flex-row>
       <!-- <custom-svg-icon icon="arrow-drop-down"></custom-svg-icon> -->
     `

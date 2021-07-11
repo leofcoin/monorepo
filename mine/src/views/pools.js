@@ -8,16 +8,10 @@ export default customElements.define('pools-view', class PoolsView extends HTMLE
 
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = this.template
-
-    this._select = this._select.bind(this)
   }
 
   connectedCallback() {
     // this._select({detail: api.addresses.pools.GENESIS})
-  }
-
-  _select({detail}) {
-    this._pool.address = detail
   }
 
   get template() {
@@ -27,7 +21,7 @@ export default customElements.define('pools-view', class PoolsView extends HTMLE
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 100%;
+        height: calc(100% - 54px);
       }
     </style>
 

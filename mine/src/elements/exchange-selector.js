@@ -1,11 +1,11 @@
 import MINER_ABI from './../abis/miner.js'
 import GPU_ABI from './../abis/gpu.js'
 import './../array-repeat'
-import './pool-selector-item'
+import './exchange-selector-item'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import {elevation2dp} from './../styles/elevation'
 import {scrollbar} from './../styles/shared'
-export default customElements.define('pool-selector', class PoolSelector extends HTMLElement {
+export default customElements.define('exchange-selector', class ExchangeSelector extends HTMLElement {
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
@@ -29,10 +29,8 @@ export default customElements.define('pool-selector', class PoolSelector extends
   }
 
   async _load() {
-    const items = Object.keys(api.addresses.pools).map(key => api.addresses.pools[key])
-
-    this._arrayRepeat.items = Object.keys(api.addresses.pools).map(key => {
-      return {address: api.addresses.pools[key]}
+    this._arrayRepeat.items = Object.keys(api.addresses.cards).map(key => {
+      return {address: api.addresses.cards[key]}
     })
   }
 
@@ -44,10 +42,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
       this.shadowRoot.querySelector('nft-pool')._load(target.getAttribute('address'))
       return
     }
-    if (route === 'overview' || route === 'back') {
-      this._pages.select('overview')
-      if (route === 'back') history.back()
-    }
+    if (route === 'overview' || route === 'back') this._pages.select('overview')
   }
 // hardware:toys
   get template() {
@@ -111,22 +106,17 @@ export default customElements.define('pool-selector', class PoolSelector extends
     <span class="container">
       <custom-pages attr-for-selected="data-route">
         <array-repeat data-route="overview">
-
-          <style>
-            pool-selector-item {
-              background: #ee44ee26;
-              color: #eee;
-            }
-            pool-selector-item:nth-of-type(odd) {
-              background: transparent;
-            }
-            pool-selector-item {
-              pointer-events: auto;
-              cursor: pointer;
-            }
-            </style>
           <template>
-            <pool-selector-item address="[[item.address]]" data-route="[[item.address]]"></pool-selector-item>
+            <style>
+              pool-selector-item:nth-of-type(odd) {
+                background: #c5c5c5;
+              }
+              pool-selector-item {
+                pointer-events: auto;
+                cursor: pointer;
+              }
+              </style>
+            <exchange-selector-item address="[[item.address]]" data-route="[[item.address]]"></exchange-selector-item>
           </template>
         </array-repeat>
 

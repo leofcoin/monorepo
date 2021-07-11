@@ -34,7 +34,7 @@ export default class Api {
           fans: [
             ['3.5%', '30%', '76px', '76px'],
             ['35.5%', '30%', '76px', '76px'],
-            ['67.5%', '30%', '76px', '76px']
+            ['68%', '30%', '76px', '76px']
           ] // x, y, h, w
         },
         'ARTX 1000': {
@@ -95,7 +95,8 @@ export default class Api {
 
   get exchange() {
     return {
-      buy: async (listing, tokenId, maxAllowance) => {
+      buy: async (gpu, tokenId, maxAllowance) => {
+        let listing = await api.listing.createAddress(gpu, tokenId)
         const exchangeContract = this.getContract(api.addresses.exchange, EXCHANGE_ABI)
         listing = await exchangeContract.callStatic.lists(listing)
         if (maxAllowance.lt(listing.price)) return alert(`allowance ${maxAllowance.toString()} < price ${listing.price.toString()}`)
@@ -108,7 +109,7 @@ export default class Api {
         else if (maxAllowance.lt(allowance)) approved = await contract.decreaseAllowance(this.addresses.exchange, allowance.sub(maxAllowance))
 
         if (approved) await approved.wait()
-        return exchangeContract.buy(listing.gpu, listing.tokenId, {gasLimit: 400000})
+        return exchangeContract.buy(listing.gpu, listing.tokenId)
       }
     }
   }

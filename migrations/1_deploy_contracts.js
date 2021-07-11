@@ -35,11 +35,14 @@ module.exports = async (deployer, network) => {
     },
     cards: {
 
+    },
+    poolContracts: {
+
     }
   };
 
   addresses = require(`./../addresses/addresses/${network.replace('-fork', '')}.json`);
-  
+
   if (!addresses.token) await deployer.deploy(Arteon, 'Arteon', 'ART');
   const token = await Arteon.deployed()
 
@@ -55,15 +58,29 @@ module.exports = async (deployer, network) => {
   if (!addresses.cards.artx2000) await deployer.deploy(ArteonGPUARTX2000);
   const ARTX2000 = await ArteonGPUARTX2000.deployed()
 
-  if (!addresses.pools.genesis) await deployer.deploy(ArteonPoolGenesis, token.address, Genesis.address, SixtySeconds, rewardRates[0], halvings[0]);
+  if (!addresses.pools.genesis) await deployer.deploy(ArteonPoolGenesis, Genesis.address);
   const GenesisPool = await ArteonPoolGenesis.deployed();
+  let GENESISContract
+  if (!addresses.poolContracts.genesis) {
+    GENESISContract = await GenesisPool.addToken(token.address, SixtySeconds, rewardRates[0], halvings[0]);
+    // await token.addMinter(GENESISContract)
+  }
 
-  if (!addresses.pools.artx1000) await deployer.deploy(ArteonPoolARTX1000, token.address, ARTX1000.address, SixtySeconds, rewardRates[1], halvings[1]);
+  if (!addresses.pools.artx1000) await deployer.deploy(ArteonPoolARTX1000, ARTX1000.address);
   const ARTX1000Pool = await ArteonPoolARTX1000.deployed();
+  let ARTX1000Contract
+  if (!addresses.poolContracts.artx1000) {
+    ARTX1000Contract = await ARTX1000Pool.addToken(token.address, SixtySeconds, rewardRates[1], halvings[1]);
+    // await token.addMinter(ARTX1000Contract)
+  }
 
-  if (!addresses.pools.artx2000) await deployer.deploy(ArteonPoolARTX2000, token.address, ARTX2000.address, SixtySeconds, rewardRates[2], halvings[2]);
+  if (!addresses.pools.artx2000) await deployer.deploy(ArteonPoolARTX2000, ARTX2000.address);
   const ARTX2000Pool = await ArteonPoolARTX2000.deployed();
-
+  let ARTX2000Contract;
+  if (!addresses.poolContracts.artx2000) {
+    ARTX2000Contract = await ARTX2000Pool.addToken(token.address, SixtySeconds, rewardRates[2], halvings[2]);
+    // await token.addMinter(ARTX2000Contract)
+  }
 
   if (network === 'ropsten' || network === 'kovan' || network === 'wapnet') {
 
@@ -79,15 +96,21 @@ module.exports = async (deployer, network) => {
     "genesis": "${Genesis.address}",
     "artx1000": "${ARTX1000.address}",
     "artx2000": "${ARTX2000.address}"
-  }
+  },
+  "poolContracts": {
+    "genesis": "${GENESISContract ? GENESISContract : addresses.poolContracts.genesis}",
+    "artx1000": "${ARTX1000Contract ? ARTX1000Contract : addresses.poolContracts.artx1000}",
+    "artx2000": "${ARTX2000Contract ? ARTX2000Contract : addresses.poolContracts.artx2000}"
+  },
 }`
+
 
     await Promise.all(
       [
         write(`mine/src/abis/arteon.js`, `export default ${JSON.stringify(token.abi, null, '\t')}`),
         write(`mine/src/abis/exchange.js`, `export default ${JSON.stringify(arteonExchange.abi, null, '\t')}`),
         write(`mine/src/abis/gpu.js`, `export default ${JSON.stringify(Genesis.abi, null, '\t')}`),
-        write(`mine/src/abis/miner.js`, `export default ${JSON.stringify(GenesisPool.abi, null, '\t')}`),
+        write(`mine/src/abis/pool.js`, `export default ${JSON.stringify(GenesisPool.abi, null, '\t')}`),
         write(`addresses/addresses/${network}.js`, `export default ${_addresses}`),
         write(`addresses/addresses/${network}.json`, _addresses)
       ]
@@ -118,6 +141,7 @@ module.exports = async (deployer, network) => {
       execSync('truffle-flattener contracts/pools/ArteonPoolGenesis.sol'),
       execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
       execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
+      execSync('truffle-flattener contracts/miner/ArteonMiner.sol'),
     ])
 
     flats = flats.map(flat => flat.toString()
@@ -128,7 +152,8 @@ module.exports = async (deployer, network) => {
     await Promise.all([
       write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
       write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
-      write(`build/flats/ArteonExchange.sol`, flats[2])
+      write(`build/flats/ArteonExchange.sol`, flats[2]),
+      write(`build/flats/ArteonMiner.sol`, flats[3])
     ])
     console.log({
       token: token.address,
@@ -137,6 +162,11 @@ module.exports = async (deployer, network) => {
         genesis: GenesisPool.address,
         artx1000: ARTX1000Pool.address,
         artx2000: ARTX2000Pool.address
+      },
+      poolContracts: {
+        genesis: GENESISContract,
+        artx1000: ARTX1000Contract,
+        artx2000: ARTX2000Contract
       },
       cards: {
         genesis: Genesis.address,

@@ -102,7 +102,7 @@ export default class ArrayRepeat extends HTMLElement {
    * @return {number} The number of items to display until scroll happens
    */
   get max() {
-    return this._max || 10;
+    return Number(this._max) || 10;
   }
   /**
    * @return {HTMLElement} template
@@ -335,12 +335,12 @@ export default class ArrayRepeat extends HTMLElement {
     return new Promise((resolve, reject) => {
       let innerHTML = '';
       let calls = 0;
-      this.queriedCollection = undefined;
+      this.queriedCollection = undefined
       for (let item of items) {
         calls += 1;
         innerHTML += item;
-        if (this.max !== undefined && calls === this.max + 16) {
-          this._queryItems(items, this.max + 16);
+        if (this.max !== undefined && calls === this.max) {
+          this._queryItems(items, this.max);
           return resolve(innerHTML);
         } else if (items.length === calls && this.max !== undefined && calls < this.max) {
           resolve(innerHTML);
@@ -387,11 +387,19 @@ export default class ArrayRepeat extends HTMLElement {
   /**
    * Updates the shadowRoot when there is an queriedCollection
    */
-  _onScroll() {
+  async _onScroll() {
+    if (this.timeout) clearTimeout(this.timeout);
     if (this.queriedCollection !== undefined) {
-      this._constructInnerHTML(this.queriedCollection).then(innerHTML => {
-        this._updateShadowRoot(innerHTML);
-      });
+
+
+      this.timeout = () => {
+        setTimeout(() => {
+        this._constructInnerHTML([...this.queriedCollection]).then(innerHTML => {
+          this._updateShadowRoot(innerHTML);
+        });
+      }, 100)}
+      this.timeout()
+
     } else if (this.queriedCollection === undefined) {
       let timeout = () => {
         setTimeout(() => {

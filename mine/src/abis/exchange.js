@@ -300,6 +300,32 @@ export default [
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "tokenIds",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x3de419e9"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
 				"name": "newOwner",
 				"type": "address"
 			}
@@ -309,6 +335,27 @@ export default [
 		"stateMutability": "nonpayable",
 		"type": "function",
 		"signature": "0xf2fde38b"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "gpu",
+				"type": "address"
+			}
+		],
+		"name": "tokenIdsLength",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xf2119b83"
 	},
 	{
 		"inputs": [],

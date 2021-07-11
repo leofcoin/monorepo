@@ -34,7 +34,7 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
   }
 
   _observer() {
-    if (!this.symbol) return
+    if (!this.symbol) return;
     this._render()
   }
 
@@ -44,7 +44,7 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
     this.asset = api.assets.cards[this.symbol]
     this.fanAsset = api.assets.fans[this.symbol]
     const configs = api.assets.configs[this.symbol]
-    console.log(configs);
+    
     for (const [x, y, height, width] of configs.fans) {
       const img = document.createElement('img')
       img.setAttribute('slot', 'fan')

@@ -40,7 +40,7 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   event Deactivate(address indexed account, uint256 tokenId);
   event Reward(address account, uint256 reward);
 
-  constructor(address token, address gpu, uint256 blockTime, uint256 maxReward, uint256 halvings) {
+  function initialize(address token, address gpu, uint256 blockTime, uint256 maxReward, uint256 halvings) public {
     ARTEON_TOKEN = Arteon(token);
     ARTEON_GPU = ArteonGPU(gpu);
     _blockTime = blockTime;
@@ -50,14 +50,11 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     _nextHalving = blockHeight.add(halvings);
   }
 
-  function _rewardPerGPU() internal returns (uint256) {
+  function _rewardPerGPU() internal view returns (uint256) {
     if (_totalSupply == 0) {
       return 0;
     }
-    uint256 lastReward = _lastReward;
-    uint256 max = _maxReward;
-    _lastReward = max / _totalSupply;
-    return lastReward == 0 ? _lastReward : lastReward;
+    return _maxReward / _totalSupply;
   }
 
   function getHalvings() public view returns (uint256) {
@@ -97,7 +94,6 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   function deactivateGPU(uint256 tokenId) public {
     getReward();
     address account = msg.sender;
-    getReward();
     _deactivateGPU(account, tokenId);
     ARTEON_GPU.safeTransferFrom(address(this), account, tokenId);
     emit Deactivate(account, tokenId);
@@ -109,6 +105,7 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     if (reward > 0) {
       _rewards[sender] = 0;
       ARTEON_TOKEN.mint(sender, reward);
+      _startTime[sender] = block.timestamp;
       emit Reward(sender, reward);
     }
   }
@@ -161,7 +158,11 @@ contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
     _totalSupply = _totalSupply.sub(1);
     _balances[account] = _balances[account].sub(1);
     delete _owners[tokenId];
-    delete _startTime[account];
+    if (balanceOf(account) == 0) {
+      delete _startTime[account];
+    } else {
+      _startTime[account] = block.timestamp;
+    }
     _checkHalving();
     _rewardPerGPU();
   }

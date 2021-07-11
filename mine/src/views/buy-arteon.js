@@ -6,6 +6,7 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
     this.shadowRoot.innerHTML = this.template
 
     this._onvalue = this._onvalue.bind(this)
+    this._swap = this._swap.bind(this)
   }
 
   connectedCallback() {
@@ -26,6 +27,18 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
 
     this.shadowRoot.querySelector('button').innerHTML = `BUY ${amount} ART FOR ${ethers.utils.formatUnits(price.sellAmount, 18)} ETH`
     // console.log(ethers.utils.parseUnits(quote.price, 18).toString())
+  }
+
+  async _swap() {
+    const amount = this.shadowRoot.querySelector('custom-input').value
+    const response = await fetch(`https://ropsten.api.0x.org/swap/v1/quote?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    const quote = await response.json()
+    const tx = await api.signer.sendTransaction({
+      to: quote.to,
+      value: ethers.BigNumber.from(quote.value),
+      data: quote.data
+    })
+    await tx.wait()
   }
 
   _onvalue() {

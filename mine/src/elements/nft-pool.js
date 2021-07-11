@@ -112,7 +112,11 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     this._address = address
 
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('address', address)
-    this.contract = globalThis._contracts[address] ? globalThis._contracts[address] : new ethers.Contract(address, MINER_ABI, api.signer)
+    let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
+
+    const poolAddress = await contract.callStatic.getToken(api.addresses.token)
+    globalThis._contracts[poolAddress] = globalThis._contracts[poolAddress] || new ethers.Contract(poolAddress, MINER_ABI, api.signer)
+    this.contract = globalThis._contracts[poolAddress]
     const gpuAddress = await this.contract.callStatic.ARTEON_GPU()
     this.gpuContract = new ethers.Contract(gpuAddress, GPU_ABI, api.signer)
     const symbol = await this.gpuContract.callStatic.symbol()
@@ -165,7 +169,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
         height: 100%;
         width: 100%;
         box-sizing: border-box;
-        --svg-icon-color: #eee;
+        --svg-icon-color: #d081b6;
       }
 
       video {

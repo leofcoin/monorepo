@@ -38,8 +38,7 @@ module.exports = {
    },
    ropsten: {
      provider: () => new HDWalletProvider(mnemonic, 'wss://ropsten.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'),
-     network_id: '3',
-     gas: 8000000
+     network_id: '3'
    },
     kovan: {
       provider: () => new HDWalletProvider(mnemonic, 'wss://kovan.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'),
