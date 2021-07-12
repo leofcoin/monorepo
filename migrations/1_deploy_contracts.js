@@ -41,46 +41,59 @@ module.exports = async (deployer, network) => {
 
   addresses = require(`./../addresses/addresses/${network.replace('-fork', '')}.json`);
 
-  if (!addresses.token) {
+  if (!addresses.token && !network.includes('fork')) {
     await deployer.deploy(Arteon, 'Arteon', 'ART');
     const token = await Arteon.deployed()
-    addresses.token = token.address
-    await write(`mine/src/abis/arteon.js`, `export default ${JSON.stringify(token.abi, null, '\t')}`),
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.token = token.address
+    }
+    await write(`mine/src/abis/arteon.js`, `export default ${JSON.stringify(token.abi, null, '\t')}`)
   }
 
-  if (!addresses.exchange) {
+  if (!addresses.exchange && !network.includes('fork')) {
     await deployer.deploy(ArteonExchange, addresses.token);
     const arteonExchange = await ArteonExchange.deployed();
-    addresses.exchange = arteonExchange.address
-    await write(`mine/src/abis/exchange.js`, `export default ${JSON.stringify(arteonExchange.abi, null, '\t')}`),
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.exchange = arteonExchange.address
+    }
+    await write(`mine/src/abis/exchange.js`, `export default ${JSON.stringify(arteonExchange.abi, null, '\t')}`)
   }
 
-  if (!addresses.cards.genesis) {
+  if (!addresses.cards.genesis && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUGenesis);
     const Genesis = await ArteonGPUGenesis.deployed()
-    addresses.cards.genesis = Genesis.address
-    write(`mine/src/abis/gpu.js`, `export default ${JSON.stringify(Genesis.abi, null, '\t')}`),
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.cards.genesis = Genesis.address
+    }
+    write(`mine/src/abis/gpu.js`, `export default ${JSON.stringify(Genesis.abi, null, '\t')}`)
   }
 
-  if (!addresses.cards.artx1000) {
+  if (!addresses.cards.artx1000 && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUARTX1000);
     const ARTX1000 = await ArteonGPUARTX1000.deployed()
-    addresses.cards.artx1000 = ARTX1000.address
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.cards.artx1000 = ARTX1000.address
+    }
   }
 
-  if (!addresses.cards.artx1000) {
+  if (!addresses.cards.artx1000 && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUARTX2000);
     const ARTX2000 = await ArteonGPUARTX2000.deployed()
-    addresses.cards.artx2000 = ARTX2000.address
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.cards.artx2000 = ARTX2000.address
+    }
   }
 
-  if (!addresses.factory) {
+  if (!addresses.factory && !network.includes('fork')) {
     await deployer.deploy(ArteonPoolFactory);
     const factory = await ArteonPoolFactory.deployed();
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.factory = factory.address
+    }
     await factory.addToken(addresses.cards.genesis, addresses.token, SixtySeconds, rewardRates[0], halvings[0]);
     await factory.addToken(addresses.cards.artx1000, addresses.token, SixtySeconds, rewardRates[1], halvings[1]);
     await factory.addToken(addresses.cards.artx2000, addresses.token, SixtySeconds, rewardRates[2], halvings[2]);
-    write(`mine/src/abis/pool.js`, `export default ${JSON.stringify(factory.abi, null, '\t')}`),
+    write(`mine/src/abis/pool.js`, `export default ${JSON.stringify(factory.abi, null, '\t')}`)
   }
 
   if (network === 'ropsten' || network === 'kovan' || network === 'wapnet' || network === 'mainnet') {
