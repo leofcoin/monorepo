@@ -32,7 +32,7 @@ export default class Api {
       configs: {
         GENESIS: {
           fans: [
-            ['3.5%', '30%', '76px', '76px'],
+            ['4%', '30%', '76px', '76px'],
             ['35.5%', '30%', '76px', '76px'],
             ['68%', '30%', '76px', '76px']
           ] // x, y, h, w
