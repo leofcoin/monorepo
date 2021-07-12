@@ -1,4 +1,5 @@
 const HDWalletProvider = require("@truffle/hdwallet-provider");
+const PrivateKeyProvider = require("truffle-privatekey-provider");
 const mnemonic = 'onion view mobile torch box weekend town betray intact slam fabric adjust'
 module.exports = {
   // plugins: ["truffle-contract-size"],
@@ -26,8 +27,11 @@ module.exports = {
        const { readfile } = require('fs')
        const { promisify } = require('util')
        const read = promisify(readfile)
-       const mnemonic = await read('./.mnemonic')
-       return new HDWalletProvider(mnemonic, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
+       // const mnemonic = await read('./.mnemonic')
+       const privateKey = await read('./.privateKey')
+       return new PrivateKeyProvider(privateKey, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
+
+       // return new HDWalletProvider(mnemonic, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
      },
      network_id: '1'
    },

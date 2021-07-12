@@ -12,6 +12,8 @@ node_modules/
 .env
 
 .mnemonic
+.privatekey
+
 build/
 
 /mine/www/**/*.js
