@@ -4,8 +4,9 @@ import './../miner/ArteonMiner.sol';
 import './../miner/interfaces/IArteonMiner.sol';
 import './../../node_modules/@openzeppelin/contracts/access/Ownable.sol';
 
-contract ArteonPoolFactory is Ownable{
+contract ArteonPoolFactory is Ownable {
   mapping (address => address) public getToken;
+  mapping (address => mapping (address => address)) public getListed;
   address[] public listedTokens;
   event TokenAdded(address listedToken, uint);
 
@@ -14,7 +15,7 @@ contract ArteonPoolFactory is Ownable{
   }
 
   function addToken(address gpu, address token, uint256 blockTime, uint256 maxReward, uint256 halvings) external onlyOwner returns (address listedToken) {
-    require(getToken[token] == address(0), 'ArteonPool: LISTING_EXISTS');
+    require(getListed[token][gpu] == address(0), 'ArteonPool: LISTING_EXISTS');
     // require(IERC20(token).owner() == msg.sender, 'ArteonPool: NOT_AN_OWNER');
 
     bytes memory bytecode = type(ArteonMiner).creationCode;
@@ -26,6 +27,7 @@ contract ArteonPoolFactory is Ownable{
     IArteonMiner(listedToken).initialize(token, gpu, blockTime, maxReward, halvings);
     getToken[token] = listedToken;
     getToken[listedToken] = token;
+    getListed[token][gpu];
     listedTokens.push(listedToken);
 
     emit TokenAdded(listedToken, listedTokens.length);
