@@ -1,4 +1,4 @@
-import MINER_ABI from './../abis/miner.js'
+import POOL_ABI from './../abis/pool.js'
 import GPU_ABI from './../abis/gpu.js'
 import './../array-repeat'
 import './pool-selector-item'
@@ -29,10 +29,20 @@ export default customElements.define('pool-selector', class PoolSelector extends
   }
 
   async _load() {
-    const items = Object.keys(api.addresses.pools).map(key => api.addresses.pools[key])
+    const contract = api.getContract(api.addresses.factory, POOL_ABI)
+    console.log(contract);
+    const cardsLength = await contract.callStatic.tokens()
+    console.log(cardsLength);
+    let promises = []
+    for (var i = 0; i < cardsLength; i++) {
+      promises.push(contract.callStatic.listedTokens(i))
+    }
+    promises = await Promise.all(promises)
 
-    this._arrayRepeat.items = Object.keys(api.addresses.pools).map(key => {
-      return {address: api.addresses.pools[key]}
+    console.log(promises);
+
+    this._arrayRepeat.items = promises.map(address => {
+      return {address}
     })
   }
 
@@ -61,6 +71,8 @@ export default customElements.define('pool-selector', class PoolSelector extends
         height: 100%;
         width: 100%;
         box-sizing: border-box;
+        padding: 0 24px;
+        padding-top: 24px;
       }
 
       section {

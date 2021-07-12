@@ -1,17 +1,5 @@
 export default [
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_gpu",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor",
-		"signature": "constructor"
-	},
-	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -57,6 +45,32 @@ export default [
 				"internalType": "address",
 				"name": "",
 				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "getListed",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x92e25078"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
 			}
 		],
 		"name": "getToken",
@@ -71,21 +85,6 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0x59770438"
-	},
-	{
-		"inputs": [],
-		"name": "gpu",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x824af0e0"
 	},
 	{
 		"inputs": [
@@ -164,6 +163,11 @@ export default [
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "gpu",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
 				"name": "token",
 				"type": "address"
 			},
@@ -193,6 +197,6 @@ export default [
 		],
 		"stateMutability": "nonpayable",
 		"type": "function",
-		"signature": "0xb27dbeaf"
+		"signature": "0x876ca985"
 	}
 ]

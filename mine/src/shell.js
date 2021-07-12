@@ -191,8 +191,8 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     }
 
     .logo {
-      width: 48px;
-      height: 48px;
+      width: 32px;
+      height: 32px;
     }
 
     custom-selector {
@@ -229,7 +229,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     }
 
     custom-drawer {
-      height: calc(100% - var(--main-header-height) - 48px);
+      height: calc(100% - var(--main-header-height) - 78px);
       transform: translateX(-110%);
       border-top-right-radius: 44px;
       border-bottom-right-radius: 44px;
@@ -251,10 +251,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     }
 
     header h1 {
+      margin: 0;
       padding-left: 24px;
       text-transform: capitalize;
       font-weight: 700;
-      font-size: 44px;
+      font-size: 32px;
       letter-spacing: 12px;
     }
 
@@ -278,7 +279,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       --svg-icon-size: 48px;
       position: absolute;
       left: 24px;
-      top: 24px;
+      top: 10px;
       pointer-events: auto;
     }
 
@@ -293,22 +294,36 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     header .title {
       position: absolute;
-      transform: translateX(-50%);
-      left: 50%;
-      top: 24px;
-      height: 54px;
+      left: auto;
+      right: 24px;
+      top: 10px;
+      height: 48px;
     }
 
     :host([desktop]) header .title {
       transform: translate(0);
       left: 24px;
-      top: 24px;
+      top: 10px;
     }
 
     custom-drawer {
       background: var(--main-background-color);
     }
+
+    // TODO: fix backdrop
+    :host([drawer-opened]) .backdrop {
+      display: flex;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0.8;
+      background: #000;
+      z-index: 1000;
+    }
     </style>
+    <span class="backdrop"></span>
     <custom-svg-iconset>
       <svg><defs>
         <g id="account-circle"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"></path></g>

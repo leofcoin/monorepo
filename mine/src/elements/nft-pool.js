@@ -110,13 +110,13 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
   async _load(address) {
     this.shadowRoot.querySelector('nft-pool-cards').innerHTML = ''
     this._address = address
-
+    //
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('address', address)
-    let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
-
-    const poolAddress = await contract.callStatic.getToken(api.addresses.token)
-    globalThis._contracts[poolAddress] = globalThis._contracts[poolAddress] || new ethers.Contract(poolAddress, MINER_ABI, api.signer)
-    this.contract = globalThis._contracts[poolAddress]
+    // let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
+    //
+    // const poolAddress = await contract.callStatic.getToken(api.addresses.token)
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
+    this.contract = globalThis._contracts[address]
     const gpuAddress = await this.contract.callStatic.ARTEON_GPU()
     this.gpuContract = new ethers.Contract(gpuAddress, GPU_ABI, api.signer)
     const symbol = await this.gpuContract.callStatic.symbol()

@@ -61,7 +61,8 @@ export default customElements.define('exchange-view', class ExchangeView extends
         display: flex;
         flex-direction: column;
         --svg-icon-color: #eee;
-        padding: 24px 96px 48px 96px;
+        padding: 24px 24px 48px 24px;
+        padding-bottom: 48px;
         box-sizing: border-box;
         align-items: center;
       }
@@ -71,7 +72,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
         flex-direction: row;
         border-radius: 44px;
         width: 100%;
-        max-width: 720px;
+        max-width: 382px;
         background: var(--custom-drawer-background);
         overflow-y: auto;
         pointer-events: auto;
@@ -164,21 +165,12 @@ export default customElements.define('exchange-view', class ExchangeView extends
         flex-flow: row wrap;
         justify-content: space-between;
       }
-      @media(max-width: 890px) {
-        custom-selector {
-          max-width: 374px;
-        }
-        :host {
-          padding: 24px;
-        }
-      }
-
-      @media(min-width: 1150px) {
+      @media(min-width: 750px) {
         custom-selector {
           max-width: 720px;
         }
       }
-      @media(min-width: 1480px) {
+      @media(min-width: 1920px) {
         custom-selector {
           max-width: 1400px;
         }

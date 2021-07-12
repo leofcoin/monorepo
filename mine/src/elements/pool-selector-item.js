@@ -26,7 +26,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
 
   set address(address) {
     this._address = address
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
     this._render(address);
   }
 
@@ -35,42 +35,12 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
   }
 
   async _render(address) {
-    let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
-    const tokens = await contract.callStatic.tokens()
+    let contract = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
+    console.log(await contract.callStatic.ARTEON_GPU());
 
-    let promises = []
 
-    for (let i = 0; i < tokens; i++) {
-      promises.push(contract.callStatic.listedTokens(i))
-    }
 
-    promises = await Promise.all(promises)
-    let pools = promises;
-    promises = promises.map(address => {
-      globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
-      return globalThis._contracts[address].callStatic.ARTEON_TOKEN()
-    })
-
-    promises = await Promise.all(promises)
-    console.log(promises);
-    promises = promises.map(address => {
-      globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, ARTEON_ABI, api.signer)
-      return globalThis._contracts[address].callStatic.symbol()
-    })
-
-    promises = await Promise.all(promises)
-    pools = pools.map((address, i) => {
-      return {
-        address,
-        symbol: promises[i]
-      }
-    })
-    const poolAddress = pools[0].address
-
-    globalThis._contracts[poolAddress] = globalThis._contracts[poolAddress] || new ethers.Contract(poolAddress, MINER_ABI, api.signer)
-    contract = globalThis._contracts[poolAddress]
-    console.log(contract);
-    promises = [
+    let promises = [
       contract.callStatic.ARTEON_GPU(),
       contract.callStatic.miners(),
       contract.callStatic.getMaxReward(),
@@ -99,8 +69,8 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     console.log({...promises});
     this.shadowRoot.innerHTML = this.template
 
-    this.shadowRoot.querySelector('array-repeat').items = pools
-    this.shadowRoot.querySelector('custom-select').selected = pools[0].symbol
+    // this.shadowRoot.querySelector('array-repeat').items = pools
+    // this.shadowRoot.querySelector('custom-select').selected = pools[0].symbol
     contract.on('Activate', (address, tokenId) => {
       this.miners = Number(this.miners) + 1
       this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
@@ -112,15 +82,18 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
       this.shadowRoot.innerHTML = this.template
     })
-
-    setInterval(async () => {
+    if (this.timeout) clearTimeout(this.timeout)
+    this.timeout = () => setTimeout(async () => {
       const earned = await contract.callStatic.earned()
       this.earned = ethers.utils.formatUnits(earned, 18)
       this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
       const el = this.shadowRoot.querySelector('span.earned')
       el.title = `earned: ${this.earned}`
       el.innerHTML = this.earnedShort
+      this.timeout()
     }, 10000);
+
+    this.timeout()
   }
 // hardware:toys
   get template() {

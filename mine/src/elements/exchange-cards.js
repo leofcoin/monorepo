@@ -268,7 +268,7 @@ this._selector.addEventListener('selected', this._select)
       item.setAttribute('is-owner', '')
     }
     const repeat = this.shadowRoot.querySelector('custom-select').querySelector('array-repeat')
-    repeat.items = Object.keys(api.addresses.pools).map(key => {
+    repeat.items = Object.keys(api.addresses.cards).map(key => {
       return {
         name: key,
         address: api.addresses.cards[key]
