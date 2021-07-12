@@ -29,7 +29,7 @@ module.exports = {
        const read = promisify(readfile)
        // const mnemonic = await read('./.mnemonic')
        const privateKey = await read('./.privateKey')
-       return new PrivateKeyProvider(privateKey, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
+       return new PrivateKeyProvider(privateKey.toString(), 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
 
        // return new HDWalletProvider(mnemonic, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
      },
