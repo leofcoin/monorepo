@@ -1,5 +1,5 @@
 const HDWalletProvider = require("@truffle/hdwallet-provider");
-const PrivateKeyProvider = require("truffle-privatekey-provider");
+// const PrivateKeyProvider = require("web3-privatekey-provider");
 const mnemonic = 'onion view mobile torch box weekend town betray intact slam fabric adjust'
 module.exports = {
   // plugins: ["truffle-contract-size"],
@@ -23,15 +23,17 @@ module.exports = {
      network_id: "1337"
    },
    mainnet: {
-     provider: async () => {
-       const { readfile } = require('fs')
-       const { promisify } = require('util')
-       const read = promisify(readfile)
-       // const mnemonic = await read('./.mnemonic')
-       const privateKey = await read('./.privateKey')
-       return new PrivateKeyProvider(privateKey.toString(), 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
+     provider: () => {
+       // const { readFile } = require('fs')
+       // const { promisify } = require('util')
+       // const read = promisify(readFile)
+       // // // const mnemonic = await read('./.mnemonic')
+       // const privateKey = await read('./.privateKey')
+       // return new PrivateKeyProvider('78e88fe3ac5d3fc58b4f6494b75748f944085c8f058878a9a9117df1640cdfb8', 'https://mainnet.infura.io/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
 
-       // return new HDWalletProvider(mnemonic, 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8')
+       return new HDWalletProvider({
+         privateKeys: [''],
+         providerOrUrl: 'wss://mainnet.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'})
      },
      network_id: '1'
    },
