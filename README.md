@@ -11,9 +11,9 @@ Install [truffle](https://github.com/trufflesuite/truffle)
 npm i -g truffle
 ```
 ##### truffle-flattener
-Install [truffle-flattener](https://github.com/nomiclabs/truffle-flattener)
+Install [truffle-flattener](https://github.com/vandeurenglenn/truffle-flattener)
 ```sh
-npm i -g truffle-flattener
+npm i -g https://github.com/vandeurenglenn/truffle-flattener
 ```
 
 #### install dependencies

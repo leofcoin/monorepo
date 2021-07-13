@@ -138,24 +138,24 @@ module.exports = async (deployer, network) => {
     //
     // promises = await Promise.all(promises)
 
-    // let flats = await Promise.all([
-    //   execSync('truffle-flattener contracts/pools/ArteonPoolFactory.sol'),
-    //   execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
-    //   execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
-    //   execSync('truffle-flattener contracts/miner/ArteonMiner.sol'),
-    // ])
-    //
-    // flats = flats.map(flat => flat.toString()
-    //   .replace(/\/\/ SPDX-License-Identifier: MIT/g, '')
-    //   .replace(/\/\/ File: (.*)\s\s/g, '')
-    //   .replace(/pragma solidity (.*)\s/g, ''))
-    //
-    // await Promise.all([
-    //   write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
-    //   write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
-    //   write(`build/flats/ArteonExchange.sol`, flats[2]),
-    //   write(`build/flats/ArteonMiner.sol`, flats[3])
-    // ])
+    let flats = await Promise.all([
+      execSync('truffle-flattener contracts/pools/ArteonPoolFactory.sol'),
+      execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
+      execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
+      execSync('truffle-flattener contracts/miner/ArteonMiner.sol'),
+    ])
+
+    flats = flats.map(flat => flat.toString()
+      .replace(/\/\/ SPDX-License-Identifier: MIT/g, '')
+      .replace(/\/\/ File: (.*)\s\s/g, '')
+      .replace(/pragma solidity (.*)\s/g, ''))
+
+    await Promise.all([
+      write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
+      write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
+      write(`build/flats/ArteonExchange.sol`, flats[2]),
+      write(`build/flats/ArteonMiner.sol`, flats[3])
+    ])
     // console.log({
     //   token: token.address,
     //   exchange: arteonExchange.address,
