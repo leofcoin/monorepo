@@ -1,16 +1,16 @@
 pragma solidity ^0.8.0;
 // SPDX-License-Identifier: MIT
 
-import './../../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol';
-import './../../node_modules/@openzeppelin/contracts/utils/Strings.sol';
-import './../../node_modules/@openzeppelin/contracts/utils/Address.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import './../../node_modules/@openzeppelin/contracts/utils/Context.sol';
-import './../../node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
-import './../../node_modules/@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import '@openzeppelin/contracts/utils/Strings.sol';
+import '@openzeppelin/contracts/utils/Address.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/utils/Context.sol';
+import '@openzeppelin/contracts/utils/introspection/ERC165.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 import './../gpu/ArteonGPU.sol';
 import './../token/Arteon.sol';
 
