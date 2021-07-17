@@ -125,9 +125,11 @@ export default customElements.define('pool-selector', class PoolSelector extends
 
       ${scrollbar}
     </style>
+    <!--
     <custom-input placeholder="search by name/address"></custom-input>
     <flex-one></flex-one>
 
+    -->
     <span class="container">
       <custom-pages attr-for-selected="data-route">
         <custom-selector data-route="overview" attr-for-selected="data-route">
