@@ -15,7 +15,7 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
   }
 
   async _getPrice(amount) {
-    const response = await fetch(`https://ropsten.api.0x.org/swap/v1/price?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    const response = await fetch(`https://api.0x.org/swap/v1/price?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
     const price = await response.json()
     console.log(price);
     const protocol = price.sources.filter(protocol => protocol.proportion === '1')[0]
@@ -31,7 +31,7 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
 
   async _swap() {
     const amount = this.shadowRoot.querySelector('custom-input').value
-    const response = await fetch(`https://ropsten.api.0x.org/swap/v1/quote?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    const response = await fetch(`https://api.0x.org/swap/v1/quote?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
     const quote = await response.json()
     const tx = await api.signer.sendTransaction({
       to: quote.to,

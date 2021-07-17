@@ -119,7 +119,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       }
       h4 {
         margin: 0;
-        padding: 14px 0 44px 0;
+        padding: 6px 0 12px 12px;
         box-sizing: border-box;
       }
       img {

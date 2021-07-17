@@ -145,7 +145,19 @@ this._selector.addEventListener('selected', this._select)
     const isOwner = await this._isOwner()
     if (isOwner) this._ownerSetup()
 
+    const tokenIds = promises
+    promises = promises.map(tokenId => this.exchangeContract.listed(address, tokenId))
+    promises = await Promise.all(promises)
 
+    promises = promises.map((listed, i) => {
+      return {
+        listed,
+        tokenId: tokenIds[i]
+      }
+    })
+
+    promises = promises.filter(promise => promise.listed === true)
+    console.log({promises});
     promises = promises.map(tokenId => this.exchangeContract.getListing(address, tokenId))
     promises = await Promise.all(promises)
 
@@ -236,7 +248,7 @@ this._selector.addEventListener('selected', this._select)
     let nonce = await api.signer.getTransactionCount()
     let promises = [];
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
-      promises.push(this.exchangeContract.list(address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
+      promises.push(this.exchangeContract.list(address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++, gasLimit: 8000000}))
     }
     promises = await Promise.all(promises)
     promises = promises.map(promise => promise.wait())

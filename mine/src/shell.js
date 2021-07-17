@@ -59,7 +59,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
   _networkNameFor(version) {
     const networksByVersion = {
-      0: 'mainnet',
+      1: 'mainnet',
       3: 'ropsten',
       42: 'kovan',
       7475: 'wapnet'
@@ -133,7 +133,10 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     console.log(detail);
 
     if (!customElements.get(tag)) await import(`./${detail}.js`)
-    if (!this.hasAttribute('desktop')) this.removeAttribute('drawer-opened')
+    if (!this.hasAttribute('desktop')) this.removeAttribute('drawer-opened');
+    console.log(tag);
+    if (this.shadowRoot.querySelector(tag)._select) this.shadowRoot.querySelector(tag)._select({detail: 'overview'});
+
     this._pages.select(detail)
   }
 
@@ -366,6 +369,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <span>exchange</span>
         </span>
 
+        <!--
         <span class="drawer-item" data-route="auction">
           <custom-svg-icon icon="attach-money"></custom-svg-icon>
           <span>auction</span>
@@ -375,7 +379,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <custom-svg-icon icon="wallet"></custom-svg-icon>
           <span>wallet</span>
         </span>
-
+-->
         <span class="drawer-item" data-route="buy-arteon">
           <custom-svg-icon icon="local-offer"></custom-svg-icon>
           <span>buy arteon</span>

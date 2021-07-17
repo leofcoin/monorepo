@@ -255,7 +255,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     </style>
 
     <section>
-      <custom-svg-icon icon="close" data-route="back"></custom-svg-icon>
+      <!-- <custom-svg-icon icon="close" data-route="back"></custom-svg-icon> -->
       <pool-selector-item></pool-selector-item>
 
     </section>

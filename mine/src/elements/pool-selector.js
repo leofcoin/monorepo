@@ -17,7 +17,11 @@ export default customElements.define('pool-selector', class PoolSelector extends
   connectedCallback() {
     this._load()
 
-    this.addEventListener('click', this._select)
+    this._selector.addEventListener('selected', this._select)
+  }
+
+  get _selector() {
+    return this.shadowRoot.querySelector('custom-selector')
   }
 
   get _pages() {
@@ -46,17 +50,21 @@ export default customElements.define('pool-selector', class PoolSelector extends
     })
   }
 
-  _select(event) {
-    const target = event.composedPath()[0]
-    const route = target.getAttribute('data-route')
-    if (route && target.hasAttribute('address')) {
-      this._pages.select('pool')
-      this.shadowRoot.querySelector('nft-pool')._load(target.getAttribute('address'))
+  _select({detail}) {
+    // const target = event.composedPath()[0]
+    // const route = target.getAttribute('data-route')
+
+    if (detail === 'overview' || detail === 'back') {
+      this._pages.select('overview')
+      if (detail === 'back') history.back()
+
       return
     }
-    if (route === 'overview' || route === 'back') {
-      this._pages.select('overview')
-      if (route === 'back') history.back()
+
+    if (detail) {
+      this._pages.select('pool')
+      this.shadowRoot.querySelector('nft-pool')._load(detail)
+      return
     }
   }
 // hardware:toys
@@ -122,26 +130,27 @@ export default customElements.define('pool-selector', class PoolSelector extends
 
     <span class="container">
       <custom-pages attr-for-selected="data-route">
-        <array-repeat data-route="overview">
+        <custom-selector data-route="overview" attr-for-selected="data-route">
+          <array-repeat data-route="overview">
 
-          <style>
-            pool-selector-item {
-              background: #ee44ee26;
-              color: #eee;
-            }
-            pool-selector-item:nth-of-type(odd) {
-              background: transparent;
-            }
-            pool-selector-item {
-              pointer-events: auto;
-              cursor: pointer;
-            }
-            </style>
-          <template>
-            <pool-selector-item address="[[item.address]]" data-route="[[item.address]]"></pool-selector-item>
-          </template>
-        </array-repeat>
-
+            <style>
+              pool-selector-item {
+                background: #ee44ee26;
+                color: #eee;
+              }
+              pool-selector-item:nth-of-type(odd) {
+                background: transparent;
+              }
+              pool-selector-item {
+                pointer-events: auto;
+                cursor: pointer;
+              }
+              </style>
+            <template>
+              <pool-selector-item address="[[item.address]]" data-route="[[item.address]]"></pool-selector-item>
+            </template>
+          </array-repeat>
+        </custom-selector>
         <nft-pool data-route="pool"></nft-pool>
       </custom-pages>
     </span>

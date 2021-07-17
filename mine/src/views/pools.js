@@ -14,6 +14,10 @@ export default customElements.define('pools-view', class PoolsView extends HTMLE
     // this._select({detail: api.addresses.pools.GENESIS})
   }
 
+  _select({detail}) {
+    this.shadowRoot.querySelector('pool-selector')._select({detail})
+  }
+
   get template() {
     return `
     <style>

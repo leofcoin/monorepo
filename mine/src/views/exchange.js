@@ -43,14 +43,23 @@ export default customElements.define('exchange-view', class ExchangeView extends
       return {address: api.addresses.cards[key]}
     })
   }
-
   _select({detail}) {
-    console.log(detail);
+    // const target = event.composedPath()[0]
+    // const route = target.getAttribute('data-route')
 
-    this.shadowRoot.querySelector('exchange-cards')._load(detail, this._arrayRepeat.shadowRoot.querySelector(`[data-route="${detail}"]`).symbol)
-    this._pages.select('cards')
+    if (detail === 'overview' || detail === 'back') {
+      this._pages.select('overview')
+      if (detail === 'back') history.back()
+
+      return
+    }
+
+    if (detail) {
+      this.shadowRoot.querySelector('exchange-cards')._load(detail, this._arrayRepeat.shadowRoot.querySelector(`[data-route="${detail}"]`).symbol)
+      this._pages.select('cards')
+      return
+    }
   }
-
   get template() {
     return `
     <style>
