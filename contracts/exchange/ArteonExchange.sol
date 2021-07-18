@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-import './../../node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import './../../node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import './../../node_modules/@openzeppelin/contracts/access/Ownable.sol';
-import './../../node_modules/@openzeppelin/contracts/security/Pausable.sol';
-import './../gpu/ArteonGPU.sol';
-import './../token/interfaces/IArteonToken.sol';
-import './ArteonListing.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/security/Pausable.sol';
 
 contract ArteonExchange is Ownable, Pausable {
   address public ARTEON_TOKEN;
@@ -19,12 +16,13 @@ contract ArteonExchange is Ownable, Pausable {
     uint256 tokenId;
     uint256 price;
     uint256 index;
+    bool listed;
   }
 
   address[] public listings;
-  mapping(address => uint256[]) public tokenIds;
 
   mapping (address => mapping(uint256 => address)) public getListing;
+  mapping (address => address[]) public gpuListing;
   mapping (address => Listing) public lists;
 
   event ListingCreated(address ArteonGPU, uint256 tokenId, address listing, uint, uint256 price);
@@ -38,29 +36,25 @@ contract ArteonExchange is Ownable, Pausable {
   modifier isListed(address gpu, uint256 tokenId) {
     address listing = getListing[gpu][tokenId];
     require(listing != address(0), 'ArteonExchange: NOT_LISTED');
+    require(lists[listing].listed != false, 'ArteonExchange: NOT_LISTED');
     _;
-  }
-
-  function tokenIdsLength(address gpu) external view returns (uint256) {
-    return tokenIds[gpu].length;
   }
 
   function listingLength() external view returns (uint256) {
     return listings.length;
   }
 
-  function list(address gpu, uint256 tokenId, uint256 price) external returns (address listing) {
+  function gpuListingLength(address gpu) external view returns (uint256) {
+    return gpuListing[gpu].length;
+  }
+
+  function list(address listing, address gpu, uint256 tokenId, uint256 price) external {
     require(getListing[gpu][tokenId] == address(0), 'ArteonExchange: LISTING_EXISTS');
     require(IERC721(gpu).ownerOf(tokenId) == msg.sender, 'ArteonExchange: NOT_AN_OWNER');
-    bytes memory bytecode = type(ArteonListing).creationCode;
-    bytes32 salt = keccak256(abi.encodePacked(gpu, tokenId));
-    assembly {
-      listing := create2(0, add(bytecode, 32), mload(bytecode), salt)
-    }
 
     getListing[gpu][tokenId] = listing;
     listings.push(listing);
-    tokenIds[gpu].push(tokenId);
+    gpuListing[gpu].push(listing);
     lists[listing].owner = msg.sender;
     lists[listing].gpu = gpu;
     lists[listing].price = price;
@@ -68,7 +62,6 @@ contract ArteonExchange is Ownable, Pausable {
     lists[listing].index = listings.length - 1;
 
     emit ListingCreated(gpu, tokenId, listing, listings.length, price);
-    return listing;
   }
 
   function forceDelist(address gpu, uint256 tokenId) external isListed(gpu, tokenId) onlyOwner {
@@ -99,15 +92,7 @@ contract ArteonExchange is Ownable, Pausable {
 
   function __removeListing(address gpu, uint256 tokenId) internal {
     address listing = getListing[gpu][tokenId];
-    uint256 index = lists[listing].index;
-    address lastListing = listings[listings.length - 1];
-    uint256 lastTokenId = tokenIds[gpu][tokenIds[gpu].length - 1];
-    listings[index] = lastListing;
-    tokenIds[gpu][index] = lastTokenId;
-    lists[lastListing].index = index;
-    listings.pop();
-    tokenIds[gpu].pop();
-    getListing[gpu][tokenId] = address(0);
+    lists[listing].listed = false;
     emit Delist(gpu, tokenId);
   }
 
