@@ -27,42 +27,10 @@ export default [
 				"type": "uint256"
 			},
 			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "owner",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "gpu",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "tokenId",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "price",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "index",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "listed",
-						"type": "bool"
-					}
-				],
 				"indexed": false,
-				"internalType": "struct ArteonExchange.Listing",
+				"internalType": "address",
 				"name": "listing",
-				"type": "tuple"
+				"type": "address"
 			},
 			{
 				"indexed": false,
@@ -79,7 +47,7 @@ export default [
 		],
 		"name": "Buy",
 		"type": "event",
-		"signature": "0x07662a63a12303212525d387e262668c0018e2cb9f57b2c79c388f83e10ec3e0"
+		"signature": "0x324dfaaac3975712513fc233f72fb1df65967a5a9fdbf3681d121bfd0339ebc9"
 	},
 	{
 		"anonymous": false,
@@ -117,42 +85,10 @@ export default [
 				"type": "uint256"
 			},
 			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "owner",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "gpu",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "tokenId",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "price",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "index",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "listed",
-						"type": "bool"
-					}
-				],
 				"indexed": false,
-				"internalType": "struct ArteonExchange.Listing",
+				"internalType": "address",
 				"name": "listing",
-				"type": "tuple"
+				"type": "address"
 			},
 			{
 				"indexed": false,
@@ -169,7 +105,7 @@ export default [
 		],
 		"name": "ListingCreated",
 		"type": "event",
-		"signature": "0xf65aed3b7e9af313be80f8ded7092bea9327cf51c88d57bec0dab88cbd6e26dd"
+		"signature": "0x81cc9d0dcc671d2335481cdaa5af1e25fc5cf004a309d6ab49ec443e0e979380"
 	},
 	{
 		"anonymous": false,
@@ -251,6 +187,74 @@ export default [
 		"outputs": [
 			{
 				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x88700d1c"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "gpuListing",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x22c744ab"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "listings",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xde74e57b"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "lists",
+		"outputs": [
+			{
+				"internalType": "address",
 				"name": "owner",
 				"type": "address"
 			},
@@ -283,28 +287,7 @@ export default [
 		"stateMutability": "view",
 		"type": "function",
 		"constant": true,
-		"signature": "0x88700d1c"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "listings",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xde74e57b"
+		"signature": "0x5201148e"
 	},
 	{
 		"inputs": [],
@@ -348,32 +331,6 @@ export default [
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "tokenIds",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x3de419e9"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
 				"name": "newOwner",
 				"type": "address"
 			}
@@ -383,27 +340,6 @@ export default [
 		"stateMutability": "nonpayable",
 		"type": "function",
 		"signature": "0xf2fde38b"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "gpu",
-				"type": "address"
-			}
-		],
-		"name": "tokenIdsLength",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xf2119b83"
 	},
 	{
 		"inputs": [],
@@ -426,6 +362,32 @@ export default [
 				"internalType": "address",
 				"name": "gpu",
 				"type": "address"
+			}
+		],
+		"name": "gpuListingLength",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xf863eee7"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "listing",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "gpu",
+				"type": "address"
 			},
 			{
 				"internalType": "uint256",
@@ -439,48 +401,10 @@ export default [
 			}
 		],
 		"name": "list",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "owner",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "gpu",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "tokenId",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "price",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "index",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "listed",
-						"type": "bool"
-					}
-				],
-				"internalType": "struct ArteonExchange.Listing",
-				"name": "listing",
-				"type": "tuple"
-			}
-		],
+		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function",
-		"signature": "0xdda342bb"
+		"signature": "0xfc8d9cd5"
 	},
 	{
 		"inputs": [
@@ -580,7 +504,7 @@ export default [
 		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "price",
 				"type": "uint256"
 			}
 		],
