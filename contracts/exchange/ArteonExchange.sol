@@ -59,6 +59,7 @@ contract ArteonExchange is Ownable, Pausable {
     lists[listing].gpu = gpu;
     lists[listing].price = price;
     lists[listing].tokenId = tokenId;
+    lists[listing].listed = true;
     lists[listing].index = listings.length - 1;
 
     emit ListingCreated(gpu, tokenId, listing, listings.length, price);
