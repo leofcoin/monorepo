@@ -32,13 +32,12 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
   }
 
   connectedCallback() {
-this._selector.addEventListener('selected', this._select)
-      this.addEventListener('click', this._onclick)
+    this._selector.addEventListener('selected', this._select)
+    this.addEventListener('click', this._onclick)
     // this.shadowRoot.querySelector('[data-event="search"]').addEventListener('input', this._onsearch)
   }
 
   async _onsearch() {
-    console.log(this.shadowRoot.querySelector('[data-event="search"]').value.length);
     if (this._timeout) clearTimeout(this._timeout)
     this._timeout = () => setTimeout(async () => {
 
@@ -134,47 +133,38 @@ this._selector.addEventListener('selected', this._select)
 
   async _load(address, symbol) {
     this.exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
-    const length = await this.exchangeContract.callStatic.tokenIdsLength(address)
-    console.log(length);
+    const length = await this.exchangeContract.callStatic.gpuListingLength(address)
+
     let promises = []
     for (var i = 0; i < length; i++) {
-      promises.push(this.exchangeContract.callStatic.tokenIds(address, i))
+      promises.push(this.exchangeContract.callStatic.gpuListing(address, i))
     }
 
     promises = await Promise.all(promises)
     const isOwner = await this._isOwner()
     if (isOwner) this._ownerSetup()
-
-    const tokenIds = promises
-    promises = promises.map(tokenId => this.exchangeContract.listed(address, tokenId))
+    promises = promises.map(address => this.exchangeContract.lists(address))
     promises = await Promise.all(promises)
+    promises = promises.filter(promise => promise.listed === true)
 
-    promises = promises.map((listed, i) => {
+    this.listings = promises.map(({
+      owner,
+      gpu,
+      index,
+      price,
+      tokenId
+    }) => {
       return {
-        listed,
-        tokenId: tokenIds[i]
+        owner,
+        gpu,
+        index,
+        price: price.toString(),
+        tokenId: tokenId.toString(),
+        isOwner,
+        symbol
       }
     })
 
-    promises = promises.filter(promise => promise.listed === true)
-    console.log({promises});
-    promises = promises.map(tokenId => this.exchangeContract.getListing(address, tokenId))
-    promises = await Promise.all(promises)
-
-
-    promises = promises.map(address => this.exchangeContract.lists(address))
-    promises = await Promise.all(promises)
-
-    this.listings = promises.map((listing, index) => {
-      return { ...listing, index, isOwner, symbol }
-    })
-
-    this.listings = this.listings.map(listing => {
-      listing.tokenId = listing.tokenId.toString()
-      listing.price = listing.price.toString()
-      return listing
-    })
-    console.log({promises});
     this.shadowRoot.querySelector('array-repeat.cards').items = this.listings
 
     this.exchangeContract.on('Delist', (gpu, tokenId) => {
@@ -185,6 +175,7 @@ this._selector.addEventListener('selected', this._select)
         this._arrayRepeat.shadowRoot.removeChild(item)
       }, 10000);
     })
+
     this.exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
       if (this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)) return;
       this.listings.push({listing, index, tokenId, gpu, isOwner})
@@ -192,7 +183,6 @@ this._selector.addEventListener('selected', this._select)
       item.setAttribute('listing', listing)
       item.setAttribute('is-owner', isOwner)
       this._arrayRepeat.shadowRoot.appendChild(item)
-
     })
 
     this.exchangeContract.on('Buy', (gpu, tokenId, listing, owner, price) => {
@@ -236,6 +226,7 @@ this._selector.addEventListener('selected', this._select)
 
   async _addListing({address, tokenId, price, tokenIdTo}) {
     tokenIdTo = tokenIdTo || tokenId
+    const listing = api.listing.createAddress(address, tokenId)
     console.log({address, tokenId, price});
     globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, GPU_ABI, api.signer)
 
@@ -248,7 +239,7 @@ this._selector.addEventListener('selected', this._select)
     let nonce = await api.signer.getTransactionCount()
     let promises = [];
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
-      promises.push(this.exchangeContract.list(address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++, gasLimit: 8000000}))
+      promises.push(this.exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++, gasLimit: 8000000}))
     }
     promises = await Promise.all(promises)
     promises = promises.map(promise => promise.wait())
