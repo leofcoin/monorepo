@@ -44,7 +44,7 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
     this.asset = api.assets.cards[this.symbol]
     this.fanAsset = api.assets.fans[this.symbol]
     const configs = api.assets.configs[this.symbol]
-    
+
     for (const [x, y, height, width] of configs.fans) {
       const img = document.createElement('img')
       img.setAttribute('slot', 'fan')
@@ -90,6 +90,13 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
         -ms-animation: rotation 2s linear infinite;
         -o-animation: rotation 2s linear infinite;
         animation: rotation 2s linear infinite;
+      }
+
+      @media (max-width: 371px) {
+        :host, slot[name="fan"]::slotted(*) {
+          height: 0 !important;
+          width: 0 !important;
+        }
       }
     </style>
     <slot name="fan"></slot>
