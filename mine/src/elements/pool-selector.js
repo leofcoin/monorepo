@@ -89,7 +89,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
       }
 
       .container {
-        padding: 32px 0;
+        padding: 32px 0 6px 0;
         border-radius: 44px;
         width: 100%;
         height: 100%;
