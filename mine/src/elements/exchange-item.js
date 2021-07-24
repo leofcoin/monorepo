@@ -1,6 +1,7 @@
 import EXCHANGE_ABI from './../abis/exchange'
 import GPU_ABI from './../abis/gpu'
 import {elevation4dp} from '../styles/elevation'
+import { rotate, rotateBack } from './../styles/shared'
 import './gpu-img'
 export default customElements.define('exchange-item', class ExchangeItem extends HTMLElement {
 
@@ -167,39 +168,11 @@ export default customElements.define('exchange-item', class ExchangeItem extends
         pointer-events: auto;
         cursor: pointer;
       }
-
-
-      @-webkit-keyframes rotation {
-        from {
-          -webkit-transform: rotate(0deg);
-          -o-transform: rotate(0deg);
-          transform: rotate(0deg);
-        }
-        to {
-          -webkit-transform: rotate(360deg);
-          -o-transform: rotate(360deg);
-          transform: rotate(360deg);
-        }
-      }
-      @keyframes rotation {
-        from {
-          -ms-transform: rotate(0deg);
-          -moz-transform: rotate(0deg);
-          -webkit-transform: rotate(0deg);
-          -o-transform: rotate(0deg);
-          transform: rotate(0deg);
-        }
-        to {
-          -ms-transform: rotate(360deg);
-          -moz-transform: rotate(360deg);
-          -webkit-transform: rotate(360deg);
-          -o-transform: rotate(360deg);
-          transform: rotate(360deg);
-        }
-      }
       .price {
         padding-right: 4px;
       }
+      ${rotate}
+      ${rotateBack}
     </style>
     <span class="owner-actions"></span>
     <flex-row>

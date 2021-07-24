@@ -36,8 +36,13 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     const id = target.dataset.id
     console.log(id);
     if (action === 'getReward') {
-      const tx = await this.contract.functions.getReward()
-      await tx.wait()
+      let earned = await this.contract.callStatic.earned()
+      earned = ethers.utils.formatUnits(earned)
+      console.log(earned);
+      if (Number(earned) >= 1000) {
+        const tx = await this.contract.functions.getReward()
+        await tx.wait()
+      }
       return
     }
 
@@ -197,6 +202,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
         box-sizing: border-box;
         padding: 6px 24px;
         color: var(--main-color);
+        pointer-events: auto;
         border-color: var(--accent-color);
       }
 

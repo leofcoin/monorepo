@@ -134,6 +134,15 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
   async _load(address, symbol) {
     this.exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
     const length = await this.exchangeContract.callStatic.gpuListingLength(address)
+    console.log(length.toNumber());
+    if (length.toNumber() === 0) {
+      this.shadowRoot.querySelector('array-repeat.cards').shadowRoot.innerHTML = `
+        <flex-column style="color: #eee; width: 100%; align-items: center;">
+          <h3>Woopsie</h3>
+          <h4>seems we're out!</h4>
+        </flex-column>`
+      return
+    }
 
     let promises = []
     for (var i = 0; i < length; i++) {
@@ -146,7 +155,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
     promises = promises.map(address => this.exchangeContract.lists(address))
     promises = await Promise.all(promises)
     promises = promises.filter(promise => promise.listed === true)
-
+    
     this.listings = promises.map(({
       owner,
       gpu,

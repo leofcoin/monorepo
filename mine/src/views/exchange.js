@@ -77,18 +77,15 @@ export default customElements.define('exchange-view', class ExchangeView extends
       }
 
       custom-selector {
-        height: 100%;
         flex-direction: row;
         border-radius: 44px;
         width: 100%;
         max-width: 382px;
-        background: var(--custom-drawer-background);
         overflow-y: auto;
         pointer-events: auto;
         display: flex;
         box-sizing: border-box;
         padding: 24px;
-        ${elevation2dp}
       }
 
       :host, .container {
@@ -148,7 +145,6 @@ export default customElements.define('exchange-view', class ExchangeView extends
 
       custom-pages [data-route] {
         display: flex;
-        align-items: center;
         justify-content: center;
       }
 
@@ -177,6 +173,9 @@ export default customElements.define('exchange-view', class ExchangeView extends
       @media(min-width: 750px) {
         custom-selector {
           max-width: 720px;
+        }
+        custom-pages [data-route] {
+          align-items: center;
         }
       }
       @media(min-width: 1920px) {
