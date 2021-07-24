@@ -196,12 +196,27 @@ export default customElements.define('pool-selector', class PoolSelector extends
         height: 100%;
       }
 
+      button {
+        display: flex;
+        align-items: center;
+        background: transparent;
+        box-sizing: border-box;
+        padding: 6px 24px;
+        color: var(--main-color);
+        border-color: var(--accent-color);
+        border-radius: 12px;
+      }
+
       .owner-controls {
         opacity: 0;
         pointer-events: none !important;
       }
 
-      :host([is-owner]) .owner-controls.showable {
+      :host([is-owner]) .owner-controls.showable button {
+        pointer-events: none;
+      }
+
+      :host([is-owner]) .owner-controls.showable, :host([is-owner]) .owner-controls.showable button {
         opacity: 1;
         pointer-events: auto;
       }
@@ -226,18 +241,6 @@ export default customElements.define('pool-selector', class PoolSelector extends
         transform: translateX(-50%);
         z-index: 1010;
         --svg-icon-color: #eee;
-      }
-
-      button {
-        display: flex;
-        align-items: center;
-        background: transparent;
-        box-sizing: border-box;
-        padding: 6px 24px;
-        color: var(--main-color);
-        border-color: var(--accent-color);
-        border-radius: 12px;
-        pointer-events: auto;
       }
       custom-input {
         pointer-events: auto;
