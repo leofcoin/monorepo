@@ -12,6 +12,10 @@ export default class Api {
     this.signer = signer
     if (!this.signer.address) {
       this.signer.address = await this.signer.getAddress()
+      // this.signature = await signer.signMessage(`Arteon
+      //   Give permission to sign messages?`)
+      //
+      //   console.log(this.signature);
     }
 
     return this
@@ -22,12 +26,17 @@ export default class Api {
       cards: {
         GENESIS: './assets/cards/GENESIS-320.png',
         'ARTX 1000': './assets/cards/ARTX 1000-320.png',
-        'ARTX 2000': './assets/cards/ARTX 2000-320.png'
+        'ARTX 2000': './assets/cards/ARTX 2000-320.png',
+        'XTREME': './assets/cards/XTREME-320.png'
       },
       fans: {
         GENESIS: './assets/fans/GENESIS.png',
         'ARTX 1000': './assets/fans/ARTX 1000.png',
-        'ARTX 2000': './assets/fans/ARTX 2000.png'
+        'ARTX 2000': './assets/fans/ARTX 2000.png',
+        'XTREME': './assets/fans/XTREME.png'
+      },
+      fronts: {
+        'XTREME': './assets/fronts/XTREME.png'
       },
       configs: {
         GENESIS: {
@@ -47,6 +56,16 @@ export default class Api {
             ['24%', '12.5%', '75px', '75px'],
             ['61.3%', '12.5%', '75px', '75px']
           ] // x, y, h, w
+        },
+        'XTREME': {
+          fans: [
+            ['11%', '12.5%', '80px', '80px'],
+            ['37%', '15%', '75px', '75px', 1],
+            ['61.3%', '12.5%', '80px', '80px']
+          ], // x, y, h, w, id
+          fronts: [
+            ['21%', '6%', '76%', '60.5%']
+          ]
         }
       }
     }
@@ -56,7 +75,8 @@ export default class Api {
     return {
       GENESIS: 50,
       'ARTX 1000': 450,
-      'ARTX 2000': 250
+      'ARTX 2000': 250,
+      'XTREME': 133
     }
   }
 

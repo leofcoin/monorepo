@@ -3,6 +3,7 @@ const Arteon = artifacts.require("./contracts/token/Arteon.sol");
 const ArteonGPUGenesis = artifacts.require("./contracts/gpus/ArteonGPUGenesis.sol");
 const ArteonGPUARTX1000 = artifacts.require("./contracts/gpus/ArteonGPUARTX1000.sol");
 const ArteonGPUARTX2000 = artifacts.require("./contracts/gpus/ArteonGPUARTX2000.sol");
+const ArteonGPUXTREME = artifacts.require("./contracts/gpus/ArteonGPUXTREME.sol");
 
 const ArteonPoolFactory = artifacts.require("./contracts/pools/ArteonPoolFactory.sol");
 const ArteonExchange = artifacts.require("./contracts/exchange/ArteonExchange.sol");
@@ -17,10 +18,12 @@ const SixtySeconds = ethers.BigNumber.from('60')
 const rewardRates = [
   ethers.utils.parseUnits(((153000 / 2.102e+7) * 50).toString(), 18),
   ethers.utils.parseUnits(((9600 / 3.154e+7) * 400).toString(), 18),
-  ethers.utils.parseUnits(((25100 / 2.102e+7) * 250).toString(), 18)
+  ethers.utils.parseUnits(((25100 / 2.102e+7) * 250).toString(), 18),
+  ethers.utils.parseUnits(((97000 / 2.102e+7) * 133).toString(), 18)
 ]
 
 const halvings = [
+  ethers.BigNumber.from('1170000'),
   ethers.BigNumber.from('1170000'),
   ethers.BigNumber.from('1170000'),
   ethers.BigNumber.from('1170000')
@@ -76,11 +79,20 @@ module.exports = async (deployer, network) => {
     }
   }
 
-  if (!addresses.cards.artx1000 && !network.includes('fork')) {
+  if (!addresses.cards.artx2000 && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUARTX2000);
     const ARTX2000 = await ArteonGPUARTX2000.deployed()
     if (network === 'mainnet' || network === 'ropsten') {
       addresses.cards.artx2000 = ARTX2000.address
+    }
+  }
+
+  if (!addresses.cards.xtreme && !network.includes('fork')) {
+    await deployer.deploy(ArteonGPUXTREME);
+    const XTREME = await ArteonGPUXTREME.deployed()
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.cards.xtreme = XTREME.address
+      // if (addresses.factory) await factory.addToken(addresses.cards.xtreme, addresses.token, SixtySeconds, rewardRates[3], halvings[3]);
     }
   }
 
@@ -105,7 +117,8 @@ module.exports = async (deployer, network) => {
   "cards": {
     "genesis": "${addresses.cards.genesis}",
     "artx1000": "${addresses.cards.artx1000}",
-    "artx2000": "${addresses.cards.artx2000}"
+    "artx2000": "${addresses.cards.artx2000}",
+    "xtreme": "${addresses.cards.xtreme}"
   }
 }`
 

@@ -6,6 +6,7 @@ import arteonAddresses from './../../addresses/addresses'
 import Api from './api'
 import './../node_modules/custom-drawer/custom-drawer'
 import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
+import ARTEON_ABI from './abis/arteon'
 import {elevation2dp} from './styles/elevation'
 
 globalThis._contracts = globalThis._contracts || []
@@ -80,6 +81,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     this.address = api.signer.address
     api.chainId = Number(ethereum.networkVersion)
     api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
+    api.getContract(api.addresses.token, ARTEON_ABI);
     // jdenticon.update(this.shadowRoot.querySelector('.avatar'), accounts[0])
   }
 

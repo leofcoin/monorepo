@@ -5,7 +5,7 @@ import ARTEON_ABI from './../abis/arteon.js'
 import './../array-repeat'
 import './arteon-button'
 import './gpu-img'
-import {rotate} from './../styles/shared'
+import {rotate, rotateBack} from './../styles/shared'
 export default customElements.define('pool-selector-item', class PoolSelectorItem extends HTMLElement {
   static get observedAttributes() {
     return ['address']
@@ -117,6 +117,9 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
         color: #333;
         pointer-events: auto;
       }
+      array-repeat {
+        pointer-events: auto;
+      }
       h4 {
         margin: 0;
         padding: 6px 0 12px 12px;
@@ -151,7 +154,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
           align-items: center;
         }
       }
-
+      ${rotateBack}
       ${rotate}
     </style>
       <flex-row data-route="overview">

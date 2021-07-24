@@ -44,6 +44,7 @@ export default customElements.define('nft-pool-cards', class NFTPoolCards extend
         padding-top: 48px;
         box-sizing: border-box;
         overflow-y: auto;
+        pointer-events: auto;
       }
 
       section {

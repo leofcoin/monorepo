@@ -12,11 +12,12 @@ export default customElements.define('pool-selector', class PoolSelector extends
     this.shadowRoot.innerHTML = this.template
 
     this._select = this._select.bind(this)
+    this._onclick = this._onclick.bind(this)
   }
 
   connectedCallback() {
     this._load()
-
+    this.addEventListener('click', this._onclick)
     this._selector.addEventListener('selected', this._select)
   }
 
@@ -32,18 +33,21 @@ export default customElements.define('pool-selector', class PoolSelector extends
     return this.shadowRoot.querySelector('array-repeat')
   }
 
+  async _isOwner() {
+    return await this.contract.owner() === api.signer.address
+  }
+
   async _load() {
-    const contract = api.getContract(api.addresses.factory, POOL_ABI)
-    console.log(contract);
-    const cardsLength = await contract.callStatic.tokens()
-    console.log(cardsLength);
+    this.contract = api.getContract(api.addresses.factory, POOL_ABI)
+    if (await this._isOwner()) this._ownerSetup()
+
+    const cardsLength = await this.contract.callStatic.tokens()
     let promises = []
+
     for (var i = 0; i < cardsLength; i++) {
-      promises.push(contract.callStatic.listedTokens(i))
+      promises.push(this.contract.callStatic.listedTokens(i))
     }
     promises = await Promise.all(promises)
-
-    console.log(promises);
 
     this._arrayRepeat.items = promises.map(address => {
       return {address}
@@ -67,10 +71,77 @@ export default customElements.define('pool-selector', class PoolSelector extends
       return
     }
   }
+
+  _ownerSetup() {
+    this.setAttribute('is-owner', '')
+    const repeat = this.shadowRoot.querySelector('custom-select').querySelector('array-repeat')
+    repeat.items = Object.keys(api.addresses.cards).map(key => {
+      return {
+        name: key,
+        address: api.addresses.cards[key]
+      }
+    })
+
+    const _onGPUSelected = ({detail}) => {
+      console.log(detail);
+      this.shadowRoot.querySelector('[data-target="add-pool"]').querySelector('[data-input="address"]').value = api.addresses.cards[detail]
+    }
+    _onGPUSelected({detail: 'genesis'})
+    this.shadowRoot.querySelector('custom-select').selected = 'genesis'
+    this.shadowRoot.querySelector('custom-select').addEventListener('selected', _onGPUSelected)
+  }
+
+  async _onclick(event) {
+    const target = event.composedPath()[0]
+    if (target.hasAttribute('data-action')) {
+      const action = target.getAttribute('data-action')
+      let _target
+      let listing
+      switch (action) {
+        case 'add-pool':
+          this.shadowRoot.querySelector('[data-input="tokenAddress"]').value = api.addresses.token
+          this._showDialog(action)
+          break;
+      }
+      return
+    }
+  }
+
+  async _showDialog(target) {
+    const {action, value} = await this.shadowRoot.querySelector(`[data-target="${target}"]`).show()
+
+    if (action === 'confirm') {
+      switch (target) {
+        case 'add-pool':
+          this._addPool(value)
+          break;
+      }
+    }
+  }
+
+  async _addPool({address, tokenAddress, blocktime, rewardRate, halving}) {
+    console.log({address, tokenAddress, blocktime, rewardRate, halving});
+    const contract = api.getContract(address, GPU_ABI)
+    console.log(contract);
+    const supplyCap = await contract.callStatic.supplyCap()
+    console.log(supplyCap);
+    const tx = await this.contract.addToken(
+      address,
+      tokenAddress,
+      ethers.BigNumber.from(blocktime),
+      ethers.utils.parseUnits(((Number(rewardRate) / 2.102e+7) * supplyCap.toNumber()).toString(), 18),
+      ethers.BigNumber.from(halving))
+
+      console.log(tx);
+  }
+
 // hardware:toys
   get template() {
     return `
     <style>
+      * {
+        pointer-events: none;
+      }
       :host {
         color: var(--primary-text-color);
         display: flex;
@@ -81,6 +152,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
         box-sizing: border-box;
         padding: 0 24px;
         padding-top: 24px;
+        justify-content: center;
       }
 
       section {
@@ -99,6 +171,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
         overflow-y: auto;
         pointer-events: auto;
         display: flex;
+        max-height: 756px;
         ${elevation2dp}
         box-shadow: 0 1px 18px 0px var(--accent-color);
       }
@@ -123,6 +196,66 @@ export default customElements.define('pool-selector', class PoolSelector extends
         height: 100%;
       }
 
+      .owner-controls {
+        opacity: 0;
+        pointer-events: none !important;
+      }
+
+      :host([is-owner]) .owner-controls.showable {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      arteon-dialog {
+        --svg-icon-color: #eee;
+      }
+
+      arteon-dialog flex-row.price {
+        padding: 0 12px 12px 12px;
+        box-sizing: border-box;
+      }
+
+      arteon-dialog flex-row.price strong {
+        padding-left: 6px;
+      }
+
+      flex-row.owner-buttons {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        transform: translateX(-50%);
+        z-index: 1010;
+        --svg-icon-color: #eee;
+      }
+
+      button {
+        display: flex;
+        align-items: center;
+        background: transparent;
+        box-sizing: border-box;
+        padding: 6px 24px;
+        color: var(--main-color);
+        border-color: var(--accent-color);
+        border-radius: 12px;
+        pointer-events: auto;
+      }
+      custom-input {
+        pointer-events: auto;
+        padding: 12px;
+        box-sizing: border-box;
+        max-width: 640px;
+        background: var(--custom-drawer-background);
+        --custom-input-color: var(--main-color);
+        border-radius: 24px;
+        margin-bottom: 24px;
+        ${elevation2dp}
+      }
+      h4 {
+        margin: 0;
+      }
+      array-repeat {
+        pointer-events: auto;
+      }
       ${scrollbar}
     </style>
     <!--
@@ -130,6 +263,14 @@ export default customElements.define('pool-selector', class PoolSelector extends
     <flex-one></flex-one>
 
     -->
+
+    <flex-row class="owner-buttons owner-controls showable">
+      <button data-action="add-pool">
+        <custom-svg-icon icon="add"></custom-svg-icon>
+        <flex-one></flex-one>
+        <strong>ADD POOL</strong>
+      </button>
+    </flex-row>
     <span class="container">
       <custom-pages attr-for-selected="data-route">
         <custom-selector data-route="overview" attr-for-selected="data-route">
@@ -156,6 +297,24 @@ export default customElements.define('pool-selector', class PoolSelector extends
         <nft-pool data-route="pool"></nft-pool>
       </custom-pages>
     </span>
+
+    <arteon-dialog class="owner-controls" data-target="add-pool">
+      <h4 slot="title">Add Pool</h4>
+      <custom-select>
+        <array-repeat>
+          <template>
+            <span class="item" title="[[item.listing]]" data-route="[[item.name]]" data-listing="[[item.listing]]">
+              [[item.name]]
+            </span>
+          </template>
+        </array-repeat>
+      </custom-select>
+      <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
+      <custom-input data-input="tokenAddress" placeholder="tokenAddress"></custom-input>
+      <custom-input data-input="blocktime" placeholder="blocktime"></custom-input>
+      <custom-input data-input="rewardRate" placeholder="reward rate"></custom-input>
+      <custom-input data-input="halving" placeholder="halving (days)"></custom-input>
+    </arteon-dialog>
     `
   }
 })
