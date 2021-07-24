@@ -155,7 +155,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
     promises = promises.map(address => this.exchangeContract.lists(address))
     promises = await Promise.all(promises)
     promises = promises.filter(promise => promise.listed === true)
-    
+
     this.listings = promises.map(({
       owner,
       gpu,
@@ -248,7 +248,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
     let nonce = await api.signer.getTransactionCount()
     let promises = [];
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
-      promises.push(this.exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++, gasLimit: 8000000}))
+      promises.push(this.exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
     }
     promises = await Promise.all(promises)
     promises = promises.map(promise => promise.wait())
