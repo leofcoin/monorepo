@@ -88,7 +88,7 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
       }
 
       .card {
-        // width: 100%;
+        width: 100%;
         height: 100%;
       }
 
