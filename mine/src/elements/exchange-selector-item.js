@@ -9,6 +9,10 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
     return ['address']
   }
 
+  get _buybutton() {
+    return this.shadowRoot.querySelector('button')
+  }
+
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
@@ -16,15 +20,8 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
     this._ownerActions = ''
     this.asset = 'assets/arteon.svg'
     this.price = '0'
-    this.tokenId = '1'
-
     this.shadowRoot.innerHTML = this.template
   }
-
-  connectedCallback() {
-
-  }
-
   attributeChangedCallback(name, old, value) {
     if(value !== old || !this[name]) this[name] = value
   }
@@ -54,9 +51,66 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
   async _render(address, isOwner) {
     const contract = api.getContract(address, GPU_ABI)
     this.symbol = await contract.callStatic.symbol()
+    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
+    const length = await exchangeContract.callStatic.gpuListingLength(address)
 
-    this.shadowRoot.innerHTML = this.template
+    if (isOwner) this._ownerSetup()
+    let promises = []
+    for (var i = 0; i < length; i++) {
+      promises.push(exchangeContract.callStatic.gpuListing(address, i))
+    }
+
+    promises = await Promise.all(promises)
+    promises = promises.map(address => exchangeContract.lists(address))
+    promises = await Promise.all(promises)
+    const lists = promises
+    promises = promises.filter(promise => promise.listed === true)
+    this.stock = String(promises.length)
+    if (promises.length === 0) {
+      // show last price
+      this.price = lists.length > 0 ? ethers.utils.formatUnits(lists[lists.length - 1].price, 18) : '0'
+      this.shadowRoot.innerHTML = this.template
+      this._buybutton.innerHTML = 'OUT OF STOCK'
+      this._buybutton.setAttribute('disabled', '')
+    } else {
+      this.price = lists.length > 0 ? ethers.utils.formatUnits(lists[lists.length - 1].price, 18) : '0'
+      this.shadowRoot.innerHTML = this.template
+
+      this._buybutton.addEventListener('click', async () => {
+        const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
+        const length = await exchangeContract.callStatic.gpuListingLength(this.address)
+
+        let promises = []
+        for (var i = 0; i < length; i++) {
+          promises.push(exchangeContract.callStatic.gpuListing(this.address, i))
+        }
+
+        promises = await Promise.all(promises)
+        promises = promises.map(address => exchangeContract.lists(address))
+        promises = await Promise.all(promises)
+        promises = promises.filter(promise => promise.listed === true)
+        const listing = promises[0];
+        api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
+      })
+    }
+    exchangeContract.on('Delist', (gpu, tokenId) => {
+      if (gpu !== this.address) return;
+
+      this.stock = String(Number(this.stock) - 1)
+      this.shadowRoot.innerHTML = this.template
+    })
+
+    this.exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
+      if (gpu !== this.address) return;
+
+      this.stock = String(Number(this.stock) + 1)
+      this.shadowRoot.innerHTML = this.template
+    })
   }
+
+  _ownerSetup() {
+  }
+
   get template() {
     return `
     <style>
@@ -66,18 +120,30 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
       :host {
         position: relative;
         display: flex;
+
         flex-direction: column;
-        box-sizing: border-box;
-        padding: 12px 24px 12px 24px;
         max-width: 320px;
         max-height: 274px;
         min-height: 274px;
         height: 100%;
         width: 100%;
-        background: rgba(225,225,225,0.12);
+        align-items: center;
+        padding: 12px 0 20px 0;
+        color: var(--main-color);
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        width: calc(100% - 6px);
         border-radius: 24px;
-        cursor: pointer;
-        ${elevation4dp}
+        max-height: 274px;
+        min-height: 274px;
+        height: 100%;
+        border: 1px solid #eee;
+        align-items: center;
+        box-sizing: border-box;
+        padding: 12px 0;
       }
       button {
         display: flex;
@@ -116,16 +182,40 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
         cursor: pointer;
       }
 
-
+      button {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--main-background-color);
+      }
+      [disabled] {
+        pointer-events: none;
+        cursor: default;
+        opacity: 0.78;
+      }
       ${rotate}
       ${rotateBack}
     </style>
-    <flex-row>
-      <span>${this.symbol ? this.symbol : 'loading'}</span>
-    </flex-row>
-    <flex-one></flex-one>
-    ${this.symbol ? `<gpu-img symbol="${this.symbol}"></gpu-img>` : '<img src="./assets/arteon.svg"></img>'}
-    <flex-one></flex-one>
+    <span class="container">
+      ${this.symbol ? `<gpu-img symbol="${this.symbol}"></gpu-img>` : '<img src="./assets/arteon.svg"></img>'}
+      <flex-one></flex-one>
+      <flex-row>
+        <span>${this.symbol ? this.symbol : 'loading'}</span>
+      </flex-row>
+      <flex-row>
+        <span>${this.price ? this.price : 'loading'}</span>
+        <strong style="padding-left: 6px">ART</strong>
+      </flex-row>
+      <flex-row>
+        <span>${this.stock ? this.stock : 'loading'}</span>
+        <strong style="padding-left: 6px">in stock  </strong>
+      </flex-row>
+      <flex-two></flex-two>
+
+    </span>
+
+    <button>BUY</button>
       `
   }
 })
