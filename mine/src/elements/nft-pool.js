@@ -36,6 +36,8 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     const id = target.dataset.id
     console.log(id);
     if (action === 'getReward') {
+      if (api.signer.address === '0x32d8960387d8d124c2d8eb07717288b7965fbe4d') return;
+      
       let earned = await this.contract.callStatic.earned()
       earned = ethers.utils.formatUnits(earned)
       console.log(earned);

@@ -17,7 +17,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = this.template
 
-    this._select = this._select.bind(this)
+    // this._select = this._select.bind(this)
   }
 
   get _selector() {
@@ -34,7 +34,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
 
   connectedCallback() {
     this._init()
-    this._selector.addEventListener('selected', this._select)
+    // this._selector.addEventListener('selected', this._select)
     // this.shadowRoot.querySelector('[data-event="search"]').addEventListener('input', this._onsearch)
   }
 
@@ -43,23 +43,23 @@ export default customElements.define('exchange-view', class ExchangeView extends
       return {address: api.addresses.cards[key]}
     })
   }
-  _select({detail}) {
-    // const target = event.composedPath()[0]
-    // const route = target.getAttribute('data-route')
-
-    if (detail === 'overview' || detail === 'back') {
-      this._pages.select('overview')
-      if (detail === 'back') history.back()
-
-      return
-    }
-
-    if (detail) {
-      this.shadowRoot.querySelector('exchange-cards')._load(detail, this._arrayRepeat.shadowRoot.querySelector(`[data-route="${detail}"]`).symbol)
-      this._pages.select('cards')
-      return
-    }
-  }
+  // _select({detail}) {
+  //   // const target = event.composedPath()[0]
+  //   // const route = target.getAttribute('data-route')
+  //
+  //   if (detail === 'overview' || detail === 'back') {
+  //     this._pages.select('overview')
+  //     if (detail === 'back') history.back()
+  //
+  //     return
+  //   }
+  //
+  //   if (detail) {
+  //     this.shadowRoot.querySelector('exchange-cards')._load(detail, this._arrayRepeat.shadowRoot.querySelector(`[data-route="${detail}"]`).symbol)
+  //     this._pages.select('cards')
+  //     return
+  //   }
+  // }
   get template() {
     return `
     <style>
@@ -70,10 +70,10 @@ export default customElements.define('exchange-view', class ExchangeView extends
         display: flex;
         flex-direction: column;
         --svg-icon-color: #eee;
-        padding: 24px 24px 48px 24px;
-        padding-bottom: 48px;
         box-sizing: border-box;
         align-items: center;
+        justify-content: center;
+        padding: 24px 0 48px 0;
       }
 
       custom-selector {
@@ -160,51 +160,33 @@ export default customElements.define('exchange-view', class ExchangeView extends
         display: flex;
         flex-direction: column;
         width: 100%;
-        pointer-events: auto
-      }
-
-      custom-pages {
-        width: 100%;
-      }
-      custom-selector array-repeat {
+        pointer-events: auto;
         flex-flow: row wrap;
-        justify-content: space-between;
+        max-width: 1400px;
+        justify-content: space-evenly;
       }
-      @media(min-width: 750px) {
-        custom-selector {
-          max-width: 720px;
-        }
-        custom-pages [data-route] {
-          align-items: center;
+      @media (min-width: 680px){
+        :host {
+          padding: 24px 12px 48px 12px;
         }
       }
-      @media(min-width: 1920px) {
-        custom-selector {
-          max-width: 1400px;
+      @media (min-width: 1200px){
+        :host {
+          padding: 24px 24px 48px 24px;
         }
       }
       ${scrollbar}
     </style>
-    <!--<custom-input data-event="search" placeholder="search by name/address"></custom-input>-->
-    <custom-pages attr-for-selected="data-route">
-      <section data-route="overview">
-        <custom-selector attr-for-selected="data-route">
-          <array-repeat max="9">
-            <style>
-              exchange-selector-item {
-                margin-bottom: 12px;
-              }
-            </style>
-            <template>
-              <exchange-selector-item address="[[item.address]]" data-route="[[item.address]]"></exchange-selector-item>
-            </template>
-          </array-repeat>
-        </custom-selector>
-      </section>
-
-      <exchange-cards data-route="cards"></exchange-cards>
-    </custom-pages>
-
+    <array-repeat max="9">
+      <style>
+        exchange-selector-item {
+          margin-bottom: 12px;
+        }
+      </style>
+      <template>
+        <exchange-selector-item address="[[item.address]]" data-route="[[item.address]]"></exchange-selector-item>
+      </template>
+    </array-repeat>
 
     `
   }
