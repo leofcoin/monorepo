@@ -209,8 +209,8 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     .drawer-item {
       pointer-events: auto;
-      font-size: 20px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 500;
       text-transform: uppercase;
       align-items: center;
       display: flex;
@@ -226,11 +226,13 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     }
 
     .drawer-item.custom-selected {
-      background: var(--accent-color);
+      border: 1px solid var(--accent-color);
       border-top-left-radius: 24px;
       border-bottom-left-radius: 24px;
       color: #eee;
       --svg-icon-color: #eee;
+      font-size: 20px;
+      font-weight: 500;
     }
 
     custom-drawer {
@@ -242,6 +244,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       position: absolute;
       overflow: hidden;
       z-index: 10000;
+      border: 1px solid;
       ${elevation2dp}
     }
 
