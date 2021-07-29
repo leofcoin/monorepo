@@ -100,7 +100,7 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
       this.shadowRoot.innerHTML = this.template
     })
 
-    this.exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
+    exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
       if (gpu !== this.address) return;
 
       this.stock = String(Number(this.stock) + 1)
