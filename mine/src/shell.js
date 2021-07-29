@@ -82,7 +82,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     api.chainId = Number(ethereum.networkVersion)
     api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
     api.getContract(api.addresses.token, ARTEON_ABI);
-    // jdenticon.update(this.shadowRoot.querySelector('.avatar'), accounts[0])
+    jdenticon.update(this.shadowRoot.querySelector('.avatar'), accounts[0])
   }
 
   async setTheme(theme) {
@@ -173,8 +173,9 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       max-height: 48px;
       border-radius: 50%;
       position: absolute;
-      right: 12px;
+      right: 8px;
       top: 12px;
+      z-index: 1000;
     }
 
     custom-selector {
@@ -302,9 +303,9 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     header .title {
       position: absolute;
-      left: auto;
-      right: 24px;
+      left: 50%;
       top: 10px;
+      transform: translateX(-50%);
       height: 48px;
     }
 
@@ -329,6 +330,12 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       opacity: 0.8;
       background: #000;
       z-index: 1000;
+    }
+
+    @media(max-width: 419px) {
+      header .title {
+        opacity: 0;
+      }
     }
     </style>
     <span class="backdrop"></span>
@@ -407,7 +414,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <flex-two></flex-two>
       </flex-row>
     </custom-drawer>
-    <!-- <canvas class="avatar"></canvas> -->
+    <canvas class="avatar"></canvas>
 
     <header>
       <flex-row class="title">
