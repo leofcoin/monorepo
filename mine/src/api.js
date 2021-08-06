@@ -147,6 +147,14 @@ export default class Api {
         if (maxAllowance.lt(listing.price)) return alert(`allowance ${maxAllowance.toString()} < price ${listing.price.toString()}`)
 
         const contract = api.getContract(api.addresses.token, ARTEON_ABI, true)
+        const balance = await contract.callStatic.balanceOf(this.signer.address)
+        if (balance.lt(listing.price)) return alert(`NOT ENOUGH TOKENS
+
+price exceeds balance
+
+balance: ${Math.round(ethers.utils.formatUnits(balance, 18) * 100) / 100} ART
+price: ${ethers.utils.formatUnits(listing.price, 18)} ART`)
+
         let allowance = await contract.callStatic.allowance(this.signer.address, this.addresses.exchange)
         let approved;
         if (allowance.isZero()) approved = await contract.approve(this.addresses.exchange, maxAllowance)
