@@ -5,6 +5,7 @@ import './pool-selector-item'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import {elevation2dp} from './../styles/elevation'
 import {scrollbar} from './../styles/shared'
+
 export default customElements.define('pool-selector', class PoolSelector extends HTMLElement {
   constructor() {
     super()
@@ -34,7 +35,8 @@ export default customElements.define('pool-selector', class PoolSelector extends
   }
 
   async _isOwner() {
-    return await this.contract.owner() === api.signer.address
+
+    return api.signer ? await this.contract.owner() === api.signer.address : false
   }
 
   async _load() {
@@ -104,6 +106,9 @@ export default customElements.define('pool-selector', class PoolSelector extends
           break;
       }
       return
+    } else if (target.hasAttribute('data-route')) {
+      console.log(target);
+      this._selector.select(target.getAttribute('data-route'))
     }
   }
 
@@ -121,7 +126,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
 
   async _addPool({address, tokenAddress, blocktime, rewardRate, halving}) {
     console.log({address, tokenAddress, blocktime, rewardRate, halving});
-    const contract = api.getContract(address, GPU_ABI)
+    const contract = api.getContract(address, GPU_ABI, true)
     console.log(contract);
     const supplyCap = await contract.callStatic.supplyCap()
     console.log(supplyCap);

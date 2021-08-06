@@ -416,7 +416,7 @@ export default class ArrayRepeat extends HTMLElement {
   }
 
   _onClick(event) {
-    let paths = event.path;
+    let paths = event.composedPath();
     for (let el of paths) {
       if (el.classList && el.classList.contains(this.itemClassName)) {
         let model = this.items[el.dataset.index];
@@ -430,6 +430,7 @@ export default class ArrayRepeat extends HTMLElement {
       }
     }
   }
+
   /**
    * Converts an attribute's name to an javascript property name
    * @param {string} string

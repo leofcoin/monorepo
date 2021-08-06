@@ -89,8 +89,13 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
         promises = promises.map(address => exchangeContract.lists(address))
         promises = await Promise.all(promises)
         promises = promises.filter(promise => promise.listed === true)
-        const listing = promises[0];
-        api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
+        let listing = promises[0];
+        try {
+          api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
+        } catch (e) {
+          let listing = promises[promises.length - 1];
+          api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
+        }
       })
     }
     exchangeContract.on('Delist', (gpu, tokenId) => {
