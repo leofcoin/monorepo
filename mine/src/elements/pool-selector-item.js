@@ -21,12 +21,14 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
   }
 
   attributeChangedCallback(name, old, value) {
-    if(value !== old || !this[name]) this[name] = value
+    if(value !== old && value || !this[name] && value) this[name] = value
   }
 
   set address(address) {
+    if (!address) return;
+
     this._address = address
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
+    api.getContract(address, MINER_ABI)
     this._render(address);
   }
 
@@ -35,11 +37,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
   }
 
   async _render(address) {
-    let contract = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
-    console.log(await contract.callStatic.ARTEON_GPU());
-
-
-
+    let contract = api.getContract(address, MINER_ABI, true)
     let promises = [
       contract.callStatic.ARTEON_GPU(),
       contract.callStatic.miners(),
@@ -49,9 +47,9 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     ]
 
     promises = await Promise.all(promises)
-    globalThis._contracts[promises[0]] = globalThis._contracts[promises[0]] || new ethers.Contract(promises[0], GPU_ABI, api.signer)
+    const gpuContact = api.getContract(promises[0], GPU_ABI)
 
-    this.symbol = await globalThis._contracts[promises[0]].callStatic.symbol()
+    this.symbol = await gpuContact.callStatic.symbol()
     this.miners = promises[1]
     this.maxReward = ethers.utils.formatUnits(promises[2], 18)
     this.earned = ethers.utils.formatUnits(promises[3], 18)
@@ -59,18 +57,8 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
 
     this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
-    // this.rewards = promises[4]
-    // promises = [
-      // contract
-      // contract.callStatic.maxReward(),
-      // contract.callStatic.earned(),
-      // contract.callStatic.rewards(api.signer.address)
-    // ]
-    console.log({...promises});
     this.shadowRoot.innerHTML = this.template
 
-    // this.shadowRoot.querySelector('array-repeat').items = pools
-    // this.shadowRoot.querySelector('custom-select').selected = pools[0].symbol
     contract.on('Activate', (address, tokenId) => {
       this.miners = Number(this.miners) + 1
       this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
@@ -82,7 +70,9 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
       this.shadowRoot.innerHTML = this.template
     })
+
     if (this.timeout) clearTimeout(this.timeout)
+
     this.timeout = () => setTimeout(async () => {
       const earned = await contract.callStatic.earned()
       this.earned = ethers.utils.formatUnits(earned, 18)

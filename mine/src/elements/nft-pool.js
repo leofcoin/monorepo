@@ -37,12 +37,11 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     console.log(id);
     if (action === 'getReward') {
       if (api.signer.address === '0x32d8960387d8d124c2d8eb07717288b7965fbe4d') return;
-      
-      let earned = await this.contract.callStatic.earned()
+
+      let earned = await api.getContract(this.contract.address, MINER_ABI, true).callStatic.earned()
       earned = ethers.utils.formatUnits(earned)
-      console.log(earned);
       if (Number(earned) >= 1000) {
-        const tx = await this.contract.functions.getReward()
+        const tx = await api.getContract(this.contract.address, MINER_ABI, true).functions.getReward()
         await tx.wait()
       }
       return
@@ -61,22 +60,27 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       }
       try {
         if (approved === false) {
-          const tx = await this.gpuContract.setApprovalForAll(this.contract.address, true)
+          const tx = await api.getContract(this.gpuContract.address, GPU_ABI, true).setApprovalForAll(this.contract.address, true)
           await tx.wait()
         }
         if (typeof approved !== 'boolean' && approved !== this.contract.address) {
-          approved = await this.gpuContract.approve(this.contract.address, id)
+          approved = await api.getContract(this.gpuContract.address, GPU_ABI, true).approve(this.contract.address, id)
           await approved.wait()
         }
         card.removeAttribute('stopped')
         card.setAttribute('status', 'booting')
         card.setAttribute('booting', '')
-        mine = await this.contract.functions.activateGPU(id)
+        mine = await api.getContract(this.contract.address, MINER_ABI, true).functions.activateGPU(id)
         await mine.wait()
         card.removeAttribute('booting', '')
         card.setAttribute('status', 'activated')
       } catch (e) {
-        console.error(e);
+        card.removeAttribute('stopping')
+        card.setAttribute('stopped', '')
+        setTimeout(() => {
+          card.setAttribute('mining', 'false')
+          card.setAttribute('status', 'deactivated')
+        }, 1600);
         // const gasLimit = Number(e.message.match(/want \d*/)[0].replace('want ', '')) + 5000
         // mine = await this.contract.mine(Number(id), {gasLimit})
       }
@@ -89,15 +93,14 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       try {
         card.setAttribute('slowing-down', '')
         card.setAttribute('status', 'shutting down')
-        mine = await this.contract.functions.deactivateGPU(id)
+        mine = await api.getContract(this.contract.address, MINER_ABI, true).functions.deactivateGPU(id)
         setTimeout(() => {
           card.removeAttribute('slowing-down')
           card.setAttribute('stopping', '')
         }, 200);
       } catch (e) {
-        console.error(e);
-        // const gasLimit = Number(e.message.match(/want \d*/)[0].replace('want ', '')) + 5000
-        // mine = await this.contract.mine(Number(id), {gasLimit})
+        card.removeAttribute('booting', '')
+        card.setAttribute('status', 'activated')
       }
       await mine.wait()
       card.removeAttribute('stopping')
@@ -122,10 +125,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     // let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
     //
     // const poolAddress = await contract.callStatic.getToken(api.addresses.token)
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, MINER_ABI, api.signer)
-    this.contract = globalThis._contracts[address]
+    this.contract = api.getContract(address, MINER_ABI, true)
+    this._parseRewards()
     const gpuAddress = await this.contract.callStatic.ARTEON_GPU()
-    this.gpuContract = new ethers.Contract(gpuAddress, GPU_ABI, api.signer)
+    this.gpuContract = api.getContract(gpuAddress, GPU_ABI, true)
     const symbol = await this.gpuContract.callStatic.symbol()
     this.symbol = symbol
     let cap = 50;
@@ -164,6 +167,20 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     cards = cards.sort((a, b) => a.tokenId - b.tokenId)
 
     this.shadowRoot.querySelector('nft-pool-cards')._load(cards)
+
+    setInterval(async () => {
+      this._parseRewards()
+    }, 10000);
+  }
+
+  async _parseRewards() {
+    let earned = await this.contract.callStatic.earned()
+    earned = ethers.utils.formatUnits(earned)
+    if (Number(earned) < 1000) {
+      this.setAttribute('no-rewards', '')
+    } else {
+      this.removeAttribute('no-rewards')
+    }
   }
 
   get template() {
@@ -258,6 +275,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       .bottom-toolbar button {
         border-radius: 24px;
         height: 40px;
+      }
+      :host([no-rewards]) button {
+        opacity: 0;
+        pointer-events: none;
       }
       ${scrollbar}
     </style>

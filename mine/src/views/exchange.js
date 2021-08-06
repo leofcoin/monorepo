@@ -187,7 +187,23 @@ export default customElements.define('exchange-view', class ExchangeView extends
         <exchange-selector-item address="[[item.address]]" data-route="[[item.address]]"></exchange-selector-item>
       </template>
     </array-repeat>
-
+    
+    <arteon-dialog class="owner-controls" data-target="add">
+      <h4>Add card</h4>
+      <custom-select>
+        <array-repeat>
+          <template>
+            <span class="item" title="[[item.listing]]" data-route="[[item.name]]" data-listing="[[item.listing]]">
+              [[item.name]]
+            </span>
+          </template>
+        </array-repeat>
+      </custom-select>
+      <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
+      <custom-input data-input="tokenId" placeholder="TokenId"></custom-input>
+      <custom-input data-input="tokenIdTo" placeholder="till TokenId"></custom-input>
+      <custom-input data-input="price" placeholder="price"></custom-input>
+    </arteon-dialog>
     `
   }
 })

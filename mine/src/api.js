@@ -5,6 +5,8 @@ import bytecode from './bytecodes/listing.js'
 
 export default class Api {
   constructor(signer) {
+    this.provider = new ethers.providers.InfuraProvider('mainnet', 'd7acc44d359646f59bf02a00930a15e6')
+    if (!signer) return
     return this._init(signer)
   }
 
@@ -12,6 +14,7 @@ export default class Api {
     this.signer = signer
     if (!this.signer.address) {
       this.signer.address = await this.signer.getAddress()
+      pubsub.publish('account-change', this.signer.address)
       // this.signature = await signer.signMessage(`Arteon
       //   Give permission to sign messages?`)
       //
@@ -84,8 +87,13 @@ export default class Api {
     return this.assets[symbol]
   }
 
-  getContract(address, abi) {
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, abi, api.signer)
+  getContract(address, abi, signer = false) {
+    if (signer) {
+      globalThis._contracts['signer'] = globalThis._contracts['signer'] = {}
+      globalThis._contracts['signer'][address] = globalThis._contracts['signer'][address] || new ethers.Contract(address, abi, api.signer)
+      return globalThis._contracts['signer'] [address]
+    }
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, abi, api.provider)
     return globalThis._contracts[address]
   }
 
@@ -113,15 +121,32 @@ export default class Api {
     }
   }
 
+  async _connectMetaMask() {
+    const accounts = await ethereum.request({method: 'eth_requestAccounts'})
+    const provider = new ethers.providers.Web3Provider(ethereum)
+    this.signer = await provider.getSigner()
+    if (!this.signer.address) {
+      this.signer.address = await this.signer.getAddress()
+    }
+    pubsub.publish('account-change', this.signer.address)
+  }
+
   get exchange() {
     return {
       buy: async (gpu, tokenId, maxAllowance) => {
+        if (!ethereum) {
+          alert('install metaMask')
+          return
+        }
+        if (!this.signer) {
+          await this._connectMetaMask()
+        }
         let listing = await api.listing.createAddress(gpu, tokenId)
-        const exchangeContract = this.getContract(api.addresses.exchange, EXCHANGE_ABI)
+        const exchangeContract = this.getContract(api.addresses.exchange, EXCHANGE_ABI, true)
         listing = await exchangeContract.callStatic.lists(listing)
         if (maxAllowance.lt(listing.price)) return alert(`allowance ${maxAllowance.toString()} < price ${listing.price.toString()}`)
 
-        const contract = api.getContract(api.addresses.token, ARTEON_ABI)
+        const contract = api.getContract(api.addresses.token, ARTEON_ABI, true)
         let allowance = await contract.callStatic.allowance(this.signer.address, this.addresses.exchange)
         let approved;
         if (allowance.isZero()) approved = await contract.approve(this.addresses.exchange, maxAllowance)
@@ -132,6 +157,36 @@ export default class Api {
         return exchangeContract.buy(listing.gpu, listing.tokenId)
       }
     }
+  }
+
+  async _addListing({address, tokenId, price, tokenIdTo}) {
+    tokenIdTo = tokenIdTo || tokenId
+    console.log({address, tokenId, price});
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, GPU_ABI, api.signer)
+
+    const isApprovedForAll = await globalThis._contracts[address].callStatic.isApprovedForAll(api.signer.address, api.addresses.exchange)
+    console.log(isApprovedForAll);
+    if (!isApprovedForAll) {
+      const approved = await globalThis._contracts[address].setApprovalForAll(api.addresses.exchange, true)
+      await approved.wait()
+    }
+    let nonce = await api.signer.getTransactionCount()
+    let promises = [];
+    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
+    for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
+      const listing = api.listing.createAddress(address, i)
+      promises.push(exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
+    }
+    promises = await Promise.all(promises)
+    promises = promises.map(promise => promise.wait())
+    promises = await Promise.all(promises)
+  }
+
+  async _changePrice({address, tokenId, price}) {
+
+    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
+    let tx = await exchangeContract.setPrice(address, tokenId, ethers.utils.parseUnits(price, 18))
+    await tx.wait()
   }
 
   get token() {

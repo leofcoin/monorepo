@@ -8,6 +8,8 @@ import './../node_modules/custom-drawer/custom-drawer'
 import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
 import ARTEON_ABI from './abis/arteon'
 import {elevation2dp} from './styles/elevation'
+import PubSub from './../node_modules/@vandeurenglenn/little-pubsub/src/index'
+globalThis.pubsub = new PubSub()
 
 globalThis._contracts = globalThis._contracts || []
 
@@ -115,9 +117,18 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     // await import('./views/login.js')
     await import('./third-party/ethers.js')
-
-    const accounts = await ethereum.request({method: 'eth_requestAccounts'})
-    await this._loadAccounts(accounts)
+    pubsub.subscribe('account-change', address => {
+      jdenticon.update(this.shadowRoot.querySelector('.avatar'), address)
+    })
+    try {
+      const accounts = await ethereum.request({method: 'eth_requestAccounts'})
+      await this._loadAccounts(accounts)
+    } catch (e) {
+      console.log(e);
+      globalThis.api = await new Api()
+      api.chainId = Number(ethereum.networkVersion) || 1
+      api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
+    }
 
     ethereum.on('accountsChanged', this._loadAccounts)
     ethereum.on('chainChanged', this._loadAccounts)

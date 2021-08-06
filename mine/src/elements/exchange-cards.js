@@ -235,7 +235,6 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
 
   async _addListing({address, tokenId, price, tokenIdTo}) {
     tokenIdTo = tokenIdTo || tokenId
-    const listing = api.listing.createAddress(address, tokenId)
     console.log({address, tokenId, price});
     globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, GPU_ABI, api.signer)
 
@@ -248,6 +247,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
     let nonce = await api.signer.getTransactionCount()
     let promises = [];
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
+      const listing = api.listing.createAddress(address, i)
       promises.push(this.exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
     }
     promises = await Promise.all(promises)
