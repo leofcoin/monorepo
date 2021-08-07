@@ -1,0 +1,21 @@
+{
+  "name": "www",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "c": "rollup -c",
+    "w": "rollup -c -w",
+    "serve": "jsproject --serve ./www --port 7070",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^2.56.0"
+  },
+  "dependencies": {
+    "@vandeurenglenn/flex-elements": "^0.1.0"
+  }
+}
