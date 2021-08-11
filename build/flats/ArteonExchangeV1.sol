@@ -816,335 +816,10 @@ abstract contract Pausable is Context {
 
 
 
+
 
-/**
- * @dev Standard math utilities missing in the Solidity language.
- */
-library Math {
-    /**
-     * @dev Returns the largest of two numbers.
-     */
-    function max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a >= b ? a : b;
-    }
-
-    /**
-     * @dev Returns the smallest of two numbers.
-     */
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    /**
-     * @dev Returns the average of two numbers. The result is rounded towards
-     * zero.
-     */
-    function average(uint256 a, uint256 b) internal pure returns (uint256) {
-        // (a + b) / 2 can overflow, so we distribute.
-        return (a / 2) + (b / 2) + (((a % 2) + (b % 2)) / 2);
-    }
-
-    /**
-     * @dev Returns the ceiling of the division of two numbers.
-     *
-     * This differs from standard division with `/` in that it rounds up instead
-     * of rounding down.
-     */
-    function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
-        // (a + b - 1) / b can overflow on addition, so we distribute.
-        return a / b + (a % b == 0 ? 0 : 1);
-    }
-}
-
-
-
-
-// CAUTION
-// This version of SafeMath should only be used with Solidity 0.8 or later,
-// because it relies on the compiler's built in overflow checks.
-
-/**
- * @dev Wrappers over Solidity's arithmetic operations.
- *
- * NOTE: `SafeMath` is no longer needed starting with Solidity 0.8. The compiler
- * now has built in overflow checking.
- */
-library SafeMath {
-    /**
-     * @dev Returns the addition of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryAdd(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            uint256 c = a + b;
-            if (c < a) return (false, 0);
-            return (true, c);
-        }
-    }
-
-    /**
-     * @dev Returns the substraction of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function trySub(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b > a) return (false, 0);
-            return (true, a - b);
-        }
-    }
-
-    /**
-     * @dev Returns the multiplication of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryMul(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-            // benefit is lost if 'b' is also tested.
-            // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-            if (a == 0) return (true, 0);
-            uint256 c = a * b;
-            if (c / a != b) return (false, 0);
-            return (true, c);
-        }
-    }
-
-    /**
-     * @dev Returns the division of two unsigned integers, with a division by zero flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryDiv(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b == 0) return (false, 0);
-            return (true, a / b);
-        }
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryMod(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b == 0) return (false, 0);
-            return (true, a % b);
-        }
-    }
-
-    /**
-     * @dev Returns the addition of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `+` operator.
-     *
-     * Requirements:
-     *
-     * - Addition cannot overflow.
-     */
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a + b;
-    }
-
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting on
-     * overflow (when the result is negative).
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a - b;
-    }
-
-    /**
-     * @dev Returns the multiplication of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `*` operator.
-     *
-     * Requirements:
-     *
-     * - Multiplication cannot overflow.
-     */
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a * b;
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers, reverting on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `/` operator.
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a / b;
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * reverting when dividing by zero.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a % b;
-    }
-
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
-     * overflow (when the result is negative).
-     *
-     * CAUTION: This function is deprecated because it requires allocating memory for the error
-     * message unnecessarily. For custom revert reasons use {trySub}.
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        unchecked {
-            require(b <= a, errorMessage);
-            return a - b;
-        }
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers, reverting with custom message on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `/` operator. Note: this function uses a
-     * `revert` opcode (which leaves remaining gas untouched) while Solidity
-     * uses an invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        unchecked {
-            require(b > 0, errorMessage);
-            return a / b;
-        }
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * reverting with custom message when dividing by zero.
-     *
-     * CAUTION: This function is deprecated because it requires allocating memory for the error
-     * message unnecessarily. For custom revert reasons use {tryMod}.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        unchecked {
-            require(b > 0, errorMessage);
-            return a % b;
-        }
-    }
-}
-
-
-
-interface IWETH is IERC20 {
-    function deposit() external payable;
-    function transfer(address to, uint value) external override returns (bool);
-    function withdraw(uint amount) external;
-    function approve(address guy, uint wad) external override returns (bool);
-    function allowance(address guy) external returns (uint);
-}
-
-
-
-interface IUniswapV2Exchange {
-    function getReserves() external view returns(uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast);
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
-    function skim(address to) external;
-    function sync() external;
-}
-
-
-library UniswapV2ExchangeLib {
-    using Math for uint256;
-    using SafeMath for uint256;
-
-    function getReturn(
-        IUniswapV2Exchange exchange,
-        address fromToken,
-        address destToken,
-        uint amountIn
-    ) internal view returns (uint256 result, bool needSync, bool needSkim) {
-        uint256 reserveIn = IWETH(fromToken).balanceOf(address(exchange));
-        uint256 reserveOut = IERC20(destToken).balanceOf(address(exchange));
-        (uint112 reserve0, uint112 reserve1,) = exchange.getReserves();
-        if (fromToken > destToken) {
-            (reserve0, reserve1) = (reserve1, reserve0);
-        }
-        needSync = (reserveIn < reserve0 || reserveOut < reserve1);
-        needSkim = !needSync && (reserveIn > reserve0 || reserveOut > reserve1);
-
-        uint256 amountInWithFee = amountIn.mul(997);
-        uint256 numerator = amountInWithFee.mul(Math.min(reserveOut, reserve1));
-        uint256 denominator = Math.min(reserveIn, reserve0).mul(1000).add(amountInWithFee);
-        result = (denominator == 0) ? 0 : numerator.div(denominator);
-    }
-}
-
-
-
-interface IUniswapV2Factory {
-  function getPair(IERC20 tokenA, IERC20 tokenB) external view returns (IUniswapV2Exchange pair);
-}
-
-
-
-
-
-contract ArteonExchangeV1P1 is Ownable, Pausable {
-  IWETH constant internal weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-  IUniswapV2Factory constant internal uniswapV2 = IUniswapV2Factory(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
-  using UniswapV2ExchangeLib for IUniswapV2Exchange;
-  using SafeERC20 for IERC20;
+contract ArteonExchange is Ownable, Pausable {
   address public ARTEON_TOKEN;
-  bool private locked;
 
   struct Listing {
     address owner;
@@ -1154,6 +829,8 @@ contract ArteonExchangeV1P1 is Ownable, Pausable {
     uint256 index;
     bool listed;
   }
+
+  address[] public listings;
 
   mapping (address => mapping(uint256 => address)) public getListing;
   mapping (address => address[]) public gpuListing;
@@ -1174,47 +851,40 @@ contract ArteonExchangeV1P1 is Ownable, Pausable {
     _;
   }
 
-  modifier lock() {
-    require(locked == false, 'ArteonExchange: LOCKED');
-    locked = true;
-    _;
-    locked = false;
+  function listingLength() external view returns (uint256) {
+    return listings.length;
   }
 
   function gpuListingLength(address gpu) external view returns (uint256) {
     return gpuListing[gpu].length;
   }
 
-  function list(address listing, address gpu, uint256 tokenId, uint256 price) external lock {
+  function list(address listing, address gpu, uint256 tokenId, uint256 price) external {
     require(getListing[gpu][tokenId] == address(0), 'ArteonExchange: LISTING_EXISTS');
     require(IERC721(gpu).ownerOf(tokenId) == msg.sender, 'ArteonExchange: NOT_AN_OWNER');
 
     getListing[gpu][tokenId] = listing;
+    listings.push(listing);
     gpuListing[gpu].push(listing);
     lists[listing].owner = msg.sender;
     lists[listing].gpu = gpu;
     lists[listing].price = price;
     lists[listing].tokenId = tokenId;
     lists[listing].listed = true;
-    lists[listing].index = gpuListing[gpu].length - 1;
+    lists[listing].index = listings.length - 1;
 
-    emit ListingCreated(gpu, tokenId, listing, gpuListing[gpu].length, price);
+    emit ListingCreated(gpu, tokenId, listing, listings.length, price);
   }
 
-  function forceDelist(address gpu, uint256 tokenId) external isListed(gpu, tokenId) onlyOwner lock {
+  function forceDelist(address gpu, uint256 tokenId) external isListed(gpu, tokenId) onlyOwner {
     __removeListing(gpu, tokenId);
   }
 
-  function delist(address gpu, uint256 tokenId) external isListed(gpu, tokenId) lock {
+  function delist(address gpu, uint256 tokenId) external isListed(gpu, tokenId) {
     _removeListing(gpu, tokenId, msg.sender);
   }
 
-  function buy(address gpu, uint256 tokenId) external payable isListed(gpu, tokenId) lock {
-    uint256 amount = msg.value;
-    if (amount > 0) {
-      require(address(msg.sender).balance >= amount, 'ArteonExchange: NOT_ENOUGH_ETH');
-      _swapETHForART(amount);
-    }
+  function buy(address gpu, uint256 tokenId) external isListed(gpu, tokenId) {
     address listing = getListing[gpu][tokenId];
     require(IERC721(lists[listing].gpu).ownerOf(lists[listing].tokenId) == lists[listing].owner, 'ArteonExchange: SELLER_DOES_NOT_OWN');
     uint256 balance = IERC20(ARTEON_TOKEN).balanceOf(msg.sender);
@@ -1238,13 +908,13 @@ contract ArteonExchangeV1P1 is Ownable, Pausable {
     emit Delist(gpu, tokenId);
   }
 
-  function setPrice(address gpu, uint256 tokenId, uint256 price) external isListed(gpu, tokenId) lock {
+  function setPrice(address gpu, uint256 tokenId, uint256 price) external isListed(gpu, tokenId) {
     require(IERC721(gpu).ownerOf(tokenId) == msg.sender, 'ArteonExchange: NOT_AN_OWNER');
     address listing = getListing[gpu][tokenId];
     lists[listing].price = price;
   }
 
-  function getPrice(address gpu, uint256 tokenId) external isListed(gpu, tokenId) lock returns (uint256 price) {
+  function getPrice(address gpu, uint256 tokenId) external isListed(gpu, tokenId) returns (uint256 price) {
     address listing = getListing[gpu][tokenId];
     return lists[listing].price;
   }
@@ -1255,27 +925,5 @@ contract ArteonExchangeV1P1 is Ownable, Pausable {
 
   function unpause() internal virtual whenPaused onlyOwner {
     super._unpause();
-  }
-
-  function _swapETHForART(uint256 amount) internal returns(uint256 returnAmount) {
-    weth.deposit{value: amount}();
-
-    IUniswapV2Exchange exchange = uniswapV2.getPair(weth, IERC20(ARTEON_TOKEN));
-    bool needSync;
-    bool needSkim;
-    (returnAmount, needSync, needSkim) = exchange.getReturn(address(weth), ARTEON_TOKEN, amount);
-    if (needSync) {
-      exchange.sync();
-    }
-    else if (needSkim) {
-      exchange.skim(0x68a17B587CAF4f9329f0e372e3A78D23A46De6b5);
-    }
-
-    SafeERC20.safeTransfer(weth, address(exchange), amount);
-    if (uint256(uint160(address(weth))) < uint256(uint160(address(ARTEON_TOKEN)))) {
-      exchange.swap(0, returnAmount, address(msg.sender), "");
-    } else {
-      exchange.swap(returnAmount, 0, address(msg.sender), "");
-    }
   }
 }

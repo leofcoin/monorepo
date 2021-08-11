@@ -225,6 +225,27 @@ export default [
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "listings",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xde74e57b"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
 				"name": "",
 				"type": "address"
@@ -319,6 +340,21 @@ export default [
 		"stateMutability": "nonpayable",
 		"type": "function",
 		"signature": "0xf2fde38b"
+	},
+	{
+		"inputs": [],
+		"name": "listingLength",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xee52a625"
 	},
 	{
 		"inputs": [
@@ -423,9 +459,8 @@ export default [
 		],
 		"name": "buy",
 		"outputs": [],
-		"stateMutability": "payable",
+		"stateMutability": "nonpayable",
 		"type": "function",
-		"payable": true,
 		"signature": "0xcce7ec13"
 	},
 	{

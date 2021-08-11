@@ -7,6 +7,7 @@ const ArteonGPUXTREME = artifacts.require("./contracts/gpus/ArteonGPUXTREME.sol"
 
 const ArteonPoolFactory = artifacts.require("./contracts/pools/ArteonPoolFactory.sol");
 const ArteonExchange = artifacts.require("./contracts/exchange/ArteonExchange.sol");
+const ArteonExchangeV1P1 = artifacts.require("./contracts/exchange/ArteonExchangeV1P1.sol");
 
 const { execSync } = require('child_process')
 const ethers = require('ethers')
@@ -53,9 +54,18 @@ module.exports = async (deployer, network) => {
     await write(`mine/src/abis/arteon.js`, `export default ${JSON.stringify(token.abi, null, '\t')}`)
   }
 
-  if (!addresses.exchange && !network.includes('fork')) {
+  if (!addresses.exchangeV1 && !network.includes('fork')) {
     await deployer.deploy(ArteonExchange, addresses.token);
-    const arteonExchange = await ArteonExchange.deployed();
+    const arteonExchangeV1 = await ArteonExchange.deployed();
+    if (network === 'mainnet' || network === 'ropsten') {
+      addresses.exchangeV1 = arteonExchangeV1.address
+    }
+    await write(`mine/src/abis/exchangeV1.js`, `export default ${JSON.stringify(arteonExchangeV1.abi, null, '\t')}`)
+  }
+
+  if (!addresses.exchange && !network.includes('fork')) {
+    await deployer.deploy(ArteonExchangeV1P1, addresses.token);
+    const arteonExchange = await ArteonExchangeV1P1.deployed();
     if (network === 'mainnet' || network === 'ropsten') {
       addresses.exchange = arteonExchange.address
     }
@@ -112,6 +122,7 @@ module.exports = async (deployer, network) => {
 
       const _addresses = `{
   "token": "${addresses.token}",
+  "exchangeV1": "${addresses.exchangeV1}",
   "exchange": "${addresses.exchange}",
   "factory": "${addresses.factory}",
   "cards": {
@@ -155,6 +166,7 @@ module.exports = async (deployer, network) => {
       execSync('truffle-flattener contracts/pools/ArteonPoolFactory.sol'),
       execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
       execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
+      execSync('truffle-flattener contracts/exchange/ArteonExchangeV1P1.sol'),
       execSync('truffle-flattener contracts/miner/ArteonMiner.sol'),
     ])
 
@@ -166,8 +178,9 @@ module.exports = async (deployer, network) => {
     await Promise.all([
       write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
       write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
-      write(`build/flats/ArteonExchange.sol`, flats[2]),
-      write(`build/flats/ArteonMiner.sol`, flats[3])
+      write(`build/flats/ArteonExchangeV1.sol`, flats[2]),
+      write(`build/flats/ArteonExchange.sol`, flats[3]),
+      write(`build/flats/ArteonMiner.sol`, flats[4])
     ])
     // console.log({
     //   token: token.address,

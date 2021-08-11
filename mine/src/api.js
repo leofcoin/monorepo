@@ -5,7 +5,7 @@ import bytecode from './bytecodes/listing.js'
 
 export default class Api {
   constructor(signer) {
-    this.provider = new ethers.providers.InfuraProvider('mainnet', 'd7acc44d359646f59bf02a00930a15e6')
+    this.provider = new ethers.providers.InfuraProvider('ropsten', 'd7acc44d359646f59bf02a00930a15e6')
     if (!signer) return
     return this._init(signer)
   }
@@ -134,6 +134,7 @@ export default class Api {
   get exchange() {
     return {
       buy: async (gpu, tokenId, maxAllowance) => {
+        console.log('buying');
         if (!ethereum) {
           alert('install metaMask')
           return
@@ -148,12 +149,23 @@ export default class Api {
 
         const contract = api.getContract(api.addresses.token, ARTEON_ABI, true)
         const balance = await contract.callStatic.balanceOf(this.signer.address)
-        if (balance.lt(listing.price)) return alert(`NOT ENOUGH TOKENS
+        let value = 0
+        if (balance.lt(listing.price)) {
+          let response = await fetch(`https://ropsten.api.0x.org/swap/v1/price?buyAmount=${listing.price.sub(balance)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+          response = await response.json()
+          const answer = await confirm(`NOT ENOUGH TOKENS
 
 price exceeds balance
 
 balance: ${Math.round(ethers.utils.formatUnits(balance, 18) * 100) / 100} ART
-price: ${ethers.utils.formatUnits(listing.price, 18)} ART`)
+price: ${ethers.utils.formatUnits(listing.price, 18)} ART
+
+Try buying using ETH?
+`)
+
+          if (answer === false) return
+          value = response.value
+        }
 
         let allowance = await contract.callStatic.allowance(this.signer.address, this.addresses.exchange)
         let approved;
@@ -162,6 +174,9 @@ price: ${ethers.utils.formatUnits(listing.price, 18)} ART`)
         else if (maxAllowance.lt(allowance)) approved = await contract.decreaseAllowance(this.addresses.exchange, allowance.sub(maxAllowance))
 
         if (approved) await approved.wait()
+        if (value > 0) {
+          return exchangeContract.buy(listing.gpu, listing.tokenId, {value, gasLimit: 2100000})
+        }
         return exchangeContract.buy(listing.gpu, listing.tokenId)
       }
     }

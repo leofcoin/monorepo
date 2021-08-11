@@ -74,10 +74,8 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
   async _loadAccounts(accounts) {
     const provider = new ethers.providers.Web3Provider(ethereum)
-    console.log(provider);
     const signer = await provider.getSigner()
     const networkVersion = Number(ethereum.networkVersion)
-    console.log(networkVersion);
     if (accounts[0] === this.address && api.chainId === Number(ethereum.networkVersion)) return
     globalThis.api = await new Api(signer)
     this.address = api.signer.address
