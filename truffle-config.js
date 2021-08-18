@@ -46,6 +46,10 @@ module.exports = {
      provider: () => new HDWalletProvider(mnemonic, 'wss://ropsten.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'),
      network_id: '3'
    },
+   goerli: {
+     provider: () => new HDWalletProvider(mnemonic, 'wss://goerli.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'),
+     network_id: '5'
+   },
     kovan: {
       provider: () => new HDWalletProvider(mnemonic, 'wss://kovan.infura.io/ws/v3/1ca30fe698514cf19a5e3e5e5c8334a8'),
       network_id: '42'
