@@ -15,4 +15,5 @@ node_modules/
 .privatekey
 
 /mine/www/**/*.js
+/mine/www/*.zip
 /build/contracts
