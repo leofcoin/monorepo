@@ -7,6 +7,7 @@
     "build/**"
   ],
   "scripts": {
+    "flatten": "node ./.build/flatten.js",
     "compile-contracts": "truffle compile",
     "deploy-contracts": "truffle deploy --network ropsten",
     "deploy-contracts-mainnet": "truffle deploy --network mainnet",
