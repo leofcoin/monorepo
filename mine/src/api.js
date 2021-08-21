@@ -2,16 +2,36 @@ import LISTING_ABI from './abis/listing.js'
 import EXCHANGE_ABI from './abis/exchange.js'
 import ARTEON_ABI from './abis/arteon.js'
 import bytecode from './bytecodes/listing.js'
-
 export default class Api {
-  constructor(signer) {
-    this.provider = new ethers.providers.InfuraProvider('mainnet', 'd7acc44d359646f59bf02a00930a15e6')
-    if (!signer) return
-    return this._init(signer)
+  constructor(network, provider, signer) {
+    this.network = network
+    this.provider = provider
+    // this.provider = new ethers.providers.EtherscanProvider(network, 'SVUVR9EZ8PPS9QTJ9MDNJFRGPWJXHB8BI4')
+    if (!provider) return
+    return this._init()
+  }
+
+  _loadScript() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.onload = () => resolve()
+      script.onerror = () => reject()
+      script.src = './third-party/matic.js'
+      document.head.appendChild(script)
+    });
+
   }
 
   async _init(signer) {
-    this.signer = signer
+    await this._loadScript()
+    this.maticPOSClient = new Matic.MaticPOSClient({
+      network: this.network === 'polygon-testnet' ? 'testnet' : 'mainnet',
+      version: this.network === 'polygon-testnet' ? 'mumbai': 'v1',
+      parentProvider: this.provider,
+      maticProvider: this.maticProvider
+    })
+    this.signer = await this.provider.getSigner()
+    console.log(this.maticPOSClient);
     if (!this.signer.address) {
       this.signer.address = await this.signer.getAddress()
       pubsub.publish('account-change', this.signer.address)
@@ -148,12 +168,24 @@ export default class Api {
 
         const contract = api.getContract(api.addresses.token, ARTEON_ABI, true)
         const balance = await contract.callStatic.balanceOf(this.signer.address)
-        if (balance.lt(listing.price)) return alert(`NOT ENOUGH TOKENS
+        if (balance.lt(listing.price)) {
+        let response = await fetch(`https://ropsten.api.0x.org/swap/v1/price?buyAmount=${listing.price.sub(balance)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+        response = await response.json()
+        const answer = await confirm(`NOT ENOUGH TOKENS
 
 price exceeds balance
 
 balance: ${Math.round(ethers.utils.formatUnits(balance, 18) * 100) / 100} ART
-price: ${ethers.utils.formatUnits(listing.price, 18)} ART`)
+price: ${ethers.utils.formatUnits(listing.price, 18)} ART
+
+Try buying using ETH?`)
+
+          if (answer === false) return
+          value = response.value
+        }
+
+        console.log(value);
+        if (value > 0) await this.token.buy(value)
 
         let allowance = await contract.callStatic.allowance(this.signer.address, this.addresses.exchange)
         let approved;
@@ -202,6 +234,9 @@ price: ${ethers.utils.formatUnits(listing.price, 18)} ART`)
       approve: (address, amount) => {
         const contract = this.getContract(api.addresses.token, ARTEON_ABI)
         return contract.approve(address, amount)
+      },
+      buy: (amount) => {
+
       }
     }
   }
