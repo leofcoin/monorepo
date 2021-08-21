@@ -8,8 +8,10 @@ import './../node_modules/custom-drawer/custom-drawer'
 import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
 import ARTEON_ABI from './abis/arteon'
 import {elevation2dp} from './styles/elevation'
-import PubSub from './../node_modules/@vandeurenglenn/little-pubsub/src/index'
-globalThis.pubsub = new PubSub()
+
+import  './../node_modules/@arteon/wallet-connect/dist/wallet-connect.browser'
+import './views/connect'
+import './elements/wallet-connect'
 
 globalThis._contracts = globalThis._contracts || []
 
@@ -40,19 +42,19 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     this._select = this._select.bind(this)
     this._loadAccounts = this._loadAccounts.bind(this)
-
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/jdenticon@3.1.0/dist/jdenticon.min.js'
-    script.setAttribute('async', '')
-    script.setAttribute('integrity', 'sha384-VngWWnG9GS4jDgsGEUNaoRQtfBGiIKZTiXwm9KpgAeaRn6Y/1tAFiyXqSzqC8Ga/')
-    script.setAttribute('crossorigin', 'anonymous')
-
-    document.head.appendChild(script)
     this._onMenuButtonClick = this._onMenuButtonClick.bind(this)
+    this._onconnect = this._onconnect.bind(this)
+
+    pubsub.subscribe('connect', this._onconnect)
     this._init()
   }
 
   connectedCallback() {
+    const account = localStorage.getItem('last-selected')
+    if (account) {
+      document.querySelector('connect-view')._hide()
+      this.setAttribute('animate-in', '')
+    }
     this.shadowRoot.querySelector('custom-svg-icon[icon="menu"]').addEventListener('click', this._onMenuButtonClick)
   }
 
@@ -96,9 +98,15 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     return
   }
 
+  async _onconnect() {
+
+    this.setAttribute('animate-in', '')
+    await walletConnect.connect('mainnet')
+  }
+
   async _init() {
 
-    await this.setTheme('dark')
+    // await this.setTheme('dark')
 
     const updatePlatform = ({matches}) => {
       if (matches) {
@@ -117,18 +125,17 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     // await import('./views/login.js')
     await import('./third-party/ethers.js')
-    pubsub.subscribe('account-change', address => {
-      jdenticon.update(this.shadowRoot.querySelector('.avatar'), address)
-    })
-    try {
-      const accounts = await ethereum.request({method: 'eth_requestAccounts'})
-      await this._loadAccounts(accounts)
-    } catch (e) {
-      console.log(e);
-      globalThis.api = await new Api()
-      api.chainId = Number(ethereum.networkVersion) || 1
-      api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
-    }
+    // try {
+    //   // const accounts = await ethereum.request({method: 'eth_requestAccounts'})
+    //   // await this._loadAccounts(accounts)
+    // } catch (e) {
+    //   console.log(e);
+      const network = this.shadowRoot.querySelector('wallet-connect').network
+      const connection = await this.shadowRoot.querySelector('wallet-connect').connect()
+      console.log(connection);
+      globalThis.api = await new Api(network, connection.provider)
+      api.addresses = await arteonAddresses(network)
+    // }
 
     ethereum.on('accountsChanged', this._loadAccounts)
     ethereum.on('chainChanged', this._loadAccounts)
@@ -169,6 +176,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       bottom: 0;
       overflow: hidden;
       background: var(--main-background-color);
+      transform: translateY(110%)
+    }
+    :host([animate-in]) {
+      transform: translateY(0);
+      transition: transform 200ms ease-in;
     }
     .container {
       position: absolute;
@@ -178,15 +190,6 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       right: 0;
       bottom: 0;
       top: 72px;
-    }
-
-    .avatar {
-      max-height: 48px;
-      border-radius: 50%;
-      position: absolute;
-      right: 8px;
-      top: 12px;
-      z-index: 1000;
     }
 
     custom-selector {
@@ -272,17 +275,17 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     header h1 {
       margin: 0;
-      padding-left: 24px;
+      padding-left: 12px;
       text-transform: capitalize;
       font-weight: 700;
       font-size: 32px;
-      letter-spacing: 12px;
+      letter-spacing: 6px;
     }
 
     a img {
       width: 32px;
     }
-
+    
     a {
       pointer-events: auto;
     }
@@ -299,7 +302,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       --svg-icon-size: 48px;
       position: absolute;
       left: 24px;
-      top: 10px;
+      top: 8px;
       pointer-events: auto;
     }
 
@@ -315,7 +318,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     header .title {
       position: absolute;
       left: 50%;
-      top: 10px;
+      top: 8px;
       transform: translateX(-50%);
       height: 48px;
     }
@@ -343,7 +346,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       z-index: 1000;
     }
 
-    @media(max-width: 419px) {
+    @media(max-width: 720px) {
       header .title {
         opacity: 0;
       }
@@ -360,6 +363,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="arrow-drop-down"><path d="M7 10l5 5 5-5z"></path></g>
         <g id="assessment"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"></path></g>
         <g id="autorenew"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"></path></g>
+        <g id="book"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"></path></g>
         <g id="build"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"></path></g>
         <g id="close"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></g>
         <g id="compare-arrows"><path d="M9.01 14H2v2h7.01v3L13 15l-3.99-4v3zm5.98-1v-3H22V8h-7.01V5L11 9l3.99 4z"></path></g>
@@ -380,6 +384,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="settings-input-hdmi"><path d="M18 7V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v3H5v6l3 6v3h8v-3l3-6V7h-1zM8 4h8v3h-2V5h-1v2h-2V5h-1v2H8V4z"></path></g>
       </defs></svg>
     </custom-svg-iconset>
+
     <custom-drawer>
       <custom-selector slot="content" attr-for-selected="data-route">
         <span class="drawer-item" data-route="pools">
@@ -425,13 +430,14 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <flex-two></flex-two>
       </flex-row>
     </custom-drawer>
-    <canvas class="avatar"></canvas>
 
     <header>
       <flex-row class="title">
         <img class="logo" src="./assets/arteon-dark.png"></img>
         <h1>arteon</h1>
       </flex-row>
+      <flex-one></flex-one>
+      <wallet-connect></wallet-connect>
     </header>
     <span class="container">
       <custom-pages attr-for-selected="data-route">
