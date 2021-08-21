@@ -41,7 +41,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
 
   async _load() {
     this.contract = api.getContract(api.addresses.factory, POOL_ABI)
-    if (await this._isOwner()) this._ownerSetup()
+    // if (await this._isOwner()) this._ownerSetup()
 
     const cardsLength = await this.contract.callStatic.tokens()
     let promises = []
