@@ -38,9 +38,19 @@
         margin: 0;
         overflow: hidden;
         font-family: 'Noto Sans', sans-serif;
+        background: var(--main-background);
       }
     </style>
-
+    <script>
+      (async () => {
+        const theme = 'dark'
+        const importee = await import(`./themes/${theme}.js`)
+        for (const prop of Object.keys(importee.default)) {
+          document.querySelector('body').style.setProperty(`--${prop}`, importee.default[prop])
+        }
+      })()
+    </script>
+    <connect-view></connect-view>
     <mine-shell drawer-opened></mine-shell>
 
     <script src="./shell.js" type="module"></script>
