@@ -8,7 +8,7 @@
     "serve": "jsproject --serve www",
     "compile": "rollup -c",
     "watch": "rollup -c -w",
-    "b": "browserify node_modules/ethers/dist/ethers.umd.js -o www/third-party/ethers.js --standalone ethers",
+    "b": "browserify node_modules/ethers/dist/ethers.umd.js -o www/third-party/ethers.js --standalone ethers && browserify ./node_modules/@walletconnect/client/dist/cjs/client.js -o www/third-party/WalletConnectClient.js --standalone WalletConnectClient",
     "precache": "sw-precache --config=sw-precache-config.js",
     "deploy": "npm run compile && npm run precache"
   },
@@ -17,18 +17,19 @@
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "devDependencies": {
     "browserify": "^17.0.0",
-    "ethers": "^5.4.4",
+    "ethers": "^5.4.5",
     "rollup": "^2.56.2",
     "sw-precache": "^5.2.1"
   },
   "dependencies": {
     "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
     "@arteon/addresses": "^0.1.4",
-    "@arteon/wallet-connect": "^1.1.1",
+    "@arteon/wallet-connect": "^1.1.2",
     "@maticnetwork/maticjs": "^2.0.45",
-    "@vandeurenglenn/custom-select": "^0.1.1",
+    "@vandeurenglenn/custom-select": "^0.1.3",
     "@vandeurenglenn/flex-elements": "^0.1.0",
     "@vandeurenglenn/little-pubsub": "^1.3.1",
+    "@walletconnect/client": "^2.0.0-beta.17",
     "custom-drawer": "^1.0.0",
     "custom-pages": "^0.12.1",
     "custom-select-mixins": "^0.13.0",
