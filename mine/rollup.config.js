@@ -2,6 +2,8 @@ import { execSync } from 'child_process'
 
 execSync('rm -rf www/*.js')
 execSync('cp -rf ./../addresses/addresses/**.js www/addresses')
+execSync('cp -rf ./node_modules/@maticnetwork/maticjs/dist/matic.min.js ./www/third-party/matic.js')
+
 
 export default [
 	{
@@ -13,6 +15,7 @@ export default [
 		},
 		external: [
 			'./third-party/ethers.js',
+			'./third-party/WalletConnectClient.js',
 			'./exchange.js'
 		]
 	}, {
