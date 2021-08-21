@@ -29,6 +29,17 @@ const halvings = [
   ethers.BigNumber.from('1170000')
 ]
 
+const updateContract = async (property, location, contract, isCard) => {
+  if (network === 'mainnet' || network === 'ropsten' ||
+      network === 'goerli' || network === 'polygon-mainnet' ||
+      network === 'polygon-mumbai') {
+        if (isCard) addresses.cards[property] = contract.address
+        else addresses[property] = contract.address;
+
+        if (location) await write(location, `export default ${JSON.stringify(contract.abi, null, '\t')}`)
+    }
+}
+
 module.exports = async (deployer, network) => {
   let addresses = {
     pools: {
@@ -43,11 +54,12 @@ module.exports = async (deployer, network) => {
   };
 
   addresses = require(`./../addresses/addresses/${network.replace('-fork', '')}.json`);
-
+//
   if (!addresses.token && !network.includes('fork')) {
     await deployer.deploy(Arteon, 'Arteon', 'ART');
     const token = await Arteon.deployed()
-    if (network === 'mainnet' || network === 'ropsten') {
+    if (network === 'mainnet' || network === 'ropsten' ||
+        network === 'goerli' || network === 'polygon- mainnet') {
       addresses.token = token.address
     }
     await write(`mine/src/abis/arteon.js`, `export default ${JSON.stringify(token.abi, null, '\t')}`)
@@ -56,59 +68,49 @@ module.exports = async (deployer, network) => {
   if (!addresses.exchange && !network.includes('fork')) {
     await deployer.deploy(ArteonExchange, addresses.token);
     const arteonExchange = await ArteonExchange.deployed();
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.exchange = arteonExchange.address
-    }
-    await write(`mine/src/abis/exchange.js`, `export default ${JSON.stringify(arteonExchange.abi, null, '\t')}`)
+    updateAddress('exchange', `mine/src/abis/exchange.js`, arteonExchange)
   }
 
   if (!addresses.cards.genesis && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUGenesis);
     const Genesis = await ArteonGPUGenesis.deployed()
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.cards.genesis = Genesis.address
-    }
-    write(`mine/src/abis/gpu.js`, `export default ${JSON.stringify(Genesis.abi, null, '\t')}`)
+    updateContract('genesis', 'mine/src/abis/gpu.js', Genesis, true)
   }
 
   if (!addresses.cards.artx1000 && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUARTX1000);
     const ARTX1000 = await ArteonGPUARTX1000.deployed()
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.cards.artx1000 = ARTX1000.address
-    }
+    updateContract('artx1000', null, ARTX1000, true)
   }
 
   if (!addresses.cards.artx2000 && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUARTX2000);
     const ARTX2000 = await ArteonGPUARTX2000.deployed()
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.cards.artx2000 = ARTX2000.address
-    }
+
+    updateContract('artx2000', null, ARTX2000, true)
   }
 
   if (!addresses.cards.xtreme && !network.includes('fork')) {
     await deployer.deploy(ArteonGPUXTREME);
     const XTREME = await ArteonGPUXTREME.deployed()
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.cards.xtreme = XTREME.address
-      // if (addresses.factory) await factory.addToken(addresses.cards.xtreme, addresses.token, SixtySeconds, rewardRates[3], halvings[3]);
-    }
+    updateContract('xtreme', null, XTREME, true)
   }
 
   if (!addresses.factory && !network.includes('fork')) {
     await deployer.deploy(ArteonPoolFactory);
     const factory = await ArteonPoolFactory.deployed();
-    if (network === 'mainnet' || network === 'ropsten') {
-      addresses.factory = factory.address
-    }
+    await updateContract('factory', `mine/src/abis/pool.js`, factory)
+
     await factory.addToken(addresses.cards.genesis, addresses.token, SixtySeconds, rewardRates[0], halvings[0]);
     await factory.addToken(addresses.cards.artx1000, addresses.token, SixtySeconds, rewardRates[1], halvings[1]);
     await factory.addToken(addresses.cards.artx2000, addresses.token, SixtySeconds, rewardRates[2], halvings[2]);
-    write(`mine/src/abis/pool.js`, `export default ${JSON.stringify(factory.abi, null, '\t')}`)
+    await factory.addToken(addresses.cards.xtreme, addresses.token, SixtySeconds, rewardRates[3], halvings[3]);
+
   }
 
-  if (network === 'ropsten' || network === 'kovan' || network === 'wapnet' || network === 'mainnet') {
+  if (network === 'ropsten' || network === 'kovan' || network === 'wapnet' ||
+      network === 'mainnet' || network === 'goerli' ||
+      network === 'polygon-mainnet' || network === 'polygon-mumbai') {
 
       const _addresses = `{
   "token": "${addresses.token}",
@@ -151,24 +153,37 @@ module.exports = async (deployer, network) => {
     //
     // promises = await Promise.all(promises)
 
-    let flats = await Promise.all([
+    let flats = [
       execSync('truffle-flattener contracts/pools/ArteonPoolFactory.sol'),
       execSync('truffle-flattener contracts/gpus/ArteonGPUGenesis.sol'),
       execSync('truffle-flattener contracts/exchange/ArteonExchange.sol'),
-      execSync('truffle-flattener contracts/miner/ArteonMiner.sol'),
-    ])
+      execSync('truffle-flattener contracts/miner/ArteonMiner.sol')
+    ]
+
+    if (network === 'polygon-mainnet' || network === 'polygon-mumbai')
+      flats.push(execSync('truffle-flattener contracts/token/ArteonMatic.sol'))
+    else
+      flats.push(execSync('truffle-flattener contracts/token/Arteon.sol'));
+
+    await Promise.all(flats)
 
     flats = flats.map(flat => flat.toString()
       .replace(/\/\/ SPDX-License-Identifier: MIT/g, '')
       .replace(/\/\/ File: (.*)\s\s/g, '')
       .replace(/pragma solidity (.*)\s/g, ''))
 
-    await Promise.all([
+    const writeFlats = [
       write(`build/flats/ArteonPoolGenesis.sol`, flats[0]),
       write(`build/flats/ArteonGPUGenesis.sol`, flats[1]),
       write(`build/flats/ArteonExchange.sol`, flats[2]),
       write(`build/flats/ArteonMiner.sol`, flats[3])
-    ])
+    ]
+
+    if (network === 'polygon-mainnet' || network === 'polygon-mumbai')
+      writeFlats.push(write('build/flats/ArteonMatic.sol', flat[4]))
+    else
+      writeFlats.push(write(`build/flats/Arteon.sol`, flats[4]));
+    await Promise.all(writeFlats)
     // console.log({
     //   token: token.address,
     //   exchange: arteonExchange.address,
