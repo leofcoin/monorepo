@@ -1,0 +1,66 @@
+[
+  {
+    "address": "0x897Abf83f0C44b86cb67ec56c006c00d56659517",
+    "blockHash": "0x8a21135474ce68f958e75841a2d5a78e9ba53421ea1f4b360bf5cba0849a3887",
+    "blockNumber": 12243888,
+    "logIndex": 298,
+    "removed": false,
+    "transactionHash": "0xe181b4b2f1554e42abc8f2d0dd3a1e842d759ff28daf6e97e748209519970a67",
+    "transactionIndex": 168,
+    "id": "log_0xff16bfd5e02dd3f5178c2ba97bec2c4f4a8063184e24bc8a4457c91410755a99",
+    "returnValues": {
+      "0": "0xbA7598a9f2e25E0b8f11667337920336b6A4c234",
+      "1": "0x922543b050cC937b7BEB62c2BD22c7916CB4e4C5",
+      "2": {
+        "_hex": "0x0e4f79559c7a9c6a4dc8"
+      },
+      "from": "0xbA7598a9f2e25E0b8f11667337920336b6A4c234",
+      "to": "0x922543b050cC937b7BEB62c2BD22c7916CB4e4C5",
+      "value": {
+        "_hex": "0x0e4f79559c7a9c6a4dc8"
+      }
+    },
+    "event": "Transfer",
+    "signature": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+    "raw": {
+      "data": "0x000000000000000000000000000000000000000000000e4f79559c7a9c6a4dc8",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "0x000000000000000000000000ba7598a9f2e25e0b8f11667337920336b6a4c234",
+        "0x000000000000000000000000922543b050cc937b7beb62c2bd22c7916cb4e4c5"
+      ]
+    }
+  },
+  {
+    "address": "0x897Abf83f0C44b86cb67ec56c006c00d56659517",
+    "blockHash": "0x8a21135474ce68f958e75841a2d5a78e9ba53421ea1f4b360bf5cba0849a3887",
+    "blockNumber": 12243888,
+    "logIndex": 299,
+    "removed": false,
+    "transactionHash": "0xe181b4b2f1554e42abc8f2d0dd3a1e842d759ff28daf6e97e748209519970a67",
+    "transactionIndex": 168,
+    "id": "log_0x301ea633761c529dcf0386f860665898774540c20244544f79b4f79ab125053f",
+    "returnValues": {
+      "0": "0xbA7598a9f2e25E0b8f11667337920336b6A4c234",
+      "1": "0x0000000000000000000000000000000000000000",
+      "2": {
+        "_hex": "0x0960eb160e4bf79e"
+      },
+      "from": "0xbA7598a9f2e25E0b8f11667337920336b6A4c234",
+      "to": "0x0000000000000000000000000000000000000000",
+      "value": {
+        "_hex": "0x0960eb160e4bf79e"
+      }
+    },
+    "event": "Transfer",
+    "signature": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+    "raw": {
+      "data": "0x0000000000000000000000000000000000000000000000000960eb160e4bf79e",
+      "topics": [
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "0x000000000000000000000000ba7598a9f2e25e0b8f11667337920336b6a4c234",
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      ]
+    }
+  }
+]
