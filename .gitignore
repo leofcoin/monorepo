@@ -17,3 +17,4 @@ node_modules/
 /mine/www/**/*.js
 /mine/www/*.zip
 /build/contracts
+node/testnet
