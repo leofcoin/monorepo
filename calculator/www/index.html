@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="./manifest.json" crossorigin="use-credentials">
+    <link rel="icon" type="image/png" href="assets/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="assets/favicon-16x16.png" sizes="16x16" />
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        globalThis.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').then((registration) => {
+            // Registration was successful
+            registration.update()
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, function(err) {
+            // registration failed :(
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <style>
+      html, body {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        top: 0;
+        right: 0;
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Noto Sans', sans-serif;
+        background: var(--main-background-color);
+      }
+    </style>
+    <script>
+      (async () => {
+        const theme = 'dark'
+        const importee = await import(`./themes/${theme}.js`)
+        for (const prop of Object.keys(importee.default)) {
+          document.querySelector('body').style.setProperty(`--${prop}`, importee.default[prop])
+        }
+      })()
+    </script>
+
+    <arteon-calculator></arteon-calculator>
+
+    <script src="./calculator.js" type="module"></script>
+  </body>
+</html>
