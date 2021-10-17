@@ -1,8 +1,10 @@
 import './../../node_modules/@vandeurenglenn/custom-select/custom-select'
+import ART_ONLINE_ABI from './../../../abis/artonline'
+import arteonAddresses from './../../../addresses/addresses'
 
 export default customElements.define('wallet-connect', class WalletConnect extends HTMLElement {
   get DEFAULT_NETWORK() {
-    return 'ethereum'
+    return 'binance-smartchain'
   }
 
   get _pages() {
@@ -35,8 +37,8 @@ export default customElements.define('wallet-connect', class WalletConnect exten
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = this.template
     let network = localStorage.getItem('last-selected-network')
-    if (network === 'polygon-mumbai') network = 'polygon-testnet'
-    if (network === 'polygon-mainnet') network = 'polygon'
+    if (network === 'binance-smartchain') network = 'binance-smartchain'
+    if (network === 'binance-smartchain-testnet') network = 'binance-smartchain-testnet'
     if (network === 'mainnet') network = 'ethereum'
     if (network === 'goerli') network = 'ethereum-testnet'
     this._networkSelect.selected =  network || this.DEFAULT_NETWORK
@@ -76,8 +78,18 @@ export default customElements.define('wallet-connect', class WalletConnect exten
     <strong class="address">${this.connection.accounts[0].slice(0, 6)}...${this.connection.accounts[0].slice(this.connection.accounts[0].length -5, this.connection.accounts[0].length)}</strong>
     <canvas class="avatar"></canvas>
     `
+
+    const address = this.connection.accounts[0]
+    const addresses = await arteonAddresses(this.network)
+
     jdenticon.update(this.shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
     localStorage.setItem('last-selected', this.connection.accounts[0])
+
+    const contract = new ethers.Contract(addresses.artonline, ART_ONLINE_ABI, this.connection.provider)
+    let allowance = await contract.callStatic.allowance(address, addresses.platform)
+    this.shadowRoot.querySelector('custom-input').setAttribute('value', ethers.utils.formatUnits(allowance, 18).toString())
+
+
     return this.connection
   }
 
@@ -98,6 +110,18 @@ export default customElements.define('wallet-connect', class WalletConnect exten
       switch (el.getAttribute('data-action')) {
         case 'dropdown':
           this.dropdown()
+          break;
+        case 'changeAllowance':
+          const contract = api.getContract(api.addresses.artonline, ART_ONLINE_ABI, api.signer)
+          let newAllowance = this.shadowRoot.querySelector('custom-input').value
+          newAllowance = ethers.utils.parseUnits(newAllowance, 18)
+          let approved;
+          let allowance = await contract.callStatic.allowance(api.signer.address, api.addresses.platform)
+          if (allowance.isZero()) approved = await contract.approve(api.addresses.platform, newAllowance)
+          else if (allowance.lt(newAllowance)) approved = await contract.increaseAllowance(api.addresses.platform, newAllowance.sub(allowance))
+          else if (newAllowance.lt(allowance)) approved = await contract.decreaseAllowance(api.addresses.platform, allowance.sub(newAllowance))
+
+          if (approved) await approved.wait()
           break;
         case 'connect':
           if (el.getAttribute('data-route') === 'arteon') {
@@ -150,7 +174,7 @@ export default customElements.define('wallet-connect', class WalletConnect exten
         cursor: pointer;
       }
       [data-route="connect"] button {
-        min-width: 158px;
+        // min-width: 158px;
       }
       .dropdown {
         opacity: 0;
@@ -159,7 +183,7 @@ export default customElements.define('wallet-connect', class WalletConnect exten
         flex-direction: column;
         width: 100%;
         height: 100%;
-        min-height: 174px;
+        min-height: 200px;
         max-width: 280px;
         max-height: 320px;
         position: absolute;
@@ -207,7 +231,7 @@ export default customElements.define('wallet-connect', class WalletConnect exten
        }
 
        .container flex-column {
-         height: 112px;
+         height: 100%;
        }
        .header {
          background: var(--accent-color);
@@ -235,6 +259,16 @@ export default customElements.define('wallet-connect', class WalletConnect exten
          font-size: 16px;
          font-weight: 500;
        }
+
+       h4 {
+         margin: 0;
+         text-transform: uppercase;
+       }
+
+       custom-input {
+         pointer-events: auto;
+         --custom-input-color: #fff;
+       }
     </style>
     <button data-action="dropdown">connect</button>
 
@@ -242,20 +276,22 @@ export default customElements.define('wallet-connect', class WalletConnect exten
       <flex-row class="header">
         <flex-one></flex-one>
         <custom-select attr-for-selected="data-route" right>
-          <flex-row data-route="ethereum">
-            <span>ethereum</span>
+
+          <flex-row data-route="binance-smartchain">
+            <span>binance-smartchain</span>
           </flex-row>
 
-          <flex-row data-route="polygon">
-            <span>polygon</span>
+          <!--
+          <flex-row data-route="ethereum">
+            <span>ethereum</span>
           </flex-row>
 
           <flex-row data-route="ethereum-testnet">
             <span>ethereum-testnet</span>
           </flex-row>
-
-          <flex-row data-route="polygon-testnet">
-            <span>polygon-testnet</span>
+          -->
+          <flex-row data-route="binance-smartchain-testnet">
+            <span>binance-smartchain-testnet</span>
           </flex-row>
         </custom-select>
       </flex-row>
@@ -265,12 +301,19 @@ export default customElements.define('wallet-connect', class WalletConnect exten
           <span class="container">
             <flex-column>
               <flex-one></flex-one>
-              <button data-action="connect" data-route="metaMask">
+              <!-- <button data-action="connect" data-route="metaMask">
                 <img src="./assets/metamask-fox.svg"></img>
                 <strong>metaMask</strong>
               </button>
-
+              -->
+                <h4>allowance</h4>
+                <custom-input value="0"></custom-input>
               <flex-one></flex-one>
+              <flex-row>
+                <flex-one></flex-one>
+                <button class="allowance" data-action="changeAllowance">Approve</button>
+                <flex-one></flex-one>
+              </flex-row>
               <!--
                <button data-action="connect" data-route="arteon">
                 <img src="./assets/arteon.svg" style="width: 30px;"></img>
@@ -313,6 +356,8 @@ export default customElements.define('wallet-connect', class WalletConnect exten
           <button>switch</button>
         </flex-column>
       </custom-pages>
+
+
     </span>
       `
   }
