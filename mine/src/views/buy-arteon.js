@@ -1,4 +1,5 @@
 import { elevation2dp } from './../styles/elevation'
+import ABI from './../../../abis/presale'
 export default customElements.define('buy-arteon-view', class BuyArteonView extends HTMLElement {
   constructor() {
     super()
@@ -15,7 +16,7 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
   }
 
   async _getPrice(amount) {
-    const response = await fetch(`https://api.0x.org/swap/v1/price?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    const response = await fetch(`https://bsc.api.0x.org/swap/v1/price?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.artonline}&sellToken=BNB`)
     const price = await response.json()
     console.log(price);
     const protocol = price.sources.filter(protocol => protocol.proportion === '1')[0]
@@ -31,7 +32,10 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
 
   async _swap() {
     const amount = this.shadowRoot.querySelector('custom-input').value
-    const response = await fetch(`https://api.0x.org/swap/v1/quote?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.token}&sellToken=ETH`)
+    // const value = Number(amount) / 43478
+    // this.contract = new ethers.Contract(api.addresses.presale, ABI, api.signer)
+    // this.contract.buyTokens(api.address, {value})
+    const response = await fetch(`https://bsc.api.0x.org/swap/v1/quote?buyAmount=${ethers.utils.parseUnits(amount, 18)}&buyToken=${api.addresses.artonline}&sellToken=BNB`)
     const quote = await response.json()
     const tx = await api.signer.sendTransaction({
       to: quote.to,
@@ -45,11 +49,14 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
     this._timeout && clearTimeout(this._timeout)
 
     this._timeout = () => setTimeout(() => {
+      const input = this.shadowRoot.querySelector('custom-input')
+      this.shadowRoot.querySelector('button').innerHTML = `BUY ${input.value} ART FOR ${Number(input.value) / 43478} BNB`
       this._getPrice(this.shadowRoot.querySelector('custom-input').value)
     }, 200);
 
     this._timeout()
   }
+
   get template() {
     return `
     <style>
