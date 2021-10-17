@@ -17,14 +17,14 @@
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "devDependencies": {
     "browserify": "^17.0.0",
-    "ethers": "^5.4.5",
-    "rollup": "^2.56.2",
+    "ethers": "^5.4.7",
+    "rollup": "^2.56.3",
     "sw-precache": "^5.2.1"
   },
   "dependencies": {
     "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
     "@arteon/addresses": "^0.1.4",
-    "@arteon/wallet-connect": "^1.1.2",
+    "@arteon/wallet-connect": "^1.1.4",
     "@maticnetwork/maticjs": "^2.0.45",
     "@vandeurenglenn/custom-select": "^0.1.3",
     "@vandeurenglenn/flex-elements": "^0.1.0",
