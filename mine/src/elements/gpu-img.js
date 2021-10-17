@@ -1,5 +1,3 @@
-import EXCHANGE_ABI from './../abis/exchange'
-import GPU_ABI from './../abis/gpu'
 import {elevation4dp} from '../styles/elevation'
 import {rotate, basicRotation} from '../styles/shared'
 

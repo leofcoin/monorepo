@@ -1,14 +1,11 @@
-import MINER_ABI from './../abis/miner.js'
-import POOL_ABI from './../abis/pool.js'
-import GPU_ABI from './../abis/gpu.js'
-import ARTEON_ABI from './../abis/arteon.js'
+import PLATFORM_ABI from './../../../abis/platform.js'
 import './../array-repeat'
 import './arteon-button'
 import './gpu-img'
 import {rotate, rotateBack} from './../styles/shared'
 export default customElements.define('pool-selector-item', class PoolSelectorItem extends HTMLElement {
   static get observedAttributes() {
-    return ['address']
+    return ['symbol', 'id']
   }
 
   constructor() {
@@ -24,66 +21,70 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     if(value !== old && value || !this[name] && value) this[name] = value
   }
 
-  set address(address) {
-    if (!address) return;
+  set symbol(symbol) {
+    if (!symbol) return;
 
-    this._address = address
-    api.getContract(address, MINER_ABI)
-    this._render(address);
+    this._symbol = symbol
+    this._render();
   }
 
-  get address() {
-    return this._address
+  set id(id) {
+    if (id === undefined) return;
+
+    this._id = id
+    this._render();
   }
 
-  async _render(address) {
-    let contract = api.getContract(address, MINER_ABI, true)
-    let promises = [
-      contract.callStatic.ARTEON_GPU(),
-      contract.callStatic.miners(),
-      contract.callStatic.getMaxReward(),
-      contract.callStatic.earned(),
-      contract.callStatic.ARTEON_TOKEN()
-    ]
+  get id() {
+    return this._id
+  }
 
-    promises = await Promise.all(promises)
-    const gpuContact = api.getContract(promises[0], GPU_ABI)
+  get symbol() {
+    return this._symbol
+  }
 
-    this.symbol = await gpuContact.callStatic.symbol()
-    this.miners = promises[1]
-    this.maxReward = ethers.utils.formatUnits(promises[2], 18)
-    this.earned = ethers.utils.formatUnits(promises[3], 18)
-    this.maxRewardShort = Math.round(Number(this.maxReward * 1000)) / 1000
-    this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
+  async _render() {
+    if (this.symbol, this.id) {
+      let contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+      console.log(contract);
+      let promises = [
+        contract.callStatic.miners(ethers.BigNumber.from(this.id)),
+        contract.callStatic.getMaxReward(ethers.BigNumber.from(this.id)),
+        contract.callStatic.earned(api.signer.address, ethers.BigNumber.from(this.id)),
+        contract.callStatic.cap(ethers.BigNumber.from(this.id)),
+        contract.callStatic.artOnline()
+      ]
+      promises = await Promise.all(promises)
 
-    this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
-    this.shadowRoot.innerHTML = this.template
-
-    contract.on('Activate', (address, tokenId) => {
-      this.miners = Number(this.miners) + 1
-      this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
-      this.shadowRoot.innerHTML = this.template
-    })
-
-    contract.on('Deactivate', (address, tokenId) => {
-      this.miners = Number(this.miners) - 1
-      this.difficulty = Math.round((this.miners / api.maximumSupply[this.symbol]) * 1000) / 1000
-      this.shadowRoot.innerHTML = this.template
-    })
-
-    if (this.timeout) clearTimeout(this.timeout)
-
-    this.timeout = () => setTimeout(async () => {
-      const earned = await contract.callStatic.earned()
-      this.earned = ethers.utils.formatUnits(earned, 18)
+      // this.symbol = await gpuContact.callStatic.symbol()
+      this.miners = Number(promises[0])
+      this.maxReward = ethers.utils.formatUnits(promises[1], 18)
+      this.earned = ethers.utils.formatUnits(promises[2], 18)
+      this.maxRewardShort = Math.round(Number(this.maxReward * 1000)) / 1000
       this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
-      const el = this.shadowRoot.querySelector('span.earned')
-      el.title = `earned: ${this.earned}`
-      el.innerHTML = this.earnedShort
-      this.timeout()
-    }, 10000);
 
-    this.timeout()
+      this.difficulty = Math.round((this.miners / promises[3] * 1000)) / 1000
+
+      this.shadowRoot.innerHTML = this.template
+
+      if (this.timeout) clearTimeout(this.timeout)
+
+      this.timeout = () => setTimeout(async () => {
+        const earned = await contract.callStatic.earned(api.signer.address, this.id)
+        this.earned = ethers.utils.formatUnits(earned, 18)
+        this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
+        const el = this.shadowRoot.querySelector('span.earned')
+        el.title = `earned: ${this.earned}`
+        el.innerHTML = this.earnedShort
+        const miners = await contract.callStatic.miners(ethers.BigNumber.from(this.id))
+        this.miners = Number(miners)
+        this.difficulty = Math.round((this.miners / promises[3] * 1000)) / 1000
+        this.timeout()
+      }, 10000);
+
+      this.timeout()
+    }
+
   }
 // hardware:toys
   get template() {
@@ -128,6 +129,14 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
         padding: 0 6px;
       }
 
+      .logo {
+        height: 20px;
+        width: 20px;
+        margin: 0;
+        margin-left: 12px;
+        box-sizing: border-box;
+      }
+
       custom-svg-icon {
         margin-left: 12px;
       }
@@ -168,15 +177,15 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
             <flex-one></flex-one>
             <span>${this.difficulty}</span>
           </flex-row>
-          <flex-row>
-            <custom-svg-icon icon="attach-money"></custom-svg-icon>
-            <span class="explainer">earned</span>
+          <flex-row style="align-items: flex-end; height: 24px;">
+            <img class="logo" src="assets/arteon.svg"></img>
+            <span class="explainer">current shares</span>
             <flex-one></flex-one>
             <span title="${this.earned}" class="earned">${this.earnedShort}</span>
           </flex-row>
           <flex-one></flex-one>
 
-          <flex-row>
+          <!-- <flex-row>
             <custom-svg-icon icon="gift"></custom-svg-icon>
             <span class="explainer">reward</span>
             <flex-one></flex-one>
@@ -190,6 +199,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
               </array-repeat>
             </custom-select>
           </flex-row>
+          -->
         </flex-column>
         <gpu-img symbol="${this.symbol}" loading="lazy"></gpu-img>
       </flex-row>

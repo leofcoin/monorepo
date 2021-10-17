@@ -1,5 +1,3 @@
-import MINER_ABI from './../abis/miner.js'
-import GPU_ABI from './../abis/gpu.js'
 import './nft-pool-card'
 
 const mp4s = {

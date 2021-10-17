@@ -1,14 +1,12 @@
 import './../../node_modules/custom-tabs/custom-tabs'
 import './../../node_modules/custom-tabs/custom-tab'
-import EXCHANGE_ABI from './../abis/exchange.js'
-import GPU_ABI from './../abis/gpu.js'
-import ARTEON_ABI from './../abis/arteon';
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import {elevation2dp} from '../styles/elevation'
 import './../array-repeat'
 import './../elements/exchange-selector-item'
 import './../elements/exchange-cards'
 import { scrollbar } from './../styles/shared'
+import PLATFORM_ABI from './../../../abis/platform'
 
 export default customElements.define('exchange-view', class ExchangeView extends HTMLElement {
   constructor() {
@@ -39,8 +37,21 @@ export default customElements.define('exchange-view', class ExchangeView extends
   }
 
   async _init() {
-    this._arrayRepeat.items = Object.keys(api.addresses.cards).map(key => {
-      return {address: api.addresses.cards[key]}
+
+    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+    const tokens = await this.contract.callStatic.tokensLength()
+    let promises = []
+
+    for (let i = 0; i < Number(tokens.toString()); i++) {
+      promises.push(this.contract.callStatic.token(i))
+    }
+    promises = await Promise.all(promises)
+
+    console.log(promises);
+    let i = 0
+    this._arrayRepeat.items = promises.map((symbol) => {
+      i++
+      return {symbol, i: i - 1}
     })
   }
   // _select({detail}) {
@@ -184,10 +195,10 @@ export default customElements.define('exchange-view', class ExchangeView extends
         }
       </style>
       <template>
-        <exchange-selector-item address="[[item.address]]" data-route="[[item.address]]"></exchange-selector-item>
+        <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
       </template>
     </array-repeat>
-    
+
     <arteon-dialog class="owner-controls" data-target="add">
       <h4>Add card</h4>
       <custom-select>

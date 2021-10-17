@@ -1,6 +1,6 @@
-import LISTING_ABI from './abis/listing.js'
-import EXCHANGE_ABI from './abis/exchange.js'
-import ARTEON_ABI from './abis/arteon.js'
+import PLATFORM_ABI from './../../abis/platform.js'
+import EXCHANGE_ABI from './../../abis/exchange.js'
+import ARTONLINE_ABI from './../../abis/artonline.js'
 import bytecode from './bytecodes/listing.js'
 export default class Api {
   constructor(network, provider, signer) {
@@ -23,15 +23,13 @@ export default class Api {
   }
 
   async _init(signer) {
-    await this._loadScript()
-    this.maticPOSClient = new Matic.MaticPOSClient({
-      network: this.network === 'polygon-testnet' ? 'testnet' : 'mainnet',
-      version: this.network === 'polygon-testnet' ? 'mumbai': 'v1',
-      parentProvider: this.provider,
-      maticProvider: this.maticProvider
-    })
+    // this.maticPOSClient = new Matic.MaticPOSClient({
+    //   network: this.network === 'polygon-testnet' ? 'testnet' : 'mainnet',
+    //   version: this.network === 'polygon-testnet' ? 'mumbai': 'v1',
+    //   parentProvider: this.provider,
+    //   maticProvider: this.maticProvider
+    // })
     this.signer = await this.provider.getSigner()
-    console.log(this.maticPOSClient);
     if (!this.signer.address) {
       this.signer.address = await this.signer.getAddress()
       pubsub.publish('account-change', this.signer.address)
@@ -48,15 +46,17 @@ export default class Api {
     return {
       cards: {
         GENESIS: './assets/cards/GENESIS-320.png',
-        'ARTX 1000': './assets/cards/ARTX 1000-320.png',
-        'ARTX 2000': './assets/cards/ARTX 2000-320.png',
-        'XTREME': './assets/cards/XTREME-320.png'
+        'ARTX1000': './assets/cards/ARTX 1000-320.png',
+        'ARTX2000': './assets/cards/ARTX 2000-320.png',
+        'XTREME': './assets/cards/XTREME-320.png',
+        'MODULE': './assets/cards/MODULE-320.png',
       },
       fans: {
         GENESIS: './assets/fans/GENESIS.png',
-        'ARTX 1000': './assets/fans/ARTX 1000.png',
-        'ARTX 2000': './assets/fans/ARTX 2000.png',
-        'XTREME': './assets/fans/XTREME.png'
+        'ARTX1000': './assets/fans/ARTX 1000.png',
+        'ARTX2000': './assets/fans/ARTX 2000.png',
+        'XTREME': './assets/fans/XTREME.png',
+        'MODULE': './assets/fans/MODULE.png'
       },
       fronts: {
         'XTREME': './assets/fronts/XTREME.png'
@@ -69,12 +69,12 @@ export default class Api {
             ['68%', '30%', '76px', '76px']
           ] // x, y, h, w
         },
-        'ARTX 1000': {
+        'ARTX1000': {
           fans: [
             ['73.5%', '33%', '48px', '48px'],
           ] // x, y, h, w
         },
-        'ARTX 2000': {
+        'ARTX2000': {
           fans: [
             ['25%', '12.5%', '75px', '75px'],
             ['63.3%', '12.5%', '75px', '75px']
@@ -89,6 +89,11 @@ export default class Api {
           fronts: [
             ['22%', '6%', '76%', '62.5%']
           ]
+        },
+        'MODULE': {
+          fans: [
+            ['49.5%', '17%', '76px', '76px'],
+          ] // x, y, h, w
         }
       }
     }
@@ -120,7 +125,7 @@ export default class Api {
   get listing() {
     return {
       price: listing => {
-        const contract = this.getContract(listing, LISTING_ABI)
+        const contract = this.getContract(api.addresses.platform, PLATFORM_ABI)
         return contract.getPrice()
       },
       createAddress: (gpu, tokenId) => {
@@ -131,13 +136,6 @@ export default class Api {
           solidityKeccak256(['bytes'], [bytecode])
         )
       }
-    }
-  }
-
-  get arteon() {
-    const contract = this.getContract(api.addresses.exchange, EXCHANGE_ABI)
-    return {
-
     }
   }
 
@@ -162,11 +160,11 @@ export default class Api {
           await this._connectMetaMask()
         }
         let listing = await api.listing.createAddress(gpu, tokenId)
-        const exchangeContract = this.getContract(api.addresses.exchange, EXCHANGE_ABI, true)
+        const exchangeContract = this.getContract(api.addresses.platformProxy, PLATFORM_ABI, true)
         listing = await exchangeContract.callStatic.lists(listing)
         if (maxAllowance.lt(listing.price)) return alert(`allowance ${maxAllowance.toString()} < price ${listing.price.toString()}`)
 
-        const contract = api.getContract(api.addresses.token, ARTEON_ABI, true)
+        const contract = api.getContract(api.addresses.token, ARTONLINE_ABI, true)
         const balance = await contract.callStatic.balanceOf(this.signer.address)
         if (balance.lt(listing.price)) {
         let response = await fetch(`https://ropsten.api.0x.org/swap/v1/price?buyAmount=${listing.price.sub(balance)}&buyToken=${api.addresses.token}&sellToken=ETH`)
@@ -212,10 +210,10 @@ Try buying using ETH?`)
     }
     let nonce = await api.signer.getTransactionCount()
     let promises = [];
-    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
+    const contract = this.getContract(api.addresses.platform, PLATFORM_ABI)
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
       const listing = api.listing.createAddress(address, i)
-      promises.push(exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
+      promises.push(contract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
     }
     promises = await Promise.all(promises)
     promises = promises.map(promise => promise.wait())
@@ -224,20 +222,43 @@ Try buying using ETH?`)
 
   async _changePrice({address, tokenId, price}) {
 
-    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
-    let tx = await exchangeContract.setPrice(address, tokenId, ethers.utils.parseUnits(price, 18))
+    const contract = this.getContract(api.addresses.platform, PLATFORM_ABI)
+    let tx = await contract.setPrice(address, tokenId, ethers.utils.parseUnits(price, 18))
     await tx.wait()
   }
 
   get token() {
     return {
+      permit: async () => {
+        const time = new Date().getTime()
+        const deadline = time / 1000 + 86400 // 24 hrs
+
+        const contract = api.getContract(api.addresses.artonline, ARTONLINE_ABI, api.signer)
+        const nonces = await contract.nonces(api.signer.address)
+
+        await contract.permit(api.signer.address, api.addresses.platform, ethers.utils.parseUnits('10000'), nonces, deadline)
+      },
       approve: (address, amount) => {
-        const contract = this.getContract(api.addresses.token, ARTEON_ABI)
+        const contract = this.getContract(api.addresses.artonline, ARTONLINE_ABI)
         return contract.approve(address, amount)
       },
       buy: (amount) => {
 
       }
     }
+  }
+
+  get cards() {
+    return ['GENESIS', 'ARTX1000', 'ARTX2000', 'XTREME', 'MODULE']
+  }
+
+
+
+  async calculateStock(id) {
+    const exchangeContract = new ethers.Contract(api.addresses.exchange, EXCHANGE_ABI, this.signer)
+    const platformContract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, this.signer)
+    const supplyCap = await platformContract.cap(id)
+    const totalSupply = await platformContract.totalSupply(id)
+    return supplyCap.sub(totalSupply).toString()
   }
 }

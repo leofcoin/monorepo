@@ -2,12 +2,11 @@ import { execSync } from 'child_process'
 
 execSync('rm -rf www/*.js')
 execSync('cp -rf ./../addresses/addresses/**.js www/addresses')
-execSync('cp -rf ./node_modules/@maticnetwork/maticjs/dist/matic.min.js ./www/third-party/matic.js')
 
 
 export default [
 	{
-		input: ['src/shell.js', 'src/views/pools.js', 'src/views/exchange.js', 'src/views/wallet.js', 'src/views/buy-arteon.js'],
+		input: ['src/shell.js', 'src/views/pools.js', 'src/views/send.js', 'src/views/exchange.js', 'src/views/wallet.js', 'src/views/buy-arteon.js'],
 		output: {
 			dir: 'www',
 			format: 'es',

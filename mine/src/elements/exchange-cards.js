@@ -1,8 +1,7 @@
 import './../../node_modules/custom-tabs/custom-tabs'
 import './../../node_modules/custom-tabs/custom-tab'
-import EXCHANGE_ABI from './../abis/exchange.js'
-import GPU_ABI from './../abis/gpu.js'
-import ARTEON_ABI from './../abis/arteon';
+import PLATFORM_ABI from './../../../abis/platform.js'
+import ARTONLINE_ABI from './../../../abis/artonline';
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import {elevation2dp} from '../styles/elevation'
 import './../elements/arteon-dialog'
@@ -74,7 +73,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
           console.log(target);
           _target.querySelector('[data-input="address"]').value = target.dataset.gpu
           _target.querySelector('[data-input="tokenId"]').value = target.dataset.id
-          const contract = await api.getContract(api.addresses.token, ARTEON_ABI)
+          const contract = await api.getContract(api.addresses.artonline, ARTONLINE_ABI)
           console.log(contract);
           const maxAllowance = await contract.callStatic.allowance(api.signer.address, api.addresses.exchange)
           _target.querySelector('[data-input="allowance"]').value = maxAllowance.lt(target.dataset.price) ? ethers.utils.formatUnits(target.dataset.price, 18) : ethers.utils.formatUnits(maxAllowance, 18)
@@ -122,18 +121,18 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
   }
 
   async _delistCard({address, tokenId}) {
-    let tx = await this.exchangeContract.delist(address, tokenId)
+    let tx = await this.contract.delist(address, tokenId)
     await tx.wait()
   }
 
   async _changePrice({address, tokenId, price}) {
-    let tx = await this.exchangeContract.setPrice(address, tokenId, ethers.utils.parseUnits(price, 18))
+    let tx = await this.contract.setPrice(address, tokenId, ethers.utils.parseUnits(price, 18))
     await tx.wait()
   }
 
   async _load(address, symbol) {
-    this.exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
-    const length = await this.exchangeContract.callStatic.gpuListingLength(address)
+    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI)
+    const length = await this.contract.callStatic.gpuListingLength(address)
     console.log(length.toNumber());
     if (length.toNumber() === 0) {
       this.shadowRoot.querySelector('array-repeat.cards').shadowRoot.innerHTML = `
@@ -146,13 +145,13 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
 
     let promises = []
     for (var i = 0; i < length; i++) {
-      promises.push(this.exchangeContract.callStatic.gpuListing(address, i))
+      promises.push(this.contract.callStatic.gpuListing(address, i))
     }
 
     promises = await Promise.all(promises)
     const isOwner = await this._isOwner()
     if (isOwner) this._ownerSetup()
-    promises = promises.map(address => this.exchangeContract.lists(address))
+    promises = promises.map(address => this.contract.lists(address))
     promises = await Promise.all(promises)
     promises = promises.filter(promise => promise.listed === true)
 
@@ -176,7 +175,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
 
     this.shadowRoot.querySelector('array-repeat.cards').items = this.listings
 
-    this.exchangeContract.on('Delist', (gpu, tokenId) => {
+    this.contract.on('Delist', (gpu, tokenId) => {
       console.log({gpu});
       setTimeout(() => {
         const item = this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)
@@ -185,7 +184,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
       }, 10000);
     })
 
-    this.exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
+    this.contract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
       if (this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)) return;
       this.listings.push({listing, index, tokenId, gpu, isOwner})
       const item = document.createElement('exchange-item')
@@ -194,7 +193,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
       this._arrayRepeat.shadowRoot.appendChild(item)
     })
 
-    this.exchangeContract.on('Buy', (gpu, tokenId, listing, owner, price) => {
+    this.contract.on('Buy', (gpu, tokenId, listing, owner, price) => {
       // if (owner === api.signer.address) this.pushNotification(true)
 
       const item = this._arrayRepeat.shadowRoot.querySelector(`exchange-item[listing="${listing}"]`)
@@ -236,7 +235,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
   async _addListing({address, tokenId, price, tokenIdTo}) {
     tokenIdTo = tokenIdTo || tokenId
     console.log({address, tokenId, price});
-    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, GPU_ABI, api.signer)
+    globalThis._contracts[address] = globalThis._contracts[address] || new ethers.Contract(address, PLATFORM_ABI, api.signer)
 
     const isApprovedForAll = await globalThis._contracts[address].callStatic.isApprovedForAll(api.signer.address, api.addresses.exchange)
     console.log(isApprovedForAll);
@@ -248,7 +247,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
     let promises = [];
     for (let i = Number(tokenId); i <= Number(tokenIdTo); i++) {
       const listing = api.listing.createAddress(address, i)
-      promises.push(this.exchangeContract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
+      promises.push(this.contract.list(listing, address, i, ethers.utils.parseUnits(price, 18), {nonce: nonce++}))
     }
     promises = await Promise.all(promises)
     promises = promises.map(promise => promise.wait())
@@ -266,7 +265,7 @@ export default customElements.define('exchange-cards', class ExchangeCards exten
   }
 
   async _isOwner() {
-    return await this.exchangeContract.owner() === api.signer.address
+    return await this.contract.owner() === api.signer.address
   }
 
   _select({detail}) {

@@ -1,5 +1,4 @@
-import POOL_ABI from './../abis/pool.js'
-import GPU_ABI from './../abis/gpu.js'
+import PLATFORM_ABI from './../../../abis/platform.js'
 import './../array-repeat'
 import './pool-selector-item'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
@@ -40,19 +39,26 @@ export default customElements.define('pool-selector', class PoolSelector extends
   }
 
   async _load() {
-    this.contract = api.getContract(api.addresses.factory, POOL_ABI)
+    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI)
     // if (await this._isOwner()) this._ownerSetup()
 
-    const cardsLength = await this.contract.callStatic.tokens()
+    const tokens = await this.contract.callStatic.poolsLength()
     let promises = []
 
-    for (var i = 0; i < cardsLength; i++) {
-      promises.push(this.contract.callStatic.listedTokens(i))
+    for (let i = 0; i < Number(tokens.toString()); i++) {
+      promises.push(this.contract.callStatic.pool(i))
     }
     promises = await Promise.all(promises)
 
-    this._arrayRepeat.items = promises.map(address => {
-      return {address}
+    promises = promises.map(id => this.contract.callStatic.token(id))
+
+    promises = await Promise.all(promises)
+
+    console.log(promises);
+    let i = 0
+    this._arrayRepeat.items = promises.map((symbol) => {
+      i++
+      return {symbol, i: i - 1}
     })
   }
 
@@ -69,7 +75,10 @@ export default customElements.define('pool-selector', class PoolSelector extends
 
     if (detail) {
       this._pages.select('pool')
-      this.shadowRoot.querySelector('nft-pool')._load(detail)
+      const id = detail;
+      const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
+      const symbol = el.getAttribute('symbol')
+      this.shadowRoot.querySelector('nft-pool')._load({symbol, id})
       return
     }
   }
@@ -298,7 +307,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
               }
               </style>
             <template>
-              <pool-selector-item address="[[item.address]]" data-route="[[item.address]]"></pool-selector-item>
+              <pool-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></pool-selector-item>
             </template>
           </array-repeat>
         </custom-selector>

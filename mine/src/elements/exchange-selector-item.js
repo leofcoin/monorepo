@@ -1,13 +1,14 @@
-import EXCHANGE_ABI from './../abis/exchange'
-import GPU_ABI from './../abis/gpu'
+import EXCHANGE_ABI from './../../../abis/exchange'
+import PLATFORM_ABI from './../../../abis/platform'
+import ART_ONLINE_ABI from './../../../abis/artonline'
 import {elevation4dp} from '../styles/elevation'
 import {rotate, rotateBack} from '../styles/shared'
 import './gpu-img'
 export default customElements.define('exchange-selector-item', class ExchangeSelectorItem extends HTMLElement {
 
-  static get observedAttributes() {
-    return ['address']
-  }
+  // static get observedAttributes() {
+  //   return ['symbol', 'id']
+  // }
 
   get _buybutton() {
     return this.shadowRoot.querySelector('button')
@@ -21,99 +22,107 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
     this.asset = 'assets/arteon.svg'
     this.price = '0'
     this.shadowRoot.innerHTML = this.template
-  }
-  attributeChangedCallback(name, old, value) {
-    if(value !== old || !this[name]) this[name] = value
-  }
 
-  set address(address) {
-    this._observer()
+    this._onbuy = this._onbuy.bind(this)
+    this._onevent = this._onevent.bind(this)
   }
 
-  get address() {
-    return this.getAttribute('address')
+  connectedCallback() {
+    this._render(this.symbol, this.id)
+  }
+  // attributeChangedCallback(name, old, value) {
+  //   if(value !== old || !this[name]) this[name] = value
+  // }
+
+  set id(value) {
+    this.setAttribute('id', value)
   }
 
-  set isOwner(isOwner) {
-    this._observer()
+  get id() {
+    return this.getAttribute('id')
   }
 
-  get isOwner() {
-    return this.getAttribute('is-owner')
+  set symbol(value) {
+    this.setAttribute('symbol', value)
   }
 
-  _observer() {
-    if (!this.address) return
-
-    this._render(this.address)
+  get symbol() {
+    return this.getAttribute('symbol')
   }
 
-  async _render(address, isOwner) {
-    const contract = api.getContract(address, GPU_ABI)
-    this.symbol = await contract.callStatic.symbol()
-    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
-    const length = await exchangeContract.callStatic.gpuListingLength(address)
-
-    if (isOwner) this._ownerSetup()
-    let promises = []
-    for (var i = 0; i < length; i++) {
-      promises.push(exchangeContract.callStatic.gpuListing(address, i))
-    }
-
-    promises = await Promise.all(promises)
-    promises = promises.map(address => exchangeContract.lists(address))
-    promises = await Promise.all(promises)
-    const lists = promises
-    promises = promises.filter(promise => promise.listed === true)
-    this.stock = String(promises.length)
-    if (promises.length === 0) {
+  async _render(symbol, id) {
+    const exchangeContract = new ethers.Contract(api.addresses.exchange, EXCHANGE_ABI, api.signer)
+    const platformContract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, api.signer)
+    const listing = await exchangeContract.lists(id)
+    const supplyCap = await platformContract.cap(id)
+    const totalSupply = await platformContract.totalSupply(id)
+    this.stock = await api.calculateStock(id)
+    this.price = ethers.utils.formatUnits(listing.price, 18)
+    if (listing.listed === 0) {
       // show last price
-      this.price = lists.length > 0 ? ethers.utils.formatUnits(lists[lists.length - 1].price, 18) : '0'
       this.shadowRoot.innerHTML = this.template
       this._buybutton.innerHTML = 'OUT OF STOCK'
       this._buybutton.setAttribute('disabled', '')
     } else {
-      this.price = lists.length > 0 ? ethers.utils.formatUnits(lists[lists.length - 1].price, 18) : '0'
       this.shadowRoot.innerHTML = this.template
+      if (this.stock === '0') {
+        this._buybutton.innerHTML = 'OUT OF STOCK'
+        this._buybutton.setAttribute('disabled', '')
+      } else {
+        this._buybutton.addEventListener('click', this._onbuy)
+      }
 
-      this._buybutton.addEventListener('click', async () => {
-        const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI)
-        const length = await exchangeContract.callStatic.gpuListingLength(this.address)
-
-        let promises = []
-        for (var i = 0; i < length; i++) {
-          promises.push(exchangeContract.callStatic.gpuListing(this.address, i))
-        }
-
-        promises = await Promise.all(promises)
-        promises = promises.map(address => exchangeContract.lists(address))
-        promises = await Promise.all(promises)
-        promises = promises.filter(promise => promise.listed === true)
-        let listing = promises[0];
-        try {
-          api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
-        } catch (e) {
-          let listing = promises[promises.length - 1];
-          api.exchange.buy(listing.gpu, listing.tokenId, listing.price)
-        }
-      })
     }
-    exchangeContract.on('Delist', (gpu, tokenId) => {
-      if (gpu !== this.address) return;
-
-      this.stock = String(Number(this.stock) - 1)
-      this.shadowRoot.innerHTML = this.template
-    })
-
-    exchangeContract.on('ListingCreated', (gpu, tokenId, listing, index, price) => {
-      if (gpu !== this.address) return;
-
-      this.stock = String(Number(this.stock) + 1)
-      this.shadowRoot.innerHTML = this.template
-    })
+    exchangeContract.on('Sold', this._onevent)
+    exchangeContract.on('List', this._onevent)
   }
 
-  _ownerSetup() {
+  async _onevent(id, tokenId, price) {
+    if (id.toString() !== this.id) return;
+    this.stock = await api.calculateStock(id)
+    this._buybutton.removeEventListener('click', this._onbuy)
+    this.shadowRoot.innerHTML = this.template
+    this._buybutton.addEventListener('click', this._onbuy)
+  }
+
+  async _onbuy() {
+    const id = this.id
+    const contract = api.getContract(api.addresses.artonline, ART_ONLINE_ABI, api.signer)
+    const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI, api.signer)
+    const platformContract = api.getContract(api.addresses.platform, PLATFORM_ABI, api.signer)
+    const listing = await exchangeContract.lists(id)
+    if (listing.listed === 0) return;
+
+    let allowance = await contract.callStatic.allowance(api.signer.address, api.addresses.platform)
+    let approved;
+    if (allowance.isZero()) approved = await contract.approve(api.addresses.platform, listing.price)
+    else if (allowance.lt(listing.price)) approved = await contract.increaseAllowance(api.addresses.platform, listing.price.sub(allowance))
+
+    if (approved) await approved.wait()
+
+    try {
+      // tokenid = 0 for mint buys, when auctioned pass trough a tokenId
+      await exchangeContract.buy(id, ethers.BigNumber.from(0))
+    } catch (e) {
+      console.warn(`id: ${id} buy failed`);
+      const cap = await platformContract.callStatic.cap(id)
+      for (let i = 1; i <= cap; i++) {
+        console.log(i);
+        const owner = await platformContract.callStatic.ownerOf(id, ethers.BigNumber.from(i))
+        if (owner === '0xF52D485Eceba4049e92b66df0Ce60fE19589a0C1') {
+          console.log({id, i});
+          try {
+            let tx = await exchangeContract.buy(id, ethers.BigNumber.from(i))
+            await tx.wait()
+          } catch (e) {
+            console.warn(`Failed buying ${i}`);
+          }
+          return
+        }
+
+      }
+
+    }
   }
 
   get template() {

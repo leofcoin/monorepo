@@ -29,7 +29,12 @@ export default customElements.define('exchange-selector', class ExchangeSelector
   }
 
   async _load() {
-    this._arrayRepeat.items = Object.keys(api.addresses.cards).map(key => {
+    const length = await _contracts[api.addresses.platform].listingLength();
+    const ids = []
+    for (let i = 0; i < length; i++) {
+      ids.push({id: i})
+    }
+    this._arrayRepeat.items = ids.map(key => {
       return {address: api.addresses.cards[key]}
     })
   }

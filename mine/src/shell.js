@@ -6,12 +6,12 @@ import arteonAddresses from './../../addresses/addresses'
 import Api from './api'
 import './../node_modules/custom-drawer/custom-drawer'
 import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
-import ARTEON_ABI from './abis/arteon'
+import ARTONLINE_ABI from './../../abis/artonline'
 import {elevation2dp} from './styles/elevation'
 
 import  './../node_modules/@arteon/wallet-connect/dist/wallet-connect.browser'
 import './views/connect'
-import './elements/wallet-connect'
+import './elements/arteon-dialog'
 
 globalThis._contracts = globalThis._contracts || []
 
@@ -85,7 +85,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     this.address = api.signer.address
     api.chainId = Number(ethereum.networkVersion)
     api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
-    api.getContract(api.addresses.token, ARTEON_ABI);
+    api.getContract(api.addresses.artonline, ARTONLINE_ABI);
     jdenticon.update(this.shadowRoot.querySelector('.avatar'), accounts[0])
   }
 
@@ -101,7 +101,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
   async _onconnect() {
 
     this.setAttribute('animate-in', '')
-    await walletConnect.connect('mainnet')
+    await walletConnect.connect('binance-smartchain')
   }
 
   async _init() {
@@ -125,13 +125,15 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
     // await import('./views/login.js')
     await import('./third-party/ethers.js')
+
+    await import('./elements/wallet-connect')
     // try {
     //   // const accounts = await ethereum.request({method: 'eth_requestAccounts'})
     //   // await this._loadAccounts(accounts)
     // } catch (e) {
     //   console.log(e);
-      const network = this.shadowRoot.querySelector('wallet-connect').network
       const connection = await this.shadowRoot.querySelector('wallet-connect').connect()
+      const network = this.shadowRoot.querySelector('wallet-connect').network
       console.log(connection);
       globalThis.api = await new Api(network, connection.provider)
       api.addresses = await arteonAddresses(network)
@@ -143,9 +145,9 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     this._selector.addEventListener('selected', this._select)
 
     await this._select({detail: 'pools'})
-    setTimeout(() => {
-      import('./exchange.js')
-    }, 100);
+    // setTimeout(() => {
+    //   import('./exchange.js')
+    // }, 100);
   }
 
   async _select({detail}) {
@@ -155,9 +157,9 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     if (!customElements.get(tag)) await import(`./${detail}.js`)
     if (!this.hasAttribute('desktop')) this.removeAttribute('drawer-opened');
     console.log(tag);
+        this._pages.select(detail)
     if (this.shadowRoot.querySelector(tag)._select) this.shadowRoot.querySelector(tag)._select({detail: 'overview'});
 
-    this._pages.select(detail)
   }
 
   get template() {
@@ -285,7 +287,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     a img {
       width: 32px;
     }
-    
+
     a {
       pointer-events: auto;
     }
@@ -382,6 +384,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="wallet"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"></path></g>
         <g id="gift"><path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"></path></g>
         <g id="settings-input-hdmi"><path d="M18 7V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v3H5v6l3 6v3h8v-3l3-6V7h-1zM8 4h8v3h-2V5h-1v2h-2V5h-1v2H8V4z"></path></g>
+        <g id="send"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></g>
       </defs></svg>
     </custom-svg-iconset>
 
@@ -397,6 +400,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <span>exchange</span>
         </span>
 
+        <span class="drawer-item" data-route="send">
+          <custom-svg-icon icon="send"></custom-svg-icon>
+          <span>send</span>
+        </span>
+
         <!--
         <span class="drawer-item" data-route="auction">
           <custom-svg-icon icon="attach-money"></custom-svg-icon>
@@ -407,10 +415,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <custom-svg-icon icon="wallet"></custom-svg-icon>
           <span>wallet</span>
         </span>
--->
+        -->
+
         <span class="drawer-item" data-route="buy-arteon">
           <custom-svg-icon icon="local-offer"></custom-svg-icon>
-          <span>buy arteon</span>
+          <span>buy</span>
         </span>
       </custom-selector>
 
@@ -434,7 +443,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     <header>
       <flex-row class="title">
         <img class="logo" src="./assets/arteon-dark.png"></img>
-        <h1>arteon</h1>
+        <h1>artonline</h1>
       </flex-row>
       <flex-one></flex-one>
       <wallet-connect></wallet-connect>
@@ -444,6 +453,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <exchange-view data-route="exchange"></exchange-view>
         <pools-view data-route="pools"></pools-view>
         <wallet-view data-route="wallet"></wallet-view>
+        <send-view data-route="send"></send-view>
         <buy-arteon-view data-route="buy-arteon"></buy-arteon-view>
       </custom-pages>
     </span>

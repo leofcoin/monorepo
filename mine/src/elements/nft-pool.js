@@ -1,7 +1,7 @@
-import MINER_ABI from './../abis/miner.js'
-import GPU_ABI from './../abis/gpu.js'
+import PLATFORM_ABI from './../../../abis/platform.js'
 import './nft-pool-cards'
 import { scrollbar } from './../styles/shared'
+import './pool-selector-item'
 
 globalThis._contracts = globalThis._contracts || []
 
@@ -36,14 +36,13 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     const id = target.dataset.id
     console.log(id);
     if (action === 'getReward') {
-      if (api.signer.address === '0x32d8960387d8d124c2d8eb07717288b7965fbe4d') return;
 
-      let earned = await api.getContract(this.contract.address, MINER_ABI, true).callStatic.earned()
-      earned = ethers.utils.formatUnits(earned)
-      if (Number(earned) >= 1000) {
-        const tx = await api.getContract(this.contract.address, MINER_ABI, true).functions.getReward()
-        await tx.wait()
-      }
+      // let earned = await this.contract.callStatic.earned(api.signer.address, this.id)
+      // earned = ethers.utils.formatUnits(earned)
+      // if (Number(earned) >= 1000) {
+      const tx = await this.contract.functions.getReward(this.id)
+      await tx.wait()
+      // }
       return
     }
 
@@ -54,23 +53,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       let mine;
       let approved;
       try {
-        approved = await this.gpuContract.callStatic.isApprovedForAll(api.signer.address, this.contract.address)
-      } catch (e) {
-        approved = await this.gpuContract.callStatic.getApproved(id)
-      }
-      try {
-        if (approved === false) {
-          const tx = await api.getContract(this.gpuContract.address, GPU_ABI, true).setApprovalForAll(this.contract.address, true)
-          await tx.wait()
-        }
-        if (typeof approved !== 'boolean' && approved !== this.contract.address) {
-          approved = await api.getContract(this.gpuContract.address, GPU_ABI, true).approve(this.contract.address, id)
-          await approved.wait()
-        }
         card.removeAttribute('stopped')
         card.setAttribute('status', 'booting')
         card.setAttribute('booting', '')
-        mine = await api.getContract(this.contract.address, MINER_ABI, true).functions.activateGPU(id)
+        mine = await this.contract.functions.activateGPU(this.id, id)
         await mine.wait()
         card.removeAttribute('booting', '')
         card.setAttribute('status', 'activated')
@@ -93,7 +79,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       try {
         card.setAttribute('slowing-down', '')
         card.setAttribute('status', 'shutting down')
-        mine = await api.getContract(this.contract.address, MINER_ABI, true).functions.deactivateGPU(id)
+        mine = await this.contract.functions.deactivateGPU(this.id, id)
         setTimeout(() => {
           card.removeAttribute('slowing-down')
           card.setAttribute('stopping', '')
@@ -117,52 +103,45 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
 
   }
 
-  async _load(address) {
+  async _load({symbol, id}) {
     this.shadowRoot.querySelector('nft-pool-cards').innerHTML = ''
-    this._address = address
-    //
-    this.shadowRoot.querySelector('pool-selector-item').setAttribute('address', address)
-    // let contract = globalThis._contracts[address] || new ethers.Contract(address, POOL_ABI, api.signer)
-    //
-    // const poolAddress = await contract.callStatic.getToken(api.addresses.token)
-    this.contract = api.getContract(address, MINER_ABI, true)
-    this._parseRewards()
-    const gpuAddress = await this.contract.callStatic.ARTEON_GPU()
-    this.gpuContract = api.getContract(gpuAddress, GPU_ABI, true)
-    const symbol = await this.gpuContract.callStatic.symbol()
+    this._id = id
+    this.id = id
     this.symbol = symbol
-    let cap = 50;
-    let promises = [
-      this.gpuContract.callStatic.balanceOf(api.signer.address)
-    ]
-    if (symbol !== 'GENESIS') {
-      promises.push(this.gpuContract.callStatic.supplyCap())
-    }
-    promises = await Promise.all(promises)
-    if (promises.length === 2) cap = promises[1]
 
+    console.log(id, symbol);
+
+    this.shadowRoot.querySelector('pool-selector-item').setAttribute('symbol', symbol)
+    this.shadowRoot.querySelector('pool-selector-item').setAttribute('id', id)
+    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+
+    this._parseRewards()
+    console.log(this.contract);
+    let promises = [
+      this.contract.callStatic.balanceOf(api.signer.address, id),
+      this.contract.callStatic.totalSupply(id)
+    ]
+    promises = await Promise.all(promises)
+
+    // if (Number(promises[0]) === 0) return;
+
+    const totalSupply = promises[1]
     promises = []
-    for (var i = 1; i <= Number(cap); i++) {
-      promises.push(this.gpuContract.callStatic.ownerOf(i))
+
+    for (var i = 1; i <= Number(totalSupply); i++) {
+      promises.push(this.contract.callStatic.ownerOf(id, i))
     }
     promises = await Promise.allSettled(promises)
     let cards = []
     const tokenIdsToCheck = []
-    promises.forEach((result, i) => {
-      if (result.status === 'rejected') tokenIdsToCheck.push(i + 1)
-      else if(result.value) result.value  === api.signer.address ? cards.push({tokenId: i + 1}) : tokenIdsToCheck.push(i + 1)
-    });
 
-    console.log(tokenIdsToCheck);
-    promises = []
-    for (const i of tokenIdsToCheck) {
-      promises.push(this.contract.callStatic.ownerOf(i))
+    for (const result of promises) {
+      if (result.status !== 'rejected' && result.value === api.signer.address) {
+        const tokenId = promises.indexOf(result) + 1
+        const mining = await this.contract.callStatic.mining(this.id, tokenId)
+        cards.push({tokenId: tokenId, mining: Boolean(Number(mining) === 1)})
+      }
     }
-    promises = await Promise.allSettled(promises)
-    let miningCards = []
-    promises.forEach((result, i) => {
-      if(result.value === api.signer.address) cards.push({tokenId: tokenIdsToCheck[i], mining: true})
-    });
 
     cards = cards.sort((a, b) => a.tokenId - b.tokenId)
 
@@ -174,7 +153,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
   }
 
   async _parseRewards() {
-    let earned = await this.contract.callStatic.earned()
+    let earned = await this.contract.callStatic.earned(api.signer.address, this._id)
     earned = ethers.utils.formatUnits(earned)
     if (Number(earned) < 1000) {
       this.setAttribute('no-rewards', '')
