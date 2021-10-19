@@ -24,9 +24,9 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
     this.shadowRoot.querySelector('.price').innerHTML = `
     <span style="height: 40px;padding: 12px 0; box-sizing: border-box;">${protocol.name}</span>
     <flex-one></flex-one>
-    <span style="height: 40px;padding: 12px 0; box-sizing: border-box;">1 ETH = ${Math.round(Number(price.buyTokenToEthRate))}</span>`
+    <span style="height: 40px;padding: 12px 0; box-sizing: border-box;">1 BNB = ${Math.round(Number(price.buyTokenToEthRate))}</span>`
 
-    this.shadowRoot.querySelector('button').innerHTML = `BUY ${amount} ART FOR ${ethers.utils.formatUnits(price.sellAmount, 18)} ETH`
+    this.shadowRoot.querySelector('button').innerHTML = `BUY ${amount} ART FOR ${ethers.utils.formatUnits(price.sellAmount, 18)} BNB`
     // console.log(ethers.utils.parseUnits(quote.price, 18).toString())
   }
 
@@ -173,8 +173,8 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
     <flex-row class="input">
         <custom-input placeholder="amount" class="sell"></custom-input>
         <flex-row>
-          <img class="logo" src="https://raw.githubusercontent.com/CoinsSwap/token-list/main/build/icons/color/eth.svg"></img>
-          <strong>ETH</strong>
+          <img class="logo" src="https://raw.githubusercontent.com/CoinsSwap/token-list/main/build/icons/color/bnb.svg"></img>
+          <strong>BNB</strong>
         </flex-row>
       </flex-row>
       -->

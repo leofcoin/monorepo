@@ -5,7 +5,6 @@ import './pool-selector-item'
 
 globalThis._contracts = globalThis._contracts || []
 
-
 export default customElements.define('nft-pool', class NFTPool extends HTMLElement {
   constructor() {
     super()
@@ -98,6 +97,17 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       return
     }
 
+    if (action === 'activateAll') {
+
+      const cards = this.cards.reduce((prev, card) => {
+        if (!card.mining) prev.push(card.tokenId)
+        return prev
+      }, [])
+      const ids = cards.map(card => this.id)
+      this.contract.activateGPUBatch(ids, cards)
+      return
+    }
+
     this.showBuyDialog()
 
 
@@ -144,7 +154,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     }
 
     cards = cards.sort((a, b) => a.tokenId - b.tokenId)
-
+    this.cards = cards
     this.shadowRoot.querySelector('nft-pool-cards')._load(cards)
 
     setInterval(async () => {
@@ -153,13 +163,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
   }
 
   async _parseRewards() {
-    let earned = await this.contract.callStatic.earned(api.signer.address, this._id)
-    earned = ethers.utils.formatUnits(earned)
-    if (Number(earned) < 1000) {
-      this.setAttribute('no-rewards', '')
-    } else {
-      this.removeAttribute('no-rewards')
-    }
+    this.removeAttribute('no-rewards')
   }
 
   get template() {
@@ -259,6 +263,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
         opacity: 0;
         pointer-events: none;
       }
+      button[data-action="activateAll"] {
+        border-radius: 24px;
+        height: 40px;
+      }
       ${scrollbar}
     </style>
 
@@ -270,8 +278,14 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     <nft-pool-cards></nft-pool-cards>
 
     <flex-row class="bottom-toolbar">
+      <flex-one></flex-one>
       <button data-action="getReward">get reward</button>
+      <flex-two></flex-two>
+      <button data-action="activateAll">activate all</button>
+      <flex-one></flex-one>
     </flex-row>
+
+
     `
   }
 })
