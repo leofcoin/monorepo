@@ -103,8 +103,36 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
         if (!card.mining) prev.push(card.tokenId)
         return prev
       }, [])
+
+      for (let id of cards) {
+        const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
+        card.setAttribute('mining', 'true')
+        card.setAttribute('status', 'starting')
+        card.removeAttribute('stopped')
+        card.setAttribute('status', 'booting')
+        card.setAttribute('booting', '')
+      }
+
       const ids = cards.map(card => this.id)
-      this.contract.activateGPUBatch(ids, cards)
+      try {
+        let tx = await this.contract.activateGPUBatch(ids, cards)
+        await tx.wait()
+
+        for (let id of cards) {
+          const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
+          card.removeAttribute('booting', '')
+          card.setAttribute('status', 'activated')
+        }
+
+
+      } catch (e) {
+        card.removeAttribute('stopping')
+        card.setAttribute('stopped', '')
+        setTimeout(() => {
+          card.setAttribute('mining', 'false')
+          card.setAttribute('status', 'deactivated')
+        }, 1600);
+      }
       return
     }
 

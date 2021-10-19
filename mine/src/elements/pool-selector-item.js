@@ -57,7 +57,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       promises = await Promise.all(promises)
 
       // this.symbol = await gpuContact.callStatic.symbol()
-      this.miners = Number(promises[0])
+      this.miners = promises[0].toNumber() > promises[3].toNumber() ? promises[3].toString() : promises[0].toString()
       this.maxReward = ethers.utils.formatUnits(promises[1], 18)
       this.earned = ethers.utils.formatUnits(promises[2], 18)
       this.maxRewardShort = Math.round(Number(this.maxReward * 1000)) / 1000
@@ -77,7 +77,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
         el.title = `earned: ${this.earned}`
         el.innerHTML = this.earnedShort
         const miners = await contract.callStatic.miners(ethers.BigNumber.from(this.id))
-        this.miners = Number(miners)
+        this.miners = miners.toString()
         this.difficulty = Math.round((this.miners / promises[3] * 1000)) / 1000
         this.timeout()
       }, 10000);
