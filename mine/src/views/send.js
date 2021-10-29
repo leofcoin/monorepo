@@ -53,18 +53,9 @@ export default customElements.define('send-view', class SendView extends HTMLEle
             align-items: center;
           }
         </style>
-        <flex-column class="hero">
-          <gpu-img></gpu-img>
-
-          <flex-row>
-            <strong>gpu</strong>
-            <flex-one></flex-one>
-            <gpu-select></gpu-select>
-          </flex-row>
-
-        </flex-column>
 
         <flex-column class="hero">
+        <gpu-select></gpu-select>
           <flex-row center>
             <strong>to</strong>
             <flex-one></flex-one>
@@ -80,16 +71,11 @@ export default customElements.define('send-view', class SendView extends HTMLEle
           <button>send</button>
         </flex-column>
       `
-      this._img.symbol = 'GENESIS'
 
-      this._select._select.addEventListener('selected', this._onGpuSelected)
+      this._select.addEventListener('selected', this._onGpuSelected)
       this.shadowRoot.querySelector('button').addEventListener('click', this._send)
     })()
 
-  }
-
-  get _img() {
-    return this.shadowRoot.querySelector('gpu-img')
   }
 
   get _select() {
@@ -102,13 +88,10 @@ export default customElements.define('send-view', class SendView extends HTMLEle
 
   async _onGpuSelected({detail}) {
     const selected = this._select.shadowRoot.querySelector(`[data-route="${detail}"]`)
-    this._img.symbol = detail.toUpperCase()
-
-
   }
 
   async _send() {
-    const selected = this._select._select.selected
+    const selected = this._select.selected
     console.log(selected);
     const id = api.cards.indexOf(selected)
     console.log(id);

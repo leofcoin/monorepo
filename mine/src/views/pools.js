@@ -1,4 +1,3 @@
-import pools from './../data/pools'
 import './../elements/nft-pool'
 import './../elements/pool-selector'
 

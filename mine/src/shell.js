@@ -27,6 +27,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
   set desktop(value) {
   }
 
+  set balance(value) {
+    value = value.split('.')
+    this.shadowRoot.querySelector('.balance').innerHTML = `${value[0]}.${value[1].slice(0, 2)}`
+  }
+
   get _pages() {
     return this.shadowRoot.querySelector('custom-pages')
   }
@@ -137,6 +142,9 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       console.log(connection);
       globalThis.api = await new Api(network, connection.provider)
       api.addresses = await arteonAddresses(network)
+      const contract = api.getContract(api.addresses.artonline, ARTONLINE_ABI)
+      const balance = await contract.callStatic.balanceOf(api.signer.address)
+      this.balance = ethers.utils.formatUnits(balance, 18)
     // }
 
     ethereum.on('accountsChanged', this._loadAccounts)
@@ -363,17 +371,18 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="attach-money"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path></g>
         <g id="arrow-back"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></g>
         <g id="arrow-drop-down"><path d="M7 10l5 5 5-5z"></path></g>
-        <g id="assessment"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"></path></g>
         <g id="autorenew"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"></path></g>
         <g id="book"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"></path></g>
         <g id="build"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"></path></g>
         <g id="close"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></g>
         <g id="compare-arrows"><path d="M9.01 14H2v2h7.01v3L13 15l-3.99-4v3zm5.98-1v-3H22V8h-7.01V5L11 9l3.99 4z"></path></g>
+        <g id="chart"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"></path></g>
         <g id="delete"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></g>
         <g id="build"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"></path></g>
         <g id="done"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"></path></g>
         <g id="remove-shopping-cart"><path d="M22.73 22.73L2.77 2.77 2 2l-.73-.73L0 2.54l4.39 4.39 2.21 4.66-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h7.46l1.38 1.38c-.5.36-.83.95-.83 1.62 0 1.1.89 2 1.99 2 .67 0 1.26-.33 1.62-.84L21.46 24l1.27-1.27zM7.42 15c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h2.36l2 2H7.42zm8.13-2c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H6.54l9.01 9zM7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2z"></path></g>
         <g id="swap-horiz"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"></path></g>
+        <g id="layers"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"></path></g>
         <g id="local-offer"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"></path></g>
         <g id="menu"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></g>
         <g id="memory"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"></path></g>
@@ -391,7 +400,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     <custom-drawer>
       <custom-selector slot="content" attr-for-selected="data-route">
         <span class="drawer-item" data-route="pools">
-          <custom-svg-icon icon="assessment"></custom-svg-icon>
+          <custom-svg-icon icon="layers"></custom-svg-icon>
           <span>pools</span>
         </span>
 
@@ -399,23 +408,27 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <custom-svg-icon icon="swap-horiz"></custom-svg-icon>
           <span>exchange</span>
         </span>
-
-        <span class="drawer-item" data-route="send">
-          <custom-svg-icon icon="send"></custom-svg-icon>
-          <span>send</span>
-        </span>
-
-        <!--
+<!--
         <span class="drawer-item" data-route="auction">
           <custom-svg-icon icon="attach-money"></custom-svg-icon>
           <span>auction</span>
         </span>
-
+-->
+        <span class="drawer-item" data-route="send">
+          <custom-svg-icon icon="send"></custom-svg-icon>
+          <span>send</span>
+        </span>
+<!--
         <span class="drawer-item" data-route="wallet">
           <custom-svg-icon icon="wallet"></custom-svg-icon>
           <span>wallet</span>
         </span>
         -->
+
+        <span class="drawer-item" data-route="calculator">
+          <custom-svg-icon icon="chart"></custom-svg-icon>
+          <span>calculator</span>
+        </span>
 
         <span class="drawer-item" data-route="buy-arteon">
           <custom-svg-icon icon="local-offer"></custom-svg-icon>
@@ -446,12 +459,19 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <h1>artonline</h1>
       </flex-row>
       <flex-one></flex-one>
+      <!--<flex-row style="border-radius: 24px; border: 1px solid #fff;">-->
+      <flex-row>
+        <span class="balance">0</span>
+        <strong style="padding: 0 12px 0 6px;">ART</strong>
+      </flex-row>
       <wallet-connect></wallet-connect>
     </header>
     <span class="container">
       <custom-pages attr-for-selected="data-route">
         <exchange-view data-route="exchange"></exchange-view>
+        <auction-view data-route="auction"></auction-view>
         <pools-view data-route="pools"></pools-view>
+        <calculator-view data-route="calculator"></calculator-view>
         <wallet-view data-route="wallet"></wallet-view>
         <send-view data-route="send"></send-view>
         <buy-arteon-view data-route="buy-arteon"></buy-arteon-view>

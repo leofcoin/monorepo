@@ -42,23 +42,13 @@ export default customElements.define('pool-selector', class PoolSelector extends
     this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI)
     // if (await this._isOwner()) this._ownerSetup()
 
-    const tokens = await this.contract.callStatic.poolsLength()
-    let promises = []
-
-    for (let i = 0; i < Number(tokens.toString()); i++) {
-      promises.push(this.contract.callStatic.pool(i))
-    }
-    promises = await Promise.all(promises)
-
-    promises = promises.map(id => this.contract.callStatic.token(id))
+    const pools = await api.pools()
+    let promises = pools.map(id => this.contract.callStatic.token(id))
 
     promises = await Promise.all(promises)
 
-    console.log(promises);
-    let i = 0
-    this._arrayRepeat.items = promises.map((symbol) => {
-      i++
-      return {symbol, i: i - 1}
+    this._arrayRepeat.items = promises.map((symbol, i) => {
+      return {symbol, i}
     })
   }
 

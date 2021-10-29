@@ -2,12 +2,23 @@ import PLATFORM_ABI from './../../abis/platform.js'
 import EXCHANGE_ABI from './../../abis/exchange.js'
 import ARTONLINE_ABI from './../../abis/artonline.js'
 import bytecode from './bytecodes/listing.js'
+
+const cache = {}
+
 export default class Api {
   constructor(network, provider, signer) {
     this.network = network
     this.provider = provider
     // this.provider = new ethers.providers.EtherscanProvider(network, 'SVUVR9EZ8PPS9QTJ9MDNJFRGPWJXHB8BI4')
     if (!provider) return
+    const timeout = () => {
+      setTimeout(() => {
+        for (var key of Object.keys(cache)) {
+          delete cache[key]
+        }
+        timeout()
+      }, 10000);
+    }
     return this._init()
   }
 
@@ -50,13 +61,15 @@ export default class Api {
         'ARTX2000': './assets/cards/ARTX 2000-320.png',
         'XTREME': './assets/cards/XTREME-320.png',
         'MODULE': './assets/cards/MODULE-320.png',
+        'SPINNER': './assets/fronts/SPINNER.png'
       },
       fans: {
         GENESIS: './assets/fans/GENESIS.png',
         'ARTX1000': './assets/fans/ARTX 1000.png',
         'ARTX2000': './assets/fans/ARTX 2000.png',
         'XTREME': './assets/fans/XTREME.png',
-        'MODULE': './assets/fans/MODULE.png'
+        'MODULE': './assets/fans/MODULE.png',
+        'SPINNER': './assets/fans/SPINNER.png',
       },
       fronts: {
         'XTREME': './assets/fronts/XTREME.png'
@@ -71,7 +84,7 @@ export default class Api {
         },
         'ARTX1000': {
           fans: [
-            ['73.5%', '33%', '48px', '48px'],
+            ['62.5%', '33%', '48px', '48px'],
           ] // x, y, h, w
         },
         'ARTX2000': {
@@ -92,8 +105,13 @@ export default class Api {
         },
         'MODULE': {
           fans: [
-            ['49.5%', '17%', '76px', '76px'],
+            ['47.5%', '17%', '76px', '76px'],
           ] // x, y, h, w
+        },
+        'SPINNER': {
+          fans: [
+            ['35.5%', '17%', '80px', '80px']
+          ]
         }
       }
     }
@@ -260,5 +278,35 @@ Try buying using ETH?`)
     const supplyCap = await platformContract.cap(id)
     const totalSupply = await platformContract.totalSupply(id)
     return supplyCap.sub(totalSupply).toString()
+  }
+
+  async tokens() {
+    if (!cache['tokens']) {
+      const tokens = await this.getContract(this.addresses.platform, PLATFORM_ABI).callStatic.tokens()
+      cache['tokens'] = tokens.map((name, i) => i)
+    }
+    return cache['tokens']
+  }
+
+  async tokenNames() {
+    if (!cache['tokenNames']) {
+      cache['tokenNames'] = await this.getContract(this.addresses.platform, PLATFORM_ABI).callStatic.tokens()
+    }
+    return cache['tokenNames']
+  }
+
+  async pools() {
+    if (!cache['pools']) cache['pools'] = await this.getContract(this.addresses.platform, PLATFORM_ABI).callStatic.pools()
+    return cache['pools']
+  }
+
+  async poolNames() {
+    if (!cache['tokenNames']) {
+      const promises = await Promise.all([ await this.tokenNames(), await this.pools() ])
+      return promises[1].map(id => promises[0][id.toString()])
+    }
+    const pools = await this.pools()
+    const names = await this.tokenNames()
+    return pools.map(id => names[id])
   }
 }

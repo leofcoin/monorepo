@@ -1,5 +1,5 @@
 import {elevation4dp} from '../styles/elevation'
-import {rotate, basicRotation} from '../styles/shared'
+import {rotate, basicRotation, rotateBack} from '../styles/shared'
 
 
 export default customElements.define('gpu-img', class GpuImage extends HTMLElement {
@@ -83,10 +83,10 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
         width: 100%;
         height: 100%;
         box-sizing: border-box;
+        justify-content: center;
       }
 
       .card {
-        width: 100%;
         height: 100%;
       }
 

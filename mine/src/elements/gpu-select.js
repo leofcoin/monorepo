@@ -1,9 +1,11 @@
 import './../../node_modules/@vandeurenglenn/custom-select/custom-select'
-
+import './gpu-img'
+import { rotate, rotateBack } from './../styles/shared'
 export default customElements.define('gpu-select', class GpuSelect extends HTMLElement {
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
+    this._selected = this._selected.bind(this)
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -12,9 +14,29 @@ export default customElements.define('gpu-select', class GpuSelect extends HTMLE
           align-items: center;
           justify-content: center;
         }
-      </style>
+        flex-row {
+          width: 100%;
+          align-items: center;
+          box-sizing: border-box;
+          padding: 12px;
+        }
 
-      <custom-select class="gpu"></custom-select>
+        span {
+          display: flex;
+          box-sizing: border-box;
+          padding: 3px 6px;
+        }
+
+
+        ${rotate}
+        ${rotateBack}
+      </style>
+      <gpu-img></gpu-img>
+      <flex-row>
+        <strong>GPU</strong>
+        <flex-one></flex-one>
+        <custom-select class="gpu"></custom-select>
+      </flex-row>
     `
   }
 
@@ -22,25 +44,37 @@ export default customElements.define('gpu-select', class GpuSelect extends HTMLE
     return this.shadowRoot.querySelector('custom-select')
   }
 
-  get cards() {
-    return api.cards;
+  get selected() {
+    return this._select.selected
+  }
+
+  set selected(value) {
+    this._select.selected = value
   }
 
   connectedCallback() {
     this._init()
+    this._select.addEventListener('selected', this._selected)
+  }
+
+  async _selected({detail}) {
+    this.shadowRoot.querySelector('gpu-img').symbol = detail
+    this.dispatchEvent(new CustomEvent('selected', { detail }))
   }
 
   async _init() {
     let i = 0
-    for (const key of this.cards) {
-      console.log({key});
+    const pools = await api.pools()
+    const names = await api.poolNames()
+    for (let i = 0; i < pools.length; i++) {
       const el = document.createElement('span')
-      el.innerHTML = key
-      el.dataset.index = i
-      el.dataset.route = key
+      el.innerHTML = names[i]
+      el.dataset.index = pools[i]
+      el.dataset.route = names[i]
       this._select.appendChild(el)
-      i++
     }
-    this._select.selected = 'GENESIS'
+
+    this.shadowRoot.querySelector('gpu-img').symbol = 'GENESIS'
+    this.selected = 'GENESIS'
   }
 })

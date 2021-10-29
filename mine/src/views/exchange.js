@@ -11,15 +11,13 @@ import PLATFORM_ABI from './../../../abis/platform'
 export default customElements.define('exchange-view', class ExchangeView extends HTMLElement {
   constructor() {
     super()
-
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = this.template
-
-    // this._select = this._select.bind(this)
+    this._select = this._select.bind(this)
   }
 
   get _selector() {
-    return this.shadowRoot.querySelector('custom-selector')
+    return this.shadowRoot.querySelector('custom-tabs')
   }
 
   get _pages() {
@@ -32,45 +30,68 @@ export default customElements.define('exchange-view', class ExchangeView extends
 
   connectedCallback() {
     this._init()
-    // this._selector.addEventListener('selected', this._select)
+    this._selector.addEventListener('selected', this._select)
     // this.shadowRoot.querySelector('[data-event="search"]').addEventListener('input', this._onsearch)
   }
 
-  async _init() {
-
-    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
-    const tokens = await this.contract.callStatic.tokensLength()
+  async _getPools() {
+    let pools = await api.pools()
     let promises = []
 
-    for (let i = 0; i < Number(tokens.toString()); i++) {
-      promises.push(this.contract.callStatic.token(i))
+    for (let i = 0; i < pools.length; i++) {
+      promises.push(this.contract.callStatic.token(pools[i]))
     }
     promises = await Promise.all(promises)
-
-    console.log(promises);
     let i = 0
-    this._arrayRepeat.items = promises.map((symbol) => {
+
+    this.shadowRoot.querySelector('section[data-route="gpus"]').querySelector('array-repeat').items = promises.map((symbol) => {
       i++
-      return {symbol, i: i - 1}
+      return {symbol, i: pools[i - 1].toString()}
     })
   }
-  // _select({detail}) {
-  //   // const target = event.composedPath()[0]
-  //   // const route = target.getAttribute('data-route')
-  //
-  //   if (detail === 'overview' || detail === 'back') {
-  //     this._pages.select('overview')
-  //     if (detail === 'back') history.back()
-  //
-  //     return
-  //   }
-  //
-  //   if (detail) {
-  //     this.shadowRoot.querySelector('exchange-cards')._load(detail, this._arrayRepeat.shadowRoot.querySelector(`[data-route="${detail}"]`).symbol)
-  //     this._pages.select('cards')
-  //     return
-  //   }
-  // }
+
+  async _getItems() {
+    const items = await this.contract.callStatic.items()
+    let promises = []
+
+    for (let i = 0; i < items.length; i++) {
+      promises.push(this.contract.callStatic.token(items[i]))
+    }
+    promises = await Promise.all(promises)
+    let i = 0
+    this.shadowRoot.querySelector('section[data-route="upgrades"]').querySelector('array-repeat').items = promises.map((symbol) => {
+      i++
+      return {symbol, i: items[i - 1].toString()}
+    })
+  }
+
+  async _init() {
+    this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+    this._select({ detail: 'gpus' })
+  }
+  async _select({detail}) {
+    // const target = event.composedPath()[0]
+    // const route = target.getAttribute('data-route')
+
+    if (detail === 'overview' || detail === 'back') {
+      this._pages.select('overview')
+      if (detail === 'back') history.back()
+
+      return
+    }
+
+    if (detail) {
+      this._pages.select(detail)
+      if (detail === 'gpus') {
+        this.pools = await this._getPools()
+      }
+      if (detail === 'upgrades') {
+        this.items = await this._getItems()
+      }
+
+      return
+    }
+  }
   get template() {
     return `
     <style>
@@ -85,86 +106,21 @@ export default customElements.define('exchange-view', class ExchangeView extends
         align-items: center;
         justify-content: center;
         padding: 24px 0 48px 0;
-      }
-
-      custom-selector {
-        flex-direction: row;
-        border-radius: 44px;
-        width: 100%;
-        max-width: 382px;
-        overflow-y: auto;
-        pointer-events: auto;
-        display: flex;
-        box-sizing: border-box;
-        padding: 24px;
-      }
-
-      :host, .container {
         width: 100%;
         height: 100%;
       }
 
-      custom-tab {
-        --tab-underline-color: var(--accent-color);
+      custom-pages {
+        width: 100%;
+        heigh: 100%;
       }
 
-      @media (max-width: 440px) {
-        header {
-          opacity: 0;
-          pointer-events: none;
-        }
-      }
-
-
-      button {
-        display: flex;
-        align-items: center;
-        background: transparent;
-        box-sizing: border-box;
-        padding: 6px 24px;
+      custom-tabs {
         color: var(--main-color);
-        border-color: var(--accent-color);
-        border-radius: 12px;
       }
-
-      custom-input {
-        --custom-input-color: var(--main-color);
-        box-shadow: 0px 1px 3px -1px var(--accent-color);
-        margin-bottom: 24px;
-      }
-
-      flex-row.owner-buttons {
-        position: absolute;
-        left: 50%;
-        bottom: 24px;
-        transform: translateX(-50%);
-      }
-
-      button {
+      custom-tab {
         pointer-events: auto;
-      }
-
-      .owner-controls {
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      :host([is-owner]) .owner-controls.showable {
-        opacity: 1;
-        pointer-events: auto;
-      }
-
-      custom-pages [data-route] {
-        display: flex;
-        justify-content: center;
-      }
-
-      custom-input {
-        pointer-events: auto;
-      }
-
-      .item {
-        display: flex;
+        --tab-underline-color: var(--accent-color);
       }
 
       array-repeat {
@@ -175,6 +131,11 @@ export default customElements.define('exchange-view', class ExchangeView extends
         flex-flow: row wrap;
         max-width: 1400px;
         justify-content: space-evenly;
+      }
+
+      section {
+        display: flex;
+        justify-content: center;
       }
       @media (min-width: 680px){
         :host {
@@ -188,33 +149,42 @@ export default customElements.define('exchange-view', class ExchangeView extends
       }
       ${scrollbar}
     </style>
-    <array-repeat max="9">
-      <style>
-        exchange-selector-item {
-          margin-bottom: 12px;
-        }
-      </style>
-      <template>
-        <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
-      </template>
-    </array-repeat>
+    <custom-tabs attr-for-selected="data-route">
+      <custom-tab data-route="gpus">
+        <span>GPUS</span>
+      </custom-tab>
+      <custom-tab data-route="upgrades">
+        <span>UPGRADES</span>
+      </custom-tab>
+    </custom-tabs>
 
-    <arteon-dialog class="owner-controls" data-target="add">
-      <h4>Add card</h4>
-      <custom-select>
-        <array-repeat>
+    <custom-pages attr-for-selected="data-route">
+      <section data-route="gpus">
+        <array-repeat max="9">
+          <style>
+            exchange-selector-item {
+              margin-bottom: 12px;
+            }
+          </style>
           <template>
-            <span class="item" title="[[item.listing]]" data-route="[[item.name]]" data-listing="[[item.listing]]">
-              [[item.name]]
-            </span>
+            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
           </template>
         </array-repeat>
-      </custom-select>
-      <custom-input data-input="address" placeholder="ArteonGPU"></custom-input>
-      <custom-input data-input="tokenId" placeholder="TokenId"></custom-input>
-      <custom-input data-input="tokenIdTo" placeholder="till TokenId"></custom-input>
-      <custom-input data-input="price" placeholder="price"></custom-input>
-    </arteon-dialog>
+      </section>
+
+      <section data-route="upgrades">
+        <array-repeat max="9">
+          <style>
+            exchange-selector-item {
+              margin-bottom: 12px;
+            }
+          </style>
+          <template>
+            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
+          </template>
+        </array-repeat>
+      </section>
+    </custom-pages>
     `
   }
 })

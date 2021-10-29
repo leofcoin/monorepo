@@ -41,7 +41,7 @@ export default customElements.define('arteon-dialog', class ArteonDialog extends
         }
 
         .heading {
-          padding-bottom: 18px;
+          padding-bottom: 6px;
         }
 
         [name="title"]::slotted(*) {
