@@ -14,48 +14,61 @@ export default customElements.define('calculator-view', class CalculatorView ext
 
     this._onselect = this._onselect.bind(this)
     this._onperiod = this._onperiod.bind(this)
+    this._oninput = this._oninput.bind(this)
   }
 
   connectedCallback() {
     this.contract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, api.provider)
+
     this.shadowRoot.querySelector('gpu-select').addEventListener('selected', this._onselect)
     this.shadowRoot.querySelector('custom-select').addEventListener('selected', this._onperiod)
+    this.shadowRoot.querySelector('custom-input').addEventListener('input', this._oninput)
     this.shadowRoot.querySelector('custom-select').selected = 'min'
-    this._select({detail: 'GENESIS'})
+    this._onselect({detail: 'GENESIS'})
   }
 
   _calculateRewards(rewards, format) {
-    console.log(rewards, format);
-    if (format === 'sec') rewards = rewards.div(60)
-    if (format === 'hr') rewards = rewards.mul(60)
-    if (format === 'day') rewards = rewards.mul(60 * 24)
-    if (format === 'week') rewards = rewards.mul((60 * 24) * 7)
-    if (format === 'month') rewards = rewards.mul((60 * 24) * 30)
-    if (format === 'year') rewards = rewards.mul((60 * 24) * 365)
-    return ethers.utils.formatUnits(rewards, 18)
+    rewards = Number(ethers.utils.formatUnits(rewards, 18))
+    if (format === 'min') rewards *= 60
+    if (format === 'hr') rewards *= 3600
+    if (format === 'day') rewards *= 86400
+    if (format === 'week') rewards *= 604800
+    if (format === 'month') rewards *= 2.628e+6
+    if (format === 'year') rewards *= 3.154e+7
+    return rewards
+  }
 
+  async _oninput() {
+    const pools = await api.poolNames()
+    const id = pools.indexOf(this.shadowRoot.querySelector('gpu-select').selected)
+    const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+    const miners = this.shadowRoot.querySelector('custom-input').input.value
+
+    const rewards = this._calculateRewards(rewardsPerSec, this.shadowRoot.querySelector('custom-select').selected)
+    this.shadowRoot.querySelector('.rewards').innerHTML = Math.round((Number(rewards) / Number(miners)) * 1000) / 1000
   }
 
   async _onperiod({detail}) {
     const pools = await api.poolNames()
     const id = pools.indexOf(this.shadowRoot.querySelector('gpu-select').selected)
-    const rewardsPerMinute = await this.contract.callStatic.getMaxReward(id)
-    const miners = await this.contract.callStatic.miners(id)
-    const rewards = this._calculateRewards(rewardsPerMinute.div(miners), this.shadowRoot.querySelector('custom-select').selected)
-    this.shadowRoot.querySelector('.rewards').innerHTML = Math.round(Number(rewards.slice(0,20)) * 1000000) / 1000000
+    const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+    const miners = this.shadowRoot.querySelector('custom-input').input.value
+
+    const rewards = this._calculateRewards(rewardsPerSec, this.shadowRoot.querySelector('custom-select').selected)
+    this.shadowRoot.querySelector('.rewards').innerHTML = Math.round((Number(rewards) / Number(miners)) * 1000) / 1000
   }
 
   async _onselect({detail}) {
-    console.log(detail, this.contract);
     if (this.contract && detail !== 'overview') {
       const pools = await api.poolNames()
       const id = pools.indexOf(detail)
-      const rewardsPerMinute = await this.contract.callStatic.getMaxReward(id)
-      const miners = await this.contract.callStatic.miners(id)
-      const rewards = this._calculateRewards(rewardsPerMinute.div(miners), this.shadowRoot.querySelector('custom-select').selected)
-      this.shadowRoot.querySelector('.rewards').innerHTML = Math.round(Number(rewards.slice(0,7)) * 10000) / 10000
+      const miners = await this.contract.callStatic.cap(id)
+      this.shadowRoot.querySelector('custom-input').input.value = miners.toNumber()
 
-      console.log(detail, pools);
+      const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+
+      const rewards = this._calculateRewards(rewardsPerSec, this.shadowRoot.querySelector('custom-select').selected)
+      this.shadowRoot.querySelector('.rewards').innerHTML = Math.round((Number(rewards) / Number(this.shadowRoot.querySelector('custom-input').input.value)) * 1000) / 1000
     }
 
   }
@@ -96,9 +109,26 @@ export default customElements.define('calculator-view', class CalculatorView ext
         padding: 0 12px;
         box-sizing: border-box;
       }
+
+      .miners {
+        padding-bottom: 48px;
+      }
+
+      custom-input {
+        width: 60px;
+        min-width: auto;
+        pointer-events: auto;
+        --custom-input-color: var(--main-color);
+        --custom-input-height: 24px;
+      }
     </style>
     <flex-column class="hero">
       <gpu-select></gpu-select>
+      <flex-row class="selector miners" center>
+        <strong>MINERS</strong>
+        <flex-one></flex-one>
+        <custom-input></custom-input>
+      </flex-row>
       <flex-row class="selector" center>
         <strong class="rewards"></strong>
         <flex-one></flex-one>
