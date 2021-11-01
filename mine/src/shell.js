@@ -356,6 +356,12 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       z-index: 1000;
     }
 
+    .balance-container {
+      position: absolute;
+      right: 20px;
+      top: 58px;
+    }
+
     @media(max-width: 720px) {
       header .title {
         opacity: 0;
@@ -460,7 +466,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       </flex-row>
       <flex-one></flex-one>
       <!--<flex-row style="border-radius: 24px; border: 1px solid #fff;">-->
-      <flex-row>
+      <flex-row class="balance-container">
         <span class="balance">0</span>
         <strong style="padding: 0 12px 0 6px;">ART</strong>
       </flex-row>

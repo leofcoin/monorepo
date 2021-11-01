@@ -48,7 +48,7 @@ export default customElements.define('pool-selector', class PoolSelector extends
     promises = await Promise.all(promises)
 
     this._arrayRepeat.items = promises.map((symbol, i) => {
-      return {symbol, i}
+      return {symbol, i: pools[i].toString()}
     })
   }
 

@@ -146,7 +146,7 @@ export default customElements.define('connect-view', class ConnectView extends H
     </style>
     <section>
       <img class="logo" src="./assets/arteon.svg" loading="lazy"></img>
-      <h1>Arteon</h1>
+      <h1>ArtOnline</h1>
       <h2>Mining platform</h2>
 
       <flex-row class="info">

@@ -97,6 +97,28 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       return
     }
 
+    if (action === 'activateItem') {
+      let promises = []
+      const balance = await this.contract.callStatic.balanceOf(api.signer.address, '5')
+      if (balance.toNumber() === 0) return
+
+      const totalSupply = await this.contract.callStatic.totalSupply('5')
+
+      for (var i = 1; i <= totalSupply.toNumber(); i++) {
+        promises.push(this.contract.callStatic.ownerOf('5', i))
+      }
+      promises = await Promise.all(promises)
+      promises = promises.reduce((prev, addr, i) => {
+        if (addr === api.signer.address) prev.push(i)
+
+        return prev
+      }, [])
+      console.log(promises);
+      let tx = await this.contract.functions.activateItem(this.id, promises[0])
+      await tx.wait()
+      return
+    }
+
     if (action === 'activateAll') {
 
       const cards = this.cards.reduce((prev, card) => {
@@ -308,6 +330,8 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     <flex-row class="bottom-toolbar">
       <flex-one></flex-one>
       <button data-action="getReward">get reward</button>
+      <flex-two></flex-two>
+      <button data-action="activateItem">upgrade</button>
       <flex-two></flex-two>
       <button data-action="activateAll">activate all</button>
       <flex-one></flex-one>

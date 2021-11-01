@@ -37,8 +37,6 @@ export default customElements.define('wallet-connect', class WalletConnect exten
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = this.template
     let network = localStorage.getItem('last-selected-network')
-    if (network === 'binance-smartchain') network = 'binance-smartchain'
-    if (network === 'binance-smartchain-testnet') network = 'binance-smartchain-testnet'
     if (network === 'mainnet') network = 'ethereum'
     if (network === 'goerli') network = 'ethereum-testnet'
     this._networkSelect.selected =  network || this.DEFAULT_NETWORK
@@ -292,6 +290,10 @@ export default customElements.define('wallet-connect', class WalletConnect exten
           -->
           <flex-row data-route="binance-smartchain-testnet">
             <span>binance-smartchain-testnet</span>
+          </flex-row>
+
+          <flex-row data-route="art-ganache">
+            <span>art-ganache</span>
           </flex-row>
         </custom-select>
       </flex-row>
