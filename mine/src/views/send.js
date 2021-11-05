@@ -1,5 +1,5 @@
 
-import './../elements/gpu-select'
+import './../elements/nft-select'
 import './../elements/gpu-img'
 import './../../node_modules/@vandeurenglenn/flex-elements/src/flex-column'
 import './../../node_modules/@vandeurenglenn/flex-elements/src/flex-row'
@@ -10,7 +10,7 @@ export default customElements.define('send-view', class SendView extends HTMLEle
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
-    this._onGpuSelected = this._onGpuSelected.bind(this);
+    this._onTokenSelected = this._onTokenSelected.bind(this);
     this._send = this._send.bind(this);
 
     (async () => {
@@ -55,7 +55,7 @@ export default customElements.define('send-view', class SendView extends HTMLEle
         </style>
 
         <flex-column class="hero">
-        <gpu-select></gpu-select>
+        <nft-select></nft-select>
           <flex-row center>
             <strong>to</strong>
             <flex-one></flex-one>
@@ -72,21 +72,21 @@ export default customElements.define('send-view', class SendView extends HTMLEle
         </flex-column>
       `
 
-      this._select.addEventListener('selected', this._onGpuSelected)
+      this._select.addEventListener('selected', this._onTokenSelected)
       this.shadowRoot.querySelector('button').addEventListener('click', this._send)
     })()
 
   }
 
   get _select() {
-    return this.shadowRoot.querySelector('gpu-select')
+    return this.shadowRoot.querySelector('nft-select')
   }
 
   get _input() {
     return this.shadowRoot.querySelector('input')
   }
 
-  async _onGpuSelected({detail}) {
+  async _onTokenSelected({detail}) {
     const selected = this._select.shadowRoot.querySelector(`[data-route="${detail}"]`)
   }
 
@@ -103,7 +103,7 @@ export default customElements.define('send-view', class SendView extends HTMLEle
     try {
       await this.platform.safeTransferFrom(api.signer.address, to, id, tokenId, 0)
     } catch (e) {
-      if (e.data.message.includes('DEACTIVATE_FIRST')) alert('Deactivate the GPU before transfering!')
+      if (e.data.message.includes('DEACTIVATE_FIRST')) alert('Deactivate the GPU/Item before transfering!')
     }
   }
 })
