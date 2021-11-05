@@ -104,17 +104,20 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
 
       const totalSupply = await this.contract.callStatic.totalSupply('5')
 
-      for (var i = 1; i <= totalSupply.toNumber(); i++) {
+      for (let i = 1; i <= totalSupply.toNumber(); i++) {
         promises.push(this.contract.callStatic.ownerOf('5', i))
       }
       promises = await Promise.all(promises)
-      promises = promises.reduce((prev, addr, i) => {
-        if (addr === api.signer.address) prev.push(i)
-
-        return prev
-      }, [])
-      console.log(promises);
-      let tx = await this.contract.functions.activateItem(this.id, promises[0])
+      const available = []
+      let i = 0
+      for (const addr of promises) {
+        i++
+        if (addr === api.signer.address) {
+          const activated = await this.contract.callStatic.activated('5', i)
+          if (activated.toNumber() === 0) available.push(i)
+        }
+      }
+      let tx = await this.contract.functions.activateItem(this.id, '5', available[0])
       await tx.wait()
       return
     }
