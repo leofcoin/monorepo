@@ -61,7 +61,8 @@ export default class Api {
         'ARTX2000': './assets/cards/ARTX 2000-320.png',
         'XTREME': './assets/cards/XTREME-320.png',
         'MODULE': './assets/cards/MODULE-320.png',
-        'SPINNER': './assets/fronts/SPINNER.png'
+        'SPINNER': './assets/fronts/SPINNER.png',
+        'GOLDGEN': './assets/cards/GOLDGEN-320.png'
       },
       fans: {
         GENESIS: './assets/fans/GENESIS.png',
@@ -70,6 +71,7 @@ export default class Api {
         'XTREME': './assets/fans/XTREME.png',
         'MODULE': './assets/fans/MODULE.png',
         'SPINNER': './assets/fans/SPINNER.png',
+        'GOLDGEN': './assets/fans/GOLDGEN.png'
       },
       fronts: {
         'XTREME': './assets/fronts/XTREME.png'
@@ -111,6 +113,13 @@ export default class Api {
         'SPINNER': {
           fans: [
             ['35.5%', '17%', '80px', '80px']
+          ]
+        },
+        GOLDGEN: {
+          fans: [
+            ['4%', '30%', '76px', '76px'],
+            ['35.5%', '30%', '76px', '76px'],
+            ['68%', '30%', '76px', '76px']
           ]
         }
       }
