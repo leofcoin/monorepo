@@ -40,21 +40,21 @@ export default customElements.define('calculator-view', class CalculatorView ext
   }
 
   async _oninput() {
-    const pools = await api.poolNames()
-    const id = pools.indexOf(this.shadowRoot.querySelector('gpu-select').selected)
+    const detail = this.shadowRoot.querySelector('gpu-select').selected
+    const id = this.shadowRoot.querySelector('gpu-select').shadowRoot.querySelector(`[data-route="${detail}"]`).dataset.index
     const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
     const cap = await this.contract.callStatic.cap(id)
     let miners = this.shadowRoot.querySelector('custom-input').input.value
-    if (miners > cap) this.shadowRoot.querySelector('custom-input').input.value = cap
+    if (Number(miners) > cap.toNumber()) this.shadowRoot.querySelector('custom-input').input.value = cap
 
     const rewards = this._calculateRewards(rewardsPerSec, this.shadowRoot.querySelector('custom-select').selected)
     const gpus = Number(this.shadowRoot.querySelector('custom-input.gpus').input.value)
     this.shadowRoot.querySelector('.rewards').innerHTML = Math.round(((Number(rewards) / Number(this.shadowRoot.querySelector('custom-input').input.value)) * gpus) * 1000) / 1000
   }
 
-  async _onperiod({detail}) {
-    const pools = await api.poolNames()
-    const id = pools.indexOf(this.shadowRoot.querySelector('gpu-select').selected)
+  async _onperiod() {
+    const detail = this.shadowRoot.querySelector('gpu-select').selected
+    const id = this.shadowRoot.querySelector('gpu-select').shadowRoot.querySelector(`[data-route="${detail}"]`).dataset.index
     const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
     const cap = await this.contract.callStatic.cap(id)
     const miners = this.shadowRoot.querySelector('custom-input').input.value
@@ -66,8 +66,7 @@ export default customElements.define('calculator-view', class CalculatorView ext
 
   async _onselect({detail}) {
     if (this.contract && detail !== 'overview') {
-      const pools = await api.poolNames()
-      const id = pools.indexOf(detail)
+      const id = this.shadowRoot.querySelector('gpu-select').shadowRoot.querySelector(`[data-route="${detail}"]`).dataset.index
       const miners = await this.contract.callStatic.cap(id)
       this.shadowRoot.querySelector('custom-input').input.value = miners.toNumber()
 
