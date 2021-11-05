@@ -160,6 +160,7 @@ export default customElements.define('buy-arteon-view', class BuyArteonView exte
     </style>
 
     <span class="hero">
+      <h4>BUY ARTONLINE</h4>
       <flex-row class="input">
         <custom-input placeholder="amount"></custom-input>
         <flex-row>
