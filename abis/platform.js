@@ -5,6 +5,16 @@ export default [
 				"internalType": "string",
 				"name": "uri_",
 				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "version",
+				"type": "string"
 			}
 		],
 		"stateMutability": "nonpayable",
@@ -55,13 +65,19 @@ export default [
 			{
 				"indexed": false,
 				"internalType": "uint256",
+				"name": "itemId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
 				"name": "tokenId",
 				"type": "uint256"
 			}
 		],
 		"name": "ActivateItem",
 		"type": "event",
-		"signature": "0x8597a74f0a058f49e925a7e5d898a032c949d6c51e1e62a6c4924c8db7cc2c78"
+		"signature": "0x0b0530d14462bfcd23a024980d7128d3a5fb6a5b9286de21d52322eb365fdcb3"
 	},
 	{
 		"anonymous": false,
@@ -205,13 +221,19 @@ export default [
 			{
 				"indexed": false,
 				"internalType": "uint256",
+				"name": "itemId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
 				"name": "tokenId",
 				"type": "uint256"
 			}
 		],
 		"name": "DeactivateItem",
 		"type": "event",
-		"signature": "0x069906050a38bbab804a60bb1e1b0c15143c7f4ded09ef211bd4674f59b58767"
+		"signature": "0x0d8c76a78567c5b8f48ee63b4557ecaf18d8ab8d40a5ef4e53b4699ab8e57905"
 	},
 	{
 		"anonymous": false,
@@ -473,21 +495,6 @@ export default [
 	},
 	{
 		"inputs": [],
-		"name": "ERC712_VERSION",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x0f7e5970"
-	},
-	{
-		"inputs": [],
 		"name": "MINT_ROLE",
 		"outputs": [
 			{
@@ -500,36 +507,6 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0xe9a9c850"
-	},
-	{
-		"inputs": [],
-		"name": "getChainId",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x3408e470"
-	},
-	{
-		"inputs": [],
-		"name": "getDomainSeperator",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x20379ee5"
 	},
 	{
 		"inputs": [
@@ -1173,6 +1150,46 @@ export default [
 				"internalType": "uint256",
 				"name": "id",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "price",
+				"type": "uint256"
+			}
+		],
+		"name": "setActivationPrice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xafeee7c8"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			}
+		],
+		"name": "activationPrice",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x096fd87a"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
 			}
 		],
 		"name": "getHalvings",
@@ -1408,6 +1425,11 @@ export default [
 			},
 			{
 				"internalType": "uint256",
+				"name": "itemId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
 				"name": "tokenId",
 				"type": "uint256"
 			}
@@ -1416,13 +1438,18 @@ export default [
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function",
-		"signature": "0x66b10d4c"
+		"signature": "0xc304ab62"
 	},
 	{
 		"inputs": [
 			{
 				"internalType": "uint256",
 				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "itemId",
 				"type": "uint256"
 			},
 			{
@@ -1435,7 +1462,7 @@ export default [
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function",
-		"signature": "0xe7dbbb11"
+		"signature": "0xf417855b"
 	},
 	{
 		"inputs": [
@@ -1690,6 +1717,32 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0x898e6219"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "activated",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x916de1f1"
 	},
 	{
 		"inputs": [
