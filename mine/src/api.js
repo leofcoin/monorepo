@@ -318,4 +318,17 @@ Try buying using ETH?`)
     const names = await this.tokenNames()
     return pools.map(id => names[id])
   }
+
+  get platform() {
+    return {
+      balanceOfAll: async (address) => {
+        const contract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, this.provider)
+        const tokens = await this.tokens()
+        return contract.callStatic.balanceOfBatch(
+          tokens.map(item => address),
+          tokens
+        )
+      }
+    }
+  }
 }
