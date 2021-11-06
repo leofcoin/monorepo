@@ -363,6 +363,16 @@ customElements.define('home-view', class HomeView extends HTMLElement {
           box-sizing: border-box;
         }
 
+        .member {
+          display: flex;
+          flex-direction: column;
+          text-decoration: none;
+          cursor: pointer;
+          align-items: center;
+          color: #555;
+          height: 100%;
+        }
+
         @media (min-width: 440px) {
           img {
             max-height: 256px;
@@ -399,6 +409,18 @@ customElements.define('home-view', class HomeView extends HTMLElement {
             max-height: 300px;
           }
         }
+
+        .member p {
+          margin: 0;
+        }
+
+        .member img {
+          width: 100%;
+          max-width: 160px;
+          height: 100%;
+          max-height: 160px;
+          border-radius: 24px;
+        }
       </style>
       <custom-hero class="hero-1">
         <flex-row style="align-items: center;">
@@ -417,7 +439,7 @@ customElements.define('home-view', class HomeView extends HTMLElement {
         </flex-row>
       </custom-hero>
 
-      <custom-hero>
+      <custom-hero class="hero-1">
         <flex-row style="align-items: center;">
           <flex-column class="info info-2">
             <h2>Constantly fluctuating</h2>
@@ -430,6 +452,43 @@ customElements.define('home-view', class HomeView extends HTMLElement {
           </flex-column>
 
           <img src="./assets/banner-2.png"></img>
+        </flex-row>
+      </custom-hero>
+
+      <custom-hero>
+        <h2>Team</h2>
+        <flex-row style="align-items: center;">
+
+            <a href="https://www.linkedin.com/in/glenn-vandeuren-315123100/" class="member">
+              <img src="https://media-exp1.licdn.com/dms/image/C5603AQGk48vDebV1QA/profile-displayphoto-shrink_200_200/0/1516981862251?e=1641427200&v=beta&t=D07YmIq2bVSz82VzHDx_KQ2za8zFRB_pOgATC2aMl1s"></img>
+              <flex-column style="align-items: center;">
+                <h4>Glenn Vandeuren</h4>
+                <p>Head development</p>
+                <p>Team supervisor</p>
+              </flex-column>
+            </a>
+
+            <flex-one></flex-one>
+
+            <a href="https://www.linkedin.com/in/jack-daniel-grubba" class="member">
+              <img src="https://media-exp1.licdn.com/dms/image/C4D03AQHCIeQkJwi_GA/profile-displayphoto-shrink_200_200/0/1602613270375?e=1641427200&v=beta&t=3FzUW9hPshJhYqbdtgBrK36VxIigZHKGHvaqI5iuTvU"></img>
+              <flex-column style="align-items: center;">
+                <h4>Jack Daniel Grübba</h4>
+                <p>Head marketing</p>
+                <p>NFT designer</p>
+              </flex-column>
+            </a>
+
+            <flex-one></flex-one>
+
+            <a href="https://www.linkedin.com/in/michael-shakil-829606141" class="member">
+              <img src="https://media-exp1.licdn.com/dms/image/C4D03AQE1gsWlW25k7A/profile-displayphoto-shrink_400_400/0/1562178875449?e=1641427200&v=beta&t=B8E03N0BIRVOfa0LeLCDWsjTcMgt1wNtb3IKAfEPzNA"></img>
+              <flex-column style="align-items: center;">
+                <h4>Michael Shakil</h4>
+                <p>community manager</p>
+                <p>NFT designer</p>
+              </flex-column>
+            </a>
         </flex-row>
       </custom-hero>
     `;
@@ -23872,6 +23931,7 @@ var shell = customElements.define('art-online', class ArtOnline extends HTMLElem
       * {
         user-select: none;
         pointer-events: none;
+        font-family: 'Noto Sans', sans-serif;
       }
       :host {
         font-family: 'Noto Sans', sans-serif;

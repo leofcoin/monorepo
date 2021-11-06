@@ -47,6 +47,7 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
       * {
         user-select: none;
         pointer-events: none;
+        font-family: 'Noto Sans', sans-serif;
       }
       :host {
         font-family: 'Noto Sans', sans-serif;
