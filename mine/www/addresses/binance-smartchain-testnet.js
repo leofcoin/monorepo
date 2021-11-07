@@ -1,0 +1,5 @@
+export default {
+  "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
+  "platform": "0x0cf61177847B209931894F15AaE2E8E8AcF6625d",
+  "exchange": "0xdB544b14885185a85397E872d5f4Bf2f5a34E32A"
+}

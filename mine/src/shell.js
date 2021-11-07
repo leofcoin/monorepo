@@ -424,12 +424,11 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <custom-svg-icon icon="send"></custom-svg-icon>
           <span>send</span>
         </span>
-<!--
+        
         <span class="drawer-item" data-route="wallet">
           <custom-svg-icon icon="wallet"></custom-svg-icon>
           <span>wallet</span>
         </span>
-        -->
 
         <span class="drawer-item" data-route="calculator">
           <custom-svg-icon icon="chart"></custom-svg-icon>

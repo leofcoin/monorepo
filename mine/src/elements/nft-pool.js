@@ -202,7 +202,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       if (result.status !== 'rejected' && result.value === api.signer.address) {
         const tokenId = promises.indexOf(result) + 1
         const mining = await this.contract.callStatic.mining(this.id, tokenId)
-        cards.push({tokenId: tokenId, mining: Boolean(Number(mining) === 1)})
+
+        const bonus = await this.contract.callStatic.bonuses(api.signer.address, this.id, '5')
+        if (bonus.toNumber() >= card.length - 1) cards.push({tokenId: tokenId, bonus: true, mining: Boolean(Number(mining) === 1)})
+        else cards.push({tokenId: tokenId, bonus: false, mining: Boolean(Number(mining) === 1)})
       }
     }
 

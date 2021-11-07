@@ -1,4 +1,4 @@
-import './nft-pool-card'
+import './nft-wallet-card'
 
 const mp4s = {
   GENESIS: 'Genesis.mp4',
@@ -6,7 +6,7 @@ const mp4s = {
   'ARTX 2000': 'ARTX2000.mp4'
 }
 
-export default customElements.define('nft-pool-cards', class NFTPoolCards extends HTMLElement {
+export default customElements.define('nft-wallet-cards', class NFtWalletCards extends HTMLElement {
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
@@ -19,13 +19,12 @@ export default customElements.define('nft-pool-cards', class NFTPoolCards extend
     console.log(cards);
       this.innerHTML = ''
 
-    for (const {tokenId, bonus, mining = false} of cards) {
-      const card = document.createElement('nft-pool-card')
+    for (const {tokenId, mining = false} of cards) {
+      const card = document.createElement('nft-wallet-card')
       card.setAttribute('token-id', tokenId)
       card.setAttribute('mining', mining)
       card.setAttribute('data-id', tokenId)
       card.setAttribute('status', mining ? 'activated' : 'deactivated')
-      card.setAttribute('bonus', bonus)
       this.appendChild(card)
     }
   }

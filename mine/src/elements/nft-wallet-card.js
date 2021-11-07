@@ -1,8 +1,8 @@
 import {rotate, basicRotation} from '../styles/shared'
 
-export default customElements.define('nft-pool-card', class NFTPoolCard extends HTMLElement {
+export default customElements.define('nft-wallet-card', class NFTWalletCard extends HTMLElement {
   static get observedAttributes() {
-    return ['token-id', 'mining', 'status', 'bonus']
+    return ['token-id', 'mining', 'status']
   }
   constructor() {
     super()
@@ -18,7 +18,7 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
   }
 
   _observer() {
-    if (this.tokenId && this.mining !== undefined && this.status && this.bonus !== undefined) this.shadowRoot.innerHTML = this.template
+    if (this.tokenId && this.mining !== undefined && this.status) this.shadowRoot.innerHTML = this.template
   }
 // hardware:toys
   get template() {
@@ -83,10 +83,8 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
     </style>
     <custom-svg-icon icon="fan"></custom-svg-icon>
     <strong>${this.tokenId}</strong>
-    <span>${this.status}</span>
     <flex-one></flex-one>
-    <custom-svg-icon data-id="${this.tokenId}" data-action="${this.mining === true ? 'deactivate' : 'activate'}" icon=${this.mining === true ? 'stop' : 'play'}></custom-svg-icon>
-    <upgrade-img data-id="5" data-bonus="${this.bonus}"></upgrade-img>
+    <span>${this.status}</span>
     `
   }
 })
