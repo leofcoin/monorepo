@@ -14,7 +14,15 @@ node_modules/
 .mnemonic
 .privatekey
 
-/mine/www/**/*.js
+/mine/www/*.js
+/mine/www/themes/*.js
+/mine/www/third-party/*.js
 /mine/www/*.zip
+/www/www/**/*.js
 /build/contracts
 node/testnet
+snapshots/**/tx
+snapshots/**/.cache
+snapshots/**/balances
+www/www/shell.js
+www/www/service-worker.js
