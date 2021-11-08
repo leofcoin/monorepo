@@ -465,21 +465,6 @@ export default [
 	},
 	{
 		"inputs": [],
-		"name": "COMMUNITY_ROLE",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x9aa77731"
-	},
-	{
-		"inputs": [],
 		"name": "DEFAULT_ADMIN_ROLE",
 		"outputs": [
 			{
@@ -1717,6 +1702,37 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0x898e6219"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "bonuses",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xfe49f0d1"
 	},
 	{
 		"inputs": [
