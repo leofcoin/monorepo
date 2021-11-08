@@ -1,6 +1,17 @@
 export default [
 	{
-		"inputs": [],
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "name_",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "symbol_",
+				"type": "string"
+			}
+		],
 		"stateMutability": "nonpayable",
 		"type": "constructor",
 		"signature": "constructor"
@@ -9,47 +20,27 @@ export default [
 		"anonymous": false,
 		"inputs": [
 			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
+				"indexed": true,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
 			},
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "tokenId",
+				"name": "value",
 				"type": "uint256"
 			}
 		],
-		"name": "Delist",
+		"name": "Approval",
 		"type": "event",
-		"signature": "0x4eaf8c9c71859ab58ed3353f9029475cea0ae1e0e017c6897edc072c6796c656"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			}
-		],
-		"name": "List",
-		"type": "event",
-		"signature": "0xc0ede5335ff0a3c4e54da828ac71b7006649d4c7d63be5b22158a7f51623fc58"
+		"signature": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
 	},
 	{
 		"anonymous": false,
@@ -147,33 +138,27 @@ export default [
 		"anonymous": false,
 		"inputs": [
 			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
+				"indexed": true,
 				"internalType": "address",
-				"name": "owner",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "to",
 				"type": "address"
 			},
 			{
 				"indexed": false,
 				"internalType": "uint256",
-				"name": "price",
+				"name": "value",
 				"type": "uint256"
 			}
 		],
-		"name": "Sold",
+		"name": "Transfer",
 		"type": "event",
-		"signature": "0x8438a66ac04db2e2324d5927beca96c400ee09b811c5da2b153d4fa7412628e5"
+		"signature": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 	},
 	{
 		"anonymous": false,
@@ -206,125 +191,7 @@ export default [
 	},
 	{
 		"inputs": [],
-		"name": "ERC712_VERSION",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x0f7e5970"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "_auctions",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xbce31b32"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "_nativeListings",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x0b8e5ec3"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "auctions",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "listed",
-				"type": "uint256"
-			},
-			{
-				"internalType": "address",
-				"name": "seller",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xfc23d5f0"
-	},
-	{
-		"inputs": [],
-		"name": "getChainId",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x3408e470"
-	},
-	{
-		"inputs": [],
-		"name": "getDomainSeperator",
+		"name": "DOMAIN_SEPARATOR",
 		"outputs": [
 			{
 				"internalType": "bytes32",
@@ -335,7 +202,98 @@ export default [
 		"stateMutability": "view",
 		"type": "function",
 		"constant": true,
-		"signature": "0x20379ee5"
+		"signature": "0x3644e515"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			}
+		],
+		"name": "allowance",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xdd62ed3e"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "approve",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x095ea7b3"
+	},
+	{
+		"inputs": [],
+		"name": "decimals",
+		"outputs": [
+			{
+				"internalType": "uint8",
+				"name": "",
+				"type": "uint8"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x313ce567"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "subtractedValue",
+				"type": "uint256"
+			}
+		],
+		"name": "decreaseAllowance",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xa457c2d7"
 	},
 	{
 		"inputs": [
@@ -406,90 +364,63 @@ export default [
 	{
 		"inputs": [
 			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "addedValue",
 				"type": "uint256"
 			}
 		],
-		"name": "listings",
+		"name": "increaseAllowance",
 		"outputs": [
 			{
-				"internalType": "uint256",
+				"internalType": "bool",
 				"name": "",
-				"type": "uint256"
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x39509351"
+	},
+	{
+		"inputs": [],
+		"name": "name",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
 			}
 		],
 		"stateMutability": "view",
 		"type": "function",
 		"constant": true,
-		"signature": "0xde74e57b"
+		"signature": "0x06fdde03"
 	},
 	{
 		"inputs": [
 			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
 			}
 		],
-		"name": "lists",
+		"name": "nonces",
 		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "price",
+				"name": "",
 				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "listed",
-				"type": "uint256"
-			},
-			{
-				"internalType": "address",
-				"name": "seller",
-				"type": "address"
 			}
 		],
 		"stateMutability": "view",
 		"type": "function",
 		"constant": true,
-		"signature": "0x96102cf4"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "nativeListings",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "listed",
-				"type": "uint256"
-			},
-			{
-				"internalType": "address",
-				"name": "seller",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xbda6eed0"
+		"signature": "0x7ecebe00"
 	},
 	{
 		"inputs": [],
@@ -505,6 +436,50 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0x5c975abb"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "value",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "deadline",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint8",
+				"name": "v",
+				"type": "uint8"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "r",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "s",
+				"type": "bytes32"
+			}
+		],
+		"name": "permit",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xd505accf"
 	},
 	{
 		"inputs": [
@@ -547,282 +522,6 @@ export default [
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "artonline_",
-				"type": "address"
-			}
-		],
-		"name": "setArtOnline",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0x80f803bf"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "artOnlineStaking_",
-				"type": "address"
-			}
-		],
-		"name": "setArtOnlineStaking",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0xe700209b"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "artOnlinePlatform_",
-				"type": "address"
-			}
-		],
-		"name": "setArtOnlinePlatform",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0x1cf736ea"
-	},
-	{
-		"inputs": [],
-		"name": "artOnline",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x88336472"
-	},
-	{
-		"inputs": [],
-		"name": "artOnlinePlatform",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xef12364b"
-	},
-	{
-		"inputs": [],
-		"name": "listingLength",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xee52a625"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			}
-		],
-		"name": "auctionLength",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0xd4b9027f"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			}
-		],
-		"name": "nativeListingLength",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x3f2209e8"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			}
-		],
-		"name": "list",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0x19aeb490"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			}
-		],
-		"name": "forceDelist",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0xa30ecb78"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			}
-		],
-		"name": "delist",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0xf8c265be"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			}
-		],
-		"name": "buy",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0xd6febde8"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "price",
-				"type": "uint256"
-			}
-		],
-		"name": "setPrice",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0xaa585d56"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "tokenId",
-				"type": "uint256"
-			}
-		],
-		"name": "getPrice",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function",
-		"constant": true,
-		"signature": "0x5cf4ee91"
-	},
-	{
-		"inputs": [],
-		"name": "pause",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0x8456cb59"
-	},
-	{
-		"inputs": [],
-		"name": "unpause",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function",
-		"signature": "0x3f4ba83a"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "bytes4",
 				"name": "interfaceId",
 				"type": "bytes4"
@@ -840,5 +539,244 @@ export default [
 		"type": "function",
 		"constant": true,
 		"signature": "0x01ffc9a7"
+	},
+	{
+		"inputs": [],
+		"name": "symbol",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x95d89b41"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transfer",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xa9059cbb"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x23b872dd"
+	},
+	{
+		"inputs": [],
+		"name": "totalSupply",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x18160ddd"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			}
+		],
+		"name": "balanceOf",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x70a08231"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "artOnline_",
+				"type": "address"
+			}
+		],
+		"name": "setArtOnline",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x80f803bf"
+	},
+	{
+		"inputs": [],
+		"name": "artOnline",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x88336472"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "releaseTime_",
+				"type": "uint256"
+			}
+		],
+		"name": "setReleaseTime",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xab05bfff"
+	},
+	{
+		"inputs": [],
+		"name": "releaseTime",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0xb91d4001"
+	},
+	{
+		"inputs": [],
+		"name": "holders",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x8188f71c"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "id",
+				"type": "bytes32"
+			}
+		],
+		"name": "readyToRelease",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function",
+		"constant": true,
+		"signature": "0x45f9473a"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "stake",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0xa694fc3a"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "id",
+				"type": "bytes32"
+			}
+		],
+		"name": "withdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function",
+		"signature": "0x8e19899e"
 	}
 ]
