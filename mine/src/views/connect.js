@@ -50,7 +50,7 @@ export default customElements.define('connect-view', class ConnectView extends H
       }
       :host {
         padding-top: 128px;
-        z-index: 10000000000;
+        z-index: 100;
         display: flex;
         flex-direction: column;
         position: fixed;
@@ -65,7 +65,7 @@ export default customElements.define('connect-view', class ConnectView extends H
       }
 
       .info {
-        width: 320px;
+        width: 350px;
       }
 
       .logo {
@@ -83,11 +83,13 @@ export default customElements.define('connect-view', class ConnectView extends H
         pointer-events: auto;
         height: 44px;
         width: 100%;
-        max-width: 140px;
+        max-width: 160px;
         font-weight: 700;
         font-size: 16px;
         text-transform: uppercase;
         cursor: pointer;
+        border: none;
+        box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.4);
       }
 
       h1, h2 {
@@ -130,11 +132,18 @@ export default customElements.define('connect-view', class ConnectView extends H
       }
 
       .info span {
-        padding-left: 6px;
+        padding: 6px;
       }
 
       .info button {
         justify-content: center;
+      }
+      .how_to{
+        background-color: var(--dark-blue-button);
+        color: white;
+      }
+      .how_to_image{
+        width: 45px;
       }
 
       :host([hidden]) {
@@ -145,23 +154,23 @@ export default customElements.define('connect-view', class ConnectView extends H
       }
     </style>
     <section>
-      <img class="logo" src="./assets/arteon.svg" loading="lazy"></img>
+      <img class="logo" src="./assets/arteon.svg" loading="lazy"/>
       <h1>ArtOnline</h1>
       <h2>Mining platform</h2>
 
       <flex-row class="info">
         <button data-action="connect">
-          <img src="./assets/metamask-fox.svg" loading="lazy"></img>
+          <img src="./assets/metamask-fox.svg" loading="lazy"/>
           <span>connect</span>
         </button>
         <flex-one></flex-one>
-        <button data-action="guide">
-          <custom-svg-icon icon="book"></custom-svg-icon>
+        <button class="how_to" data-action="guide">
           <span>how to</span>
-        </button>
+          
+          </button>
       </flex-row>
     </section>
-    <img class="full-spec" src="./assets/full_spec.png" loading="lazy"></img>
+    <img class="full-spec" src="./assets/full_spec.png" loading="lazy"/>
     `
   }
 })
