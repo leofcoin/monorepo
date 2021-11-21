@@ -3,7 +3,7 @@ import 'contracts/access/IArtOnlineAccess.sol';
 import '@openzeppelin/contracts/utils/Context.sol';
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-abstract contract ArtOnlineAccess is Context, AccessControl, Pausable, IArtOnlineAccess {
+contract ArtOnlineAccess is Context, AccessControl, Pausable, IArtOnlineAccess {
   bytes32 public constant MINT_ROLE = keccak256('MINT_ROLE');
 
   constructor() {
@@ -11,11 +11,11 @@ abstract contract ArtOnlineAccess is Context, AccessControl, Pausable, IArtOnlin
     _setupRole(MINT_ROLE, _msgSender());
   }
 
-  function isAdmin(address account) external whenNotPaused returns (bool) {
+  function isAdmin(address account) external override whenNotPaused returns (bool) {
     return hasRole(DEFAULT_ADMIN_ROLE, account);
   }
 
-  function isMinter(address account) external whenNotPaused returns (bool) {
+  function isMinter(address account) external override whenNotPaused returns (bool) {
     return hasRole(MINT_ROLE, account);
   }
 
