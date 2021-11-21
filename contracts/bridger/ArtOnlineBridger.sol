@@ -1,9 +1,6 @@
 import 'contracts/access/IArtOnlineAccess.sol';
 
 contract ArtOnlineBridger {
-  bytes32 public constant MINT_ROLE = keccak256('MINT_ROLE');
-  bytes32 public constant DEFAULT_ADMIN_ROLE = keccak256('DEFAULT_ADMIN_ROLE');
-
   address internal _artOnline;
   address internal _artOnlinePlatform;
   address internal _artOnlineMining;
@@ -12,10 +9,15 @@ contract ArtOnlineBridger {
   address internal _artOnlineBlacklist;
   address internal _artOnlineAccess;
   address internal _artOnlineBridger;
+  address internal _artOnlineStaking;
 
   modifier hasPermission() {
     require(IArtOnlineAccess(_artOnlineAccess).isAdmin(msg.sender) == true, 'NO_PERMISSION');
     _;
+  }
+
+  constructor(address artOnlineAccess_) {
+    _artOnlineAccess = artOnlineAccess_;
   }
 
   function setArtOnline(address artonline_) external hasPermission() {
@@ -46,6 +48,10 @@ contract ArtOnlineBridger {
     _artOnlineAccess = artOnlineAccess_;
   }
 
+  function setArtOnlineStaking(address artOnlineStaking_) external hasPermission() {
+    _artOnlineStaking = artOnlineStaking_;
+  }
+
   function artOnline() external view virtual returns (address) {
     return _artOnline;
   }
@@ -72,6 +78,10 @@ contract ArtOnlineBridger {
 
   function artOnlineAccess() external view virtual returns (address) {
     return _artOnlineAccess;
+  }
+
+  function artOnlineStaking() external view virtual returns (address) {
+    return _artOnlineStaking;
   }
 
   function artOnlineBridger() external view virtual returns (address) {

@@ -1,4 +1,7 @@
-interface IArtOnlineBridge {
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IArtOnlineBridger {
   function setArtOnline(address _address) external;
   function artOnline() external view returns (address);
 
@@ -19,4 +22,10 @@ interface IArtOnlineBridge {
 
   function setArtOnlineFactory(address _address) external;
   function artOnlineFactory() external view returns (address);
+
+  function setArtOnlineStaking(address _address) external;
+  function artOnlineStaking() external view returns (address);
+
+  function setArtOnlineAccess(address _address) external;
+  function artOnlineAccess() external view returns (address);
 }
