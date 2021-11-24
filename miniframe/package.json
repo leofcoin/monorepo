@@ -1,0 +1,15 @@
+{
+  "name": "miniframe",
+  "version": "1.0.0",
+  "description": "Minimal framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "vandeurenglenn vandeurenglenn@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "@vandeurenglenn/little-pubsub": "^1.3.1"
+  }
+}
