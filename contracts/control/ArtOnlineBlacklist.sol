@@ -1,6 +1,6 @@
 import 'contracts/access/IArtOnlineAccess.sol';
 
-abstract contract ArtOnlineBlacklist {
+contract ArtOnlineBlacklist {
   address internal _artOnlineAccess;
   mapping (address => uint256) internal _blacklist;
 
@@ -17,6 +17,10 @@ abstract contract ArtOnlineBlacklist {
     _;
   }
 
+  constructor(address artOnlineAccess_) {
+    _artOnlineAccess = artOnlineAccess_;
+  }
+
   function setArtOnlineAccess(address artOnlineAccess_) external
     hasPermission()
   {
@@ -27,15 +31,15 @@ abstract contract ArtOnlineBlacklist {
     return _artOnlineAccess;
   }
 
-  function blacklist(address account, bool _blacklist) external
+  function blacklist(address account, bool blacklist_) external
     hasPermission()
     isWhiteListed(account)
   {
-    _blacklist[account] = _blacklist == true ? 1 : 0;
-    emit Blacklist(account, _blacklist);
+    _blacklist[account] = blacklist_ == true ? 1 : 0;
+    emit Blacklist(account, blacklist_);
   }
 
-  function blacklisted() external view returns (bool) {
-    return _blacklist == 1 ? true : false;
+  function blacklisted(address account) external view returns (bool) {
+    return _blacklist[account] == 1 ? true : false;
   }
 }
