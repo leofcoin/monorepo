@@ -16,4 +16,5 @@ interface IArtOnlineListing {
   function listed() external returns (uint256);
   function currency() external view returns (address);
   function setCurrency(address currency_, uint256 price_) external;
+  function setPartner(address partner) external;
 }

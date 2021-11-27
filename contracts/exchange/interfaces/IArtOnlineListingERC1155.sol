@@ -17,4 +17,5 @@ interface IArtOnlineListingERC1155 {
   function isListed() external returns (bool);
   function currency() external view returns (address);
   function setCurrency(address currency_, uint256 price_) external;
+  function setPartner(address partner) external;
 }

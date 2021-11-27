@@ -8,6 +8,9 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import 'contracts/exchange/interfaces/IArtOnlineExchangeFactory.sol';
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import '@openzeppelin/contracts/utils/Address.sol';
+import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
+import 'contracts/exchange/manage/IArtOnlineSplitter.sol';
 
 contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   address internal _factory;
@@ -18,6 +21,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   address internal _currency;
   uint256 private _price;
   uint256 private _listed;
+  address internal _splitter;
 
   constructor() {
     _factory = msg.sender;
@@ -27,9 +31,18 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   event OwnerChange(address oldOwner, address newOwner);
   event Listed(uint256);
 
-  function _buyWithNative(uint256 fee, address payable feeWallet) internal {
-    address payable wallet = payable(_owner);
-    wallet.transfer(msg.value - fee);
+  function _buyWithNative(address receiver, uint256 fee, address payable feeWallet) internal {
+    uint256 amount = msg.value - fee;
+    if (_splitter != address(0)) {
+      address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
+      currencyIn = _wrappedCurrency;
+      IWrappedCurrency(_wrappedCurrency).deposit(){value: amount};
+      SafeERC20(_wrappedCurrency).safeTransferFrom(receiver, _splitter, amount);
+      IArtOnlineSplitter(_splitter).split(amount);
+    } else {
+      address payable wallet = payable(_owner);
+      wallet.transfer(amount);
+    }
     feeWallet.transfer(fee);
   }
 
@@ -37,14 +50,15 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     if (msg.value != 0) {
       require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
       require(msg.value >= _price, 'NOT_ENOUGH_COINS');
-      _buyWithNative(fee, payable(feeReceiver));
-
-      // address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
-      // currencyIn = _wrappedCurrency;
-      // IWrappedCurrency(_wrappedCurrency).deposit({value: msg.value});
+      _buyWithNative(receiver, fee, payable(feeReceiver));
     } else {
       _beforeTransfer(receiver);
-      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
+      if (_splitter != address(0)) {
+        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
+        IArtOnlineSplitter(_splitter).split(amount);
+      } else {
+        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
+      }
       SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
     }
 
@@ -146,6 +160,11 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   function setCurrency(address currency_, uint256 price_) external override {
     _currency = currency_;
     _price = price_;
+  }
+
+  function setSplitter(address splitter_) external override {
+    require(msg.sender == _factory, 'NOT_ALLOWED');
+    _splitter = splitter_;
   }
 
   function onERC1155Received(

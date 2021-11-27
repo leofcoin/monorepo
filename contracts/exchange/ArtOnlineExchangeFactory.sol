@@ -135,16 +135,36 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     return listing;
   }
 
-  function buy(address contractAddress, uint256 id) external {
+  function _buyERC721(address contractAddress, uint256 id) internal {
     address listing = getListing[contractAddress][id];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
     IArtOnlineListing(listing).buy(msg.sender);
   }
 
-  function buyERC1155(address contractAddress, uint256 id, uint256 tokenId) external {
+  function _buyERC1155(address contractAddress, uint256 id, uint256 tokenId) internal {
     address listing = getListingERC1155[contractAddress][id][tokenId];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
-    IArtOnlineListing(listing).buy(msg.sender);
+    IArtOnlineListingERC1155(listing).buy(msg.sender);
+  }
+
+  function buy(address contractAddress, uint256 id, uint256 tokenId) external payable {
+    if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
+      _buyERC1155(contractAddress, id, tokenId);
+    } else {
+      _buyERC721(contractAddress, id);
+    }
+  }
+
+  function buyERC721(address contractAddress, uint256 id) external payable {
+    _buyERC721(contractAddress, id);
+  }
+
+  function buyERC1155(address contractAddress, uint256 id, uint256 tokenId) external {
+    _buyERC1155(contractAddress, id, tokenId);
+  }
+
+  function setPartner(address listing, address partner) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    IArtOnlineListing(listing).setPartner(partner);
   }
 
   function feeFor(uint256 amount) external returns (uint256) {
