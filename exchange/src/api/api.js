@@ -22,7 +22,7 @@ export default class Api {
     }
     this.provider = new ethers.providers.JsonRpcProvider(this.network.rpcUrl, NETWORK_ID)
     this.addresses = await addresses(NETWORK_NAME)
-    this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI)
+    this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, this.provider)
     pubsub.publish('api.ready', true)
 
     let wallet = localStorage.getItem('wallet')
