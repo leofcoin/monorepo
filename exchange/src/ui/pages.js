@@ -4,5 +4,6 @@ export default html`
 <custom-pages attr-for-selected="data-route">
   <home-view data-route="home"></home-view>
   <market-view data-route="market"></market-view>
+  <list-view data-route="list"></list-view>
 </custom-pages>
 `
