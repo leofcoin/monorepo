@@ -29,7 +29,7 @@
     "solidity-parser": "^0.4.0"
   },
   "devDependencies": {
-    "@openzeppelin/contracts": "^4.3.2",
+    "@openzeppelin/contracts": "^4.3.3",
     "@openzeppelin/truffle-upgrades": "^1.10.0",
     "@truffle/hdwallet-provider": "^1.5.1",
     "dotenv": "^10.0.0",
