@@ -1,4 +1,6 @@
 import PLATFORM_ABI from './../../../abis/platform.js'
+import MINING_ABI from './../../../abis/mining.js'
+import STAKING_ABI from './../../../abis/staking.js'
 import './nft-pool-cards'
 import { scrollbar } from './../styles/shared'
 import './pool-selector-item'
@@ -39,9 +41,22 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       // let earned = await this.contract.callStatic.earned(api.signer.address, this.id)
       // earned = ethers.utils.formatUnits(earned)
       // if (Number(earned) >= 1000) {
+      // const answer = await arteondialog.show()
       const tx = await this.contract.functions.getReward(this.id)
       await tx.wait()
       // }
+      return
+    }
+
+    if (action === 'stakeReward') {
+      const contract = await api.getContract(api.addresses.mining, MINING_ABI, true)
+      try {
+        const tx = await contract.functions.stakeReward(api.signer.address, this.id)
+        console.log(tx);
+        console.log(await tx.wait());
+      } catch (e) {
+        console.error(e)
+      }
       return
     }
 
@@ -113,11 +128,11 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       for (const addr of promises) {
         i++
         if (addr === api.signer.address) {
-          const activated = await this.contract.callStatic.activated('5', i)
+          const activated = await this.miningContract.callStatic.activated('5', i)
           if (activated.toNumber() === 0) available.push(i)
         }
       }
-      let tx = await this.contract.functions.activateItem(this.id, '5', available[0])
+      let tx = await this.miningContract.functions.activateItem(api.signer.address, this.id, '5', available[0])
       await tx.wait()
       return
     }
@@ -177,6 +192,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('symbol', symbol)
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('id', id)
     this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+    this.miningContract = api.getContract(api.addresses.mining, MINING_ABI, true)
 
     this._parseRewards()
     console.log(this.contract);
@@ -185,7 +201,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       this.contract.callStatic.totalSupply(id)
     ]
     promises = await Promise.all(promises)
-
+console.log(promises);
     // if (Number(promises[0]) === 0) return;
 
     const totalSupply = promises[1]
@@ -195,16 +211,20 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       promises.push(this.contract.callStatic.ownerOf(id, i))
     }
     promises = await Promise.allSettled(promises)
+    console.log(promises);
     let cards = []
     const tokenIdsToCheck = []
-
+console.log();
+    const bonus = await this.miningContract.callStatic.bonuses(this.id, api.signer.address, '5')
+    console.log(bonus);
     for (const result of promises) {
+      console.log(result);
       if (result.status !== 'rejected' && result.value === api.signer.address) {
         const tokenId = promises.indexOf(result) + 1
-        const mining = await this.contract.callStatic.mining(this.id, tokenId)
+        const mining = await this.miningContract.callStatic.mining(this.id, tokenId)
 
-        const bonus = await this.contract.callStatic.bonuses(api.signer.address, this.id, '5')
-        if (bonus.toNumber() >= card.length - 1) cards.push({tokenId: tokenId, bonus: true, mining: Boolean(Number(mining) === 1)})
+        console.log(bonus, bonus.toNumber());
+        if (bonus.toNumber() > 0) cards.push({tokenId: tokenId, bonus: true, mining: Boolean(Number(mining) === 1)})
         else cards.push({tokenId: tokenId, bonus: false, mining: Boolean(Number(mining) === 1)})
       }
     }
@@ -337,13 +357,23 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       <flex-one></flex-one>
       <button data-action="getReward">get reward</button>
       <flex-two></flex-two>
+      <button data-action="stakeReward">stake reward</button>
+      <flex-two></flex-two>
       <button data-action="activateItem">upgrade</button>
       <flex-two></flex-two>
       <button data-action="activateAll">activate all</button>
       <flex-one></flex-one>
     </flex-row>
 
+  <!--  <arteon-dialog>
+      <custom-tabs>
+        <custom-tab data-input="">
 
+        </custom-tab>
+      </custom-tabs>
+    </arteon-dialog>
+
+-->
     `
   }
 })
