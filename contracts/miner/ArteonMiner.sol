@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 // SPDX-License-Identifier: MIT
 
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
@@ -11,8 +11,8 @@ import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import './../gpu/ArteonGPU.sol';
-import './../token/Arteon.sol';
+import 'contracts/gpu/ArteonGPU.sol';
+import 'contracts/token/Arteon.sol';
 
 contract ArteonMiner is Context, ERC165, ERC721Holder, Ownable {
   using SafeMath for uint256;
