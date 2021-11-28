@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract ArtOnlineExchangeFactoryStorage is AccessControl {
+  address internal _wrappedCurrency;
   address internal _feeReceiver;
   address internal _nativeCurrency;
   uint256 internal _unlocked = 1;
