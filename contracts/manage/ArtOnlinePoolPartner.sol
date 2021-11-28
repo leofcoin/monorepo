@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import 'contracts/access/SetArtOnlineBase';
+import 'contracts/access/SetArtOnlineBase.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 contract ArtOnlinePoolPartner is SetArtOnlineBase {
-  string memory internal _name;
+  string internal _name;
   address internal _token;
   bytes32 internal _POOL_ROLE;
 
@@ -20,7 +20,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     _;
   }
 
-  modifier paused() {
+  modifier whenPaused() {
     require(_artOnlineAccessInterface.paused() == true, 'NO_PERMISSION');
     _;
   }
@@ -54,7 +54,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     return _token;
   }
 
-  function setToken(address token_) onlyAdmin() {
+  function setToken(address token_) external pure onlyAdmin() {
     _token = token_;
   }
 
@@ -62,7 +62,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     SafeERC20.IERC20(_token).safeTransferFrom(sender, address(this), amount);
   }
 
-  function drain(address receiver) external isPaused() onlyPoolAdmin() {
+  function drain(address receiver, uint256 amount) external whenPaused() onlyPoolAdmin() {
     SafeERC20.IERC20(_token).safeTransferFrom(address(this), receiver, amount);
   }
 
