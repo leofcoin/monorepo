@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 import 'contracts/storage/ArtOnlineExchangeFactoryStorage.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -163,8 +163,20 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     _buyERC1155(contractAddress, id, tokenId);
   }
 
-  function setPartner(address listing, address partner) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-    IArtOnlineListing(listing).setPartner(partner);
+  function wrappedCurrency() external pure returns (address) {
+    return _wrappedCurrency;
+  }
+
+  function setWrappedCurrency(address currency) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _wrappedCurrency = currency;
+  }
+
+  function setSplitter(address listing, address splitter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    IArtOnlineListing(listing).setSplitter(splitter);
+  }
+
+  function setCurrency(address listing, address currency) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    IArtOnlineListing(listing).setCurrency(currency);
   }
 
   function feeFor(uint256 amount) external returns (uint256) {
