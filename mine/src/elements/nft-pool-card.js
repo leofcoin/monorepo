@@ -1,4 +1,5 @@
 import {rotate, basicRotation} from '../styles/shared'
+import './upgrade-img'
 
 export default customElements.define('nft-pool-card', class NFTPoolCard extends HTMLElement {
   static get observedAttributes() {
@@ -35,11 +36,11 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
 
       ${rotate}
 
-      :host([mining="true"]) custom-svg-icon[icon="fan"] {
+      :host([mining="true"]) custom-svg-icon[icon="fan"], :host([mining="true"]) upgrade-img {
         ${basicRotation}
       }
 
-      :host([booting][mining="true"]) custom-svg-icon[icon="fan"] {
+      :host([booting][mining="true"]) custom-svg-icon[icon="fan"], :host([booting][mining="true"]) upgrade-img {
         -webkit-animation: rotation 500ms linear infinite;
         -moz-animation: rotation 500ms linear infinite;
         -ms-animation: rotation 500ms linear infinite;
@@ -47,7 +48,7 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
         animation: rotation 500ms linear infinite;
       }
 
-      :host([slowing-down][mining="true"]) custom-svg-icon[icon="fan"] {
+      :host([slowing-down][mining="true"]) custom-svg-icon[icon="fan"], :host([slowing-down][mining="true"]) upgrade-img {
         -webkit-animation: rotation 4s linear infinite;
         -moz-animation: rotation 4s linear infinite;
         -ms-animation: rotation 4s linear infinite;
@@ -55,7 +56,7 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
         animation: rotation 4s linear infinite;
       }
 
-      :host([stopping][mining="true"]) custom-svg-icon[icon="fan"] {
+      :host([stopping][mining="true"]) custom-svg-icon[icon="fan"], :host([stopping][mining="true"]) upgrade-img {
         -webkit-animation: rotation 8s linear infinite;
         -moz-animation: rotation 8s linear infinite;
         -ms-animation: rotation 8s linear infinite;
@@ -63,7 +64,7 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
         animation: rotation 8s linear infinite;
       }
 
-      :host([stopped][mining="true"]) custom-svg-icon[icon="fan"] {
+      :host([stopped][mining="true"]) custom-svg-icon[icon="fan"], :host([stopped][mining="true"]) upgrade-img {
         -webkit-animation: rotation 16s linear 120ms;
         -moz-animation: rotation 16s linear 120ms;
         -ms-animation: rotation 16s linear 120ms;
@@ -72,21 +73,31 @@ export default customElements.define('nft-pool-card', class NFTPoolCard extends 
       }
 
       strong {
-        padding-left: 6px;
         padding-right: 6px;
+      }
+
+      .status {
+        padding-left: 6px;
       }
 
       custom-svg-icon[icon="stop"], custom-svg-icon[icon="play"] {
         cursor: pointer;
         pointer-events: auto;
       }
+
+      .spacer {
+        width: 6px;
+        display: block;
+      }
     </style>
-    <custom-svg-icon icon="fan"></custom-svg-icon>
     <strong>${this.tokenId}</strong>
-    <span>${this.status}</span>
+    <custom-svg-icon icon="fan"></custom-svg-icon>
+    <span class="spacer"></span>
+    ${this.bonus === "true" ? '<upgrade-img symbol="SPINNER"></upgrade-img>' : ''}
+    <span class="status">${this.status}</span>
     <flex-one></flex-one>
     <custom-svg-icon data-id="${this.tokenId}" data-action="${this.mining === true ? 'deactivate' : 'activate'}" icon=${this.mining === true ? 'stop' : 'play'}></custom-svg-icon>
-    <upgrade-img data-id="5" data-bonus="${this.bonus}"></upgrade-img>
+
     `
   }
 })
