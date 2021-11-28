@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import 'contracts/token/interfaces/IArtOnline.sol';
+import 'contracts/bridger/IArtOnlineBridger.sol';
+import 'contracts/access/IArtOnlineAccess.sol';
+
 contract SetArtOnlineBase {
   IArtOnline internal _artOnlineInterface;
   IArtOnlineBridger internal _artOnlineBridgerInterface;
@@ -26,7 +33,7 @@ contract SetArtOnlineBase {
     return address(_artOnlineInterface);
   }
 
-  function artOnlineAccessInterface() external view  returns (address) {
+  function artOnlineAccessInterface() external view returns (address) {
     return address(_artOnlineAccessInterface);
   }
 
