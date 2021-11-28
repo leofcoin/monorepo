@@ -26,3 +26,6 @@ snapshots/**/.cache
 snapshots/**/balances
 www/www/shell.js
 www/www/service-worker.js
+/exchange/www/themes/*
+/exchange/www/addresses/*
+/exchange/www/*.js
