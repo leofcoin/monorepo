@@ -37,7 +37,6 @@ export default customElements.define('listing-element', class Listinglement exte
     uri = uri.replace(`{id}`, this.id)
     let response = await fetch(uri)
     response = await response.json()
-    console.log(response);
     this.shadowRoot.innerHTML = this.template
 
     const img = response.animation ? response.animation : response.image
@@ -50,9 +49,6 @@ export default customElements.define('listing-element', class Listinglement exte
   get template() {
     return html`
 <style>
-  * {
-    font-size: 16px;
-  }
   :host {
     display: flex;
     flex-direction: column;
@@ -61,8 +57,11 @@ export default customElements.define('listing-element', class Listinglement exte
     overflow: hidden;
     box-sizing: border-box;
     padding: 12px;
-    border: 1px solid #888;
+    /* border: 1px solid #888; */
     border-radius: 24px;
+    font-size: 16px;
+    /* box-shadow: 0 1px 18px 0px var(--accent-color); */
+    ${miniframe.styles.elevation.elevation4dp}
   }
 
   .symbol {
@@ -80,9 +79,10 @@ export default customElements.define('listing-element', class Listinglement exte
   button {
     background: var(--accent-color);
     color: #fff;
-    border-radius: 24px;
+    border-radius: 12px;
+    height: 40px;
     border: none;
-    width: 128px;
+    width: 96px;
     box-sizing: border-box;
     padding: 12px;
     cursor: pointer;
@@ -98,6 +98,10 @@ export default customElements.define('listing-element', class Listinglement exte
   flex-column {
     height: 100%;
   }
+
+  .price {
+    font-size: 14px;
+  }
 </style>
 <img></img>
 <flex-column>
@@ -108,11 +112,17 @@ export default customElements.define('listing-element', class Listinglement exte
 
   <flex-one></flex-one>
   ${this.price ? `<flex-row>
-    <button>
+    <button data-action="buy"
+      data-id="${this.id}"
+      data-token="${this.tokenId}"
+      data-contract="${this.contractAddress}"
+      data-listing="${this.address}"
+      data-price="${this.price}"
+      data-currency="${this._currency}">
       buy
     </button>
     <flex-one></flex-one>
-    <flex-column>
+    <flex-column class="price">
       <strong>price</strong>
       <flex-row>
         <span>${this.price}</span><span>${this.currency}</span>

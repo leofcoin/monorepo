@@ -7,6 +7,7 @@ import './../../node_modules/custom-tabs/custom-tab'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import PLATFORM_ABI from './../../../abis/platform'
 import LISTING_ERC1155_ABI from './../../../build/contracts/ArtOnlineListingERC1155.json'
+import LISTING_ERC721_ABI from './../../../build/contracts/ArtOnlineListing.json'
 
 export default customElements.define('list-view', class ListView extends BaseClass {
   constructor() {
@@ -23,56 +24,63 @@ export default customElements.define('list-view', class ListView extends BaseCla
     })()
   }
 
+  _getCurrency(currency) {
+    return currency === '0x0' ? '0x0000000000000000000000000000000000000000' : currency
+  }
+
+  async __list(value, ABI) {
+    const contract = new ethers.Contract(value.address, ABI, api.connection.provider.getSigner())
+    await this._approve(value.address)
+    busy.show('Listing')
+    const tx = await api.contract.createListing(
+      value.address,
+      this._getCurrency(value.currency),
+      ethers.utils.parseUnits(value.price, 18),
+      value.tokenId,
+      value.id,
+    )
+    await tx.wait()
+    busy.done()
+    location.href = '#!/market'
+  }
+
+  async _approve(address) {
+    const contract = new ethers.Contract(address, PLATFORM_ABI, api.connection.provider.getSigner())
+    const approved = await contract.callStatic.isApprovedForAll(api.connection.accounts[0], api.addresses.exchangeFactory)
+    console.log(approved);
+    if (!approved) {
+      busy.show('Approving')
+      try {
+        tx = await contract.setApprovalForAll(api.addresses.exchangeFactory, true)
+        await tx.wait()
+        busy.done()
+      } catch (e) {
+        busy.hide()
+      }
+    }
+  }
+
+
+  async _list() {
+    if (!api.connection) {
+      await api.connectWallet()
+    }
+    const selected = this.sqs('custom-tabs').selected
+    const inputs = this.sqs(`flex-column[data-route="${selected}"]`).querySelectorAll('[data-input]')
+    const value = {}
+    for (const input of inputs) {
+      value[input.getAttribute('data-input')] = input.value
+    }
+
+    selected === 'ERC721' ?
+      this.__list(value, LISTING_ERC721_ABI.abi) :
+      this.__list(value, LISTING_ERC1155_ABI.abi)
+  }
+
   async _onClick(event) {
     const target = event.composedPath()[0]
-    if (target.dataset.event === 'list') {
-      if (!api.connection) {
-        await api.connectWallet()
-      }
-      let tx;
-
-      if (this.sqs('custom-tabs').selected === 'ERC721') {
-        const contract = new ethers.Contract(result.value.address, ERC721_ABI, api.connection.provider.getSigner())
-        await contract.approve(result.value.address, result.value.id)
-        tx = await api.contract.listERC721(
-          result.value.address,
-          result.value.id,
-          result.value.price,
-          result.value.currency == '0x0' ? '0x0000000000000000000000000000000000000000' : result.value.currency
-        )
-      } else {
-        const contract = new ethers.Contract(result.value.ERC1155_address, PLATFORM_ABI, api.connection.provider.getSigner())
-        const approved = await contract.callStatic.isApprovedForAll(api.connection.accounts[0], api.addresses.exchangeFactory)
-        if (!approved) {
-          busy.show('Approving')
-          try {
-            tx = await contract.setApprovalForAll(api.addresses.exchangeFactory, true)
-            await tx.wait()
-            busy.done()
-          } catch (e) {
-            busy.hide()
-          }
-        }
-
-        busy.show('Listing')
-
-        try {
-          tx = await api.contract.listERC1155(
-            result.value.ERC1155_address,
-            result.value.ERC1155_tokenId,
-            result.value.ERC1155_id,
-            ethers.utils.parseUnits(result.value.ERC1155_price),
-            result.value.ERC1155_currency == '0x0' ? '0x0000000000000000000000000000000000000000' : result.value.ERC1155_currency
-          )
-
-          tx = await tx.wait()
-          busy.done()
-        } catch (e) {
-          busy.hide()
-        }
-      }
-      pages.select('market')
-    }
+    if (target.hasAttribute('data-close')) location.href = '#!/market'
+    if (target.hasAttribute('data-confirm')) return this._list()
   }
   _onSelected(event) {
     this.sqs('custom-pages').select(event.detail)
@@ -135,7 +143,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
     pointer-events: auto;
   }
 
-  custom-tab {
+  custom-tab, custom-svg-icon {
     pointer-events: auto;
     cursor: pointer;
   }
@@ -160,11 +168,11 @@ export default customElements.define('list-view', class ListView extends BaseCla
     </flex-column>
 
     <flex-column data-route="ERC1155">
-      <custom-input data-input="ERC1155_address" placeholder="address"></custom-input>
-      <custom-input data-input="ERC1155_tokenId" placeholder="tokenId"></custom-input>
-      <custom-input data-input="ERC1155_id" placeholder="id"></custom-input>
-      <custom-input data-input="ERC1155_price" placeholder="price"></custom-input>
-      <custom-input data-input="ERC1155_currency" placeholder="currency (0x0 for BNB or any address)"></custom-input>
+      <custom-input data-input="address" placeholder="address"></custom-input>
+      <custom-input data-input="tokenId" placeholder="tokenId"></custom-input>
+      <custom-input data-input="id" placeholder="id"></custom-input>
+      <custom-input data-input="price" placeholder="price"></custom-input>
+      <custom-input data-input="currency" placeholder="currency (0x0 for BNB or any address)"></custom-input>
     </flex-column>
   </custom-pages>
   </span>

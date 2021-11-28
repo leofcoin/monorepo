@@ -5,6 +5,7 @@ import icons from './ui/icons'
 import header from './ui/header'
 import pages from './ui/pages'
 import './elements/connect'
+import './elements/busy'
 
 
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
@@ -25,16 +26,19 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   connectedCallback() {
     this.setTheme('default')
     globalThis.onhashchange = async () => {
+      console.log(location);
       if (location.hash === '') {
         if (this._isFirstVisit()) location.href = `#!/home`
         else location.href = `#!/market`
       }
       const hash = location.hash.slice(3, location.hash.length)
       const parts = hash.split('/')
+      console.log(hash, parts);
       if (!customElements.get(`${parts[0]}-view`)) await import(`./${parts[0]}.js`)
       this.pages.select(parts[0])
     }
     onhashchange()
+    globalThis.busy = this.sqs('busy-element')
     this._init()
   }
 
@@ -103,10 +107,12 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
 
   header {
     display: flex;
-    height: 70px;
+    height: var(--header-height, 70px);
     box-sizing: border-box;
     padding: 0 24px;
     ${miniframe.styles.elevation.elevation4dp}
+
+    /* box-shadow: 0 1px 18px 0px var(--accent-color); */
   }
   .nav-item {
     padding: 0 8px;
@@ -165,6 +171,12 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
     max-height: 30px;
     border-radius: 50%;
     z-index: 1000;
+    position: absolute;
+    top: 20px;
+    right: 12px;
+  }
+  .nav-bar {
+    padding-right: 44px;
   }
   @media (min-width: 960px) {
     search-element.desktop {
@@ -196,6 +208,8 @@ ${pages}
     </button>
   </custom-selector>
 </connect-element>
+
+<busy-element></busy-element>
     `
   }
 })

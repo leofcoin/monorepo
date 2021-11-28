@@ -32,6 +32,40 @@ export default customElements.define('market-view', class MarketView extends Bas
 
   async _onClick(event) {
     const target = event.composedPath()[0]
+    if (target.hasAttribute('data-action')) {
+      const action = target.getAttribute('data-action')
+
+      if (action === 'buy') {
+        const address = target.getAttribute('data-contract')
+        const id = target.getAttribute('data-id')
+        const token = target.getAttribute('data-token')
+        const price = target.getAttribute('data-price')
+        const currency = target.getAttribute('data-currency')
+
+        try {
+          let tx
+          if (currency === '0x0000000000000000000000000000000000000000') {
+            busy.show('Buying')
+            tx = await api.contract.buy(address, id, token, {value: ethers.utils.parseUnits(price)});
+          } else {
+            const approved = await api.isApproved(currency, amount)
+            if (!approved) {
+              busy.show('Approving')
+              await api.approve(currency, amount)
+            }
+            busy.show('Buying')
+            tx = await api.contract.buy(address, id, token);
+          }
+
+          await tx.wait()
+          busy.done()
+        } catch (e) {
+          console.log(e);
+          alert(e.data.message)
+          busy.hide()
+        }
+      }
+    }
     if (target.dataset.event === 'list') {
       location.href = '#!/list'
     }
@@ -48,8 +82,6 @@ export default customElements.define('market-view', class MarketView extends Bas
     display: flex;
     width: 100%;
     height: 100%;
-    box-sizing: border-box;
-    padding: 12px;
   }
   .custom-selected {
     border-color: var(--accent-color);
@@ -73,21 +105,39 @@ export default customElements.define('market-view', class MarketView extends Bas
     box-sizing: border-box;
   }
 
-  flex-wrap-around {
-    width: 100%;
-  }
-
   fab-element {
     pointer-events: auto;
+    background-image: linear-gradient(to right, #ff00b8 0%, rgb(162 93 199) 50%);
+    background-size: 200%;
+    color: #fff;
+    --svg-icon-color: #fff;
+    border-color: #fff;
+    /* border: none; */
+    /* box-shadow: 0 1px 18px 0px var(--accent-color); */
+  }
+
+  array-repeat {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-flow: row wrap;
+    align-items: center;
+    justify-content: space-evenly;
+    pointer-events: auto;
+    box-sizing: border-box;
+    padding: 12px;
   }
 </style>
-<flex-wrap-around>
   <array-repeat>
     <template>
+      <style>
+        listing-element {
+          margin-bottom: 12px;
+        }
+      </style>
       <listing-element address="[[item.address]]"></listing-element>
     </template>
   </array-repeat>
-</flex-wrap-around>
 
 <fab-element data-event="list"></fab-element>
 

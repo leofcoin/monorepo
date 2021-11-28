@@ -9,7 +9,7 @@ export default html`
   <flex-one></flex-one>
   <search-element class="desktop"></search-element>
   <flex-one></flex-one>
-  <custom-selector>
+  <custom-selector class="nav-bar">
     <a href="#!/market" class="nav-item">
       market
     </a>

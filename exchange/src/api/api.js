@@ -3,6 +3,7 @@ import {rpcUrlsById, networksByName} from './../../node_modules/@arteon/wallet-c
 import './../../node_modules/@arteon/wallet-connect/dist/wallet-connect.browser'
 import addresses from './../../../addresses/addresses'
 import EXCHANGE_FACTORY_ABI from './../../../abis/exchangeFactory'
+import ERC20_ABI from './../../../build/contracts/IERC20.json'
 
 const NETWORK_NAME = 'binance-smartchain-testnet'
 const NETWORK_ID = networksByName[NETWORK_NAME]
@@ -54,5 +55,18 @@ export default class Api {
     })
     jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
     this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, this.connection.provider.getSigner())
+  }
+
+  async approve(contract, amount) {
+    if (typeof contract === 'string') contract = new ethers.Contract(contract, ERC20_ABI.abi, this.connection.provider.getSigner())
+    let tx = await contract.approve(api.addresses.exchangeFactory, amount)
+    await tx.wait()
+  }
+
+  async isApproved(contract, amount) {
+    if (typeof contract === 'string') contract = new ethers.Contract(contract, ERC20_ABI.abi, this.connection.provider.getSigner())
+    const allowance = await contract.callStatic.allowance(api.connection.accounts[0], api.addresses.exchangeFactory)
+    if (allowance.lt(amount)) return false
+    return true
   }
 }
