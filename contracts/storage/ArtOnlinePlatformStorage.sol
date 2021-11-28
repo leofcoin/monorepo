@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract ArtOnlinePlatformStorage is AccessControl {
-  address internal _artOnline;
-  address internal _artOnlineExchange;
-
-  bytes32 public constant MINT_ROLE = keccak256("MINT_ROLE");
-  bytes32 public constant COMMUNITY_ROLE = keccak256("COMMUNITY_ROLE");
+contract ArtOnlinePlatformStorage {
 
   uint256 internal _blockTime = 60;
   string internal _uri;
