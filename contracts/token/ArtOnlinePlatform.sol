@@ -9,28 +9,13 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-
-import "contracts/token/interfaces/IArtOnline.sol";
 import "contracts/storage/ArtOnlinePlatformStorage.sol";
+import "contracts/token/libs/CalculateRewards.sol";
+import 'contracts/token/utils/EIP712.sol';
+import 'contracts/access/SetArtOnlinePlatform.sol';
 
-contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pausable, ArtOnlinePlatformStorage  {
+contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pausable, EIP712, SetArtOnlinePlatform, ArtOnlinePlatformStorage {
   using Address for address;
-  bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
-  uint256 private immutable _CACHED_CHAIN_ID;
-
-  bytes32 private immutable _HASHED_NAME;
-  bytes32 private immutable _HASHED_VERSION;
-  bytes32 private immutable _TYPE_HASH;
-
-  modifier isWhiteListed(address account) {
-    require(_blacklist[account] == 0, 'BLACKLISTED');
-    _;
-  }
-
-  modifier onlyExchange() {
-    require(_msgSender() == _artOnlineExchange, 'NO PERMISSION');
-    _;
-  }
 
   modifier lock() {
     require(unlocked == 1, 'LOCKED');
@@ -39,73 +24,48 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     unlocked = 1;
   }
 
-  constructor(string memory uri_, string memory name, string memory version) {
-    _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _setupRole(MINT_ROLE, _msgSender());
-    _setupRole(COMMUNITY_ROLE, _msgSender());
+  constructor(string memory uri_, string memory name, string memory version, address bridger, address access)
+    EIP712(name, version)
+    SetArtOnlinePlatform(bridger, access)
+  {
     _uri = uri_;
-
-    bytes32 hashedName = keccak256(bytes(name));
-    bytes32 hashedVersion = keccak256(bytes(version));
-    bytes32 typeHash = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
-    _HASHED_NAME = hashedName;
-    _HASHED_VERSION = hashedVersion;
-    _CACHED_CHAIN_ID = block.chainid;
-    _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(typeHash, hashedName, hashedVersion);
-    _TYPE_HASH = typeHash;
   }
 
-  function _domainSeparatorV4() internal view returns (bytes32) {
-    if (block.chainid == _CACHED_CHAIN_ID) {
-      return _CACHED_DOMAIN_SEPARATOR;
-    } else {
-      return _buildDomainSeparator(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION);
+  function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+    if (_i == 0) {
+        return "0";
     }
-  }
-
-  function _buildDomainSeparator(bytes32 typeHash, bytes32 nameHash, bytes32 versionHash) private view returns (bytes32) {
-    return keccak256(abi.encode(typeHash, nameHash, versionHash, block.chainid, address(this)));
-  }
-
-  function _hashTypedDataV4(bytes32 structHash) internal view virtual returns (bytes32) {
-    return ECDSA.toTypedDataHash(_domainSeparatorV4(), structHash);
-  }
-
-  function setArtOnline(address artonline_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
-    _artOnline = artonline_;
-  }
-
-  function artOnline() external view virtual returns (address) {
-    return _artOnline;
-  }
-
-  function setArtOnlineExchange(address artOnlineExchange_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
-    _artOnlineExchange = artOnlineExchange_;
-  }
-
-  function artOnlineExchange() external view virtual returns (address) {
-    return _artOnlineExchange;
+    uint j = _i;
+    uint len;
+    while (j != 0) {
+        len++;
+        j /= 10;
+    }
+    bytes memory bstr = new bytes(len);
+    uint k = len;
+    while (_i != 0) {
+        k = k-1;
+        uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+        bytes1 b1 = bytes1(temp);
+        bstr[k] = b1;
+        _i /= 10;
+    }
+    return string(bstr);
   }
 
   function cap(uint256 id) external view virtual returns (uint256) {
     return _cap[id];
   }
 
-  function mining(uint256 id, uint256 tokenId) external view virtual returns (uint256) {
-    return _mining[id][tokenId];
-  }
-
-  function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC165, IERC165) returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165, IERC165) returns (bool) {
     return
       interfaceId == type(IERC1155).interfaceId ||
       interfaceId == type(IERC1155MetadataURI).interfaceId ||
       super.supportsInterface(interfaceId);
   }
 
-  function uri(uint256) public view virtual override returns (string memory) {
-    return _uri;
+  function uri(uint256 _tokenId) public view virtual override returns (string memory) {
+    return string(abi.encodePacked(_uri, uint2str(_tokenId), ".json"));
   }
 
   function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
@@ -124,7 +84,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     uint256[] memory batchBalances = new uint256[](accounts.length);
 
     for (uint256 i = 0; i < accounts.length; ++i) {
-        batchBalances[i] = balanceOf(accounts[i], ids[i]);
+      batchBalances[i] = balanceOf(accounts[i], ids[i]);
     }
 
     return batchBalances;
@@ -217,7 +177,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     return _totalSupply[id];
   }
 
-  function addToken(string memory name, uint256 cap_) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+  function addToken(string memory name, uint256 cap_) public virtual onlyAdmin() {
     uint256 id = _tokens.length;
     require(bytes(tokenNames[id]).length == 0, 'token exists');
     _tokens.push(name);
@@ -226,39 +186,19 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     emit AddToken(name, id);
   }
 
-  function addItem(uint256 id, uint256 bonus, uint256 halving) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    _items.push(id);
-    _maxReward[id] = bonus; // percentage
-    _halvings[id] = halving;
-    unchecked {
-      _nextHalving[id] = block.number + halving;
-    }
-    emit AddItem(_tokens[id], id, bonus);
-  }
-
-  function addPool(uint256 id, uint256 maxReward, uint256 halving) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    _pools.push(id);
-    _maxReward[id] = maxReward;
-    _halvings[id] = halving;
-    unchecked {
-      _nextHalving[id] = block.number + halving;
-    }
-    emit AddPool(_tokens[id], id, maxReward);
-  }
-
-  function mint(address to, uint256 id, uint256 amount) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function mint(address to, uint256 id, uint256 amount) public whenNotPaused virtual onlyMinter() {
     _mint(to, id, amount, "");
   }
 
-  function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyMinter() {
     _mintBatch(to, ids, amounts, "");
   }
 
-  function burn(address from, uint256 id, uint256 amount) public virtual whenNotPaused onlyRole(MINT_ROLE) {
+  function burn(address from, uint256 id, uint256 amount) public virtual whenNotPaused onlyMinter() {
     _burn(from, id, amount, "");
   }
 
-  function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyMinter() {
     _burnBatch(from, ids, amounts, "");
   }
 
@@ -304,7 +244,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
   }
 
   function _removeBalance(address from, uint256 id, uint256 amount, uint256 burns) internal {
-    require(_owners[id][amount] == from, "not an owner");
+    require(_owners[id][amount] == from || isApprovedForAll(_owners[id][amount], _msgSender()), "not an owner or approved");
 
     if (burns == 1) {
       unchecked {
@@ -329,8 +269,8 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
         if (from != address(0)) {
           uint256 id = ids[i];
           uint256 amount = amounts[i];
-          require(_mining[id][amount] == 0, "DEACTIVATE_FIRST");
-          require(_owners[id][amount] == from, 'not an owner');
+          require(_artOnlineMiningInterface.mining(id, amount) == 0, "DEACTIVATE_FIRST");
+          require(_owners[id][amount] == from || isApprovedForAll(_owners[id][amount], _msgSender()), "not an owner or approved");
         }
       }
     }
@@ -410,222 +350,44 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return array;
     }
 
-    function _rewardPerGPU(uint256 id) internal view returns (uint256) {
-      if (_totalMiners[id] == 0) {
-        return 0;
-      }
-      return _maxReward[id] / _totalMiners[id];
+    function activateGPUBatch(uint256[] memory ids, uint256[] memory tokenIds) external {
+      _artOnlineMiningInterface.activateGPUBatch(msg.sender, ids, tokenIds);
     }
 
-    function setActivationPrice(uint256 id, uint256 price) external onlyRole(DEFAULT_ADMIN_ROLE) {
-      _activationPrice[id] = price;
+    function deactivateGPUBatch(uint256[] memory ids, uint256[] memory tokenIds) external {
+      _artOnlineMiningInterface.deactivateGPUBatch(msg.sender, ids, tokenIds);
     }
 
-    function activationPrice(uint256 id) public view returns (uint256) {
-      return _activationPrice[id];
+    function activateGPU(uint256 id, uint256 tokenId) public {
+      _artOnlineMiningInterface.activateGPU(msg.sender, id, tokenId);
     }
 
-    function getHalvings(uint256 id) public view returns (uint256) {
-      return _halvings[id];
+    function deactivateGPU(uint256 id, uint256 tokenId) public {
+      _artOnlineMiningInterface.deactivateGPU(msg.sender, id, tokenId);
     }
 
-    function getNextHalving(uint256 id) public view returns (uint256) {
-      return _nextHalving[id];
+    function activateItem(uint256 id, uint256 itemId, uint256 tokenId) public {
+      _artOnlineMiningInterface.activateItem(msg.sender, id, itemId, tokenId);
     }
 
-    function rewards(address account, uint256 id) public view returns (uint256) {
-      return _rewards[id][account];
+    function deactivateItem(uint256 id, uint256 itemId, uint256 tokenId) public {
+      _artOnlineMiningInterface.deactivateItem(msg.sender, id, itemId, tokenId);
     }
 
-    function rewardPerGPU(uint256 id) public view returns (uint256) {
-      return _rewardPerGPU(id);
+    function stakeReward(uint256 id) public {
+      _artOnlineMiningInterface.stakeReward(msg.sender, id);
     }
 
-    function getMaxReward(uint256 id) public view returns (uint256) {
-      return _maxReward[id];
+    function getReward(uint256 id) public {
+      _artOnlineMiningInterface.getReward(msg.sender, id);
     }
 
-    function earned(address account, uint256 id) public returns (uint256) {
-      return _calculateReward(account, id);
+    function stakeRewardBatch(uint256[] memory ids) public {
+      _artOnlineMiningInterface.getRewardBatch(msg.sender, ids);
     }
 
-    function miners(uint256 id) public view virtual returns (uint256) {
-      return _totalMiners[id];
-    }
-
-    function activateGPUBatch(uint256[] memory ids, uint256[] memory amounts) external {
-      for (uint256 i = 0; i < ids.length; i++) {
-        activateGPU(ids[i], amounts[i]);
-      }
-    }
-
-    function deactivateGPUBatch(uint256[] memory ids, uint256[] memory amounts) external {
-      for (uint256 i = 0; i < ids.length; i++) {
-        deactivateGPU(ids[i], amounts[i]);
-      }
-    }
-
-    function activateGPU(uint256 id, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, id, tokenId);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _activateGPU(account, id, tokenId);
-      emit Activate(account, id, tokenId);
-    }
-
-    function deactivateGPU(uint256 id, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, id, tokenId);
-      getReward(id);
-      _deactivateGPU(account, id, tokenId);
-      emit Deactivate(account, id, tokenId);
-    }
-
-    function activateItem(uint256 id, uint256 itemId, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, itemId, tokenId);
-      uint256 price = activationPrice(itemId);
-      IArtOnline(_artOnline).burn(account, price);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _activateItem(account, id, itemId, tokenId);
-      emit ActivateItem(account, id, itemId, tokenId);
-    }
-
-    function deactivateItem(uint256 id, uint256 itemId, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, itemId, tokenId);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _deactivateItem(account, id, itemId, tokenId);
-      emit DeactivateItem(account, id, itemId, tokenId);
-    }
-
-    function getReward(uint256 id) public whenNotPaused isWhiteListed(msg.sender) {
-      address sender = msg.sender;
-      uint256 reward = _calculateReward(sender, id);
-      if (reward > 0) {
-        IArtOnline(_artOnline).mint(sender, reward);
-        _rewards[id][sender] = 0;
-        _startTime[id][sender] = block.timestamp;
-        emit Reward(sender, id, reward);
-      }
-    }
-
-    function getRewardBatch(uint256[] memory ids) public whenNotPaused isWhiteListed(msg.sender) {
-      address sender = msg.sender;
-      for (uint256 i = 0; i < ids.length; i++) {
-        uint256 id = ids[i];
-        uint256 reward = _calculateReward(sender, id);
-        if (reward > 0) {
-          IArtOnline(_artOnline).mint(sender, reward);
-          _rewards[id][sender] = 0;
-          _startTime[id][sender] = block.timestamp;
-          emit Reward(sender, id, reward);
-        }
-      }
-
-
-    }
-
-    function itemBonus(uint256 id) external view returns (uint256) {
-      return _maxReward[id];
-    }
-
-    function _itemBonuses(address sender, uint256 id) internal view returns (uint256) {
-      uint256 percentage;
-
-      for (uint256 i = 0; i < _items.length; i++) {
-        uint256 itemId = _items[i];
-        if (_bonuses[id][sender][itemId] > 0) {
-          percentage = percentage + (_maxReward[itemId] * _bonuses[id][sender][itemId]);
-        }
-
-      }
-      return percentage;
-    }
-
-    function _calculateReward(address sender, uint256 id) internal returns (uint256) {
-      uint256 startTime = _startTime[id][sender];
-      if (block.timestamp > startTime + _blockTime) {
-        unchecked {
-          uint256 remainder = block.timestamp - startTime;
-          uint256 reward = _rewardPerGPU(id) * _miners[id][sender];
-          reward = reward * remainder;
-          _rewards[id][sender] = _rewards[id][sender] + (reward + ((reward / 100) * _itemBonuses(sender, id)));
-        }
-        _startTime[id][sender] = block.timestamp;
-      }
-      return _rewards[id][sender];
-    }
-
-    function _beforeAction(address account, uint256 id, uint256 tokenId) internal view {
-      require(tokenId > 0, "NO_ZERO");
-      require(ownerOf(id, tokenId) == account, 'NOT_OWNER');
-    }
-
-    function _activateItem(address account, uint256 id, uint256 itemId, uint256 tokenId) internal {
-      require(_activated[itemId][tokenId] == 0, 'DEACTIVATE_FIRST');
-      unchecked {
-        _bonuses[id][account][itemId] += 1;
-        _activated[itemId][tokenId] = 1;
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _deactivateItem(address account, uint256 id, uint256 itemId, uint256 tokenId) internal {
-      require(_activated[itemId][tokenId] == 0, 'NOT_ACTIVATED');
-      unchecked {
-        _bonuses[id][account][itemId] -= 1;
-        _activated[itemId][tokenId] = 0;
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _activateGPU(address account, uint256 id, uint256 tokenId) internal {
-      unchecked {
-        _startTime[id][account] = block.timestamp;
-        _miners[id][account] += 1;
-      }
-      _mining[id][tokenId] = 1;
-      _totalMiners[id] += 1;
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _deactivateGPU(address account, uint256 id, uint256 tokenId) internal {
-      unchecked {
-        _miners[id][account] -= 1;
-        _totalMiners[id] -= 1;
-        _mining[id][tokenId] = 0;
-      }
-      if (_miners[id][account] == 0) {
-        delete _startTime[id][account];
-      } else {
-        _startTime[id][account] = block.timestamp;
-      }
-      for (uint256 i = 0; i < _items.length; i++) {
-        uint256 itemId = _items[i];
-        require(_bonuses[id][account][itemId] == 0, 'Deactivate upgrades first');
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _checkHalving(uint256 id) internal {
-      uint256 blockHeight = block.number;
-      if (blockHeight > _nextHalving[id]) {
-        unchecked {
-          _nextHalving[id] += _halvings[id];
-          _maxReward[id] = _maxReward[id] / 2;
-        }
-      }
+    function getRewardBatch(uint256[] memory ids) public {
+      _artOnlineMiningInterface.getRewardBatch(msg.sender, ids);
     }
 
     function ownerOf(uint256 id, uint256 tokenId) public view virtual returns (address) {
@@ -646,44 +408,16 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return batchOwners;
     }
 
-    function poolsLength() external view returns (uint256) {
-      return _pools.length;
-    }
-
-    function itemsLength() external view returns (uint256) {
-      return _items.length;
-    }
-
-    function tokensLength() external view returns (uint256) {
+    function tokensLength() external view virtual returns (uint256) {
       return _tokens.length;
     }
 
-    function tokens() external view returns (string[] memory) {
+    function tokens() external view virtual returns (string[] memory) {
       return _tokens;
     }
 
-    function pools() external view returns (uint256[] memory) {
-      return _pools;
-    }
-
-    function items() external view returns (uint256[] memory) {
-      return _items;
-    }
-
-    function token(uint256 id) external view returns (string memory) {
+    function token(uint256 id) external view virtual returns (string memory) {
       return _tokens[id];
-    }
-
-    function pool(uint256 id) external view returns (uint256) {
-      return _pools[id];
-    }
-
-    function item(uint256 id) external view returns (uint256) {
-      return _items[id];
-    }
-
-    function activated(uint256 id, uint256 tokenId) external view returns (uint256) {
-      return _activated[id][tokenId];
     }
 
     function mintAsset(address to, uint256 id) external onlyExchange() returns (uint256) {
@@ -696,7 +430,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return __mintAssets(to, id, amount);
     }
 
-    function _mintAssets(address to, uint256 id, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256[] memory) {
+    function _mintAssets(address to, uint256 id, uint256 amount) external onlyAdmin() returns (uint256[] memory) {
       return __mintAssets(to, id, amount);
     }
 
@@ -708,17 +442,5 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
         tokenIds[i] = tokenId;
       }
       return tokenIds;
-    }
-
-    function pause() external virtual whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-      super._pause();
-    }
-
-    function unpause() external virtual whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-      super._unpause();
-    }
-
-    function blacklist(address account) external onlyRole(COMMUNITY_ROLE) isWhiteListed(account) {
-      _blacklist[account] = 1;
     }
 }
