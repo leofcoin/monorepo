@@ -259,7 +259,7 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
         </custom-selector>
         <flex-row style="background: #3d326abf; padding: 12px; box-sizing: border-box;">
           <flex-two></flex-two>
-          <a href="https://twitter.com/ArteonToken" title="Follow us on Twitter!">
+          <a href="https://twitter.com/ArtonlineToken" title="Follow us on Twitter!">
             <img src="./assets/social/twitter-white.svg"></img>
           </a>
           <flex-one></flex-one>
@@ -267,7 +267,7 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
             <img src="./assets/social/telegram-white.svg"></img>
           </a>
           <flex-one></flex-one>
-          <a href="https://discord.gg/95qJqkdCts" title="Let's discuss on Discord!">
+          <a href="https://discord.gg/artonline" title="Let's discuss on Discord!">
             <img src="./assets/social/discord-white.svg"></img>
           </a>
           <flex-two></flex-two>

@@ -60,6 +60,7 @@ export default customElements.define('home-view', class HomeView extends HTMLEle
           align-items: center;
           color: #555;
           height: 100%;
+          max-height: 286px;
         }
 
         @media (min-width: 440px) {
@@ -146,39 +147,35 @@ export default customElements.define('home-view', class HomeView extends HTMLEle
 
       <custom-hero>
         <h2>Team</h2>
-        <flex-row style="align-items: center;">
+        <flex-wrap-evenly style="align-items: center;">
 
             <a href="https://www.linkedin.com/in/glenn-vandeuren-315123100/" class="member">
               <img src="https://media-exp1.licdn.com/dms/image/C5603AQGk48vDebV1QA/profile-displayphoto-shrink_200_200/0/1516981862251?e=1641427200&v=beta&t=D07YmIq2bVSz82VzHDx_KQ2za8zFRB_pOgATC2aMl1s"></img>
               <flex-column style="align-items: center;">
                 <h4>Glenn Vandeuren</h4>
-                <p>Head development</p>
-                <p>Team supervisor</p>
+                <p>Head Development</p>
+                <p>Team Supervisor</p>
               </flex-column>
             </a>
-
-            <flex-one></flex-one>
 
             <a href="https://www.linkedin.com/in/jack-daniel-grubba" class="member">
               <img src="https://media-exp1.licdn.com/dms/image/C4D03AQHCIeQkJwi_GA/profile-displayphoto-shrink_200_200/0/1602613270375?e=1641427200&v=beta&t=3FzUW9hPshJhYqbdtgBrK36VxIigZHKGHvaqI5iuTvU"></img>
               <flex-column style="align-items: center;">
                 <h4>Jack Daniel Grübba</h4>
-                <p>Head marketing</p>
-                <p>NFT designer</p>
+                <p>Head Marketing</p>
+                <p>NFT Designer</p>
               </flex-column>
             </a>
-
-            <flex-one></flex-one>
 
             <a href="https://www.linkedin.com/in/michael-shakil-829606141" class="member">
               <img src="https://media-exp1.licdn.com/dms/image/C4D03AQE1gsWlW25k7A/profile-displayphoto-shrink_400_400/0/1562178875449?e=1641427200&v=beta&t=B8E03N0BIRVOfa0LeLCDWsjTcMgt1wNtb3IKAfEPzNA"></img>
               <flex-column style="align-items: center;">
                 <h4>Michael Shakil</h4>
-                <p>community manager</p>
-                <p>NFT designer</p>
+                <p>Community Manager</p>
+                <p>NFT Designer</p>
               </flex-column>
             </a>
-        </flex-row>
+        </flex-wrap-evenly>
       </custom-hero>
     `
   }
