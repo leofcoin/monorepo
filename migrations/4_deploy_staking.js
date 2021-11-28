@@ -17,28 +17,6 @@ const {promisify} = require('util');
 const write = promisify(writeFile);
 
 // const Crowdsale = artifacts.require('./contracts/presale/Crowdsale.sol');
-
-const SixtySeconds = ethers.BigNumber.from('60')
-const rewardRates = [
-  ethers.utils.parseUnits(((153000 / 2.102e+7) * 50).toString(), 18),
-  ethers.utils.parseUnits(((9600 / 3.154e+7) * 400).toString(), 18),
-  ethers.utils.parseUnits(((25100 / 2.102e+7) * 250).toString(), 18),
-  ethers.utils.parseUnits(((97000 / 2.102e+7) * 133).toString(), 18),
-  ethers.utils.parseUnits(((2300 / 3.154e+7) * 1000).toString(), 18),
-  ethers.BigNumber.from('1'),
-  ethers.utils.parseUnits(((143000 / 2.102e+7) * 50).toString(), 18),
-]
-
-const halvings = [
-  ethers.BigNumber.from('1170000'),
-  ethers.BigNumber.from('1170000'),
-  ethers.BigNumber.from('1170000'),
-  ethers.BigNumber.from('1170000'),
-  ethers.BigNumber.from('1170000'),
-  ethers.BigNumber.from('2340000'),
-  ethers.BigNumber.from('1700000'),
-]
-
 module.exports = async (deployer, network) => {
   let addresses = {
   };
@@ -63,44 +41,13 @@ module.exports = async (deployer, network) => {
   //   await ArteonV2Child.deployed()
   // }
   if (network === 'binance-smartchain-testnet'  || network === 'binance-smartchain' || network === 'art-ganache') {
-    if (addresses.access && addresses.bridger && addresses.artonline && addresses.blacklist) return;
+    if (addresses.staking && addresses.staking !== 'undefined') return;
 
-
-    const MINT_ROLE = '0x154c00819833dac601ee5ddded6fda79d9d8b506b911b3dbd54cdb95fe6c3686'
-
-    let artOnlineAccess
-    if (!addresses.access) {
-      await deployer.deploy(ArtOnlineAccess);
-      artOnlineAccess = await ArtOnlineAccess.deployed()
-      await updateContract('access', `abis/access.js`, artOnlineAccess)
-    }
-
-    let artOnlineBridger
-    if (!addresses.bridger) {
-      await deployer.deploy(ArtOnlineBridger, addresses.access);
-      artOnlineBridger = await ArtOnlineBridger.deployed()
-      await updateContract('bridger', `abis/bridger.js`, artOnlineBridger)
-    } else {
-      artOnlineBridger = await ArtOnlineBridger.deployed()
-    }
-
-    let artOnlineBlacklist
-    if (!addresses.blacklist) {
-      await deployer.deploy(ArtOnlineBlacklist, addresses.access);
-      artOnlineBlacklist = await ArtOnlineBlacklist.deployed()
-      await updateContract('blacklist', `abis/blacklist.js`, artOnlineBlacklist)
-    }
-
-    let artOnline
-    if (!addresses.artonline) {
-      await deployer.deploy(ArtOnline, artOnlinePlatform.address, ethers.utils.parseUnits('70000000', 18))
-      artOnline = await ArtOnline.deployed()
-      if (network === 'art-ganache') {
-        await artOnline.mint('0xF52D485Eceba4049e92b66df0Ce60fE19589a0C1', ethers.utils.parseUnits('10000000', 18))
-      }
-      await updateContract('artonline', `abis/artonline.js`, artOnline)
-    } else {
-      artOnline = await ArtOnline.deployed()
+    let artOnlineStaking;
+    if (!addresses.staking || addresses.staking === 'undefined') {
+      await deployer.deploy(ArtOnlineStaking, 'ArtOnlineStaking', 'ARTs')
+      artOnlineStaking = await ArtOnlineStaking.deployed()
+      await updateContract('staking', `abis/staking.js`, artOnlineStaking)
     }
 
     const _addresses = `{
@@ -124,7 +71,6 @@ module.exports = async (deployer, network) => {
       write(`addresses/addresses/${network}.json`, _addresses)
     ]
     )
-    return
   }
 
 };

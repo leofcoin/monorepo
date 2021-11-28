@@ -63,44 +63,13 @@ module.exports = async (deployer, network) => {
   //   await ArteonV2Child.deployed()
   // }
   if (network === 'binance-smartchain-testnet'  || network === 'binance-smartchain' || network === 'art-ganache') {
-    if (addresses.access && addresses.bridger && addresses.artonline && addresses.blacklist) return;
+    if (addresses.platform) return;
 
-
-    const MINT_ROLE = '0x154c00819833dac601ee5ddded6fda79d9d8b506b911b3dbd54cdb95fe6c3686'
-
-    let artOnlineAccess
-    if (!addresses.access) {
-      await deployer.deploy(ArtOnlineAccess);
-      artOnlineAccess = await ArtOnlineAccess.deployed()
-      await updateContract('access', `abis/access.js`, artOnlineAccess)
-    }
-
-    let artOnlineBridger
-    if (!addresses.bridger) {
-      await deployer.deploy(ArtOnlineBridger, addresses.access);
-      artOnlineBridger = await ArtOnlineBridger.deployed()
-      await updateContract('bridger', `abis/bridger.js`, artOnlineBridger)
-    } else {
-      artOnlineBridger = await ArtOnlineBridger.deployed()
-    }
-
-    let artOnlineBlacklist
-    if (!addresses.blacklist) {
-      await deployer.deploy(ArtOnlineBlacklist, addresses.access);
-      artOnlineBlacklist = await ArtOnlineBlacklist.deployed()
-      await updateContract('blacklist', `abis/blacklist.js`, artOnlineBlacklist)
-    }
-
-    let artOnline
-    if (!addresses.artonline) {
-      await deployer.deploy(ArtOnline, artOnlinePlatform.address, ethers.utils.parseUnits('70000000', 18))
-      artOnline = await ArtOnline.deployed()
-      if (network === 'art-ganache') {
-        await artOnline.mint('0xF52D485Eceba4049e92b66df0Ce60fE19589a0C1', ethers.utils.parseUnits('10000000', 18))
-      }
-      await updateContract('artonline', `abis/artonline.js`, artOnline)
-    } else {
-      artOnline = await ArtOnline.deployed()
+    let artOnlinePlatform
+    if (!addresses.platform || addresses.platform === 'undefined') {
+      await deployer.deploy(ArtOnlinePlatform, 'https://nft.arteon.org/json/{id}.json', 'ArtOnline Platform', 'V2', addresses.bridger, addresses.access);
+      artOnlinePlatform = await ArtOnlinePlatform.deployed()
+      await updateContract('platform', `abis/platform.js`, artOnlinePlatform)
     }
 
     const _addresses = `{
@@ -124,7 +93,6 @@ module.exports = async (deployer, network) => {
       write(`addresses/addresses/${network}.json`, _addresses)
     ]
     )
-    return
   }
 
 };
