@@ -1,9 +1,10 @@
-[{
+{
   "symbol": "ARTX1000",
-  "description": null,
+  "description": "A less powerful GPU of the ARTX Series but one that still packs a punch.",
   "image": null,
+  "animation": null,
   "assets": [
-    "https://assets.artonline.site/cards/ARTX 1000-320.png"
+    "https://assets.artonline.site/cards/ARTX 1000-320.png",
     "https://assets.artonline.site/fans/ARTX 1000.png"
   ]
-}]
+}
