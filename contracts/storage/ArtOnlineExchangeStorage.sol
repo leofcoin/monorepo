@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract ArtOnlineExchangeStorage is AccessControl {
   address internal _artOnline;
   address internal _artOnlinePlatform;
+  address internal _artOnlineStaking;
 
   uint internal unlocked = 1;
 
