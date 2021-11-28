@@ -18,7 +18,8 @@ node_modules/
 /mine/www/themes/*.js
 /mine/www/third-party/*.js
 /mine/www/*.zip
-/www/www/**/*.js
+www/www/**/*.js
+www/www/*.js
 /build/contracts
 node/testnet
 snapshots/**/tx
