@@ -1,70 +1,40 @@
-contract ArtOnlineSplitter is SetArtOnlineBase {
-  address internal _token;
-  address internal _factory;
-  address internal _marketing;
-  address internal _partner;
-  address internal _partnerPool;
+// SPDX-License-Identifier: MIT
 
-  address[] internal _splits;
-  mapping (address => uint256) internal _splitFor;
+pragma solidity 0.8.7;
+
+import 'contracts/token/interfaces/IArtOnline.sol';
+import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'contracts/exchange/interfaces/IPanCakeRouter.sol';
+import 'contracts/access/SetArtOnlineBase.sol';
+
+contract ArtOnlineSplitter is SetArtOnlineBase {
+  string[] internal _splits;
+  mapping (string => uint256) internal _splitFor;
+  mapping (string => address) internal _addressFor;
 
   constructor(
-    address token_,
     address bridger,
     address access
-  ) SetArtOnlineBase(bridger, access) {
-    _token = token_;
+  ) SetArtOnlineBase(bridger, access) {}
+
+  function setSplitsBatch(string[] memory names, uint256[] memory splits_, address[] memory addresses) external onlyAdmin() {
+    require(names.length == splits_.length && splits_.length == addresses.length, 'INVALID_LENGTH');
+    for (uint256 i; i < names.length; i++) {
+      _splits.push(names[i]);
+      _splitFor[names[i]] = [splits_[i]];
+    }
   }
 
-  function setWrappedCurrency(address wrappedCurrency_) external onlyAdmin() {
-    _wrappedCurrency = wrappedCurrency_;
+  function setAddressesBatch(string[] memory names, address[] memory addresses) external onlyAdmin() {
+    require(names.length == addresses.length, 'INVALID_LENGTH');
+    for (uint256 i; i < names.length; i++) {
+      _addressFor[names[i]] = addresses[i];
+    }
   }
 
-  function wrappedCurrency() external pure returns (string memory) {
-    return _wrappedCurrency;
-  }
-
-  function setToken(address token_) external onlyAdmin() {
-    _token = token_;
-  }
-
-  function token() external pure returns (string memory) {
-    return _token;
-  }
-
-  function setFactory(address factory_) external onlyAdmin() {
-    _factory = factory_;
-  }
-
-  function factory() external pure returns (address) {
-    return _factory;
-  }
-
-  function setMarketing(address marketing_) external onlyAdmin() {
-    _marketing = marketing_;
-  }
-
-  function marketing() external pure returns (address) {
-    return _marketing;
-  }
-
-  function setPartner(address partner_) external onlyAdmin() {
-    _partner = partner_;
-  }
-
-  function partner() external pure returns (address) {
-    return _partner;
-  }
-
-  function setPartnerPool(address partnerPool_) external onlyAdmin() {
-    _partnerPool = partnerPool_;
-  }
-
-  function partnerPool() external pure returns (address) {
-    return _partnerPool;
-  }
-
-  function splitter(uint256 index) external pure returns (address) {
+  function splitter(uint256 index) external pure returns (string memory) {
     return _splits[index];
   }
 
@@ -72,62 +42,72 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     return _splits.length;
   }
 
-  function splitFor(address receiver) external pure returns (address) {
+  function splitFor(string memory receiver) external pure returns (uint256) {
     return _splitFor[receiver];
   }
 
-  function split(uint256 amount) external {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
-    uint256 partnerSplit = _splitFor(amount, 'partner');
-    uint256 artOnlineSplit = _splitFor(amount, 'artOnline');
-    uint256 burnSplit = _splitFor(artOnlineSplit, 'burn');
-    uint256 marketingSplit = _splitFor(artOnlineSplit, 'marketing');
-    uint256 liquiditySplit = _splitFor(artOnlineSplit, 'liquidity');
-
-    _burnArtOnline(burnSplit);
-    _BuyPartner(partnerSplit);
-    address payable marketingWallet = payable(_marketing);
-    address payable liquidityWallet = payable(_liquidity);
-
-    marketingWallet.transfer(marketingSplit);
-    liquidityWallet.transfer(liquiditySplit);
+  function addressFor(string memory receiver) external pure returns (address) {
+    return _addressFor[receiver];
   }
 
-  function _BuyPartner(uint256 amount) internal {
-    address[] memory path = _getPath(_wrappedCurrency, _partner);
-    IWrappedCurrency(_wrappedCurency).approve(_router, amount);
-    IPancakeRouter(_router).swapExactTokensForTokens(
+  function split(address currency, uint256 amount) external {
+    require(msg.sender == _addressFor('factory'), 'NOT_ALLOWED');
+    uint256 partnerSplit = _calculateSplit(amount, 'partner');
+    uint256 artOnlineSplit = _calculateSplit(amount, 'artOnline');
+    uint256 burnSplit = _calculateSplit(artOnlineSplit, 'burn');
+    uint256 marketingSplit = _calculateSplit(artOnlineSplit, 'marketing');
+    uint256 liquiditySplit = _calculateSplit(artOnlineSplit, 'liquidity');
+
+    _burnArtOnline(currency, burnSplit);
+    _BuyPartner(currency, partnerSplit);
+
+    SafeERC20(IERC20(currency)).safeTransferFrom(address(this), _addressFor('marketing'), marketingSplit);
+    SafeERC20(IERC20(currency)).safeTransferFrom(address(this), _addressFor('liquidity'), liquiditySplit);
+  }
+
+  function _BuyPartner(address currency, uint256 amount) internal {
+    address _partner = _addressFor('partner');
+    address _router = _addressFor('router');
+    address _partnerPool = _addressFor('partnerPool');
+
+    address[] memory path = _getPath(currency, _partner);
+    IERC20(currency).approve(_router, amount);
+    IPanCakeRouter(_router).swapExactTokensForTokens(
       amount,
-      _getAmountOutMin(_wrappedCurrency, _partner, amount),
-      _getPath(_wrappedCurrency, _partner),
+      _getAmountOutMin(currency, _partner, amount),
+      _getPath(currency, _partner),
       address(this),
       block.timestamp + 60
-    )
+    );
     SafeERC20(IERC20(_partner)).safeTransferFrom(address(this), _partnerPool, amount);
   }
 
-  function _burnArtOnline(uint256 amount) internal {
-    address[] memory path = _getPath(_wrappedCurrency, _artOnline);
-    IWrappedCurrency(_wrappedCurency).approve(_router, amount);
-    IPancakeRouter(_router).swapExactTokensForTokens(
+  function _burnArtOnline(address currency, uint256 amount) internal {
+    address _router = _addressFor('router');
+    address _artOnline = _addressFor('artOnline');
+
+    address[] memory path = _getPath(currency, _artOnline);
+    IERC20(currency).approve(_router, amount);
+    IPanCakeRouter(_router).swapExactTokensForTokens(
       amount,
-      _getAmountOutMin(_wrappedCurrency, _artOnline, amount),
-      _getPath(_wrappedCurrency, _artOnline),
+      _getAmountOutMin(currency, _artOnline, amount),
+      _getPath(currency, _artOnline),
       address(this),
       block.timestamp + 60
-    )
+    );
     IArtOnline.burn(address(this), amount);
   }
 
-  function _splitFor(uint256 amount, string memory splitReceiver) internal returns (uint256) {
+  function _calculateSplit(uint256 amount, string memory splitReceiver) internal returns (uint256) {
     return (amount / 100) * _splitFor[splitReceiver];
   }
 
-  function splitFor(uint256 amount, address splitReceiver) external returns (uint256) {
-    return _splitFor();
+  function calculateSplit(uint256 amount, string memory splitReceiver) external returns (uint256) {
+    return _calculateSplit(amount, splitReceiver);
   }
 
   function _getPath(address _tokenIn, address _tokenOut) internal returns (address[] memory path){
+    address _wrappedCurrency = _addressFor('wrappedCurrency');
     if (_tokenIn == _wrappedCurrency || _tokenOut == _wrappedCurrency) {
       path = new address[](2);
       path[0] = _tokenIn;
@@ -141,8 +121,8 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
   }
 
   function _getAmountOutMin(address _tokenIn, address _tokenOut, uint256 _amountIn) internal view returns (uint256) {
-    address[] memory path = _getPath(address _tokenIn, address _tokenOut);
-    uint256[] memory amountOutMins = IPancakeRouter(_router).getAmountsOut(_amountIn, path);
+    address[] memory path = _getPath(_tokenIn, _tokenOut);
+    uint256[] memory amountOutMins = IPanCakeRouter(_addressFor('router')).getAmountsOut(_amountIn, path);
     return amountOutMins[path.length -1];
   }
 }
