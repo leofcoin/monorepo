@@ -30,3 +30,5 @@ www/www/service-worker.js
 /exchange/www/themes/*
 /exchange/www/addresses/*
 /exchange/www/*.js
+www/www/service-worker.js
+www/www/shell.js
