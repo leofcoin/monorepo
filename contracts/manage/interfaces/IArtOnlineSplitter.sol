@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.7;
+
 interface IArtOnlineSplitter {
-  function split(uint256 amount) external;
+  function split(address, uint256) external;
 }
