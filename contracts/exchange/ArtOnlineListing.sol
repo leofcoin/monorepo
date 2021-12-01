@@ -46,7 +46,7 @@ contract ArtOnlineListing is IArtOnlineListing {
     if (msg.value != 0) {
       require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
       require(msg.value >= _price, 'NOT_ENOUGH_COINS');
-      _buyWithNative(fee, payable(feeReceiver));
+      _buyWithNative(receiver, fee, payable(feeReceiver));
     } else {
       _beforeTransfer(receiver);
       if (_splitter != address(0)) {
@@ -72,7 +72,7 @@ contract ArtOnlineListing is IArtOnlineListing {
     _buy(receiver, fee, feeReceiver);
   }
 
-  function _beforeTransfer(address receiver) internal {
+  function _beforeTransfer(address receiver) internal view {
     require(msg.sender != _owner, 'SELLER_OWN');
     uint256 balance = IERC20(_currency).balanceOf(receiver);
     require(balance >= _price, 'NOT_ENOUGH_TOKENS');
