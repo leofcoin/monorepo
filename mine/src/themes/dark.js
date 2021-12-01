@@ -4,6 +4,6 @@ export default {
   'main-color': '#eee',
   'accent-color': '#d70d96',
   'custom-drawer-width': '256px',
-  'main-header-height': '64px'
+  'main-header-height': '64px',
   'dark-blue-button': '#22A7F0'
 }
