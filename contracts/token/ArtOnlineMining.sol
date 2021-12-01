@@ -61,6 +61,10 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     return _activationPrice[id];
   }
 
+  function setHalvings(uint256 halving_) public view onlyAdmin() returns (uint256) {
+    _halvings[id] = halving_;
+  }
+
   function getHalvings(uint256 id) public view returns (uint256) {
     return _halvings[id];
   }
