@@ -23,7 +23,7 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     require(names.length == splits_.length && splits_.length == addresses.length, 'INVALID_LENGTH');
     for (uint256 i; i < names.length; i++) {
       _splits.push(names[i]);
-      _splitFor[names[i]] = [splits_[i]];
+      _splitFor[names[i]] = splits_[i];
     }
   }
 
@@ -34,24 +34,24 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     }
   }
 
-  function splitter(uint256 index) external pure returns (string memory) {
+  function splitter(uint256 index) external view returns (string memory) {
     return _splits[index];
   }
 
-  function splits() external pure returns (uint256) {
+  function splits() external view returns (uint256) {
     return _splits.length;
   }
 
-  function splitFor(string memory receiver) external pure returns (uint256) {
+  function splitFor(string memory receiver) external view returns (uint256) {
     return _splitFor[receiver];
   }
 
-  function addressFor(string memory receiver) external pure returns (address) {
+  function addressFor(string memory receiver) external view returns (address) {
     return _addressFor[receiver];
   }
 
   function split(address currency, uint256 amount) external {
-    require(msg.sender == _addressFor('factory'), 'NOT_ALLOWED');
+    require(msg.sender == _addressFor['factory'], 'NOT_ALLOWED');
     uint256 partnerSplit = _calculateSplit(amount, 'partner');
     uint256 artOnlineSplit = _calculateSplit(amount, 'artOnline');
     uint256 burnSplit = _calculateSplit(artOnlineSplit, 'burn');
@@ -61,16 +61,14 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     _burnArtOnline(currency, burnSplit);
     _BuyPartner(currency, partnerSplit);
 
-    SafeERC20(IERC20(currency)).safeTransferFrom(address(this), _addressFor('marketing'), marketingSplit);
-    SafeERC20(IERC20(currency)).safeTransferFrom(address(this), _addressFor('liquidity'), liquiditySplit);
+    SafeERC20.safeTransferFrom(IERC20(currency), address(this), _addressFor['marketing'], marketingSplit);
+    SafeERC20.safeTransferFrom(IERC20(currency), address(this), _addressFor['liquidity'], liquiditySplit);
   }
 
   function _BuyPartner(address currency, uint256 amount) internal {
-    address _partner = _addressFor('partner');
-    address _router = _addressFor('router');
-    address _partnerPool = _addressFor('partnerPool');
-
-    address[] memory path = _getPath(currency, _partner);
+    address _partner = _addressFor['partner'];
+    address _router = _addressFor['router'];
+    address _partnerPool = _addressFor['partnerPool'];
     IERC20(currency).approve(_router, amount);
     IPanCakeRouter(_router).swapExactTokensForTokens(
       amount,
@@ -79,14 +77,12 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
       address(this),
       block.timestamp + 60
     );
-    SafeERC20(IERC20(_partner)).safeTransferFrom(address(this), _partnerPool, amount);
+    SafeERC20.safeTransferFrom(IERC20(_partner), address(this), _partnerPool, amount);
   }
 
   function _burnArtOnline(address currency, uint256 amount) internal {
-    address _router = _addressFor('router');
-    address _artOnline = _addressFor('artOnline');
-
-    address[] memory path = _getPath(currency, _artOnline);
+    address _router = _addressFor['router'];
+    address _artOnline = _addressFor['artOnline'];
     IERC20(currency).approve(_router, amount);
     IPanCakeRouter(_router).swapExactTokensForTokens(
       amount,
@@ -95,19 +91,19 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
       address(this),
       block.timestamp + 60
     );
-    IArtOnline.burn(address(this), amount);
+    IArtOnline(_artOnlineInterface).burn(address(this), amount);
   }
 
-  function _calculateSplit(uint256 amount, string memory splitReceiver) internal returns (uint256) {
+  function _calculateSplit(uint256 amount, string memory splitReceiver) internal view returns (uint256) {
     return (amount / 100) * _splitFor[splitReceiver];
   }
 
-  function calculateSplit(uint256 amount, string memory splitReceiver) external returns (uint256) {
+  function calculateSplit(uint256 amount, string memory splitReceiver) external view returns (uint256) {
     return _calculateSplit(amount, splitReceiver);
   }
 
-  function _getPath(address _tokenIn, address _tokenOut) internal returns (address[] memory path){
-    address _wrappedCurrency = _addressFor('wrappedCurrency');
+  function _getPath(address _tokenIn, address _tokenOut) internal view returns (address[] memory path){
+    address _wrappedCurrency = _addressFor['wrappedCurrency'];
     if (_tokenIn == _wrappedCurrency || _tokenOut == _wrappedCurrency) {
       path = new address[](2);
       path[0] = _tokenIn;
@@ -120,9 +116,9 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     }
   }
 
-  function _getAmountOutMin(address _tokenIn, address _tokenOut, uint256 _amountIn) internal view returns (uint256) {
+  function _getAmountOutMin(address _tokenIn, address _tokenOut, uint256 _amountIn) internal returns (uint256) {
     address[] memory path = _getPath(_tokenIn, _tokenOut);
-    uint256[] memory amountOutMins = IPanCakeRouter(_addressFor('router')).getAmountsOut(_amountIn, path);
+    uint256[] memory amountOutMins = IPanCakeRouter(_addressFor['router']).getAmountsOut(_amountIn, path);
     return amountOutMins[path.length -1];
   }
 }
