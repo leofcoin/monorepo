@@ -14,11 +14,11 @@ contract ArtOnlineAccess is Context, AccessControl, Pausable, IArtOnlineAccess {
     _setupRole(MINT_ROLE, _msgSender());
   }
 
-  function isAdmin(address account) external override whenNotPaused returns (bool) {
+  function isAdmin(address account) external view override whenNotPaused returns (bool) {
     return hasRole(DEFAULT_ADMIN_ROLE, account);
   }
 
-  function isMinter(address account) external override whenNotPaused returns (bool) {
+  function isMinter(address account) external view override whenNotPaused returns (bool) {
     return hasRole(MINT_ROLE, account);
   }
 
