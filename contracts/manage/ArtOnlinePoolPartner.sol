@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.7;
 
 import 'contracts/access/SetArtOnlineBase.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'contracts/security/interfaces/IPausable.sol';
+import 'contracts/access/interfaces/IAccess.sol';
 
 contract ArtOnlinePoolPartner is SetArtOnlineBase {
   string internal _name;
@@ -11,22 +13,22 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
   bytes32 internal _POOL_ROLE;
 
   modifier onlyPool() {
-    require(_artOnlineAccessInterface.artOnlinePlatform == msg.sender, 'NO_PERMISSION');
+    require(_artOnlineBridgerInterface.artOnlinePlatform() == msg.sender, 'NO_PERMISSION');
     _;
   }
 
   modifier onlyPoolAdmin() {
-    require(_artOnlineAccessInterface.hasRole(_POOL_ROLE, msg.sender) == true, 'NO_PERMISSION');
+    require(IAccess(address(_artOnlineAccessInterface)).hasRole(_POOL_ROLE, msg.sender) == true, 'NO_PERMISSION');
     _;
   }
 
   modifier whenPaused() {
-    require(_artOnlineAccessInterface.paused() == true, 'NO_PERMISSION');
+    require(IPausable(address(_artOnlineAccessInterface)).paused() == true, 'NO_PERMISSION');
     _;
   }
 
   modifier notPaused() {
-    require(_artOnlineAccessInterface.paused() == false, 'NO_PERMISSION');
+    require(IPausable(address(_artOnlineAccessInterface)).paused() == false, 'NO_PERMISSION');
     _;
   }
 
@@ -39,7 +41,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     _name = name_;
     _token = token_;
     _POOL_ROLE = keccak256(abi.encodePacked('POOL_ROLE', _token));
-    _artOnlineAccessInterface.grantRole(_POOL_ROLE, msg.sender);
+    IAccess(address(_artOnlineAccessInterface)).grantRole(_POOL_ROLE, msg.sender);
   }
 
   function POOL_ROLE() external view returns (bytes32) {
@@ -54,19 +56,19 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     return _token;
   }
 
-  function setToken(address token_) external pure onlyAdmin() {
+  function setToken(address token_) external onlyAdmin() {
     _token = token_;
   }
 
   function topUp(address sender, uint256 amount) external notPaused() {
-    SafeERC20.IERC20(_token).safeTransferFrom(sender, address(this), amount);
+    SafeERC20.safeTransferFrom(IERC20(_token), sender, address(this), amount);
   }
 
   function drain(address receiver, uint256 amount) external whenPaused() onlyPoolAdmin() {
-    SafeERC20.IERC20(_token).safeTransferFrom(address(this), receiver, amount);
+    SafeERC20.safeTransferFrom(IERC20(_token), address(this), receiver, amount);
   }
 
   function mint(address receiver, uint256 amount) external notPaused() onlyPool() {
-    SafeERC20.IERC20(_token).safeTransferFrom(address(this), receiver, amount);
+    SafeERC20.safeTransferFrom(IERC20(_token), address(this), receiver, amount);
   }
 }
