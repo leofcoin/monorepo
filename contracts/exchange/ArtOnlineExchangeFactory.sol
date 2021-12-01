@@ -56,7 +56,7 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     _feeReceiver = receiver;
   }
 
-  function feeReceiver() external returns (address) {
+  function feeReceiver() external view returns (address) {
     return _feeReceiver;
   }
 
@@ -163,7 +163,7 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     _buyERC1155(contractAddress, id, tokenId);
   }
 
-  function wrappedCurrency() external pure returns (address) {
+  function wrappedCurrency() external view returns (address) {
     return _wrappedCurrency;
   }
 
@@ -175,11 +175,11 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     IArtOnlineListing(listing).setSplitter(splitter);
   }
 
-  function setCurrency(address listing, address currency) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    IArtOnlineListing(listing).setCurrency(currency);
+  function setCurrency(address listing, address currency, uint256 price) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    IArtOnlineListing(listing).setCurrency(currency, price);
   }
 
-  function feeFor(uint256 amount) external returns (uint256) {
+  function feeFor(uint256 amount) external view returns (uint256) {
     return (amount / 100) * _fee;
   }
 }
