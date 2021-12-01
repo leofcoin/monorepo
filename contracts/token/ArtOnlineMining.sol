@@ -29,7 +29,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     _maxReward[id] = maxReward_;
     _halvings[id] = halving;
     unchecked {
-      _nextHalving[id] = block.number + halving;
+      _nextHalving[id] = block.timestamp + halving;
     }
     _currency[id] = currency_;
   }
@@ -300,10 +300,10 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
   }
 
   function _checkHalving(uint256 id) internal {
-    uint256 blockHeight = block.number;
-    if (blockHeight > _nextHalving[id]) {
+    uint256 timestamp = block.timestamp;
+    if (timestamp > _nextHalving[id]) {
       unchecked {
-        _nextHalving[id] += _halvings[id];
+        _nextHalving[id] = timestamp + _halvings[id];
         _maxReward[id] = _maxReward[id] / 2;
       }
     }
@@ -346,6 +346,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     _poolInfo[0] = _totalMiners[id];
     _poolInfo[1] = _maxReward[id];
     _poolInfo[2] = _calculateReward(sender, id);
+    _poolInfo[3] = _nextHalving[id];
     return _poolInfo;
   }
 
