@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "contracts/common/EIP712Base.sol";
+import 'contracts/token/utils/EIP712.sol';
 import "contracts/token/utils/SafeArtOnline.sol";
 import "contracts/token/interfaces/IArtOnline.sol";
 import "contracts/token/interfaces/IArtOnlinePlatform.sol";
@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtOnlineExchangeFactoryStorage {
+contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlineExchangeFactoryStorage {
   using Address for address;
   using SafeERC20 for IERC20;
 
@@ -35,9 +35,9 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
     _unlocked = 1;
   }
 
-  constructor() {
+  constructor(string memory name, string memory version, address bridger, address access)
+    EIP712(name, version) {
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _initializeEIP712('ArtOnlineExchangeFactory');
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC165) returns (bool) {
@@ -138,13 +138,13 @@ contract ArtOnlineExchangeFactory is Context, ERC165, EIP712Base, Pausable, ArtO
   function _buyERC721(address contractAddress, uint256 id) internal {
     address listing = getListing[contractAddress][id];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
-    IArtOnlineListing(listing).buy(msg.sender);
+    IArtOnlineListing(listing).buy{value: msg.value}(msg.sender);
   }
 
   function _buyERC1155(address contractAddress, uint256 id, uint256 tokenId) internal {
     address listing = getListingERC1155[contractAddress][id][tokenId];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
-    IArtOnlineListingERC1155(listing).buy(msg.sender);
+    IArtOnlineListingERC1155(listing).buy{value: msg.value}(msg.sender);
   }
 
   function buy(address contractAddress, uint256 id, uint256 tokenId) external payable {
