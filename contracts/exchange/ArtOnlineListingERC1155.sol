@@ -10,7 +10,7 @@ import 'contracts/exchange/interfaces/IArtOnlineExchangeFactory.sol';
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import '@openzeppelin/contracts/utils/Address.sol';
 import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
-import 'contracts/exchange/manage/IArtOnlineSplitter.sol';
+import 'contracts/manage/interfaces/IArtOnlineSplitter.sol';
 
 contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   address internal _factory;
@@ -31,14 +31,11 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   event OwnerChange(address oldOwner, address newOwner);
   event Listed(uint256);
 
-  function _buyWithNative(address receiver, uint256 fee, address payable feeWallet) internal {
+  function _buyWithNative(address currency_, address receiver, uint256 fee, address payable feeWallet) internal {
     uint256 amount = msg.value - fee;
     if (_splitter != address(0)) {
-      address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
-      currencyIn = _wrappedCurrency;
-      IWrappedCurrency(_wrappedCurrency).deposit(){value: amount};
-      SafeERC20(_wrappedCurrency).safeTransferFrom(receiver, _splitter, amount);
-      IArtOnlineSplitter(_splitter).split(amount);
+      SafeERC20.safeTransferFrom(IERC20(currency_), receiver, _splitter, amount);
+      IArtOnlineSplitter(_splitter).split(currency_, amount);
     } else {
       address payable wallet = payable(_owner);
       wallet.transfer(amount);
@@ -46,22 +43,32 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     feeWallet.transfer(fee);
   }
 
-  function _buy(address receiver, uint256 fee, address feeReceiver) internal {
+  function _buyWithCurrency(address receiver, uint256 fee, address feeReceiver) internal {
+    if (_splitter != address(0)) {
+      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
+      IArtOnlineSplitter(_splitter).split(_currency, _price - fee);
+    } else {
+      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
+    }
+    SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
+  }
+
+  function buy(address receiver) external override payable {
+    require(msg.sender == _factory, 'NOT_ALLOWED');
+    // address currencyIn = _currency;
+    uint256 fee = IArtOnlineExchangeFactory(_factory).feeFor(_price);
+    address feeReceiver = IArtOnlineExchangeFactory(_factory).feeReceiver();
     if (msg.value != 0) {
       require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
       require(msg.value >= _price, 'NOT_ENOUGH_COINS');
-      _buyWithNative(receiver, fee, payable(feeReceiver));
+      address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
+      uint256 amount = msg.value - fee;
+      IWrappedCurrency(_wrappedCurrency).deposit{value: amount};
+      _buyWithNative(_wrappedCurrency, receiver, fee, payable(feeReceiver));
     } else {
       _beforeTransfer(receiver);
-      if (_splitter != address(0)) {
-        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
-        IArtOnlineSplitter(_splitter).split(amount);
-      } else {
-        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
-      }
-      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
+      _buyWithCurrency(receiver, fee, feeReceiver);
     }
-
     IERC1155(contractAddress).safeTransferFrom(address(this), receiver, _id, _tokenId, '');
     address oldOwner = _owner;
     _owner = receiver;
@@ -70,15 +77,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     emit Listed(_listed);
   }
 
-  function buy(address receiver) external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
-    // address currencyIn = _currency;
-    uint256 fee = IArtOnlineExchangeFactory(_factory).feeFor(_price);
-    address feeReceiver = IArtOnlineExchangeFactory(_factory).feeReceiver();
-    _buy(receiver, fee, feeReceiver);
-  }
-
-  function _beforeTransfer(address receiver) internal {
+  function _beforeTransfer(address receiver) internal view {
     require(msg.sender != _owner, 'SELLER_OWN');
     uint256 balance = IERC20(_currency).balanceOf(receiver);
     require(balance >= _price, 'NOT_ENOUGH_TOKENS');
@@ -158,6 +157,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   }
 
   function setCurrency(address currency_, uint256 price_) external override {
+    require(msg.sender == _factory, 'NOT_ALLOWED');
     _currency = currency_;
     _price = price_;
   }
@@ -170,10 +170,10 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   function onERC1155Received(
       address operator,
       address from,
-      uint256 id,
+      uint256 id_,
       uint256 value,
       bytes calldata data
-  ) external override returns (bytes4) {
+  ) external pure override returns (bytes4) {
     return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
   }
 
@@ -183,11 +183,11 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
       uint256[] calldata ids,
       uint256[] calldata values,
       bytes calldata data
-  ) external override returns (bytes4) {
+  ) external pure override returns (bytes4) {
     return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
   }
 
-   function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
      return
        interfaceId == type(IERC1155).interfaceId;
    }
