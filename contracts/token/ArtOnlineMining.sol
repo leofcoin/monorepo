@@ -61,7 +61,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     return _activationPrice[id];
   }
 
-  function setHalvings(uint256 halving_) public view onlyAdmin() returns (uint256) {
+  function setHalvings(uint256 id, uint256 halving_) external onlyAdmin() returns (uint256) {
     _halvings[id] = halving_;
   }
 
@@ -342,7 +342,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
   }
 
   function poolInfo(address sender, uint256 id) external returns (uint256[] memory) {
-    uint256[] memory _poolInfo = new uint256[](3);
+    uint256[] memory _poolInfo = new uint256[](4);
     _poolInfo[0] = _totalMiners[id];
     _poolInfo[1] = _maxReward[id];
     _poolInfo[2] = _calculateReward(sender, id);
