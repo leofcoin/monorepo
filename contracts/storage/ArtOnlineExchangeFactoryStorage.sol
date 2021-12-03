@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract ArtOnlineExchangeFactoryStorage is AccessControl {
   address internal _wrappedCurrency;
   address internal _feeReceiver;
-  address internal _nativeCurrency;
   uint256 internal _unlocked = 1;
   uint256 internal _fee;
   mapping(address => mapping(uint256 => address)) public getListing;
