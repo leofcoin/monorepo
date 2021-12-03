@@ -35,21 +35,13 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     _unlocked = 1;
   }
 
-  constructor(string memory name, string memory version, address bridger, address access)
+  constructor(string memory name, string memory version)
     EIP712(name, version) {
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
   }
 
   function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC165) returns (bool) {
     return super.supportsInterface(interfaceId);
-  }
-
-  function nativeCurrency() external view virtual returns (address) {
-    return _nativeCurrency;
-  }
-
-  function setNativeCurrency(address nativeCurrency_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _nativeCurrency = nativeCurrency_;
   }
 
   function setFeeReceiver(address receiver) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -117,22 +109,19 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     return listing;
   }
 
-  function list(address contractAddress, uint256 id, uint256 price, address currency) external whenNotPaused lock returns (address listing) {
-    listing = _createListingERC721(contractAddress, currency, price, id);
-    getListing[contractAddress][id] = listing;
-    allListings.push(listing);
-    listings.push(listing);
-    emit List(listing, allListings.length);
-    return listing;
-  }
-
-  function listERC1155(address contractAddress, uint256 id, uint256 tokenId, uint256 price, address currency) external whenNotPaused lock returns (address listing) {
-    listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);
-    getListingERC1155[contractAddress][id][tokenId] = listing;
-    allListings.push(listing);
-    listingsERC1155.push(listing);
-    emit List(listing, allListings.length);
-    return listing;
+  function relist(address contractAddress, uint256 id, uint256 tokenId, uint256 price, address currency) external whenNotPaused lock {
+    IArtOnlineListing listing;
+    if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
+      require(getListingERC1155[contractAddress][id][tokenId] != address(0), 'LIST_FIRST');
+      listing = IArtOnlineListing(getListingERC1155[contractAddress][id][tokenId]);
+      IERC1155(contractAddress).safeTransferFrom(_msgSender(), address(listing), id, tokenId, '');
+    } else {
+      require(getListing[contractAddress][id] != address(0), 'LIST_FIRST');
+      listing = IArtOnlineListing(getListing[contractAddress][id]);
+      IERC721(contractAddress).transferFrom(_msgSender(), address(listing), id);
+    }
+    listing.list();
+    listing.setCurrency(currency, price);
   }
 
   function _buyERC721(address contractAddress, uint256 id) internal {
@@ -153,14 +142,6 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     } else {
       _buyERC721(contractAddress, id);
     }
-  }
-
-  function buyERC721(address contractAddress, uint256 id) external payable {
-    _buyERC721(contractAddress, id);
-  }
-
-  function buyERC1155(address contractAddress, uint256 id, uint256 tokenId) external {
-    _buyERC1155(contractAddress, id, tokenId);
   }
 
   function wrappedCurrency() external view returns (address) {
