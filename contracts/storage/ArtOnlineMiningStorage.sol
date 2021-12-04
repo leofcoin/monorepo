@@ -14,6 +14,7 @@ contract ArtOnlineMiningStorage {
   mapping(uint256 => uint256) internal _maxReward;
   mapping(uint256 => address) internal _currency;
   mapping(uint256 => mapping(address => uint256)) internal _miners;
+  mapping(uint256 => address[]) internal _miner;
   mapping(uint256 => mapping(address => mapping(uint256 => uint256))) internal _bonuses;
 
   mapping(uint256 => mapping(uint256 => uint256)) internal _mining;

@@ -61,7 +61,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     return _activationPrice[id];
   }
 
-  function setHalvings(uint256 id, uint256 halving_) external onlyAdmin() returns (uint256) {
+  function setHalvings(uint256 id, uint256 halving_) external onlyAdmin() {
     _halvings[id] = halving_;
   }
 
@@ -93,6 +93,18 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     return _totalMiners[id];
   }
 
+  function _updateRewards(address sender, uint256 id) internal returns (uint256 reward) {
+    for (uint256 i = 0; i < _miner[id].length; i++) {
+      address account = _miner[id][i];
+      if (account == sender) {
+        reward = _calculateReward(account, id);
+      } else {
+        _calculateReward(account, id);
+      }
+    }
+    return reward;
+  }
+
   function activateGPUBatch(address sender, uint256[] memory ids, uint256[] memory amounts) external {
     for (uint256 i = 0; i < ids.length; i++) {
       activateGPU(sender, ids[i], amounts[i]);
@@ -107,16 +119,14 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
 
   function activateGPU(address sender, uint256 id, uint256 tokenId) public isWhiteListed(sender) lock {
     _beforeAction(sender, id, tokenId);
-    // if (_miners[id][sender] > 0) {
-    //   getReward(sender, id);
-    // }
+    _updateRewards(sender, id);
     _activateGPU(sender, id, tokenId);
     emit Activate(sender, id, tokenId);
   }
 
   function deactivateGPU(address sender, uint256 id, uint256 tokenId) public isWhiteListed(sender) lock {
     _beforeAction(sender, id, tokenId);
-    // getReward(sender, id);
+    _updateRewards(sender, id);
     _deactivateGPU(sender, id, tokenId);
     emit Deactivate(sender, id, tokenId);
   }
@@ -125,9 +135,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     _beforeAction(sender, itemId, tokenId);
     uint256 price = activationPrice(itemId);
     _artOnlineInterface.burn(sender, price);
-    // if (_miners[id][sender] > 0) {
-    //   getReward(sender, id);
-    // }
+    _updateRewards(sender, id);
     _activateItem(sender, id, itemId, tokenId);
     emit ActivateItem(sender, id, itemId, tokenId);
   }
@@ -136,16 +144,13 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     _beforeAction(sender, itemId, tokenId);
     uint256 price = activationPrice(itemId);
     _artOnlineInterface.burn(sender, price);
-    // if (_miners[id][sender] > 0) {
-    //   getReward(sender, id);
-    // }
+    _updateRewards(sender, id);
     _deactivateItem(sender, id, itemId, tokenId);
     emit DeactivateItem(sender, id, itemId, tokenId);
   }
 
   function getReward(address sender, uint256 id) public isWhiteListed(sender) {
     uint256 reward = _calculateReward(sender, id);
-
     if (reward > 0) {
       uint256 taxed = (reward / 100) * _tax;
       uint256 dividends = (taxed / 100) * 5;
@@ -270,14 +275,30 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
   }
 
   function _activateGPU(address account, uint256 id, uint256 tokenId) internal {
+    if (_miners[id][account] == 0) {
+      _miner[id].push(account);
+    }
     unchecked {
       _startTime[id][account] = block.timestamp;
       _miners[id][account] += 1;
+      _miner[id].push(account);
     }
     _mining[id][tokenId] = 1;
     _totalMiners[id] += 1;
     _checkHalving(id);
     _rewardPerGPU(id);
+  }
+
+  function _removeMiner(address account, uint256 id) internal {
+    uint256 index;
+    for (uint256 i = 0; i < _miner[id].length; i++) {
+      if (_miner[id][i] == account) {
+        index = i;
+      }
+    }
+    if (index >= _miner[id].length) return;
+    _miner[id][index] = _miner[id][_miner[id].length - 1];
+    _miner[id].pop();
   }
 
   function _deactivateGPU(address account, uint256 id, uint256 tokenId) internal {
@@ -286,8 +307,10 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
       _totalMiners[id] -= 1;
       _mining[id][tokenId] = 0;
     }
+
     if (_miners[id][account] == 0) {
       delete _startTime[id][account];
+      _removeMiner(account, id);
     } else {
       _startTime[id][account] = block.timestamp;
     }
