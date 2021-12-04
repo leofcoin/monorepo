@@ -4,8 +4,8 @@
   "image": null,
   "animation": "https://assets.artonline.site/animations/XTREME-320.mp4",
   "assets": [
-    "https://assets.artonline.site/cards/XTREME-320.png"
-    "https://assets.artonline.site/fans/XTREME.png"
+    "https://assets.artonline.site/cards/XTREME-320.png",
+    "https://assets.artonline.site/fans/XTREME.png",
     "https://assets.artonline.site/fans/XTREME-1.png"
   ]
 }
