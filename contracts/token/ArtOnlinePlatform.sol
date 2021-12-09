@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "contracts/storage/ArtOnlinePlatformStorage.sol";
-import "contracts/token/libs/CalculateRewards.sol";
 import 'contracts/token/utils/EIP712.sol';
 import 'contracts/access/SetArtOnlinePlatform.sol';
 
