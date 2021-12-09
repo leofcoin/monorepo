@@ -41,7 +41,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
     _name = name_;
     _token = token_;
     _POOL_ROLE = keccak256(abi.encodePacked('POOL_ROLE', _token));
-    IAccess(address(_artOnlineAccessInterface)).grantRole(_POOL_ROLE, msg.sender);
+    // IAccess(address(_artOnlineAccessInterface)).grantRole(_POOL_ROLE, msg.sender);
   }
 
   function POOL_ROLE() external view returns (bytes32) {
