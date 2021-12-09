@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.7;
-
-import 'contracts/token/interfaces/IArtOnline.sol';
 import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
@@ -10,7 +8,6 @@ import 'contracts/exchange/interfaces/IPanCakeRouter.sol';
 import 'contracts/access/SetArtOnlineBase.sol';
 
 contract ArtOnlineSplitter is SetArtOnlineBase {
-  string[] internal _splits;
   mapping (string => uint256) internal _splitFor;
   mapping (string => address) internal _addressFor;
 
@@ -19,10 +16,9 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     address access
   ) SetArtOnlineBase(bridger, access) {}
 
-  function setSplitsBatch(string[] memory names, uint256[] memory splits_, address[] memory addresses) external onlyAdmin() {
-    require(names.length == splits_.length && splits_.length == addresses.length, 'INVALID_LENGTH');
+  function setSplitsBatch(string[] memory names, uint256[] memory splits_) external onlyAdmin() {
+    require(names.length == splits_.length, 'INVALID_LENGTH');
     for (uint256 i; i < names.length; i++) {
-      _splits.push(names[i]);
       _splitFor[names[i]] = splits_[i];
     }
   }
@@ -32,14 +28,6 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     for (uint256 i; i < names.length; i++) {
       _addressFor[names[i]] = addresses[i];
     }
-  }
-
-  function splitter(uint256 index) external view returns (string memory) {
-    return _splits[index];
-  }
-
-  function splits() external view returns (uint256) {
-    return _splits.length;
   }
 
   function splitFor(string memory receiver) external view returns (uint256) {
@@ -82,16 +70,15 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
 
   function _burnArtOnline(address currency, uint256 amount) internal {
     address _router = _addressFor['router'];
-    address _artOnline = _addressFor['artOnline'];
     IERC20(currency).approve(_router, amount);
     IPanCakeRouter(_router).swapExactTokensForTokens(
       amount,
-      _getAmountOutMin(currency, _artOnline, amount),
-      _getPath(currency, _artOnline),
+      _getAmountOutMin(currency, address(_artOnlineInterface), amount),
+      _getPath(currency, address(_artOnlineInterface)),
       address(this),
       block.timestamp + 60
     );
-    IArtOnline(_artOnlineInterface).burn(address(this), amount);
+    _artOnlineInterface.burn(address(this), amount);
   }
 
   function _calculateSplit(uint256 amount, string memory splitReceiver) internal view returns (uint256) {
