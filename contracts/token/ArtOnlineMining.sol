@@ -26,6 +26,7 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
   }
 
   function _addAsset(uint256 id, uint256 maxReward_, uint256 halving, address currency_) internal {
+    require(_maxReward[id] == 0, 'ASSET_EXISTS');
     _maxReward[id] = maxReward_;
     _halvings[id] = halving;
     unchecked {
@@ -153,19 +154,20 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     uint256 reward = _calculateReward(sender, id);
     if (reward > 0) {
       uint256 taxed = (reward / 100) * _tax;
-      uint256 dividends = (taxed / 100) * 5;
-      _artOnlineInterface.mint(sender, reward - taxed);
+      IArtOnline minter = IArtOnline(_currency[id]);
+      minter.mint(sender, reward - taxed);
 
-      address[] memory holders_ = _artOnlineStakingInterface.holders();
+      address[] memory holders_ = _artOnlineStakingInterface.holders(_currency[id]);
       if (holders_.length > 0) {
+        uint256 dividends = (taxed / 100) * 5;
         uint256 dividend = dividends / holders_.length;
         for (uint256 i = 0; i < holders_.length; i++) {
-          _artOnlineInterface.mint(holders_[i], dividend);
+          minter.mint(holders_[i], dividend);
         }
       }
       _rewards[id][sender] = 0;
       _startTime[id][sender] = block.timestamp;
-      emit Reward(sender, id, reward - taxed);
+      emit Reward(sender, id, reward - taxed, _currency[id]);
     }
   }
 
@@ -173,10 +175,10 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     bytes32 stakeId;
     uint256 reward = _calculateReward(sender, id);
     if (reward > 0) {
-      stakeId = _artOnlineStakingInterface.stake(sender, reward);
+      stakeId = _artOnlineStakingInterface.stake(sender, reward, _currency[id]);
       _rewards[id][sender] = 0;
       _startTime[id][sender] = block.timestamp;
-      emit Reward(sender, id, reward);
+      emit StakeReward(sender, id, reward, stakeId, _currency[id]);
     }
     return stakeId;
   }
@@ -187,11 +189,11 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
       uint256 reward = _calculateReward(sender, id);
       if (reward > 0) {
         _artOnlineInterface.mint(sender, reward);
-        bytes32 stakeId = _artOnlineStakingInterface.stake(sender, reward);
+        bytes32 stakeId = _artOnlineStakingInterface.stake(sender, reward, _currency[id]);
         stakeIds[i] = stakeId;
         _rewards[id][sender] = 0;
         _startTime[id][sender] = block.timestamp;
-        emit Reward(sender, id, reward);
+        emit StakeReward(sender, id, reward, stakeId, _currency[id]);
       }
     }
   }
@@ -203,17 +205,18 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
       if (reward > 0) {
         uint256 taxed = (reward / 100) * _tax;
         uint256 dividends = (taxed / 100) * 5;
-        _artOnlineInterface.mint(sender, reward - taxed);
-        address[] memory holders_ = _artOnlineStakingInterface.holders();
+        IArtOnline minter = IArtOnline(_currency[id]);
+        minter.mint(sender, reward - taxed);
+        address[] memory holders_ = _artOnlineStakingInterface.holders(_currency[id]);
         if (holders_.length > 0) {
           uint256 dividend = dividends / holders_.length;
           for (uint256 holder = 0; holder < holders_.length; holder++) {
-            _artOnlineInterface.mint(holders_[holder], dividend);
+            minter.mint(holders_[holder], dividend);
           }
         }
         _rewards[id][sender] = 0;
         _startTime[id][sender] = block.timestamp;
-        emit Reward(sender, id, reward - taxed);
+        emit Reward(sender, id, reward - taxed, _currency[id]);
       }
     }
   }
