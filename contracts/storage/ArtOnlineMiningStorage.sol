@@ -31,5 +31,6 @@ contract ArtOnlineMiningStorage {
   event Deactivate(address indexed account, uint256 id, uint256 tokenId);
   event ActivateItem(address indexed account, uint256 id, uint256 itemId, uint256 tokenId);
   event DeactivateItem(address indexed account, uint256 id, uint256 itemId, uint256 tokenId);
-  event Reward(address account, uint256 id, uint256 reward);
+  event Reward(address account, uint256 id, uint256 reward, address);
+  event StakeReward(address account, uint256 id, uint256 reward, bytes32, address);
 }
