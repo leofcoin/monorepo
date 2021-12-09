@@ -7,12 +7,13 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "contracts/common/EIP712Base.sol";
 import "contracts/token/utils/SafeArtOnline.sol";
 import "contracts/token/interfaces/IArtOnline.sol";
 import "contracts/staking/interfaces/IArtOnlineStaking.sol";
 import "contracts/token/interfaces/IArtOnlinePlatform.sol";
-contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineExchangeStorage {
+import 'contracts/token/utils/EIP712.sol';
+
+contract ArtOnlineExchange is Context, ERC165, EIP712, Pausable, ArtOnlineExchangeStorage {
   using Address for address;
 
   modifier isListed(uint256 id, uint256 tokenId) {
@@ -31,9 +32,8 @@ contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineEx
     unlocked = 1;
   }
 
-  constructor() {
+  constructor() EIP712('ArtOnline Exchange', 'V2') {
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _initializeEIP712('ArtOnline Exchange');
   }
 
   function setArtOnline(address artonline_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
@@ -127,7 +127,7 @@ contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineEx
     require(IArtOnline(_artOnline).balanceOf(account) >= price, 'NOT_ENOUGH_TOKENS');
 
     if (owner == _artOnlinePlatform) {
-      address[] memory holders_ = IArtOnlineStaking(_artOnlineStaking).holders();
+      address[] memory holders_ = IArtOnlineStaking(_artOnlineStaking).holders(_artOnline);
       if (holders_.length > 0) {
         uint256 dividends = (price / 100) * 5;
         IArtOnline(_artOnline).burn(account, price - dividends);
