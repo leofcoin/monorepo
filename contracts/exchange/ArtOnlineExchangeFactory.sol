@@ -144,6 +144,22 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     }
   }
 
+  // function listMintable(address contractAddress, uint256 price, uint256 id, bool isERC1155) {
+  //   if (isERC1155 == true) {
+  //     bytes32 mintableId = keccak256(abi.encodePacked(contractAddress, id));
+  //     minteables.push(mintableId);
+  //
+  //     _mintlistings[id].contractAddress = contractAddress;
+  //     _mintlistings[id].id = id;
+  //     _mintlistings[id].id = id;
+  //     _mintlistings[id].mintableId = mintableId;
+  //   }
+  // }
+  //
+  // function mintAsset() {
+  //
+  // }
+
   function wrappedCurrency() external view returns (address) {
     return _wrappedCurrency;
   }
