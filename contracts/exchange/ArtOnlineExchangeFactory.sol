@@ -70,6 +70,22 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     return listingsERC1155.length;
   }
 
+  function createPartnerListing(address contractAddress, address currency, address splitter, uint256 price, uint256 id, uint256 tokenId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address listing) {
+    if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
+      listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);
+      getListingERC1155[contractAddress][id][tokenId] = listing;
+      listingsERC1155.push(listing);
+    } else {
+      listing = _createListingERC721(contractAddress, currency, price, id);
+      getListing[contractAddress][id] = listing;
+      listings.push(listing);
+    }
+    IArtOnlineListing(listing).setSplitter(splitter);
+    allListings.push(listing);
+    emit ListPartner(listing, allListings.length);
+    return listing;
+  }
+
   function createListing(address contractAddress, address currency, uint256 price, uint256 id, uint256 tokenId) external returns (address listing) {
     if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
       listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);

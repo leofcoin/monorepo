@@ -15,6 +15,7 @@ contract ArtOnlineExchangeFactoryStorage is AccessControl {
   address[] public listingsERC1155;
 
   event List(address listing, uint);
+  event ListPartner(address listing, uint);
   event FeeChange(uint256 oldFee, uint256 newFee);
   event Delist(address listing);
   event Sold(uint256 id, uint256 tokenId, address owner, uint256 price);
