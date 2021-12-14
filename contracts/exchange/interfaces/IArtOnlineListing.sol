@@ -3,7 +3,6 @@
 pragma solidity 0.8.7;
 
 interface IArtOnlineListing {
-  function initialize(address owner_, address contractAddress, uint256 tokenId, uint256 price, address currency) external;
   function tokenId() external returns (uint256);
   function owner() external returns (address);
   function setOwner(address owner) external;
@@ -17,4 +16,7 @@ interface IArtOnlineListing {
   function currency() external view returns (address);
   function setCurrency(address currency_, uint256 price_) external;
   function setSplitter(address splitter) external;
+  function splitter() external returns (address);
+  function contractAddress() external returns (address);
+  // function supportsInterface(bytes4) external returns (bool);
 }

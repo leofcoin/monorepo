@@ -13,7 +13,7 @@ import 'contracts/manage/interfaces/IArtOnlineSplitter.sol';
 contract ArtOnlineListing is IArtOnlineListing {
   address internal _factory;
   address internal _owner;
-  address public contractAddress;
+  address internal _contractAddress;
   uint256 private _tokenId;
   address private _currency;
   uint256 private _price;
@@ -28,13 +28,12 @@ contract ArtOnlineListing is IArtOnlineListing {
   event OwnerChange(address oldOwner, address newOwner);
   event Listed(uint256);
 
-  function _buyWithNative(address receiver, uint256 fee, address payable feeWallet) internal {
+  function _buyWithNative(uint256 fee, address payable feeWallet) internal {
+    require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
+    require(msg.value >= _price, 'NOT_ENOUGH_COINS');
     uint256 amount = msg.value - fee;
     if (_splitter != address(0)) {
-      address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
-      IWrappedCurrency(_wrappedCurrency).deposit{value: amount};
-      SafeERC20.safeTransferFrom(IERC20(_wrappedCurrency), receiver, _splitter, amount);
-      IArtOnlineSplitter(_splitter).split(_wrappedCurrency, amount);
+      IArtOnlineSplitter(_splitter).split{value: amount}(_currency, _price - fee);
     } else {
       address payable wallet = payable(_owner);
       wallet.transfer(amount);
@@ -46,7 +45,7 @@ contract ArtOnlineListing is IArtOnlineListing {
     if (msg.value != 0) {
       require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
       require(msg.value >= _price, 'NOT_ENOUGH_COINS');
-      _buyWithNative(receiver, fee, payable(feeReceiver));
+      _buyWithNative(fee, payable(feeReceiver));
     } else {
       _beforeTransfer(receiver);
       if (_splitter != address(0)) {
@@ -57,7 +56,7 @@ contract ArtOnlineListing is IArtOnlineListing {
       }
       SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
     }
-    IERC721(contractAddress).safeTransferFrom(address(this), receiver, _tokenId);
+    IERC721(_contractAddress).safeTransferFrom(address(this), receiver, _tokenId);
     address oldOwner = _owner;
     _owner = receiver;
     _listed = 0;
@@ -78,9 +77,9 @@ contract ArtOnlineListing is IArtOnlineListing {
     require(balance >= _price, 'NOT_ENOUGH_TOKENS');
   }
 
-  function initialize(address owner_, address contractAddress_, uint256 tokenId_, uint256 price_, address currency_) external override {
+  function initialize(address owner_, address contractAddress_, uint256 tokenId_, uint256 price_, address currency_) external {
     require(msg.sender == _factory, 'NOT_ALLOWED');
-    contractAddress = contractAddress_;
+    _contractAddress = contractAddress_;
     _tokenId = tokenId_;
     _price = price_;
     _currency = currency_;
@@ -152,8 +151,16 @@ contract ArtOnlineListing is IArtOnlineListing {
     _price = price_;
   }
 
+  function splitter() external view override returns (address) {
+    return _splitter;
+  }
+
   function setSplitter(address splitter_) external override {
     require(msg.sender == _factory, 'NOT_ALLOWED');
     _splitter = splitter_;
+  }
+
+  function contractAddress() external view override returns (address) {
+    return _contractAddress;
   }
 }

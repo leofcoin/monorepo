@@ -16,7 +16,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   address internal _factory;
   address internal _owner;
   uint256 internal _id;
-  address public contractAddress;
+  address internal _contractAddress;
   uint256 internal _tokenId;
   address internal _currency;
   uint256 private _price;
@@ -31,18 +31,6 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   event OwnerChange(address oldOwner, address newOwner);
   event Listed(uint256);
 
-  function _buyWithNative(address currency_, address receiver, uint256 fee, address payable feeWallet) internal {
-    uint256 amount = msg.value - fee;
-    if (_splitter != address(0)) {
-      SafeERC20.safeTransferFrom(IERC20(currency_), receiver, _splitter, amount);
-      IArtOnlineSplitter(_splitter).split(currency_, amount);
-    } else {
-      address payable wallet = payable(_owner);
-      wallet.transfer(amount);
-    }
-    feeWallet.transfer(fee);
-  }
-
   function _buyWithCurrency(address receiver, uint256 fee, address feeReceiver) internal {
     if (_splitter != address(0)) {
       SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
@@ -53,23 +41,33 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
   }
 
+  function _buyWithNative(uint256 fee, address payable feeWallet) internal {
+    require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
+    require(msg.value >= _price, 'NOT_ENOUGH_COINS');
+    uint256 amount = msg.value - fee;
+    if (_splitter != address(0)) {
+      IArtOnlineSplitter(_splitter).split{value: amount}(_currency, _price - fee);
+    } else {
+      address payable wallet = payable(_owner);
+      wallet.transfer(amount);
+    }
+    feeWallet.transfer(fee);
+  }
+
   function buy(address receiver) external override payable {
     require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender != _owner, 'SELLER_OWN');
     // address currencyIn = _currency;
     uint256 fee = IArtOnlineExchangeFactory(_factory).feeFor(_price);
     address feeReceiver = IArtOnlineExchangeFactory(_factory).feeReceiver();
     if (msg.value != 0) {
-      require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
-      require(msg.value >= _price, 'NOT_ENOUGH_COINS');
-      address _wrappedCurrency = IArtOnlineExchangeFactory(_factory).wrappedCurrency();
-      uint256 amount = msg.value - fee;
-      IWrappedCurrency(_wrappedCurrency).deposit{value: amount};
-      _buyWithNative(_wrappedCurrency, receiver, fee, payable(feeReceiver));
+      _buyWithNative(fee, payable(feeReceiver));
     } else {
-      _beforeTransfer(receiver);
+      uint256 balance = IERC20(_currency).balanceOf(receiver);
+      require(balance >= _price, 'NOT_ENOUGH_TOKENS');
       _buyWithCurrency(receiver, fee, feeReceiver);
     }
-    IERC1155(contractAddress).safeTransferFrom(address(this), receiver, _id, _tokenId, '');
+    IERC1155(_contractAddress).safeTransferFrom(address(this), receiver, _id, _tokenId, '');
     address oldOwner = _owner;
     _owner = receiver;
     _listed = 0;
@@ -77,15 +75,9 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     emit Listed(_listed);
   }
 
-  function _beforeTransfer(address receiver) internal view {
-    require(msg.sender != _owner, 'SELLER_OWN');
-    uint256 balance = IERC20(_currency).balanceOf(receiver);
-    require(balance >= _price, 'NOT_ENOUGH_TOKENS');
-  }
-
-  function initialize(address owner_, address contractAddress_, uint256 id_, uint256 tokenId_, uint256 price_, address currency_) external override {
+  function initialize(address owner_, address contractAddress_, uint256 id_, uint256 tokenId_, uint256 price_, address currency_) external {
     require(msg.sender == _factory, 'NOT_ALLOWED');
-    contractAddress = contractAddress_;
+    _contractAddress = contractAddress_;
     _tokenId = tokenId_;
     _id = id_;
     _price = price_;
@@ -97,7 +89,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   }
 
   function setPrice(uint256 amount) external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     uint256 oldPrice = _price;
     _price = amount;
 
@@ -125,13 +117,13 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   }
 
   function delist() external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     _listed = 0;
     emit Listed(0);
   }
 
   function list() external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     _listed = 1;
     emit Listed(1);
   }
@@ -145,7 +137,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   }
 
   function setOwner(address owner_)  external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     address oldOwner = _owner;
     _owner = owner_;
 
@@ -157,9 +149,17 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
   }
 
   function setCurrency(address currency_, uint256 price_) external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     _currency = currency_;
     _price = price_;
+  }
+
+  function splitter() external view override returns (address) {
+    return _splitter;
+  }
+
+  function contractAddress() external view override returns (address) {
+    return _contractAddress;
   }
 
   function setSplitter(address splitter_) external override {
@@ -187,7 +187,7 @@ contract ArtOnlineListingERC1155 is IERC1155Receiver, IArtOnlineListingERC1155 {
     return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
   }
 
-   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+   function supportsInterface(bytes4 interfaceId) external pure override(IArtOnlineListingERC1155, IERC165) returns (bool) {
      return
        interfaceId == type(IERC1155).interfaceId;
    }
