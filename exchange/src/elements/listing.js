@@ -38,11 +38,11 @@ export default customElements.define('listing-element', class Listinglement exte
     ]
     promises = await Promise.all(promises)
     this.price = ethers.utils.formatUnits(promises[0], 18)
-    this.id = promises[1]
+    this.id = promises[1].toString()
     this._currency = promises[3]
     if (this._currency === api.addresses.artonline) this.currency = 'ART'
     else this.currency = currencyByAddress[this._currency]
-    this.tokenId = promises[2]
+    this.tokenId = promises[2].toString()
 
     this.shadowRoot.innerHTML = this.template
     this.contractAddress = await promises[4]

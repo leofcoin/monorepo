@@ -28,6 +28,37 @@ export default customElements.define('market-view', class MarketView extends Bas
       // listings = listings.filter(listing => listing.listed ? listing : false)
       // }
       this.sqs('array-repeat').items = listings
+
+      document.addEventListener('custom-search', async ({detail}) => {
+        if (detail === '') {
+          const response = await fetch('https://api.artonline.site/listings/ERC1155')
+          this.sqs('array-repeat').items = await response.json()
+          return
+        }
+        const listingsEls = Array.from(this.sqs('array-repeat').shadowRoot.querySelectorAll('listing-element'))
+        if (listingsEls.length > 0) {
+          this.sqs('array-repeat').shadowRoot.innerHTML = ''
+          this.sqs('array-repeat').items = listingsEls.filter(listing => {
+            if (!listing.tokenId) return false;
+
+            if (listing.address.includes(detail) ||
+                listing.id.includes(detail) ||
+                listing.currency.includes(detail) ||
+                listing._currency.includes(detail) ||
+                listing.tokenId.includes(detail) ||
+                listing.contractAddress.includes(detail) ||
+                listing.price.includes(detail) ||
+                listing.symbol.includes(detail)
+              ) return true;
+
+              console.log(false);
+              return false
+          }).map(listing => { return {address: listing.address}})
+        } else {
+          const response = await fetch('https://api.artonline.site/listings/ERC1155')
+          this.sqs('array-repeat').items = await response.json()
+        }
+      })
     })()
   }
 

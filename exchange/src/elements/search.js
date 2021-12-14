@@ -1,6 +1,28 @@
 export default customElements.define('search-element', class SearchElement extends BaseClass {
   constructor() {
     super()
+
+    this._onInput = this._onInput.bind(this)
+  }
+
+  get _input() {
+    return this.sqs('input')
+  }
+
+  connectedCallback() {
+    this._input.addEventListener('input', this._onInput)
+  }
+
+  _onInput() {
+    this._timeout && clearTimeout(this._timeout)
+
+    this._timeout = () => setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('custom-search', {
+        detail: this._input.value
+      }))
+    }, 200);
+
+    this._timeout()
   }
 
   get template() {
@@ -27,6 +49,12 @@ export default customElements.define('search-element', class SearchElement exten
         outline: none;
         background: transparent;
         color: var(--main-color);
+      }
+      input[type="search"]::-webkit-search-decoration,
+      input[type="search"]::-webkit-search-cancel-button,
+      input[type="search"]::-webkit-search-results-button,
+      input[type="search"]::-webkit-search-results-decoration {
+        -webkit-appearance:none;
       }
     </style>
     <custom-svg-icon icon="search"></custom-svg-icon>
