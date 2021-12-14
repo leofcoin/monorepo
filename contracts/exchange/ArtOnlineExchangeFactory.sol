@@ -16,12 +16,9 @@ import "contracts/exchange/interfaces/IArtOnlineListing.sol";
 import "contracts/exchange/interfaces/IArtOnlineListingERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlineExchangeFactoryStorage {
   using Address for address;
-  using SafeERC20 for IERC20;
 
   modifier isListed(address listing) {
     require(IArtOnlineListing(listing).listed() == 1, 'NOT_LISTED');
@@ -53,9 +50,7 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
   }
 
   function setFee(uint256 fee_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    uint256 oldFee = _fee;
     _fee = fee_;
-    emit FeeChange(oldFee, _fee);
   }
 
   function fee() external virtual view returns(uint256) {
@@ -75,12 +70,13 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
       listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);
       getListingERC1155[contractAddress][id][tokenId] = listing;
       listingsERC1155.push(listing);
+      IArtOnlineListingERC1155(listing).setSplitter(splitter);
     } else {
       listing = _createListingERC721(contractAddress, currency, price, id);
       getListing[contractAddress][id] = listing;
       listings.push(listing);
+      IArtOnlineListing(listing).setSplitter(splitter);
     }
-    IArtOnlineListing(listing).setSplitter(splitter);
     allListings.push(listing);
     emit ListPartner(listing, allListings.length);
     return listing;
@@ -108,8 +104,8 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     assembly {
       listing := create2(0, add(bytecode, 32), mload(bytecode), salt)
     }
-    IERC721(contractAddress).safeTransferFrom(_msgSender(), address(this), id);
-    IArtOnlineListing(listing).initialize(_msgSender(), contractAddress, id, price, currency);
+    IERC721(contractAddress).safeTransferFrom(_msgSender(), address(listing), id);
+    ArtOnlineListing(listing).initialize(_msgSender(), contractAddress, id, price, currency);
     return listing;
   }
 
@@ -121,7 +117,7 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
       listing := create2(0, add(bytecode, 32), mload(bytecode), salt)
     }
     IERC1155(contractAddress).safeTransferFrom(_msgSender(), address(listing), id, tokenId, '');
-    IArtOnlineListingERC1155(listing).initialize(_msgSender(), contractAddress, id, tokenId, price, currency);
+    ArtOnlineListingERC1155(listing).initialize(_msgSender(), contractAddress, id, tokenId, price, currency);
     return listing;
   }
 
@@ -160,36 +156,8 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     }
   }
 
-  // function listMintable(address contractAddress, uint256 price, uint256 id, bool isERC1155) {
-  //   if (isERC1155 == true) {
-  //     bytes32 mintableId = keccak256(abi.encodePacked(contractAddress, id));
-  //     minteables.push(mintableId);
-  //
-  //     _mintlistings[id].contractAddress = contractAddress;
-  //     _mintlistings[id].id = id;
-  //     _mintlistings[id].id = id;
-  //     _mintlistings[id].mintableId = mintableId;
-  //   }
-  // }
-  //
-  // function mintAsset() {
-  //
-  // }
-
-  function wrappedCurrency() external view returns (address) {
-    return _wrappedCurrency;
-  }
-
-  function setWrappedCurrency(address currency) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    _wrappedCurrency = currency;
-  }
-
   function setSplitter(address listing, address splitter) external onlyRole(DEFAULT_ADMIN_ROLE) {
     IArtOnlineListing(listing).setSplitter(splitter);
-  }
-
-  function setCurrency(address listing, address currency, uint256 price) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    IArtOnlineListing(listing).setCurrency(currency, price);
   }
 
   function feeFor(uint256 amount) external view returns (uint256) {
