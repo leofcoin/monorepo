@@ -8,6 +8,8 @@ import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import PLATFORM_ABI from './../../../abis/platform'
 import LISTING_ERC1155_ABI from './../../../build/contracts/ArtOnlineListingERC1155.json'
 
+globalThis.showOnlyListed = true
+
 export default customElements.define('market-view', class MarketView extends BaseClass {
   constructor() {
     super()
@@ -19,13 +21,12 @@ export default customElements.define('market-view', class MarketView extends Bas
     (async () => {
       await isApiReady()
       this.shadowRoot.addEventListener('click', this._onClick)
-      const listingsLength = await api.contract.listingERC1155Length()
-      const listings = []
-      for (let i = 0; i < listingsLength; i++) {
-        const address = await api.contract.callStatic.listingsERC1155(i)
-        listings.push({address})
-      }
 
+      const response = await fetch('https://api.artonline.site/listings/ERC1155')
+      let listings = await response.json();
+      // if (globalThis.showOnlyListed === true) {
+      // listings = listings.filter(listing => listing.listed ? listing : false)
+      // }
       this.sqs('array-repeat').items = listings
     })()
   }
@@ -46,12 +47,12 @@ export default customElements.define('market-view', class MarketView extends Bas
           let tx
           if (currency === '0x0000000000000000000000000000000000000000') {
             busy.show('Buying')
-            tx = await api.contract.buy(address, id, token, {value: ethers.utils.parseUnits(price)});
+            tx = await api.contract.buy(address, id, token, {value: ethers.utils.parseUnits(price), gasLimit: 21000000});
           } else {
-            const approved = await api.isApproved(currency, amount)
+            const approved = await api.isApproved(currency, price)
             if (!approved) {
               busy.show('Approving')
-              await api.approve(currency, amount)
+              await api.approve(currency, price)
             }
             busy.show('Buying')
             tx = await api.contract.buy(address, id, token);
