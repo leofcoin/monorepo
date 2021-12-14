@@ -21,7 +21,7 @@ export default [
 		]
 	},
 	{
-		input: ['src/themes/default.js'],
+		input: ['src/themes/default.js', 'src/themes/dark.js'],
 		output: {
 			dir: 'www/themes',
 			format: 'es'
