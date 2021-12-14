@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.7;
-import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import 'contracts/exchange/interfaces/IPanCakeRouter.sol';
 import 'contracts/access/SetArtOnlineBase.sol';
+import 'contracts/exchange/interfaces/IArtOnlineExchangeFactory.sol';
 
 contract ArtOnlineSplitter is SetArtOnlineBase {
   mapping (string => uint256) internal _splitFor;
@@ -38,47 +38,48 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
     return _addressFor[receiver];
   }
 
-  function split(address currency, uint256 amount) external {
-    require(msg.sender == _addressFor['factory'], 'NOT_ALLOWED');
+  function _swapETHForTokens(uint256 amount, address token, address receiver) internal {
+    IPanCakeRouter _pancakeRouter = IPanCakeRouter(_addressFor['router']);
+    address[] memory path = new address[](2);
+    path[0] = _pancakeRouter.WETH();
+    path[1] = token;
+
+
+    // make the swap
+    _pancakeRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
+      amount,
+      0, // accept any amount of Tokens
+      path,
+      receiver,
+      block.timestamp + 60
+    );
+  }
+
+  // address and uint256 defined for future partner pool/splitter contract
+  function split(address currency_, uint256 amount) external payable {
+    require(amount == msg.value, 'AMOUNTS_DONT_MATCH');
+
     uint256 partnerSplit = _calculateSplit(amount, 'partner');
-    uint256 artOnlineSplit = _calculateSplit(amount, 'artOnline');
+    uint256 artOnlineSplit = _calculateSplit(amount, 'artonline');
     uint256 burnSplit = _calculateSplit(artOnlineSplit, 'burn');
     uint256 marketingSplit = _calculateSplit(artOnlineSplit, 'marketing');
     uint256 liquiditySplit = _calculateSplit(artOnlineSplit, 'liquidity');
 
-    _burnArtOnline(currency, burnSplit);
-    _BuyPartner(currency, partnerSplit);
+    // _swapETHForTokens(partnerSplit, _addressFor['partner'], _addressFor['pool']);
+    address payable partnerWallet = payable(_addressFor['partner']);
+    partnerWallet.transfer(partnerSplit);
+    // _swapETHForTokens(burnSplit, _addressFor['artonline'], address(this));
+    // IArtOnline artOnlineContract = IArtOnline(_addressFor['artOnline']);
+    // artOnlineContract.burn(address(this), artOnlineContract.balanceOf(address(this)));
 
-    SafeERC20.safeTransferFrom(IERC20(currency), address(this), _addressFor['marketing'], marketingSplit);
-    SafeERC20.safeTransferFrom(IERC20(currency), address(this), _addressFor['liquidity'], liquiditySplit);
-  }
+    address payable burnWallet = payable(_addressFor['burn']);
+    burnWallet.transfer(burnSplit);
 
-  function _BuyPartner(address currency, uint256 amount) internal {
-    address _partner = _addressFor['partner'];
-    address _router = _addressFor['router'];
-    address _partnerPool = _addressFor['partnerPool'];
-    IERC20(currency).approve(_router, amount);
-    IPanCakeRouter(_router).swapExactTokensForTokens(
-      amount,
-      _getAmountOutMin(currency, _partner, amount),
-      _getPath(currency, _partner),
-      address(this),
-      block.timestamp + 60
-    );
-    SafeERC20.safeTransferFrom(IERC20(_partner), address(this), _partnerPool, amount);
-  }
+    address payable marketingWallet = payable(_addressFor['marketing']);
+    marketingWallet.transfer(marketingSplit);
 
-  function _burnArtOnline(address currency, uint256 amount) internal {
-    address _router = _addressFor['router'];
-    IERC20(currency).approve(_router, amount);
-    IPanCakeRouter(_router).swapExactTokensForTokens(
-      amount,
-      _getAmountOutMin(currency, address(_artOnlineInterface), amount),
-      _getPath(currency, address(_artOnlineInterface)),
-      address(this),
-      block.timestamp + 60
-    );
-    _artOnlineInterface.burn(address(this), amount);
+    address payable liquidityWallet = payable(_addressFor['liquidity']);
+    liquidityWallet.transfer(liquiditySplit);
   }
 
   function _calculateSplit(uint256 amount, string memory splitReceiver) internal view returns (uint256) {
@@ -87,25 +88,5 @@ contract ArtOnlineSplitter is SetArtOnlineBase {
 
   function calculateSplit(uint256 amount, string memory splitReceiver) external view returns (uint256) {
     return _calculateSplit(amount, splitReceiver);
-  }
-
-  function _getPath(address _tokenIn, address _tokenOut) internal view returns (address[] memory path){
-    address _wrappedCurrency = _addressFor['wrappedCurrency'];
-    if (_tokenIn == _wrappedCurrency || _tokenOut == _wrappedCurrency) {
-      path = new address[](2);
-      path[0] = _tokenIn;
-      path[1] = _tokenOut;
-    } else {
-      path = new address[](3);
-      path[0] = _tokenIn;
-      path[1] = _wrappedCurrency;
-      path[2] = _tokenOut;
-    }
-  }
-
-  function _getAmountOutMin(address _tokenIn, address _tokenOut, uint256 _amountIn) internal returns (uint256) {
-    address[] memory path = _getPath(_tokenIn, _tokenOut);
-    uint256[] memory amountOutMins = IPanCakeRouter(_addressFor['router']).getAmountsOut(_amountIn, path);
-    return amountOutMins[path.length -1];
   }
 }

@@ -2,5 +2,5 @@
 pragma solidity 0.8.7;
 
 interface IArtOnlineSplitter {
-  function split(address, uint256) external;
+  function split(address, uint256) external payable;
 }
