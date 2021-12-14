@@ -15,6 +15,8 @@ export default customElements.define('market-view', class MarketView extends Bas
     super()
     this._onClick = this._onClick.bind(this)
     this._onSelected = this._onSelected.bind(this)
+    this._onSold = this._onSold.bind(this)
+    this._onList = this._onList.bind(this)
   }
 
   connectedCallback() {
@@ -28,6 +30,9 @@ export default customElements.define('market-view', class MarketView extends Bas
       // listings = listings.filter(listing => listing.listed ? listing : false)
       // }
       this.sqs('array-repeat').items = listings
+
+      api.contract.on('Sold', this._onSold)
+      api.contract.on('List', this._onList)
 
       document.addEventListener('custom-search', async ({detail}) => {
         if (detail === '') {
@@ -60,6 +65,27 @@ export default customElements.define('market-view', class MarketView extends Bas
         }
       })
     })()
+  }
+
+  async _onevent(id, tokenId, price) {
+    if (id.toString() !== this.id) return;
+    this.stock = await api.calculateStock(id)
+    this._buybutton.removeEventListener('click', this._onbuy)
+    this.shadowRoot.innerHTML = this.template
+    this._buybutton.addEventListener('click', this._onbuy)
+  }
+
+  async _onList(listing) {
+    const el = this.sqs('array-repeat').shadowRoot.querySelector(`listing-element`)
+    this.sqs('array-repeat').shadowRoot.appendChild(el)
+    el.setAttribute('address', listing)
+  }
+
+  async _onSold(id, tokenId, price) {
+    const els = Array.from(this.sqs('array-repeat').shadowRoot.querySelectorAll(`listing-element`))
+    for (const el of els) {
+      if (el.id === id) this.sqs('array-repeat').shadowRoot.removeChild(el)
+    }
   }
 
   async _onClick(event) {
