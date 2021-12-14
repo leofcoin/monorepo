@@ -5,6 +5,7 @@ contract ArtOnlineBridger {
   address internal _artOnlinePlatform;
   address internal _artOnlineMining;
   address internal _artOnlineExchange;
+  address internal _artOnlineExchangeFactory;
   address internal _artOnlineFactory;
   address internal _artOnlineBlacklist;
   address internal _artOnlineAccess;
@@ -34,6 +35,10 @@ contract ArtOnlineBridger {
 
   function setArtOnlineMining(address artOnlineMining_) external hasPermission() {
     _artOnlineMining = artOnlineMining_;
+  }
+
+  function setArtOnlineExchangeFactory(address artOnlineExchangeFactory_) external hasPermission() {
+    _artOnlineExchangeFactory = artOnlineExchangeFactory_;
   }
 
   function setArtOnlineFactory(address artOnlineFactory_) external hasPermission() {
@@ -66,6 +71,10 @@ contract ArtOnlineBridger {
 
   function artOnlineMining() external view virtual returns (address) {
     return _artOnlineMining;
+  }
+
+  function artOnlineExchangeFactory() external view virtual returns (address) {
+    return _artOnlineExchangeFactory;
   }
 
   function artOnlineFactory() external view virtual returns (address) {

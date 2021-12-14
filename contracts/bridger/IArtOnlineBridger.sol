@@ -28,4 +28,7 @@ interface IArtOnlineBridger {
 
   function setArtOnlineAccess(address _address) external;
   function artOnlineAccess() external view returns (address);
+
+  function setArtOnlineExchangeFactory(address _address) external;
+  function artOnlineExchangeFactory() external view returns (address);
 }
