@@ -17,13 +17,16 @@ export default customElements.define('search-element', class SearchElement exten
         border-radius: 12px;
         pointer-events: auto;
         margin: 0 24px;
+        --svg-icon-color: var(--main-color);
       }
 
       input {
         height: 100%;
         width: 100%;
         border: none;
-
+        outline: none;
+        background: transparent;
+        color: var(--main-color);
       }
     </style>
     <custom-svg-icon icon="search"></custom-svg-icon>
