@@ -32,3 +32,4 @@ www/www/service-worker.js
 /exchange/www/*.js
 www/www/service-worker.js
 www/www/shell.js
+lottery/www/**/**.js
