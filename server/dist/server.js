@@ -16,20 +16,20 @@ var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
   "access": "0x94097a3370Bc989525EDe428cC65531BF938770B",
-  "bridger": "0xd648d3609191b7f384b787EC446115A7962450c5",
-  "mining": "0x43Ad168b451c026E08e1387dd749EC28F1f0BE89",
+  "bridger": "0x5e78593e69C83489A3b5A97Da8C0A53953C9F5d5",
+  "mining": "0x9D610fD8C203Af87b97DDb8297AF29c875fF2bfc",
   "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
   "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
-  "platform": "0x20acf9646067318266b889332571601867718F5c",
+  "platform": "0xeE145Ae1A94A74C5fC65BbD77C31b14747c61cb2",
   "exchange": "0xd01C823Aacb35f5eF302d914E8cDEfBf77cB4618",
-  "exchangeFactory": "0xfF0AeDDaC82456f54F357a8A6B2d8fFf1Fc0C8a9",
-  "staking": "0x7B964f61e92A72Ad9D321f2E26d9c8D65Ac7e397",
+  "exchangeFactory": "0x39333A5eE532BbB7f2E758A3c5bC8c5d6BC07162",
+  "staking": "0xd789c76d4Eb292ae926b793E6b165a130eA3fB39",
   "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   "panCakeRouter": "0x9ac64cc6e4415144c455bd8e4837fea55603e5c3",
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
-  "partnershipToken": "0x8D17630900D1AA416DD0b63Ad3D60194EF52c46f",
-  "splitter": "0x2C40816a19371f0C695011b0eE54d5B6c3115791",
-  "partnerPool": "0x649D8a9079203422Ac10d03e0033ADCf29aD53cf"
+  "partnershipToken": "0x747E426aE04a44185e1BdE8D3127647aBC57C446",
+  "splitter": "0xdc80cE6025440fAE0809f385B563DA370d0b7d85",
+  "partnerPool": "0x370cB29e1548C5Cc938814ac18d2A5260d7722E7"
 };
 
 var abi$1 = [
@@ -506,27 +506,9 @@ var abi = [
 		inputs: [
 			{
 				indexed: false,
-				internalType: "uint256",
-				name: "id",
-				type: "uint256"
-			},
-			{
-				indexed: false,
-				internalType: "uint256",
-				name: "tokenId",
-				type: "uint256"
-			},
-			{
-				indexed: false,
 				internalType: "address",
-				name: "owner",
+				name: "listing",
 				type: "address"
-			},
-			{
-				indexed: false,
-				internalType: "uint256",
-				name: "price",
-				type: "uint256"
 			}
 		],
 		name: "Sold",
