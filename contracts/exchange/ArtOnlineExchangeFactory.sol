@@ -140,12 +140,14 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     address listing = getListing[contractAddress][id];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
     IArtOnlineListing(listing).buy{value: msg.value}(msg.sender);
+    emit Sold(listing);
   }
 
   function _buyERC1155(address contractAddress, uint256 id, uint256 tokenId) internal {
     address listing = getListingERC1155[contractAddress][id][tokenId];
     require(listing != address(0), 'LISTING_DOES_NOT_EXISTS');
     IArtOnlineListingERC1155(listing).buy{value: msg.value}(msg.sender);
+    emit Sold(listing);
   }
 
   function buy(address contractAddress, uint256 id, uint256 tokenId) external payable {
