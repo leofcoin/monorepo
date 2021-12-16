@@ -24,16 +24,14 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   }
 
   connectedCallback() {
-    this.setTheme('default')
+    this.setTheme('dark')
     globalThis.onhashchange = async () => {
-      console.log(location);
       if (location.hash === '') {
-        if (this._isFirstVisit()) location.href = `#!/home`
+        if (this._isFirstVisit()) location.href = `#!/market` // TODO: home!
         else location.href = `#!/market`
       }
       const hash = location.hash.slice(3, location.hash.length)
       const parts = hash.split('/')
-      console.log(hash, parts);
       if (!customElements.get(`${parts[0]}-view`)) await import(`./${parts[0]}.js`)
       this.pages.select(parts[0])
     }
@@ -74,6 +72,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
     flex-direction: column;
     height: 100%;
     width: 100%;
+    background: var(--main-background-color);
   }
 
   h1, h2 {
