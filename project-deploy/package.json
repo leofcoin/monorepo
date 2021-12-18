@@ -1,15 +1,24 @@
 {
   "name": "project-deploy",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
+    "c": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "commander": "^8.3.0"
+    "commander": "^8.3.0",
+    "globby": "^12.0.2",
+    "ora": "^6.0.1",
+    "solc": "^0.8.10"
+  },
+  "description": "",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^4.4.1",
+    "@rollup/plugin-json": "^4.1.0"
   }
 }
