@@ -29,11 +29,12 @@
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^4.4.1",
-    "@openzeppelin/truffle-upgrades": "^1.11.0",
-    "@truffle/hdwallet-provider": "^1.7.0",
+    "@truffle/hdwallet-provider": "^2.0.0",
     "dotenv": "^10.0.0",
     "ethers": "^5.5.2",
+    "solc": "^0.8.10",
     "tape": "^5.3.2",
+    "truffle": "^5.1.33",
     "truffle-contract-size": "^2.0.1"
   }
 }
