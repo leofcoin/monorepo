@@ -1,7 +1,6 @@
 export default customElements.define('countdown-view', class CountdownView extends BaseClass {
   constructor() {
     super()
-    this.
   }
 
   get _min() {
@@ -37,9 +36,9 @@ export default customElements.define('countdown-view', class CountdownView exten
 
   get template() {
     return html`
-${this.days > 0 : `<span class="days">${this.days}</span>`: '0'}
-${this.hours > 0 : `<span class="hours">${this.hours}</span>`: '0'}
-${this.minutes > 0 : `<span class="min">${this.minutes}</span>`: '0'}
+${this.days > 0 ? `<span class="days">${this.days}</span>`: '0'}
+${this.hours > 0 ? `<span class="hours">${this.hours}</span>`: '0'}
+${this.minutes > 0 ? `<span class="min">${this.minutes}</span>`: '0'}
     `
   }
 })
