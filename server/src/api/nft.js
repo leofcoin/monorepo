@@ -66,7 +66,7 @@ router.get('/nft/json', async ctx => {
     }
   }
   await jobber[`json_${address}`].job()
-  ctx.body = jobber[`json_${address}`].value
+  sendJSON(ctx, jobber[`json_${address}`].value)
 })
 
 export default router

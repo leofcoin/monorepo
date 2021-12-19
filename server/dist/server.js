@@ -1169,7 +1169,7 @@ const updateCache = (key, value) => {
   cache[key] = value;
 };
 
-const sendJSON = (ctx, value) => {
+const sendJSON$1 = (ctx, value) => {
   ctx.type = mime__default["default"].lookup('json');
   ctx.body = JSON.stringify(value);
 };
@@ -1199,7 +1199,7 @@ router$2.get('/listings/ERC721', async ctx => {
       }
     };
   }
-  sendJSON(ctx, cache$1.listingsERC721.value);
+  sendJSON$1(ctx, cache$1.listingsERC721.value);
 });
 
 router$2.get('/listings/ERC1155', async ctx => {
@@ -1223,7 +1223,7 @@ router$2.get('/listings/ERC1155', async ctx => {
 
     await cache$1.listingsERC1155.job();
   }
-  sendJSON(ctx, cache$1.listingsERC1155.value);
+  sendJSON$1(ctx, cache$1.listingsERC1155.value);
 });
 
 router$2.get('/listings', async ctx => {
@@ -1249,7 +1249,7 @@ router$2.get('/listings', async ctx => {
     updateCache('listingsERC1155', listings['ERC1155']);
   }
 
-  sendJSON(ctx, listings);
+  sendJSON$1(ctx, listings);
   return
 });
 
@@ -1280,13 +1280,13 @@ router$2.get('/listing/listed', async ctx => {
 router$2.get('/listing/ERC721', async ctx => {
   const { address, tokenId } = ctx.params;
   const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
-  sendJSON(ctx, listing);
+  sendJSON$1(ctx, listing);
 });
 
 router$2.get('/listing/ERC1155', async ctx => {
   const { address, id, tokenId } = ctx.params;
   const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
-  sendJSON(ctx, listing);
+  sendJSON$1(ctx, listing);
 });
 
 const router$1 = new Router__default["default"]();
@@ -1996,6 +1996,11 @@ router.get('/nft', ctx => {
   ctx.body = 'v0.0.1-alpha';
 });
 
+const sendJSON = (ctx, value) => {
+  ctx.type = mime__default["default"].lookup('json');
+  ctx.body = JSON.stringify(value);
+};
+
 const getMetadataURI = async (address, id, type) => {
   const contract = type === 'ERC1155' ?
                    new ethers__default["default"].Contract(address, abi$1) :
@@ -2038,7 +2043,7 @@ router.get('/nft/json', async ctx => {
     };
   }
   await cache$1[`json_${address}`].job();
-  ctx.body = cache$1[`json_${address}`].value;
+  sendJSON(ctx, cache$1[`json_${address}`].value);
 });
 
 const server = new Koa__default["default"]();
