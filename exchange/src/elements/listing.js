@@ -46,6 +46,8 @@ export default customElements.define('listing-element', class Listinglement exte
 
     this.shadowRoot.innerHTML = this.template
     this.contractAddress = await promises[4]
+    response = await fetch(`https://api.artonline.site/nft/uri?address=${this.address}&&id=${this.id}&&type=ERC1155`)
+    response = await response.text()
     const ERC1155Contract = new ethers.Contract(this.contractAddress, IERC1155MetadataURI.abi, api.provider)
     let uri = await ERC1155Contract.callStatic.uri(this.id)
     uri = uri.replace(`{id}`, this.id)

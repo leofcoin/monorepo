@@ -2001,7 +2001,9 @@ const getMetadataURI = async (address, id, type) => {
                    new ethers__default["default"].Contract(address, abi$1) :
                    new ethers__default["default"].Contract(address, abi);
 
-  return type === 'ERC1155' ? contract.callStatic.uri(id) : contract.callStatic.tokenURI(id)
+  const uri = type === 'ERC1155' ? contract.callStatic.uri(id) : contract.callStatic.tokenURI(id);
+
+  return uri.replace(`{id}`, id)
 };
 
 const getJsonFor = async (address, id, type) => {
