@@ -1142,8 +1142,9 @@ const timeout = () => {
   setTimeout(async () => {
     const start = getTime();
     for (var key of Object.keys(cache$1)) {
-      await cache$1[key].job();
-      console.log(`job ${key} took ${getTime() - start}s`);
+      cache$1[key].job().then(() => {
+        console.log(`job ${key} took ${getTime() - start}s`);
+      });
     }
 
     console.log(`jobs took ${getTime() - start}s`);
