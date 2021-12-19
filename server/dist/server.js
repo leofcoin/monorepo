@@ -32,7 +32,7 @@ var addresses = {
   "partnerPool": "0x9430EEE9bfD294905d1CF89503279b66e1C3B8C3"
 };
 
-var abi$1 = [
+var abi$3 = [
 	{
 		inputs: [
 		],
@@ -345,7 +345,7 @@ var abi$1 = [
 	}
 ];
 
-var abi = [
+var abi$2 = [
 	{
 		inputs: [
 			{
@@ -1153,15 +1153,15 @@ const timeout = () => {
 
 timeout();
 
-const router$1 = new Router__default["default"]();
+const router$2 = new Router__default["default"]();
 
-const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
+const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
   chainId: 97
 });
 
-const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi, provider);
+const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider$1);
 
-router$1.get('/', ctx => {
+router$2.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha';
 });
 
@@ -1175,12 +1175,12 @@ const sendJSON = (ctx, value) => {
 };
 
 const listingListed = async (address) => {
-  const listingContract = new ethers__default["default"].Contract(address, abi$1, provider);
+  const listingContract = new ethers__default["default"].Contract(address, abi$3, provider$1);
   const listed = await listingContract.callStatic.listed();
   return listed.toNumber() === 1
 };
 
-router$1.get('/listings/ERC721', async ctx => {
+router$2.get('/listings/ERC721', async ctx => {
   if (!cache$1.listingsERC721) {
     cache$1.listingsERC721 = {
       job: async () => {
@@ -1202,7 +1202,7 @@ router$1.get('/listings/ERC721', async ctx => {
   sendJSON(ctx, cache$1.listingsERC721.value);
 });
 
-router$1.get('/listings/ERC1155', async ctx => {
+router$2.get('/listings/ERC1155', async ctx => {
   if (!cache$1.listingsERC1155) {
     cache$1.listingsERC1155 = {
       job: async () => {
@@ -1226,7 +1226,7 @@ router$1.get('/listings/ERC1155', async ctx => {
   sendJSON(ctx, cache$1.listingsERC1155.value);
 });
 
-router$1.get('/listings', async ctx => {
+router$2.get('/listings', async ctx => {
   const listings = {};
   if (!cache.listingsERC721) {
     const listingsLength = await api.contract.listingLength();
@@ -1253,7 +1253,7 @@ router$1.get('/listings', async ctx => {
   return
 });
 
-router$1.get('/listing/info', async ctx => {
+router$2.get('/listing/info', async ctx => {
   console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listingInfo_${address}`]) {
@@ -1265,7 +1265,7 @@ router$1.get('/listing/info', async ctx => {
   ctx.body = cache$1[`listingInfo_${address}`].value;
 });
 
-router$1.get('/listing/listed', async ctx => {
+router$2.get('/listing/listed', async ctx => {
   console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listed_${address}`]) {
@@ -1277,33 +1277,774 @@ router$1.get('/listing/listed', async ctx => {
   ctx.body = cache$1[`listed_${address}`].value;
 });
 
-router$1.get('/listing/ERC721', async ctx => {
+router$2.get('/listing/ERC721', async ctx => {
   const { address, tokenId } = ctx.params;
   const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
   sendJSON(ctx, listing);
 });
 
-router$1.get('/listing/ERC1155', async ctx => {
+router$2.get('/listing/ERC1155', async ctx => {
   const { address, id, tokenId } = ctx.params;
   const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
   sendJSON(ctx, listing);
 });
 
-const router = new Router__default["default"]();
+const router$1 = new Router__default["default"]();
 
-router.get('/', ctx => {
+router$1.get('/', ctx => {
 
 });
 
-router.get('/pools', ctx => {
+router$1.get('/pools', ctx => {
 
+});
+
+var abi$1 = [
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "uri_",
+				type: "string"
+			}
+		],
+		stateMutability: "nonpayable",
+		type: "constructor"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "ApprovalForAll",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				indexed: false,
+				internalType: "uint256[]",
+				name: "values",
+				type: "uint256[]"
+			}
+		],
+		name: "TransferBatch",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "value",
+				type: "uint256"
+			}
+		],
+		name: "TransferSingle",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "string",
+				name: "value",
+				type: "string"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			}
+		],
+		name: "URI",
+		type: "event"
+	},
+	{
+		inputs: [
+			{
+				internalType: "bytes4",
+				name: "interfaceId",
+				type: "bytes4"
+			}
+		],
+		name: "supportsInterface",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		name: "uri",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			}
+		],
+		name: "balanceOf",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address[]",
+				name: "accounts",
+				type: "address[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			}
+		],
+		name: "balanceOfBatch",
+		outputs: [
+			{
+				internalType: "uint256[]",
+				name: "",
+				type: "uint256[]"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "setApprovalForAll",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			}
+		],
+		name: "isApprovedForAll",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "safeTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "amounts",
+				type: "uint256[]"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "safeBatchTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	}
+];
+
+var abi = [
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "name_",
+				type: "string"
+			},
+			{
+				internalType: "string",
+				name: "symbol_",
+				type: "string"
+			}
+		],
+		stateMutability: "nonpayable",
+		type: "constructor"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "owner",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "approved",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "Approval",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "owner",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "ApprovalForAll",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "Transfer",
+		type: "event"
+	},
+	{
+		inputs: [
+			{
+				internalType: "bytes4",
+				name: "interfaceId",
+				type: "bytes4"
+			}
+		],
+		name: "supportsInterface",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "owner",
+				type: "address"
+			}
+		],
+		name: "balanceOf",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "ownerOf",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "name",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "symbol",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "tokenURI",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "approve",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "getApproved",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "setApprovalForAll",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "owner",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			}
+		],
+		name: "isApprovedForAll",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "transferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			}
+		],
+		name: "safeTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "_data",
+				type: "bytes"
+			}
+		],
+		name: "safeTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	}
+];
+
+const router = new Router__default["default"]();
+
+const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
+  chainId: 97
+});
+
+new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider);
+
+router.get('/nft', ctx => {
+  ctx.body = 'v0.0.1-alpha';
+});
+
+const getMetadataURI = async (address, id, type) => {
+  const contract = type === 'ERC1155' ?
+                   new ethers__default["default"].Contract(address, abi$1) :
+                   new ethers__default["default"].Contract(address, abi);
+
+  return type === 'ERC1155' ? contract.callStatic.uri(id) : contract.callStatic.tokenURI(id)
+};
+
+const getJsonFor = async (address, id, type) => {
+  if (!cache$1[`uri_${address}`]) {
+    cache$1[`uri_${address}`] = {
+      job: async () => cache$1[`uri_${address}`].value = await getMetadataURI(address, id, type)
+    };
+    await cache$1[`uri_${address}`].job();
+  }
+
+  const uri = cache$1[`uri_${address}`].value;
+  await fetch(uri);
+  return reponse.json()
+};
+
+router.get('/nft/uri', async ctx => {
+  const { address, id, type } = ctx.request.query;
+  if (!cache$1[`uri_${address}`]) {
+    cache$1[`uri_${address}`] = {
+      job: async () => cache$1[`uri_${address}`].value = await getMetadataURI(address, id, type)
+    };
+    await cache$1[`uri_${address}`].job();
+  }
+  ctx.body = cache$1[`uri_${address}`].value;
+});
+
+router.get('/nft/json', async ctx => {
+  const { address, id, type } = ctx.request.query;
+  if (!cache$1[`json_${address}`]) {
+    cache$1[`json_${address}`] = {
+      job: async () => cache$1[`json_${address}`].value = await getJsonFor(address, id, type)
+    };
+  }
+  await cache$1[`json_${address}`].job();
+  ctx.body = cache$1[`json_${address}`].value;
 });
 
 const server = new Koa__default["default"]();
 
 server.use(cors__default["default"]({origin: '*'}));
 
-server.use(router$1.routes());
 server.use(router.routes());
+server.use(router$2.routes());
+server.use(router$1.routes());
 
 server.listen(9044);
