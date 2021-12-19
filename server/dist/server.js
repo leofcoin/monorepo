@@ -1149,7 +1149,7 @@ const timeout = () => {
 
     console.log(`jobs took ${getTime() - start}s`);
     timeout();
-  }, 120 * 1000);
+  }, 10 * 60 * 1000);
 };
 
 timeout();
