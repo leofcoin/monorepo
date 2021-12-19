@@ -8,6 +8,9 @@ import mime from 'mime-types'
 import ethers from 'ethers'
 import Router from '@koa/router'
 const router = new Router()
+const tenMinutes = 10 * 60 * 1000
+const start = new Date().getTime()
+const done = start + tenMinutes
 
 const provider = new ethers.providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
   chainId: 97
@@ -17,6 +20,14 @@ const contract = new ethers.Contract(addresses.exchangeFactory, ABI, provider)
 
 router.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha'
+})
+
+router.get('/countdown', ctx => {
+  const now = new Date().getTime()
+  if (done < now) ctx.body = String(0)
+  else {
+    ctx.body = String(done - now)
+  }
 })
 
 const updateCache = (key, value) => {

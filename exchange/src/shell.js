@@ -15,6 +15,8 @@ globalThis.isApiReady = () => new Promise((resolve, reject) => {
   })
 });
 
+
+
 export default customElements.define('exchange-shell', class ExchangeShell extends BaseClass {
   get pages() {
     return this.sqs('custom-pages')
@@ -25,6 +27,15 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
 
   connectedCallback() {
     this.setTheme('dark')
+    globalThis.showCountDown = countdown => new Promise((resolve, reject) => {
+      location.href = '#!/countdown'
+      this.sqs('countdown-view').value = countdown
+      setTimeout(() => {
+        resolve()
+
+        location.href = '#!/market'
+      }, countdown);
+    })
     globalThis.onhashchange = async () => {
       if (location.hash === '') {
         if (this._isFirstVisit()) location.href = `#!/market` // TODO: home!

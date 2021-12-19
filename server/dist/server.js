@@ -1158,6 +1158,9 @@ const timeout = () => {
 timeout();
 
 const router$2 = new Router__default["default"]();
+const tenMinutes = 10 * 60 * 1000;
+const start = new Date().getTime();
+const done = start + tenMinutes;
 
 const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
   chainId: 97
@@ -1167,6 +1170,14 @@ const contract = new ethers__default["default"].Contract(addresses.exchangeFacto
 
 router$2.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha';
+});
+
+router$2.get('/countdown', ctx => {
+  const now = new Date().getTime();
+  if (done < now) ctx.body = String(0);
+  else {
+    ctx.body = String(done - now);
+  }
 });
 
 const updateCache = (key, value) => {
