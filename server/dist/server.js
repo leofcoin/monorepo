@@ -1141,13 +1141,16 @@ const getTime = () => {
 const timeout = () => {
   setTimeout(async () => {
     const start = getTime();
+    let i;
+    let done = false;
     for (var key of Object.keys(cache$1)) {
+      i++;
       cache$1[key].job().then(() => {
         console.log(`job ${key} took ${getTime() - start}s`);
+        if (i === Object.keys(cache$1) - 1) done = true;
       });
     }
-
-    console.log(`jobs took ${getTime() - start}s`);
+    if (done) console.log(`jobs took ${getTime() - start}s`);
     timeout();
   }, 10 * 60 * 1000);
 };
