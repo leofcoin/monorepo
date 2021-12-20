@@ -4,6 +4,7 @@ var Koa = require('koa');
 var mime = require('mime-types');
 var ethers = require('ethers');
 var Router = require('@koa/router');
+var fetch = require('node-fetch');
 var cors = require('@koa/cors');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
@@ -12,6 +13,7 @@ var Koa__default = /*#__PURE__*/_interopDefaultLegacy(Koa);
 var mime__default = /*#__PURE__*/_interopDefaultLegacy(mime);
 var ethers__default = /*#__PURE__*/_interopDefaultLegacy(ethers);
 var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
+var fetch__default = /*#__PURE__*/_interopDefaultLegacy(fetch);
 var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
@@ -2035,7 +2037,7 @@ const getJsonFor = async (address, id, type) => {
   }
 
   const uri = cache$1[`uri_${address}`].value;
-  await fetch(uri);
+  await fetch__default["default"](uri);
   return reponse.json()
 };
 

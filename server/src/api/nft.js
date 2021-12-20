@@ -2,6 +2,7 @@ import addresses from './../../../addresses/addresses/binance-smartchain-testnet
 import { abi as ERC1155_ABI } from './../../../build/contracts/ERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ERC721.json'
 import { abi as ABI } from './../../../build/contracts/ArtOnlineExchangeFactory.json'
+import fetch from 'node-fetch'
 // import cache from './../cache'
 import jobber from './../jobber'
 import mime from 'mime-types'
