@@ -34,6 +34,469 @@ var addresses = {
   "partnerPool": "0x9430EEE9bfD294905d1CF89503279b66e1C3B8C3"
 };
 
+var abi$4 = [
+	{
+		inputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "constructor"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		name: "Listed",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "address",
+				name: "oldOwner",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "address",
+				name: "newOwner",
+				type: "address"
+			}
+		],
+		name: "OwnerChange",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "oldPrice",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newPrice",
+				type: "uint256"
+			}
+		],
+		name: "PriceChange",
+		type: "event"
+	},
+	{
+		inputs: [
+		],
+		name: "contractAddress",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "currency",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "delist",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "factory",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "isListed",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "list",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "listed",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "owner",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "price",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "currency_",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "price_",
+				type: "uint256"
+			}
+		],
+		name: "setCurrency",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "owner_",
+				type: "address"
+			}
+		],
+		name: "setOwner",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			}
+		],
+		name: "setPrice",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "splitter_",
+				type: "address"
+			}
+		],
+		name: "setSplitter",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "splitter",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "tokenId",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "receiver",
+				type: "address"
+			}
+		],
+		name: "buy",
+		outputs: [
+		],
+		stateMutability: "payable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "owner_",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "contractAddress_",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "price_",
+				type: "uint256"
+			},
+			{
+				internalType: "address",
+				name: "currency_",
+				type: "address"
+			}
+		],
+		name: "initialize",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "owner_",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "contractAddress_",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "price_",
+				type: "uint256"
+			},
+			{
+				internalType: "address",
+				name: "currency_",
+				type: "address"
+			}
+		],
+		name: "initialize",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+		],
+		name: "id",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "value",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC1155Received",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "pure",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "values",
+				type: "uint256[]"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC1155BatchReceived",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "pure",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "bytes4",
+				name: "interfaceId",
+				type: "bytes4"
+			}
+		],
+		name: "supportsInterface",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "pure",
+		type: "function"
+	}
+];
+
 var abi$3 = [
 	{
 		inputs: [
@@ -1274,12 +1737,21 @@ router$2.get('/listing/info', async ctx => {
   console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listingInfo_${address}`]) {
+    const contract = new ethers__default["default"].Contract(address, abi$4, provider$1);
+    let promises = [
+      contract.callStatic.price(),
+      contract.callStatic.id(),
+      contract.callStatic.tokenId(),
+      contract.callStatic.currency(),
+      contract.callStatic.contractAddress()
+    ];
+    promises = await Promise.all(promises);
     cache$1[`listingInfo_${address}`] = {
-      job: async () => cache$1[`listingInfo_${address}`].value = await contract.callStatic.listingInfo(address)
+      job: async () => cache$1[`listingInfo_${address}`].value = promises
     };
   }
   await cache$1[`listingInfo_${address}`].job();
-  ctx.body = cache$1[`listingInfo_${address}`].value;
+  sendJSON$1(ctx, cache$1[`listingInfo_${address}`].value);
 });
 
 router$2.get('/listing/listed', async ctx => {
