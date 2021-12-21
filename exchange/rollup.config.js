@@ -7,7 +7,7 @@ execSync('cp -rf ./../addresses/addresses/**.js www/addresses')
 
 export default [
 	{
-		input: ['src/shell.js', 'src/views/market.js', 'src/views/list.js', 'src/views/home.js', 'src/api/api.js'],
+		input: ['src/shell.js', 'src/views/market.js', 'src/views/list.js', 'src/views/home.js', 'src/views/countdown.js', 'src/api/api.js'],
 		output: {
 			dir: 'www',
 			format: 'es',
@@ -25,6 +25,20 @@ export default [
 		output: {
 			dir: 'www/themes',
 			format: 'es'
+		}
+	}, {
+		input: 'src/sw.js',
+		plugins: [json()],
+		output: {
+			dir: 'www',
+			format: 'cjs'
+		}
+	}, {
+		input: 'src/sw-loader.js',
+		plugins: [json()],
+		output: {
+			dir: 'www',
+			format: 'iife'
 		}
 	}
 ];

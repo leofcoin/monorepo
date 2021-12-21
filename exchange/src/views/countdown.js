@@ -1,6 +1,13 @@
 export default customElements.define('countdown-view', class CountdownView extends BaseClass {
+  static get observedAttributes() {
+    return ['value']
+  }
   constructor() {
     super()
+  }
+
+  attributeChangedCallback(name, old, value) {
+    this[name] = value
   }
 
   get _min() {
@@ -8,7 +15,7 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
 
   get _hour() {
-    return 60
+    return 60 * 24
   }
 
   get _day() {
@@ -16,10 +23,12 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
 
   set value(ms) {
+    console.log(ms);
     ms = Number(ms)
     if (ms > this._min) {
-      this.min = ms /  1000
+      this.min = Math.round(ms /  1000)
       if (this.min > this._hour) {
+        console.log(this.min);
         const result = String(this.min / 60).split('.')
         this.hours = result[0]
         this.min = result[1]

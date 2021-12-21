@@ -2,7 +2,11 @@ import './../../node_modules/custom-selector/src/index'
 
 export default html`
 <header center>
-  <a href="#!/home" center class="logo">
+  <!-- <a href="#!/home" center class="logo">
+    <img src="https://assets.artonline.site/arteon.svg"></img>
+    <h2>ArtExchange</h2>
+  </a> -->
+  <a href="#!/market" center class="logo">
     <img src="https://assets.artonline.site/arteon.svg"></img>
     <h2>ArtExchange</h2>
   </a>

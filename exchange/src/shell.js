@@ -29,7 +29,9 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
     this.setTheme('dark')
     globalThis.showCountDown = countdown => new Promise((resolve, reject) => {
       location.href = '#!/countdown'
-      this.sqs('countdown-view').value = countdown
+      console.log(this.sqs('countdown-view'));
+      console.log(countdown);
+      this.sqs('countdown-view').setAttribute('value', countdown)
       setTimeout(() => {
         resolve()
 

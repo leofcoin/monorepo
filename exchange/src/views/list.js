@@ -28,36 +28,104 @@ export default customElements.define('list-view', class ListView extends BaseCla
     return currency === '0x0' ? '0x0000000000000000000000000000000000000000' : currency
   }
 
-  async __list(value, ABI) {
-    const contract = new ethers.Contract(value.address, ABI, api.connection.provider.getSigner())
+  __getABI(selected) {
+    return selected === 'ERC721' ? LISTING_ERC721_ABI.abi : LISTING_ERC1155_ABI.abi
+  }
+
+  async __beforeListing(value, selected) {
     await this._approve(value.address)
+
     busy.show('Listing')
-    const tx = await api.contract.createListing(
-      value.address,
-      this._getCurrency(value.currency),
-      ethers.utils.parseUnits(value.price, 18),
-      value.tokenId,
-      value.id,
-    )
-    await tx.wait()
-    busy.done()
-    location.href = '#!/market'
+    let listing
+    if (selected === 'ERC1155') {
+      listing = await api.contract.callStatic.getListingERC1155(value.address, value.id, value.tokenId)
+    } else {
+      listing = await api.contract.callStatic.getListing(value.address, value.id)
+    }
+
+    return listing
+  }
+
+  async __listBatch(value, selected) {
+    const ABI = this.__getABI(selected)
+    const contract = new ethers.Contract(value.address[0], ABI, api.connection.provider.getSigner())
+
+    // TODO: check for non-existent and not owned
+    await this._approve(value.address[0])
+    busy.show('Listing')
+    try {
+      const tx = await api.contract.createListingBatch(
+        value.address,
+        value.currency,
+        value.price,
+        value.id,
+        value.tokenId
+      )
+
+      tx = await tx.wait()
+
+      busy.done()
+      location.href = '#!/market'
+    } catch (e) {
+      busy.hide()
+      alert(e.data.message)
+    }
+  }
+
+  async __list(value, selected) {
+    const ABI = this.__getABI(selected)
+
+    console.log(ABI);
+
+    const contract = new ethers.Contract(value.address, ABI, api.connection.provider.getSigner())
+
+    let listing = await this.__beforeListing(value, selected)
+
+    try {
+      let tx;
+      if (listing !== '0x0000000000000000000000000000000000000000') {
+        busy.show('ReListing')
+        tx = await api.contract.relist(
+          value.address,
+          value.id,
+          value.tokenId,
+          ethers.utils.parseUnits(value.price, 18),
+          this._getCurrency(value.currency)
+        )
+      } else {
+        busy.show('Listing')
+        tx = await api.contract.createListing(
+          value.address,
+          this._getCurrency(value.currency),
+          ethers.utils.parseUnits(value.price, 18),
+          value.id,
+          value.tokenId
+        )
+      }
+
+      await tx.wait()
+      busy.done()
+      location.href = '#!/market'
+    } catch (e) {
+      busy.hide()
+      alert(e.data.message)
+    }
   }
 
   async _approve(address) {
     const contract = new ethers.Contract(address, PLATFORM_ABI, api.connection.provider.getSigner())
     const approved = await contract.callStatic.isApprovedForAll(api.connection.accounts[0], api.addresses.exchangeFactory)
-    console.log(approved);
     if (!approved) {
       busy.show('Approving')
       try {
-        tx = await contract.setApprovalForAll(api.addresses.exchangeFactory, true)
+        const tx = await contract.setApprovalForAll(api.addresses.exchangeFactory, true)
         await tx.wait()
         busy.done()
       } catch (e) {
         busy.hide()
       }
     }
+    return
   }
 
 
@@ -66,15 +134,34 @@ export default customElements.define('list-view', class ListView extends BaseCla
       await api.connectWallet()
     }
     const selected = this.sqs('custom-tabs').selected
+    if (selected !== 'ERC1155') selected = 'ERC721'
     const inputs = this.sqs(`flex-column[data-route="${selected}"]`).querySelectorAll('[data-input]')
     const value = {}
     for (const input of inputs) {
       value[input.getAttribute('data-input')] = input.value
     }
 
-    selected === 'ERC721' ?
-      this.__list(value, LISTING_ERC721_ABI.abi) :
-      this.__list(value, LISTING_ERC1155_ABI.abi)
+    const tokenIds = value.tokenId.split(',')
+    if (tokenIds.length > 1) {
+      const addresses = []
+      const prices = []
+      const currencies = []
+      const ids = []
+
+      for (const id of tokenIds) {
+        addresses.push(value.address)
+        prices.push(ethers.utils.parseUnits(value.price, 18))
+        currencies.push(this._getCurrency(value.currency))
+        ids.push(value.id)
+      }
+
+      value.tokenId = tokenIds
+      value.address = addresses
+      value.price = prices
+      value.id = ids
+      value.currency = currencies
+    }
+    tokenIds.length > 1 && this.__listBatch(value, selected) || this.__list(value, selected)
   }
 
   async _onClick(event) {
@@ -99,7 +186,9 @@ export default customElements.define('list-view', class ListView extends BaseCla
     padding: 12px;
     align-items: center;
     justify-content: center;
+    --svg-icon-color: var(--secondary-color);
   }
+
   .custom-selected {
     border-color: var(--accent-color);
   }
@@ -128,6 +217,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
   custom-input {
     border-radius: 12px;
     margin: 12px 0;
+    --custom-input-color: var(--secondary-color);
   }
 
   flex-column {
@@ -169,8 +259,8 @@ export default customElements.define('list-view', class ListView extends BaseCla
 
     <flex-column data-route="ERC1155">
       <custom-input data-input="address" placeholder="address"></custom-input>
-      <custom-input data-input="tokenId" placeholder="tokenId"></custom-input>
       <custom-input data-input="id" placeholder="id"></custom-input>
+      <custom-input data-input="tokenId" placeholder="tokenId"></custom-input>
       <custom-input data-input="price" placeholder="price"></custom-input>
       <custom-input data-input="currency" placeholder="currency (0x0 for BNB or any address)"></custom-input>
     </flex-column>

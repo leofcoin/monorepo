@@ -23,9 +23,21 @@ export default customElements.define('market-view', class MarketView extends Bas
     (async () => {
       await isApiReady()
       this.shadowRoot.addEventListener('click', this._onClick)
-
-      const response = await fetch('https://api.artonline.site/listings/ERC1155')
-      let listings = await response.json();
+      let response = await fetch('https://api.artonline.site/countdown')
+      const countdown = await response.text()
+      let listings
+      if (countdown !== '0') {
+        console.log(countdown);
+        await showCountDown(countdown)
+        location.href = '#!/market'
+        response = await fetch('https://api.artonline.site/listings/ERC1155')
+        listings = await response.json();
+      } else {
+      response = await fetch('https://api.artonline.site/listings/ERC1155')
+      
+        listings = await response.json();
+      }
+      this.listings = listings
       // if (globalThis.showOnlyListed === true) {
       // listings = listings.filter(listing => listing.listed ? listing : false)
       // }
@@ -77,34 +89,38 @@ export default customElements.define('market-view', class MarketView extends Bas
 
   async _onList(listing) {
     const el = this.sqs('array-repeat').shadowRoot.querySelector(`listing-element`)
-    this.sqs('array-repeat').shadowRoot.appendChild(el)
-    el.setAttribute('address', listing)
+    this.listings.push({address: listing})
+    this.sqs('array-repeat').items = this.listings
   }
 
   async _onSold(id, tokenId, price) {
+    console.log(id, tokenId);
     const els = Array.from(this.sqs('array-repeat').shadowRoot.querySelectorAll(`listing-element`))
     for (const el of els) {
-      if (el.id === id) this.sqs('array-repeat').shadowRoot.removeChild(el)
+      if (el.id === id) el.setAttribute('address', el.getAttribute('address'))
     }
   }
 
   async _onClick(event) {
+    console.log(event);
     const target = event.composedPath()[0]
     if (target.hasAttribute('data-action')) {
       const action = target.getAttribute('data-action')
 
       if (action === 'buy') {
+        if (!api.connection) {
+          await api.connectWallet()
+        }
         const address = target.getAttribute('data-contract')
         const id = target.getAttribute('data-id')
         const token = target.getAttribute('data-token')
         const price = target.getAttribute('data-price')
         const currency = target.getAttribute('data-currency')
-
         try {
           let tx
           if (currency === '0x0000000000000000000000000000000000000000') {
             busy.show('Buying')
-            tx = await api.contract.buy(address, id, token, {value: ethers.utils.parseUnits(price), gasLimit: 21000000});
+            tx = await api.contract.buy(address, id, token, { value: ethers.utils.parseUnits(price) });
           } else {
             const approved = await api.isApproved(currency, price)
             if (!approved) {
@@ -137,9 +153,12 @@ export default customElements.define('market-view', class MarketView extends Bas
 <style>
 
   :host {
+    pointer-events: auto;
     display: flex;
     width: 100%;
     height: 100%;
+    align-items: center;
+    justify-content: center;
   }
   .custom-selected {
     border-color: var(--accent-color);
@@ -184,9 +203,10 @@ export default customElements.define('market-view', class MarketView extends Bas
     pointer-events: auto;
     box-sizing: border-box;
     padding: 12px;
+    max-width: 1426px;
   }
 </style>
-  <array-repeat>
+  <array-repeat max="15">
     <template>
       <style>
         listing-element {
