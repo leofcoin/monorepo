@@ -19,16 +19,13 @@ export default customElements.define('asset-player', class AssetPlayer extends B
   }
 
   set src(value) {
-    console.log(value.includes('.mp4'));
     if (value.includes('.mp4')) {
       this._img.setAttribute('hidden', '')
-      console.log(this._img);
       const source = document.createElement('source')
       source.src = value
       this._video.appendChild(source)
       this._video.removeAttribute('hidden')
     } else {
-      console.log("else");
       this._video.setAttribute('hidden', '')
       this._img.src = value
       this._img.removeAttribute('hidden')

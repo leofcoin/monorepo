@@ -7,5 +7,6 @@ export default html`
   <market-view data-route="market"></market-view>
   <list-view data-route="list"></list-view>
   <countdown-view data-route="countdown"></countdown-view>
+  <listing-view data-route="listing"></listing-view>
 </custom-pages>
 `

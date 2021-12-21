@@ -38,7 +38,7 @@ export default [
 		plugins: [json()],
 		output: {
 			dir: 'www',
-			format: 'iife'
+			format: 'cjs'
 		}
 	}
 ];

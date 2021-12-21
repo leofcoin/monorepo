@@ -133,7 +133,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
     if (!api.connection) {
       await api.connectWallet()
     }
-    const selected = this.sqs('custom-tabs').selected
+    let selected = this.sqs('custom-tabs').selected
     if (selected !== 'ERC1155') selected = 'ERC721'
     const inputs = this.sqs(`flex-column[data-route="${selected}"]`).querySelectorAll('[data-input]')
     const value = {}
@@ -141,7 +141,8 @@ export default customElements.define('list-view', class ListView extends BaseCla
       value[input.getAttribute('data-input')] = input.value
     }
 
-    const tokenIds = value.tokenId.split(',')
+    let tokenIds
+    if (value.tokenId) tokenIds = value.tokenId.split(',')
     if (tokenIds.length > 1) {
       const addresses = []
       const prices = []

@@ -34,7 +34,7 @@ export default customElements.define('market-view', class MarketView extends Bas
         listings = await response.json();
       } else {
       response = await fetch('https://api.artonline.site/listings/ERC1155')
-      
+
         listings = await response.json();
       }
       this.listings = listings
@@ -102,11 +102,12 @@ export default customElements.define('market-view', class MarketView extends Bas
   }
 
   async _onClick(event) {
-    console.log(event);
     const target = event.composedPath()[0]
     if (target.hasAttribute('data-action')) {
       const action = target.getAttribute('data-action')
-
+      if (action === 'show') {
+        return
+      }
       if (action === 'buy') {
         if (!api.connection) {
           await api.connectWallet()
@@ -213,7 +214,7 @@ export default customElements.define('market-view', class MarketView extends Bas
           margin-bottom: 12px;
         }
       </style>
-      <listing-element address="[[item.address]]"></listing-element>
+      <listing-element data-action="show" address="[[item.address]]"></listing-element>
     </template>
   </array-repeat>
 
