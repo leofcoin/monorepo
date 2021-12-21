@@ -122,17 +122,30 @@ router.get('/listing/info', async ctx => {
   console.log(ctx.request.query);
   const { address } = ctx.request.query
   if (!jobber[`listingInfo_${address}`]) {
-    const contract = new ethers.Contract(address, ERC1155_ABI, provider)
-    let promises = [
-      contract.callStatic.price(),
-      contract.callStatic.id(),
-      contract.callStatic.tokenId(),
-      contract.callStatic.currency(),
-      contract.callStatic.contractAddress()
-    ]
-    promises = await Promise.all(promises)
     jobber[`listingInfo_${address}`] = {
-      job: async () => jobber[`listingInfo_${address}`].value = promises
+      job: async () => {
+        const contract = new ethers.Contract(address, ERC1155_ABI, provider)
+        let promises = [
+          contract.callStatic.price(),
+          contract.callStatic.id(),
+          contract.callStatic.currency(),
+          contract.callStatic.contractAddress()
+        ]
+        promises = await Promise.all(promises)
+        let tokenId
+        try {
+          tokenId = await contract.callStatic.tokenId()
+        } catch (e) {
+
+        }
+        jobber[`listingInfo_${address}`].value = {
+          price: ethers.utils.formatUnits(promises[0], 18),
+          id: promises[1].toString(),
+          tokenId: tokenId.toString(),
+          currency: promises[2],
+          contractAddress: promises[3]
+        }
+      }
     }
   }
   await jobber[`listingInfo_${address}`].job()

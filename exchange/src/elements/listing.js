@@ -30,24 +30,16 @@ export default customElements.define('listing-element', class Listinglement exte
     this.listed = response === 'true';
     response = await fetch(`https://api.artonline.site/listing/info?address=${this.address}`)
     response = await response.json()
-
-    let promises = [
-      contract.callStatic.price(),
-      contract.callStatic.id(),
-      contract.callStatic.tokenId(),
-      contract.callStatic.currency(),
-      contract.callStatic.contractAddress()
-    ]
-    promises = await Promise.all(promises)
-    this.price = ethers.utils.formatUnits(promises[0], 18)
-    this.id = promises[1].toString()
-    this._currency = promises[3]
+    console.log(response);
+    this.price = ethers.utils.formatUnits(response[0], 18)
+    this.id = response[1].toString()
+    this._currency = response[3]
     if (this._currency === api.addresses.artonline) this.currency = 'ART'
     else this.currency = currencyByAddress[this._currency]
-    this.tokenId = promises[2].toString()
+    this.tokenId = response[2].toString()
 
     this.shadowRoot.innerHTML = this.template
-    this.contractAddress = await promises[4]
+    this.contractAddress = await response[4]
     response = await fetch(`https://api.artonline.site/nft/json?address=${this.contractAddress}&id=${this.id}&type=ERC1155`)
     response = await response.json()
     this.shadowRoot.innerHTML = this.template

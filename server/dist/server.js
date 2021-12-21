@@ -1737,17 +1737,30 @@ router$2.get('/listing/info', async ctx => {
   console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listingInfo_${address}`]) {
-    const contract = new ethers__default["default"].Contract(address, abi$4, provider$1);
-    let promises = [
-      contract.callStatic.price(),
-      contract.callStatic.id(),
-      contract.callStatic.tokenId(),
-      contract.callStatic.currency(),
-      contract.callStatic.contractAddress()
-    ];
-    promises = await Promise.all(promises);
     cache$1[`listingInfo_${address}`] = {
-      job: async () => cache$1[`listingInfo_${address}`].value = promises
+      job: async () => {
+        const contract = new ethers__default["default"].Contract(address, abi$4, provider$1);
+        let promises = [
+          contract.callStatic.price(),
+          contract.callStatic.id(),
+          contract.callStatic.currency(),
+          contract.callStatic.contractAddress()
+        ];
+        promises = await Promise.all(promises);
+        let tokenId;
+        try {
+          tokenId = await contract.callStatic.tokenId();
+        } catch (e) {
+
+        }
+        cache$1[`listingInfo_${address}`].value = {
+          price: ethers__default["default"].utils.formatUnits(promises[0], 18),
+          id: promises[1].toString(),
+          tokenId: tokenId.toString(),
+          currency: promises[2],
+          contractAddress: promises[3]
+        };
+      }
     };
   }
   await cache$1[`listingInfo_${address}`].job();
