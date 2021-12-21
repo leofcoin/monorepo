@@ -27,47 +27,48 @@ const sendJSON = (ctx, value) => {
 
 const getMetadataURI = async (address, id, type) => {
   const contract = type === 'ERC1155' ?
-                   new ethers.Contract(address, ERC1155_ABI) :
-                   new ethers.Contract(address, ERC721_ABI)
+                   new ethers.Contract(address, ERC1155_ABI, provider) :
+                   new ethers.Contract(address, ERC721_ABI, provider)
 
   const uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id)
-
   return uri.replace(`{id}`, id)
 }
 
 const getJsonFor = async (address, id, type) => {
-  if (!jobber[`uri_${address}`]) {
-    jobber[`uri_${address}`] = {
-      job: async () => jobber[`uri_${address}`].value = await getMetadataURI(address, id, type)
+  if (!jobber[`uri_${address}_${id}`]) {
+    jobber[`uri_${address}_${id}`] = {
+      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
     }
-    await jobber[`uri_${address}`].job()
+    jobber[`uri_${address}_${id}`].value = await jobber[`uri_${address}_${id}`].job()
+
   }
 
-  const uri = jobber[`uri_${address}`].value
+  const uri = jobber[`uri_${address}_${id}`].value
   const response = await fetch(uri)
-  return reponse.json()
+  return response.json()
 }
 
 router.get('/nft/uri', async ctx => {
   const { address, id, type } = ctx.request.query
-  if (!jobber[`uri_${address}`]) {
-    jobber[`uri_${address}`] = {
-      job: async () => jobber[`uri_${address}`].value = await getMetadataURI(address, id, type)
+  if (!jobber[`uri_${address}_${id}`]) {
+    jobber[`uri_${address}_${id}`] = {
+      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
     }
-    await jobber[`uri_${address}`].job()
+    jobber[`uri_${address}_${id}`].value = await jobber[`uri_${address}_${id}`].job()
   }
-  ctx.body = jobber[`uri_${address}`].value
+  ctx.body = jobber[`uri_${address}_${id}`].value
 })
 
 router.get('/nft/json', async ctx => {
   const { address, id, type } = ctx.request.query
-  if (!jobber[`json_${address}`]) {
-    jobber[`json_${address}`] = {
-      job: async () => jobber[`json_${address}`].value = await getJsonFor(address, id, type)
+  if (!jobber[`json_${address}_${id}`]) {
+    jobber[`json_${address}_${id}`] = {
+      job: async () => jobber[`json_${address}_${id}`].value = await getJsonFor(address, id, type)
     }
+    jobber[`json_${address}_${id}`].value = await jobber[`json_${address}_${id}`].job()
   }
-  await jobber[`json_${address}`].job()
-  sendJSON(ctx, jobber[`json_${address}`].value)
+
+  sendJSON(ctx, jobber[`json_${address}_${id}`].value)
 })
 
 export default router

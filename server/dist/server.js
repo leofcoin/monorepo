@@ -2020,47 +2020,48 @@ const sendJSON = (ctx, value) => {
 
 const getMetadataURI = async (address, id, type) => {
   const contract = type === 'ERC1155' ?
-                   new ethers__default["default"].Contract(address, abi$1) :
-                   new ethers__default["default"].Contract(address, abi);
+                   new ethers__default["default"].Contract(address, abi$1, provider) :
+                   new ethers__default["default"].Contract(address, abi, provider);
 
   const uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id);
-
   return uri.replace(`{id}`, id)
 };
 
 const getJsonFor = async (address, id, type) => {
-  if (!cache$1[`uri_${address}`]) {
-    cache$1[`uri_${address}`] = {
-      job: async () => cache$1[`uri_${address}`].value = await getMetadataURI(address, id, type)
+  if (!cache$1[`uri_${address}_${id}`]) {
+    cache$1[`uri_${address}_${id}`] = {
+      job: async () => cache$1[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
     };
-    await cache$1[`uri_${address}`].job();
+    cache$1[`uri_${address}_${id}`].value = await cache$1[`uri_${address}_${id}`].job();
+
   }
 
-  const uri = cache$1[`uri_${address}`].value;
-  await fetch__default["default"](uri);
-  return reponse.json()
+  const uri = cache$1[`uri_${address}_${id}`].value;
+  const response = await fetch__default["default"](uri);
+  return response.json()
 };
 
 router.get('/nft/uri', async ctx => {
   const { address, id, type } = ctx.request.query;
-  if (!cache$1[`uri_${address}`]) {
-    cache$1[`uri_${address}`] = {
-      job: async () => cache$1[`uri_${address}`].value = await getMetadataURI(address, id, type)
+  if (!cache$1[`uri_${address}_${id}`]) {
+    cache$1[`uri_${address}_${id}`] = {
+      job: async () => cache$1[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
     };
-    await cache$1[`uri_${address}`].job();
+    cache$1[`uri_${address}_${id}`].value = await cache$1[`uri_${address}_${id}`].job();
   }
-  ctx.body = cache$1[`uri_${address}`].value;
+  ctx.body = cache$1[`uri_${address}_${id}`].value;
 });
 
 router.get('/nft/json', async ctx => {
   const { address, id, type } = ctx.request.query;
-  if (!cache$1[`json_${address}`]) {
-    cache$1[`json_${address}`] = {
-      job: async () => cache$1[`json_${address}`].value = await getJsonFor(address, id, type)
+  if (!cache$1[`json_${address}_${id}`]) {
+    cache$1[`json_${address}_${id}`] = {
+      job: async () => cache$1[`json_${address}_${id}`].value = await getJsonFor(address, id, type)
     };
+    cache$1[`json_${address}_${id}`].value = await cache$1[`json_${address}_${id}`].job();
   }
-  await cache$1[`json_${address}`].job();
-  sendJSON(ctx, cache$1[`json_${address}`].value);
+
+  sendJSON(ctx, cache$1[`json_${address}_${id}`].value);
 });
 
 const server = new Koa__default["default"]();
