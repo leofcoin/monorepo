@@ -3,9 +3,10 @@ export default customElements.define('listing-view', class ListingView extends B
     super()
   }
 
-  async parse(listing) {
-    let listing = document.querySelector('exchange-shell').sqs(`[address=${listing}]`)
+  async parse({address}) {
+    let listing = document.querySelector('exchange-shell').sqs(`[address=${address}]`)
     if (!listing) {
+      response = await fetch(`https://api.artonline.site/listing/info?address=${address}`)
       liting = await response.json()
     }
     this.id = id

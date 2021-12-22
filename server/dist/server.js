@@ -1,19 +1,19 @@
 'use strict';
 
 var Koa = require('koa');
-var mime = require('mime-types');
 var ethers = require('ethers');
-var Router = require('@koa/router');
 var fetch = require('node-fetch');
+var mime = require('mime-types');
+var Router = require('@koa/router');
 var cors = require('@koa/cors');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
 var Koa__default = /*#__PURE__*/_interopDefaultLegacy(Koa);
-var mime__default = /*#__PURE__*/_interopDefaultLegacy(mime);
 var ethers__default = /*#__PURE__*/_interopDefaultLegacy(ethers);
-var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
 var fetch__default = /*#__PURE__*/_interopDefaultLegacy(fetch);
+var mime__default = /*#__PURE__*/_interopDefaultLegacy(mime);
+var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
 var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
@@ -1597,212 +1597,6 @@ var abi$2 = [
 	}
 ];
 
-const cache$1 = {};
-
-const getTime = () => {
-  return Math.round(new Date().getTime() / 1000)
-};
-
-const timeout = () => {
-  setTimeout(async () => {
-    const start = getTime();
-    let i;
-    let done = false;
-    for (var key of Object.keys(cache$1)) {
-      i++;
-      cache$1[key].job().then(() => {
-        console.log(`job ${key} took ${getTime() - start}s`);
-        if (i === Object.keys(cache$1) - 1) done = true;
-      });
-    }
-    if (done) console.log(`jobs took ${getTime() - start}s`);
-    timeout();
-  }, 10 * 60 * 1000);
-};
-
-timeout();
-
-const router$2 = new Router__default["default"]();
-const tenMinutes = 10 * 60 * 1000;
-const start = new Date().getTime();
-const done = start + tenMinutes;
-
-const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
-  chainId: 97
-});
-
-const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider$1);
-
-router$2.get('/', ctx => {
-  ctx.body = 'v0.0.1-alpha';
-});
-
-router$2.get('/countdown', ctx => {
-  const now = new Date().getTime();
-  if (done < now) ctx.body = String(0);
-  else {
-    ctx.body = String(done - now);
-  }
-});
-
-const updateCache = (key, value) => {
-  cache[key] = value;
-};
-
-const sendJSON$1 = (ctx, value) => {
-  ctx.type = mime__default["default"].lookup('json');
-  ctx.body = JSON.stringify(value);
-};
-
-const listingListed = async (address) => {
-  const listingContract = new ethers__default["default"].Contract(address, abi$3, provider$1);
-  const listed = await listingContract.callStatic.listed();
-  return listed.toNumber() === 1
-};
-
-router$2.get('/listings/ERC721', async ctx => {
-  if (!cache$1.listingsERC721) {
-    cache$1.listingsERC721 = {
-      job: async () => {
-        const listings = [];
-        const listingsLength = await contract.listingLength();
-        for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC721(i);
-          if (!cache$1[`listed_${address}`]) {
-            cache$1[`listed_${address}`] = {
-              job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
-            };
-          }
-          listings.push({address, listed: cache$1[`listed_${address}`].value});
-        }
-        cache$1.listingsERC721.value = listings;
-      }
-    };
-  }
-  sendJSON$1(ctx, cache$1.listingsERC721.value);
-});
-
-router$2.get('/listings/ERC1155', async ctx => {
-  if (!cache$1.listingsERC1155) {
-    cache$1.listingsERC1155 = {
-      job: async () => {
-        const listings = [];
-        const listingsLength = await contract.listingERC1155Length();
-        for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC1155(i);
-          if (!cache$1[`listed_${address}`]) {
-            cache$1[`listed_${address}`] = {
-              job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
-            };
-          }
-          listings.push({address, listed: await listingListed(address)});
-        }
-        cache$1.listingsERC1155.value = listings;
-      }
-    };
-
-    await cache$1.listingsERC1155.job();
-  }
-  sendJSON$1(ctx, cache$1.listingsERC1155.value);
-});
-
-router$2.get('/listings', async ctx => {
-  const listings = {};
-  if (!cache.listingsERC721) {
-    const listingsLength = await api.contract.listingLength();
-    listings['ERC721'] = [];
-    for (let i = 0; i < listingsLength; i++) {
-      const address = await contract.callStatic.listingsERC721(i);
-
-      listings['ERC721'].push({address, listed: await listingListed(address)});
-    }
-    updateCache('listingsERC721', listings['ERC721']);
-  }
-
-  if (!cache.listingsERC1155) {
-    const listingsLength = await api.contract.listingERC1155Length();
-    listings['ERC1155'] = [];
-    for (let i = 0; i < listingsLength; i++) {
-      const address = await contract.callStatic.listingsERC1155(i);
-      listings['ERC1155'].push({address, listed: await listingListed(address)});
-    }
-    updateCache('listingsERC1155', listings['ERC1155']);
-  }
-
-  sendJSON$1(ctx, listings);
-  return
-});
-
-router$2.get('/listing/info', async ctx => {
-  console.log(ctx.request.query);
-  const { address } = ctx.request.query;
-  if (!cache$1[`listingInfo_${address}`]) {
-    cache$1[`listingInfo_${address}`] = {
-      job: async () => {
-        const contract = new ethers__default["default"].Contract(address, abi$4, provider$1);
-        let promises = [
-          contract.callStatic.price(),
-          contract.callStatic.id(),
-          contract.callStatic.currency(),
-          contract.callStatic.contractAddress(),
-          listingListed(address)
-        ];
-        promises = await Promise.all(promises);
-        let tokenId;
-        try {
-          tokenId = await contract.callStatic.tokenId();
-        } catch (e) {
-
-        }
-        cache$1[`listingInfo_${address}`].value = {
-          price: ethers__default["default"].utils.formatUnits(promises[0], 18),
-          id: promises[1].toString(),
-          tokenId: tokenId.toString(),
-          currency: promises[2],
-          contractAddress: promises[3],
-          listed: promises[4]
-        };
-      }
-    };
-  }
-  await cache$1[`listingInfo_${address}`].job();
-  sendJSON$1(ctx, cache$1[`listingInfo_${address}`].value);
-});
-
-router$2.get('/listing/listed', async ctx => {
-  console.log(ctx.request.query);
-  const { address } = ctx.request.query;
-  if (!cache$1[`listed_${address}`]) {
-    cache$1[`listed_${address}`] = {
-      job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
-    };
-  }
-  await cache$1[`listed_${address}`].job();
-  ctx.body = cache$1[`listed_${address}`].value;
-});
-
-router$2.get('/listing/ERC721', async ctx => {
-  const { address, tokenId } = ctx.params;
-  const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
-  sendJSON$1(ctx, listing);
-});
-
-router$2.get('/listing/ERC1155', async ctx => {
-  const { address, id, tokenId } = ctx.params;
-  const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
-  sendJSON$1(ctx, listing);
-});
-
-const router$1 = new Router__default["default"]();
-
-router$1.get('/', ctx => {
-
-});
-
-router$1.get('/pools', ctx => {
-
-});
-
 var abi$1 = [
 	{
 		inputs: [
@@ -2488,27 +2282,39 @@ var abi = [
 	}
 ];
 
-const router = new Router__default["default"]();
+const cache$1 = {};
 
-const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
+const getTime = () => {
+  return Math.round(new Date().getTime() / 1000)
+};
+
+const timeout = () => {
+  setTimeout(async () => {
+    const start = getTime();
+    let i;
+    let done = false;
+    for (var key of Object.keys(cache$1)) {
+      i++;
+      cache$1[key].job().then(() => {
+        console.log(`job ${key} took ${getTime() - start}s`);
+        if (i === Object.keys(cache$1) - 1) done = true;
+      });
+    }
+    if (done) console.log(`jobs took ${getTime() - start}s`);
+    timeout();
+  }, 10 * 60 * 1000);
+};
+
+timeout();
+
+const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
   chainId: 97
 });
 
-new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider);
-
-router.get('/nft', ctx => {
-  ctx.body = 'v0.0.1-alpha';
-});
-
-const sendJSON = (ctx, value) => {
-  ctx.type = mime__default["default"].lookup('json');
-  ctx.body = JSON.stringify(value);
-};
-
 const getMetadataURI = async (address, id, type) => {
   const contract = type === 'ERC1155' ?
-                   new ethers__default["default"].Contract(address, abi$1, provider) :
-                   new ethers__default["default"].Contract(address, abi, provider);
+                   new ethers__default["default"].Contract(address, abi$1, provider$1) :
+                   new ethers__default["default"].Contract(address, abi, provider$1);
 
   const uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id);
   return uri.replace(`{id}`, id)
@@ -2527,6 +2333,201 @@ const getJsonFor = async (address, id, type) => {
   const response = await fetch__default["default"](uri);
   return response.json()
 };
+
+const router$2 = new Router__default["default"]();
+
+const tenMinutes = 10 * 60 * 1000;
+const start = new Date().getTime();
+const done = start + tenMinutes;
+
+const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
+  chainId: 97
+});
+
+const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider);
+
+router$2.get('/', ctx => {
+  ctx.body = 'v0.0.1-alpha';
+});
+
+router$2.get('/countdown', ctx => {
+  const now = new Date().getTime();
+  if (done < now) ctx.body = String(0);
+  else {
+    ctx.body = String(done - now);
+  }
+});
+
+const updateCache = (key, value) => {
+  cache[key] = value;
+};
+
+const sendJSON$1 = (ctx, value) => {
+  ctx.type = mime__default["default"].lookup('json');
+  ctx.body = JSON.stringify(value);
+};
+
+const listingListed = async (address) => {
+  const listingContract = new ethers__default["default"].Contract(address, abi$3, provider);
+  const listed = await listingContract.callStatic.listed();
+  return listed.toNumber() === 1
+};
+
+router$2.get('/listings/ERC721', async ctx => {
+  if (!cache$1.listingsERC721) {
+    cache$1.listingsERC721 = {
+      job: async () => {
+        const listings = [];
+        const listingsLength = await contract.listingLength();
+        for (let i = 0; i < listingsLength; i++) {
+          const address = await contract.callStatic.listingsERC721(i);
+          if (!cache$1[`listed_${address}`]) {
+            cache$1[`listed_${address}`] = {
+              job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
+            };
+          }
+          listings.push({address, listed: cache$1[`listed_${address}`].value});
+        }
+        cache$1.listingsERC721.value = listings;
+      }
+    };
+  }
+  sendJSON$1(ctx, cache$1.listingsERC721.value);
+});
+
+router$2.get('/listings/ERC1155', async ctx => {
+  if (!cache$1.listingsERC1155) {
+    cache$1.listingsERC1155 = {
+      job: async () => {
+        const listings = [];
+        const listingsLength = await contract.listingERC1155Length();
+        for (let i = 0; i < listingsLength; i++) {
+          const address = await contract.callStatic.listingsERC1155(i);
+          if (!cache$1[`listed_${address}`]) {
+            cache$1[`listed_${address}`] = {
+              job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
+            };
+          }
+          listings.push({address, listed: await listingListed(address)});
+        }
+        cache$1.listingsERC1155.value = listings;
+      }
+    };
+
+    await cache$1.listingsERC1155.job();
+  }
+  sendJSON$1(ctx, cache$1.listingsERC1155.value);
+});
+
+router$2.get('/listings', async ctx => {
+  const listings = {};
+  if (!cache.listingsERC721) {
+    const listingsLength = await api.contract.listingLength();
+    listings['ERC721'] = [];
+    for (let i = 0; i < listingsLength; i++) {
+      const address = await contract.callStatic.listingsERC721(i);
+
+      listings['ERC721'].push({address, listed: await listingListed(address)});
+    }
+    updateCache('listingsERC721', listings['ERC721']);
+  }
+
+  if (!cache.listingsERC1155) {
+    const listingsLength = await api.contract.listingERC1155Length();
+    listings['ERC1155'] = [];
+    for (let i = 0; i < listingsLength; i++) {
+      const address = await contract.callStatic.listingsERC1155(i);
+      listings['ERC1155'].push({address, listed: await listingListed(address)});
+    }
+    updateCache('listingsERC1155', listings['ERC1155']);
+  }
+
+  sendJSON$1(ctx, listings);
+  return
+});
+
+router$2.get('/listing/info', async ctx => {
+  console.log(ctx.request.query);
+  const { address } = ctx.request.query;
+  if (!cache$1[`listingInfo_${address}`]) {
+    cache$1[`listingInfo_${address}`] = {
+      job: async () => {
+        const contract = new ethers__default["default"].Contract(address, abi$4, provider);
+        let promises = [
+          contract.callStatic.price(),
+          contract.callStatic.id(),
+          contract.callStatic.currency(),
+          contract.callStatic.contractAddress(),
+          listingListed(address)
+        ];
+        promises = await Promise.all(promises);
+        let tokenId;
+        let type = 'ERC721';
+        try {
+          tokenId = await contract.callStatic.tokenId();
+          type = 'ERC1155';
+        } catch (e) {
+
+        }
+
+        const json = await getJsonFor(promises[3], promises[1], type);
+        const metadataURI = await getMetadataURI(promises[3], promises[1], type);
+        cache$1[`listingInfo_${address}`].value = {
+          price: ethers__default["default"].utils.formatUnits(promises[0], 18),
+          id: promises[1].toString(),
+          tokenId: tokenId.toString(),
+          currency: promises[2],
+          contractAddress: promises[3],
+          listed: promises[4],
+          metadataURI,
+          json
+        };
+      }
+    };
+  }
+  await cache$1[`listingInfo_${address}`].job();
+  sendJSON$1(ctx, cache$1[`listingInfo_${address}`].value);
+});
+
+router$2.get('/listing/listed', async ctx => {
+  console.log(ctx.request.query);
+  const { address } = ctx.request.query;
+  if (!cache$1[`listed_${address}`]) {
+    cache$1[`listed_${address}`] = {
+      job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
+    };
+  }
+  await cache$1[`listed_${address}`].job();
+  ctx.body = cache$1[`listed_${address}`].value;
+});
+
+router$2.get('/listing/ERC721', async ctx => {
+  const { address, tokenId } = ctx.params;
+  const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
+  sendJSON$1(ctx, listing);
+});
+
+router$2.get('/listing/ERC1155', async ctx => {
+  const { address, id, tokenId } = ctx.params;
+  const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
+  sendJSON$1(ctx, listing);
+});
+
+const router$1 = new Router__default["default"]();
+
+router$1.get('/', ctx => {
+
+});
+
+router$1.get('/pools', ctx => {
+
+});
+
+const router = new Router__default["default"]();
+
+router.get('/nft', ctx => {
+  ctx.body = 'v0.0.1-alpha';
+});
 
 router.get('/nft/uri', async ctx => {
   const { address, id, type } = ctx.request.query;

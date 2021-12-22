@@ -2,12 +2,14 @@ import addresses from './../../../addresses/addresses/binance-smartchain-testnet
 import { abi as ERC1155_ABI } from './../../../build/contracts/ArtOnlineListingERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ArtOnlineListing.json'
 import { abi as ABI } from './../../../build/contracts/ArtOnlineExchangeFactory.json'
+import { getJsonFor, getMetadataURI } from './shared'
 // import cache from './../cache'
 import jobber from './../jobber'
 import mime from 'mime-types'
 import ethers from 'ethers'
 import Router from '@koa/router'
 const router = new Router()
+
 const tenMinutes = 10 * 60 * 1000
 const start = new Date().getTime()
 const done = start + tenMinutes
@@ -134,18 +136,25 @@ router.get('/listing/info', async ctx => {
         ]
         promises = await Promise.all(promises)
         let tokenId
+        let type = 'ERC721'
         try {
           tokenId = await contract.callStatic.tokenId()
+          type = 'ERC1155'
         } catch (e) {
 
         }
+
+        const json = await getJsonFor(promises[3], promises[1], type)
+        const metadataURI = await getMetadataURI(promises[3], promises[1], type)
         jobber[`listingInfo_${address}`].value = {
           price: ethers.utils.formatUnits(promises[0], 18),
           id: promises[1].toString(),
           tokenId: tokenId.toString(),
           currency: promises[2],
           contractAddress: promises[3],
-          listed: promises[4]
+          listed: promises[4],
+          metadataURI,
+          json
         }
       }
     }
