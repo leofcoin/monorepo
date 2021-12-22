@@ -129,7 +129,8 @@ router.get('/listing/info', async ctx => {
           contract.callStatic.price(),
           contract.callStatic.id(),
           contract.callStatic.currency(),
-          contract.callStatic.contractAddress()
+          contract.callStatic.contractAddress(),
+          listingListed(address)
         ]
         promises = await Promise.all(promises)
         let tokenId
@@ -143,7 +144,8 @@ router.get('/listing/info', async ctx => {
           id: promises[1].toString(),
           tokenId: tokenId.toString(),
           currency: promises[2],
-          contractAddress: promises[3]
+          contractAddress: promises[3],
+          listed: promises[4]
         }
       }
     }

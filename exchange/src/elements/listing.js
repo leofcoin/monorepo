@@ -24,35 +24,37 @@ export default customElements.define('listing-element', class Listinglement exte
   }
 
   async _parse() {
-    const contract = new ethers.Contract(this.address, LISTING_ERC1155_ABI.abi, api.provider)
     let response = await fetch(`https://api.artonline.site/listing/listed?address=${this.address}`)
     response = await response.text()
     this.listed = response === 'true';
     response = await fetch(`https://api.artonline.site/listing/info?address=${this.address}`)
     response = await response.json()
-    console.log(response);
-    this.price = ethers.utils.formatUnits(response[0], 18)
-    this.id = response[1].toString()
-    this._currency = response[3]
+    this.price = response.price
+    this.id = response.id
+    this._currency = response.currency
     if (this._currency === api.addresses.artonline) this.currency = 'ART'
     else this.currency = currencyByAddress[this._currency]
-    this.tokenId = response[2].toString()
+    this.tokenId = response.tokenId
 
     this.shadowRoot.innerHTML = this.template
-    this.contractAddress = await response[4]
+    this.contractAddress = response.contractAddress
+
     response = await fetch(`https://api.artonline.site/nft/json?address=${this.contractAddress}&id=${this.id}&type=ERC1155`)
     response = await response.json()
     this.shadowRoot.innerHTML = this.template
-    const img = response.animation ? response.animation : response.image
+    this.img = response.image ? response.image : response.animation
     this.symbol = response.symbol
     this.description = response.description
     this.shadowRoot.innerHTML = this.template
-    if (img) this.sqs('asset-player').setAttribute('src', img)
+    if (this.img) this.sqs('asset-player').setAttribute('src', this.img)
   }
 
   get template() {
     return html`
 <style>
+  * {
+    pointer-events: none;
+  }
   :host {
     display: flex;
     flex-direction: column;

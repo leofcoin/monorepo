@@ -103,9 +103,12 @@ export default customElements.define('market-view', class MarketView extends Bas
 
   async _onClick(event) {
     const target = event.composedPath()[0]
+    console.log(target);
     if (target.hasAttribute('data-action')) {
       const action = target.getAttribute('data-action')
       if (action === 'show') {
+        if (!customElements.get(`listing-view`)) await import(`./listing.js`)
+        location.href = `#!/listing?address=${target.address}`
         return
       }
       if (action === 'buy') {
@@ -211,6 +214,8 @@ export default customElements.define('market-view', class MarketView extends Bas
     <template>
       <style>
         listing-element {
+          cursor: pointer;
+          pointer-events: auto;
           margin-bottom: 12px;
         }
       </style>

@@ -44,8 +44,31 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
         else location.href = `#!/market`
       }
       const hash = location.hash.slice(3, location.hash.length)
-      const parts = hash.split('/')
+      let parts = hash.split('/')
+      let query = []
+      if (parts[0].includes('?')) {
+        const result = parts[0].split('?')
+        parts[0] = result[0]
+        if (result.length > 1) {
+          query = result.slice(1, result.length)
+          query = query[0].split('&')
+          query = query.reduce((p, c) => {
+            const parts = c.split('=')
+            p[parts[0]] = parts[1]
+            return p
+          }, {})
+        }
+      }
+      if (parts[0] === 'listing') {
+        if (query.length === 0) {
+          parts[0] = 'market'
+          location.href = `#!/market`
+        }
+      }
       if (!customElements.get(`${parts[0]}-view`)) await import(`./${parts[0]}.js`)
+      if (query.length > 0) {
+        this.sqs(`${parts[0]}-view`).parse(query)
+      }
       this.pages.select(parts[0])
     }
     onhashchange()
