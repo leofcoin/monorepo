@@ -14,17 +14,26 @@ export default class ArrayRepeat extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({mode: 'open'});
-    this.shadowRoot.innerHTML = `<style>
+    this.innerHTML += '<span slot="content"></span>'
+    this.shadowRoot.innerHTML = this._baseTemplate
+
+    this._onScroll = this._onScroll.bind(this);
+    this._onClick = this._onClick.bind(this);
+  }
+
+  get _baseTemplate() {
+    return `<style>
     :host {
-      transform: translateZ(0) scale(0, 0);
+      // transform: translateZ(0) scale(0, 0);
       user-select: none;
     }
     .selected {
       background-color: #EEE;
     }
-  </style>`
-    this._onScroll = this._onScroll.bind(this);
-    this._onClick = this._onClick.bind(this);
+  </style>
+
+  <slot name="content"></slot>
+  `
   }
   /**
    * connectedCallback
@@ -189,6 +198,10 @@ export default class ArrayRepeat extends HTMLElement {
       }
     }
   }
+
+  get _content() {
+    return this.querySelector('[slot="content"]')
+  }
   /**
    * @param {array|object} items
    * @return {array} items or error
@@ -235,69 +248,33 @@ export default class ArrayRepeat extends HTMLElement {
    * forces an update
    */
   render() {
-    this._itemTemplate = null;
-    this._setupItems(this.items);
+    const items = Array.from(this.querySelectorAll('.array-repeat-item'))
+    if (items.length === this.items.length) return;
+    this._queriedCollection = this._items.slice(items.length > 0 ? items.length - 1 : 0, items.length > 0 ? (items.length - 1) + this.max : this.max)
+    if (this._queriedCollection.length > 0) this._runQue(this._queriedCollection)
   }
-  /**
-   * @param {array} items A list with items to display.
-   */
-  _setupItems(items) {
-    try {
-      let promises = [];
-      for (let item of items) {
-        let itemTemplate = this.itemTemplate.cloneNode(true);
-        let child = itemTemplate.content.children[0];
-        let index = items.indexOf(item);
-        child.classList.add(this.itemClassName);
-        child.classList.add(`${ this.itemClassName }-${ index + 1 }`);
-        child.dataset.index = index;
-				item.index = index;
-        promises.push(this._setupItem(itemTemplate.innerHTML, item));
-      }
 
-      Promise.all(promises).then(result => {
-        this._constructInnerHTML(result).then(innerHTML => {
-          this._setShadowRoot(innerHTML);
-        });
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  }
-  /**
-   * @param {string} innerHTML
-   * @param {array} item
-   * @return {promise} promise
-   */
-  _setupItem(innerHTML, item) {
-    this.tasks = [];
-    let calls = 0;
-    return new Promise((resolve, reject) => {
-      this._forOf(item).then(tasks => {
-        for (let task of tasks) {
-          innerHTML = this._constructItemInnerHTML(task, innerHTML);
-          calls += 1;
-          if (tasks.length === calls) {
-            resolve(innerHTML);
+  _runQue(items) {
+    for (let item of items) {
+      const index = items.indexOf(item)
+      item = this._forOf(item)
+      let itemTemplate = this.itemTemplate.cloneNode(true);
+      for (const { key, value } of item) {
+        const name = `[[${ this.nameSpace }.${ key }]]`;
+        const keys = itemTemplate.innerHTML.match(new RegExp(name, 'g'));
+        if (keys) {
+          for (let i = 0; i < keys.length; i++) {
+            itemTemplate.innerHTML = itemTemplate.innerHTML.replace(name, value);
           }
         }
-      });
-    });
-  }
-  /**
-   * @param {object} item
-   * @param {string} inner the innerHTML to perform changes on
-   * @return {string} innerHTML
-   */
-  _constructItemInnerHTML(item, inner) {
-    item.name = `[[${ this.nameSpace }.${ item.key }]]`;
-    const keys = inner.match(new RegExp(item.name, 'g'));
-    if (keys) {
-      for (let i = 0; i < keys.length; i++) {
-        inner = inner.replace(item.name, item.value);
       }
+      let child = itemTemplate.content.children[0];
+      child.classList.add(this.itemClassName);
+      child.classList.add(`${ this.itemClassName }-${ index + 1 }`);
+      child.dataset.index = index;
+      child.index = index;
+      this._content.appendChild(child)
     }
-    return inner;
   }
   /**
    * custom for of loop that returns an array & reruns when an object is found
@@ -305,114 +282,34 @@ export default class ArrayRepeat extends HTMLElement {
    * @return {resolve} promises an array of tasks
    */
   _forOf(item) {
-    return new Promise((resolve, reject) => {
-      let oldKey;
-      if (item.key) {
-        oldKey = item.key;
-        item = item.value;
-      }
-      for (let key of Object.keys(item)) {
-        let _key = key;
-        if (oldKey) {
-          _key = `${ oldKey }.${ key }`;
-        }
-        if (typeof item[key] === 'object') {
-          this._forOf({value: item[key], key: _key});
-        } else {
-          this.tasks.push({value: item[key], key: _key});
-          this.tasks = this.tasks;
-        }
-        resolve(this.tasks);
-      }
-    });
-  }
-  /**
-   * Constructs innerHTML with given array
-   * @param {array} items the array to create a string from
-   * @return {promise} promise
-   */
-  _constructInnerHTML(items) {
-    return new Promise((resolve, reject) => {
-      let innerHTML = '';
-      let calls = 0;
-      this.queriedCollection = undefined
-      for (let item of items) {
-        calls += 1;
-        innerHTML += item;
-        if (this.max !== undefined && calls === this.max) {
-          this._queryItems(items, this.max);
-          return resolve(innerHTML);
-        } else if (items.length === calls && this.max !== undefined && calls < this.max) {
-          resolve(innerHTML);
-        }
-      }
-    });
-  }
-  /**
-   * Setup shadowRoot content
-   * @param {string} innerHTML
-   */
-  _setShadowRoot(innerHTML) {
-    this.shadowRoot.innerHTML = `<slot name="style"></slot>
-  ${innerHTML}
-  `;
-    if (!this.renderedStyles) {
-      this.renderedStyles = this.querySelectorAll('style');
+    const tasks = []
+    let oldKey;
+    if (item.key) {
+      oldKey = item.key;
+      item = item.value;
     }
-    for (let style of this.renderedStyles) {
-      this.shadowRoot.appendChild(style).cloneNode(true);
+    for (let key of Object.keys(item)) {
+      let _key = key;
+      if (oldKey) {
+        _key = `${ oldKey }.${ key }`;
+      }
+      if (typeof item[key] === 'object') {
+        tasks = [...tasks, ...this._forOf({value: item[key], key: _key})]
+      } else {
+        tasks.push({value: item[key], key: _key})
+      }
     }
-    this.itemHeight = this.shadowRoot.children[0].offsetHeight;
-  }
-  /**
-   * Update shadowRoot content
-   * @param {string} innerHTML
-   */
-  _updateShadowRoot(innerHTML) {
-    let innerRoot = this.shadowRoot.innerHTML;
-    innerRoot += innerHTML;
-    requestAnimationFrame(() => {
-      this.shadowRoot.innerHTML = innerRoot;
-    });
-  }
-  /**
-   * Queries items for contructing after scroll
-   * @param {array} collection
-   * @param {number} max
-   */
-  _queryItems(collection, max) {
-    collection = collection.slice(max, collection.length);
-    this.queriedCollection = collection;
+    return tasks
   }
   /**
    * Updates the shadowRoot when there is an queriedCollection
    */
   async _onScroll() {
     if (this.timeout) clearTimeout(this.timeout);
-    if (this.queriedCollection !== undefined) {
-
-
-      this.timeout = () => {
-        setTimeout(() => {
-        this._constructInnerHTML([...this.queriedCollection]).then(innerHTML => {
-          this._updateShadowRoot(innerHTML);
-        });
-      }, 100)}
-      this.timeout()
-
-    } else if (this.queriedCollection === undefined) {
-      let timeout = () => {
-        setTimeout(() => {
-          if (this.queriedCollection !== undefined) {
-            clearTimeout(timeout);
-          } else {
-            this.removeEventListener('scroll', this._onScroll);
-          }
-
-        }, 500);
-      };
-      timeout();
-    }
+    this.timeout =
+      setTimeout(() => {
+        this.render()
+      }, 500)
   }
 
   _onClick(event) {
