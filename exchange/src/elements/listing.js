@@ -24,11 +24,9 @@ export default customElements.define('listing-element', class Listinglement exte
   }
 
   async _parse() {
-    let response = await fetch(`https://api.artonline.site/listing/listed?address=${this.address}`)
-    response = await response.text()
-    this.listed = response === 'true';
-    response = await fetch(`https://api.artonline.site/listing/info?address=${this.address}`)
+    let response = await fetch(`https://api.artonline.site/listing/info?address=${this.address}`)
     response = await response.json()
+    this.listed = response.listed
     this.price = response.price
     this.id = response.id
     this._currency = response.currency
@@ -38,13 +36,10 @@ export default customElements.define('listing-element', class Listinglement exte
 
     this.shadowRoot.innerHTML = this.template
     this.contractAddress = response.contractAddress
-
-    response = await fetch(`https://api.artonline.site/nft/json?address=${this.contractAddress}&id=${this.id}&type=ERC1155`)
-    response = await response.json()
     this.shadowRoot.innerHTML = this.template
-    this.img = response.image ? response.image : response.animation
-    this.symbol = response.symbol
-    this.description = response.description
+    this.img = response.json.image ? response.json.image : response.json.animation
+    this.symbol = response.json.symbol
+    this.description = response.json.description
     this.shadowRoot.innerHTML = this.template
     if (this.img) this.sqs('asset-player').setAttribute('src', this.img)
   }
