@@ -1,17 +1,17 @@
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
-import 'contracts/storage/ArtOnlineExchangeStorage.sol';
+import './../storage/ArtOnlineExchangeStorage.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "contracts/token/utils/SafeArtOnline.sol";
-import "contracts/token/interfaces/IArtOnline.sol";
-import "contracts/staking/interfaces/IArtOnlineStaking.sol";
-import "contracts/token/interfaces/IArtOnlinePlatform.sol";
-import 'contracts/token/utils/EIP712.sol';
+import "./../token/utils/SafeArtOnline.sol";
+import "./../token/interfaces/IArtOnline.sol";
+import "./../staking/interfaces/IArtOnlineStaking.sol";
+import "./../token/interfaces/IArtOnlinePlatform.sol";
+import './../token/utils/EIP712.sol';
 
 contract ArtOnlineExchange is Context, ERC165, EIP712, Pausable, ArtOnlineExchangeStorage {
   using Address for address;

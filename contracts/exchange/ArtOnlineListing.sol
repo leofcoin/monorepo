@@ -2,22 +2,22 @@
 
 pragma solidity 0.8.7;
 
-import 'contracts/exchange/interfaces/IArtOnlineListing.sol';
+import './interfaces/IArtOnlineListing.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import 'contracts/exchange/interfaces/IArtOnlineExchangeFactory.sol';
-import 'contracts/exchange/interfaces/IWrappedCurrency.sol';
-import 'contracts/manage/interfaces/IArtOnlineSplitter.sol';
+import './interfaces/IArtOnlineExchangeFactory.sol';
+import './../manage/interfaces/IArtOnlineSplitter.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
-contract ArtOnlineListing is IArtOnlineListing {
+contract ArtOnlineListing is IArtOnlineListing, IERC721Receiver {
   address internal _factory;
   address internal _owner;
   address internal _contractAddress;
-  uint256 private _tokenId;
-  address private _currency;
-  uint256 private _price;
-  uint256 private _listed;
+  uint256 internal _tokenId;
+  address internal _currency;
+  uint256 internal _price;
+  uint256 internal _listed;
   address internal _splitter;
 
   constructor() {
@@ -27,6 +27,16 @@ contract ArtOnlineListing is IArtOnlineListing {
   event PriceChange(uint256 oldPrice, uint256 newPrice);
   event OwnerChange(address oldOwner, address newOwner);
   event Listed(uint256);
+
+  function _buyWithCurrency(address receiver, uint256 fee, address feeReceiver) internal {
+    if (_splitter != address(0)) {
+      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
+      IArtOnlineSplitter(_splitter).split(_currency, _price - fee);
+    } else {
+      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
+    }
+    SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
+  }
 
   function _buyWithNative(uint256 fee, address payable feeWallet) internal {
     require(_currency == address(0), 'CURRENCY_NOT_NATIVE');
@@ -47,14 +57,9 @@ contract ArtOnlineListing is IArtOnlineListing {
       require(msg.value >= _price, 'NOT_ENOUGH_COINS');
       _buyWithNative(fee, payable(feeReceiver));
     } else {
-      _beforeTransfer(receiver);
-      if (_splitter != address(0)) {
-        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _splitter, _price - fee);
-        IArtOnlineSplitter(_splitter).split(_currency, _price - fee);
-      } else {
-        SafeERC20.safeTransferFrom(IERC20(_currency), receiver, _owner, _price - fee);
-      }
-      SafeERC20.safeTransferFrom(IERC20(_currency), receiver, feeReceiver, fee);
+      uint256 balance = IERC20(_currency).balanceOf(receiver);
+      require(balance >= _price, 'NOT_ENOUGH_TOKENS');
+      _buyWithCurrency(receiver, fee, feeReceiver);
     }
     IERC721(_contractAddress).safeTransferFrom(address(this), receiver, _tokenId);
     address oldOwner = _owner;
@@ -64,17 +69,11 @@ contract ArtOnlineListing is IArtOnlineListing {
     emit Listed(_listed);
   }
 
-  function buy(address receiver) external override payable {
+  function buy(address receiver) external virtual override payable {
     require(msg.sender == _factory, 'NOT_ALLOWED');
     uint256 fee = IArtOnlineExchangeFactory(_factory).feeFor(_price);
     address feeReceiver = IArtOnlineExchangeFactory(_factory).feeReceiver();
     _buy(receiver, fee, feeReceiver);
-  }
-
-  function _beforeTransfer(address receiver) internal view {
-    require(msg.sender != _owner, 'SELLER_OWN');
-    uint256 balance = IERC20(_currency).balanceOf(receiver);
-    require(balance >= _price, 'NOT_ENOUGH_TOKENS');
   }
 
   function initialize(address owner_, address contractAddress_, uint256 tokenId_, uint256 price_, address currency_) external {
@@ -163,4 +162,12 @@ contract ArtOnlineListing is IArtOnlineListing {
   function contractAddress() external view override returns (address) {
     return _contractAddress;
   }
+
+ function onERC721Received(
+   address operator,
+   address from,
+   uint256 tokenId,
+   bytes calldata data) external override returns (bytes4) {
+     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+   }
 }

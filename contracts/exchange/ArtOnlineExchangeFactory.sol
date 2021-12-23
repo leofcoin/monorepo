@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
 
-import 'contracts/storage/ArtOnlineExchangeFactoryStorage.sol';
+import './../storage/ArtOnlineExchangeFactoryStorage.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import 'contracts/token/utils/EIP712.sol';
-import "contracts/token/utils/SafeArtOnline.sol";
-import "contracts/token/interfaces/IArtOnline.sol";
-import "contracts/token/interfaces/IArtOnlinePlatform.sol";
-import "contracts/exchange/ArtOnlineListing.sol";
-import "contracts/exchange/ArtOnlineListingERC1155.sol";
-import "contracts/exchange/interfaces/IArtOnlineListing.sol";
-import "contracts/exchange/interfaces/IArtOnlineListingERC1155.sol";
+import './../token/utils/EIP712.sol';
+import "./../token/utils/SafeArtOnline.sol";
+import "./../token/interfaces/IArtOnline.sol";
+import "./../token/interfaces/IArtOnlinePlatform.sol";
+import "./ArtOnlineListing.sol";
+import "./ArtOnlineListingERC1155.sol";
+import "./interfaces/IArtOnlineListing.sol";
+import "./interfaces/IArtOnlineListingERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
@@ -65,7 +65,7 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     return listingsERC1155.length;
   }
 
-  function createPartnerListing(address contractAddress, address currency, address splitter, uint256 price, uint256 id, uint256 tokenId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address listing) {
+  function _createPartnerListing(address contractAddress, address currency, address splitter, uint256 price, uint256 id, uint256 tokenId) internal returns (address listing) {
     if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
       listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);
       getListingERC1155[contractAddress][id][tokenId] = listing;
@@ -82,7 +82,11 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     return listing;
   }
 
-  function createListing(address contractAddress, address currency, uint256 price, uint256 id, uint256 tokenId) external returns (address listing) {
+  function createPartnerListing(address contractAddress, address currency, address splitter, uint256 price, uint256 id, uint256 tokenId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
+    return _createPartnerListing(contractAddress, currency, splitter, price, id, tokenId);
+  }
+
+  function _createListing(address contractAddress, address currency, uint256 price, uint256 id, uint256 tokenId) internal returns (address listing) {
     if (IERC1155(contractAddress).supportsInterface(type(IERC1155).interfaceId)) {
       listing = _createListingERC1155(contractAddress, currency, price, id, tokenId);
       getListingERC1155[contractAddress][id][tokenId] = listing;
@@ -95,6 +99,28 @@ contract ArtOnlineExchangeFactory is Context, ERC165, Pausable, EIP712, ArtOnlin
     allListings.push(listing);
     emit List(listing, allListings.length);
     return listing;
+  }
+
+  function createPartnerListingBatch(address[] memory contractAddresses, address[] memory currencies, address[] memory splitters, uint256[] memory prices, uint256[] memory ids, uint256[] memory tokenIds) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address[] memory listings) {
+    listings = new address[](contractAddresses.length);
+    for (uint256 i = 0; i < contractAddresses.length; i++) {
+      address listing = _createPartnerListing(contractAddresses[i], currencies[i], splitters[i], prices[i], ids[i], tokenIds[i]);
+      listings[i] = listing;
+    }
+    return listings;
+  }
+
+  function createListingBatch(address[] memory contractAddresses, address[] memory currencies, uint256[] memory prices, uint256[] memory ids, uint256[] memory tokenIds) external returns (address[] memory listings) {
+    listings = new address[](contractAddresses.length);
+    for (uint256 i = 0; i < contractAddresses.length; i++) {
+      address listing = _createListing(contractAddresses[i], currencies[i], prices[i], ids[i], tokenIds[i]);
+      listings[i] = listing;
+    }
+    return listings;
+  }
+
+  function createListing(address contractAddress, address currency, uint256 price, uint256 id, uint256 tokenId) external returns (address) {
+    return _createListing(contractAddress, currency, price, id, tokenId);
   }
 
   function _createListingERC721(address contractAddress, address currency, uint256 price, uint256 id) internal returns (address listing) {
