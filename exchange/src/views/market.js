@@ -199,28 +199,40 @@ export default customElements.define('market-view', class MarketView extends Bas
 
   array-repeat {
     display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
-    flex-flow: row wrap;
-    align-items: center;
-    justify-content: space-evenly;
     pointer-events: auto;
     box-sizing: border-box;
     padding: 12px;
     max-width: 1426px;
   }
+
+  [slot="content"] {
+
+      display: flex;
+      width: 100%;
+      height: 100%;
+      flex-flow: row wrap;
+      align-items: center;
+      justify-content: space-evenly;
+      pointer-events: auto;
+      box-sizing: border-box;
+      padding: 12px;
+      max-width: 1426px;
+  }
+
+    listing-element {
+      cursor: pointer;
+      pointer-events: auto;
+      margin-bottom: 12px;
+    }
 </style>
   <array-repeat max="15">
     <template>
-      <style>
-        listing-element {
-          cursor: pointer;
-          pointer-events: auto;
-          margin-bottom: 12px;
-        }
-      </style>
       <listing-element data-action="show" address="[[item.address]]"></listing-element>
     </template>
+
   </array-repeat>
 
 <fab-element data-event="list"></fab-element>
