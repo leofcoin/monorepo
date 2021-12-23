@@ -18,20 +18,20 @@ var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
   "access": "0x94097a3370Bc989525EDe428cC65531BF938770B",
-  "bridger": "0xC1bfcb49089c393193D23Dc4A234F8645155E591",
-  "mining": "0x14a9b117dd2611dd2Fc234c5f5F0a2556958f3fe",
+  "bridger": "0xfEDd5754a73aef381f9bab7a63DaB90e69046314",
+  "mining": "0x90155c15F4e42040343A81Aaf8709A716144B430",
   "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
   "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
-  "platform": "0x022FE76aDEB629f0c19245b188F9a7205BFf2e2a",
+  "platform": "0xaE733fe860dC149fAA5208E4EF2D36592AB8a632",
   "exchange": "0xd01C823Aacb35f5eF302d914E8cDEfBf77cB4618",
-  "exchangeFactory": "0xc331cD2D02957A6fF83aE0012643F91bDE583D98",
-  "staking": "0x90a52b7F6BF84f3C67b0975cfda0A9f8E9d2dC2F",
+  "exchangeFactory": "0xBFF5f9843C0a924a5897d89384fcFcb21dCdb71a",
+  "staking": "0x6523e0376901fc072e905045C722Cae2176636BA",
   "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   "panCakeRouter": "0x9ac64cc6e4415144c455bd8e4837fea55603e5c3",
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
-  "partnershipToken": "0x2074e9cfEa906439bbb1482D506d62CfDC81748e",
-  "splitter": "0xcF34c13947E540758631A53E2789491Fd2D34E90",
-  "partnerPool": "0x9430EEE9bfD294905d1CF89503279b66e1C3B8C3"
+  "partnershipToken": "0x37292f1a9890FE17a037B9Ad3EF25397703C1B82",
+  "splitter": "0xDb9C4643B289B73f4cC9e82EE6f6d9CEceFDBF5b",
+  "partnerPool": "0xB9A3889C4f906268cCa013d196e53b5eD990a96E"
 };
 
 var abi$4 = [
@@ -178,6 +178,40 @@ var abi$4 = [
 			}
 		],
 		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC721Received",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "nonpayable",
 		type: "function"
 	},
 	{
@@ -806,6 +840,40 @@ var abi$3 = [
 			}
 		],
 		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "tokenId",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC721Received",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "nonpayable",
 		type: "function"
 	}
 ];
@@ -2336,9 +2404,9 @@ const getJsonFor = async (address, id, type) => {
 
 const router$2 = new Router__default["default"]();
 
-const tenMinutes = 10 * 60 * 1000;
+const twentyMinutes = 10 * 60 * 1000;
 const start = new Date().getTime();
-const done = start + tenMinutes;
+const done = start + twentyMinutes;
 
 const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
   chainId: 97
