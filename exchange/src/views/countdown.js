@@ -4,6 +4,15 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
   constructor() {
     super()
+
+
+  }
+
+  connectedCallback() {
+    (async () => {
+      const response = await fetch('https://api.artonline.site/countdown')
+      this.value = await response.text()
+    })()
   }
 
   attributeChangedCallback(name, old, value) {
@@ -22,7 +31,15 @@ export default customElements.define('countdown-view', class CountdownView exten
     return 24
   }
 
+  reset() {
+    this.min = 0
+    this.hours = 0
+    this.days = 0
+    this.sec = 0
+  }
+
   set value(ms) {
+    this.reset()
     ms = Number(ms)
     if (ms > this._min) {
       this.min = Math.round(ms / 60000)
@@ -40,23 +57,28 @@ export default customElements.define('countdown-view', class CountdownView exten
       }
     }
 
-    let runs = 0
-    this.sec = 59
-    this.min -= 1
+
 
     const timeout = () => setTimeout(() => {
-      if (runs === 60) {
-        this.min -= 1
-        runs = 0
-      }
-      runs +=1
-      this.sec -= 1
-      this.shadowRoot.innerHTML = this.template
+      this._parse()
       if (this.days !== 0 || this.hours !== 0 || this.sec !== 0 || this.min !== 0 ) timeout()
     }, 1000);
-
+    this._parse()
     timeout()
-    this.shadowRoot.innerHTML = this.template
+
+  }
+
+  _parse() {
+    if (!this.sec || this.sec === 0) {
+      this.min -= 1
+      this.sec = 60
+    }
+    this.sec -= 1
+
+    this.sqs('.days').innerHTML = this.days > 0 ? `${this.days} :` : ''
+    this.sqs('.hours').innerHTML = this.hours > 0 ? `${this.hours} : ` : ''
+    this.sqs('.min').innerHTML = this.min > 0 ? `${this.min} : ` : ''
+    this.sqs('.sec').innerHTML = this.sec > 0 ? this.sec : ''
   }
 
   get template() {
@@ -69,13 +91,22 @@ export default customElements.define('countdown-view', class CountdownView exten
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 40px;
+      }
+
+      .sec {
+        padding-left: 6px;
+      }
+
+      flex-row {
+        align-items: baseline;
       }
     </style>
 <flex-row>
-  ${this.days > 0 ? `<span class="days">${this.days} :</span>`: ''}
-  ${this.hours > 0 ? `<span class="hours">${this.hours} :</span>`: ''}
-  ${this.min > 0 ? `<span class="min">${this.min} : </span>`: ''}
-  ${this.sec > 0 ? `<span class="sec"> ${this.sec}</span>`: ''}
+  <span class="days"></span>
+  <span class="hours"></span>
+  <span class="min"></span>
+  <span class="sec"></span>
 </flex-row>
     `
   }
