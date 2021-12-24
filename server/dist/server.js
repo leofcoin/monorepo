@@ -2404,7 +2404,7 @@ const getJsonFor = async (address, id, type) => {
 
 const router$2 = new Router__default["default"]();
 
-const twentyMinutes = 20 * 60 * 1000;
+const twentyMinutes = 10 * 60 * 1000;
 const start = new Date().getTime();
 const done = start + twentyMinutes;
 

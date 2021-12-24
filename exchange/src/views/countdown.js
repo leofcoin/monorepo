@@ -9,6 +9,7 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
 
   connectedCallback() {
+    if (this.hasAttribute('value')) return;
     (async () => {
       const response = await fetch('https://api.artonline.site/countdown')
       this.value = await response.text()
@@ -58,13 +59,14 @@ export default customElements.define('countdown-view', class CountdownView exten
     }
 
 
+    clearTimeout(this.timeout)
 
-    const timeout = () => setTimeout(() => {
+    this.timeout = () => setTimeout(() => {
       this._parse()
-      if (this.days !== 0 || this.hours !== 0 || this.sec !== 0 || this.min !== 0 ) timeout()
+      if (this.days !== 0 || this.hours !== 0 || this.sec !== 0 || this.min !== 0 ) this.timeout()
     }, 1000);
     this._parse()
-    timeout()
+    this.timeout()
 
   }
 
