@@ -42,7 +42,7 @@ const sendJSON = (ctx, value) => {
 }
 
 const listingListed = async (address) => {
-  const listingContract = new ethers.Contract(address, ERC721_ABI, provider)
+  const listingContract = new ethers.Contract(address, ERC1155_ABI, provider)
   const listed = await listingContract.callStatic.listed()
   return listed.toNumber() === 1
 }
@@ -153,7 +153,7 @@ router.get('/listing/info', async ctx => {
         } catch (e) {
           console.log(e);
         }
-        const json = await getJsonFor(promises[3], promises[1], type)
+        const json = await getJsonFor(promises[3], id ? id : promises[1], type)
         const metadataURI = await getMetadataURI(promises[3], promises[1], type)
         jobber[`listingInfo_${address}`].value = {
           price: ethers.utils.formatUnits(promises[0], 18),

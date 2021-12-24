@@ -37,9 +37,12 @@ export default customElements.define('listing-element', class Listinglement exte
     this.shadowRoot.innerHTML = this.template
     this.contractAddress = response.contractAddress
     this.shadowRoot.innerHTML = this.template
-    this.img = response.json.image ? response.json.image : response.json.animation
-    this.symbol = response.json.symbol
-    this.description = response.json.description
+    if (response.json) {
+      this.img = response.json.image ? response.json.image : response.json.animation
+      this.symbol = response.json.symbol
+      this.description = response.json.description
+    }
+
     this.shadowRoot.innerHTML = this.template
     if (this.img) this.sqs('asset-player').setAttribute('src', this.img)
   }
