@@ -1,25 +1,37 @@
+import './../elements/asset-player'
+import currencyByAddress from './../currencies/by-address'
+
 export default customElements.define('listing-view', class ListingView extends BaseClass {
   constructor() {
     super()
   }
 
+  connectedCallback() {
+
+  }
   async parse({address}) {
-    let listing = document.querySelector('exchange-shell').sqs(`[address=${address}]`)
+    let listing = document.querySelector('exchange-shell').sqs(`[address="${address}"]`)
+    console.log(listing);
     if (!listing) {
-      response = await fetch(`https://api.artonline.site/listing/info?address=${address}`)
-      liting = await response.json()
+      const response = await fetch(`https://api.artonline.site/listing/info?address=${address}`)
+      listing = await response.json()
+      listing = {...listing, ...listing.json}
+      listing.image = listing.image ? listing.image : listing.animation
     }
-    this.id = id
-    this.tokenId = tokenId
-    this.price = price
-    this.description = description
-    this.contractAddress = contractAddress
-    this.currency = currency
-    this.listed = listed
-    this.listing = listing
-    this.image = image
+    console.log(listing);
+    this.id = listing.id
+    this.tokenId = listing.tokenId
+    this.price = listing.price
+    this.description = listing.description
+    this.contractAddress = listing.contractAddress
+    this._currency = listing.currency
+    this.currency = currencyByAddress[listing.currency]
+    this.listed = listing.listed
+    this.listing = listing.listing
+    this.image = listing.image
+    this.symbol = listing.symbol
     this.shadowRoot.innerHTML = this.template
-    this.sqs('asset-player').setAttribute('src', image)
+    this.sqs('asset-player').setAttribute('src', listing.image)
   }
 
   get template() {
@@ -93,8 +105,8 @@ export default customElements.define('listing-view', class ListingView extends B
 </style>
 
 <flex-column class="container">
-  <asset-player></asset-player>
-  <flex-column class="container">
+  <asset-player src="${this.image}"></asset-player>
+  <flex-column>
     <flex-row class="symbol">
       ${this.symbol ? `<span>${this.symbol}</span><flex-one></flex-one><span>#</span><span>${this.tokenId}</span>` : '<busy-animation></busy-animation>'}
     </flex-row>

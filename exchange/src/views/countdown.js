@@ -23,10 +23,10 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
 
   set value(ms) {
-    console.log(ms);
     ms = Number(ms)
     if (ms > this._min) {
-      this.min = Math.round(ms /  1000)
+      this.min = Math.round(ms / 60000)
+
       if (this.min > this._hour) {
         console.log(this.min);
         const result = String(this.min / 60).split('.')
@@ -40,14 +40,43 @@ export default customElements.define('countdown-view', class CountdownView exten
       }
     }
 
+    let runs = 0
+    this.sec = 59
+    this.min -= 1
+
+    const timeout = () => setTimeout(() => {
+      if (runs === 60) {
+        this.min -= 1
+        runs = 0
+      }
+      runs +=1
+      this.sec -= 1
+      this.shadowRoot.innerHTML = this.template
+      if (this.days !== 0 || this.hours !== 0 || this.sec !== 0 || this.min !== 0 ) timeout()
+    }, 1000);
+
+    timeout()
     this.shadowRoot.innerHTML = this.template
   }
 
   get template() {
     return html`
-${this.days > 0 ? `<span class="days">${this.days}</span>`: '0'}
-${this.hours > 0 ? `<span class="hours">${this.hours}</span>`: '0'}
-${this.minutes > 0 ? `<span class="min">${this.minutes}</span>`: '0'}
+    <style>
+      :host {
+        width: 100%;
+        height: 100%;
+        color: var(--main-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+<flex-row>
+  ${this.days > 0 ? `<span class="days">${this.days} :</span>`: ''}
+  ${this.hours > 0 ? `<span class="hours">${this.hours} :</span>`: ''}
+  ${this.min > 0 ? `<span class="min">${this.min} : </span>`: ''}
+  ${this.sec > 0 ? `<span class="sec"> ${this.sec}</span>`: ''}
+</flex-row>
     `
   }
 })

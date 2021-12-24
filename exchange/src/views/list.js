@@ -8,6 +8,7 @@ import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import PLATFORM_ABI from './../../../abis/platform'
 import LISTING_ERC1155_ABI from './../../../build/contracts/ArtOnlineListingERC1155.json'
 import LISTING_ERC721_ABI from './../../../build/contracts/ArtOnlineListing.json'
+import {abi as IERC721} from './../../../build/contracts/IERC721.json'
 
 export default customElements.define('list-view', class ListView extends BaseClass {
   constructor() {
@@ -80,7 +81,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
     const contract = new ethers.Contract(value.address, ABI, api.connection.provider.getSigner())
 
     let listing = await this.__beforeListing(value, selected)
-
+    if (value.tokenId === undefined) value.tokenId = 0
     try {
       let tx;
       if (listing !== '0x0000000000000000000000000000000000000000') {
@@ -107,13 +108,15 @@ export default customElements.define('list-view', class ListView extends BaseCla
       busy.done()
       location.href = '#!/market'
     } catch (e) {
+      console.log(e);
       busy.hide()
       alert(e.data.message)
     }
   }
 
   async _approve(address) {
-    const contract = new ethers.Contract(address, PLATFORM_ABI, api.connection.provider.getSigner())
+    const contract = new ethers.Contract(address, IERC721, api.connection.provider.getSigner())
+    console.log(contract);
     const approved = await contract.callStatic.isApprovedForAll(api.connection.accounts[0], api.addresses.exchangeFactory)
     if (!approved) {
       busy.show('Approving')
@@ -143,7 +146,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
 
     let tokenIds
     if (value.tokenId) tokenIds = value.tokenId.split(',')
-    if (tokenIds.length > 1) {
+    if (tokenIds?.length > 1) {
       const addresses = []
       const prices = []
       const currencies = []
@@ -162,7 +165,7 @@ export default customElements.define('list-view', class ListView extends BaseCla
       value.id = ids
       value.currency = currencies
     }
-    tokenIds.length > 1 && this.__listBatch(value, selected) || this.__list(value, selected)
+    tokenIds?.length > 1 && this.__listBatch(value, selected) || this.__list(value, selected)
   }
 
   async _onClick(event) {

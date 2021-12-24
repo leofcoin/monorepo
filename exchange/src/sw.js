@@ -5,7 +5,8 @@ import './../node_modules/interface-datastore/cjs/src/key.js'
 const store = new exports.LevelDatastore('artonline-exchange');
 
 const staticContent = [
-  '/',
+  '/manifest.json',
+  '/favicon.ico',
   '/index.html'
 ];
 
@@ -46,6 +47,7 @@ var expectedCaches = [
 ];
 
 const fetchAndAdd = async request => {
+  if (request.url.includes('sw-loader')) return fetch(request)
   if (request.method !== 'GET') return fetch(request)
 
   const response = await fetch(request)

@@ -66,7 +66,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
         }
       }
       if (!customElements.get(`${parts[0]}-view`)) await import(`./${parts[0]}.js`)
-      if (query.length > 0) {
+      if (Object.keys(query).length > 0) {
         this.sqs(`${parts[0]}-view`).parse(query)
       }
       this.pages.select(parts[0])
