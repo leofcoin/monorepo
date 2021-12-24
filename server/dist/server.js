@@ -2404,7 +2404,7 @@ const getJsonFor = async (address, id, type) => {
 
 const router$2 = new Router__default["default"]();
 
-const twentyMinutes = 10 * 60 * 1000;
+const twentyMinutes = 20 * 60 * 1000;
 const start = new Date().getTime();
 const done = start + twentyMinutes;
 
@@ -2425,10 +2425,6 @@ router$2.get('/countdown', ctx => {
     ctx.body = String(done - now);
   }
 });
-
-const updateCache = (key, value) => {
-  cache[key] = value;
-};
 
 const sendJSON$1 = (ctx, value) => {
   ctx.type = mime__default["default"].lookup('json');
@@ -2459,6 +2455,7 @@ router$2.get('/listings/ERC721', async ctx => {
         cache$1.listingsERC721.value = listings;
       }
     };
+    await cache$1.listingsERC721.job();
   }
   sendJSON$1(ctx, cache$1.listingsERC721.value);
 });
@@ -2488,34 +2485,43 @@ router$2.get('/listings/ERC1155', async ctx => {
 });
 
 router$2.get('/listings', async ctx => {
-  const listings = {};
-  if (!cache.listingsERC721) {
-    const listingsLength = await api.contract.listingLength();
-    listings['ERC721'] = [];
-    for (let i = 0; i < listingsLength; i++) {
-      const address = await contract.callStatic.listingsERC721(i);
 
-      listings['ERC721'].push({address, listed: await listingListed(address)});
-    }
-    updateCache('listingsERC721', listings['ERC721']);
+  if (!cache$1.listingsERC721) {
+    const listings = [];
+    cache$1['listingsERC721'] = {
+      job: async () => {
+        const listingsLength = await api.contract.listingERC721Length();
+        for (let i = 0; i < listingsLength; i++) {
+          const address = await contract.callStatic.listingsERC721(i);
+          listings.push({address, listed: await listingListed(address)});
+        }
+        cache$1['listingsERC721'].value = listings;
+      }
+    };
+    await cache$1['listingsERC721'].job();
   }
 
-  if (!cache.listingsERC1155) {
-    const listingsLength = await api.contract.listingERC1155Length();
-    listings['ERC1155'] = [];
-    for (let i = 0; i < listingsLength; i++) {
-      const address = await contract.callStatic.listingsERC1155(i);
-      listings['ERC1155'].push({address, listed: await listingListed(address)});
-    }
-    updateCache('listingsERC1155', listings['ERC1155']);
+  if (!cache$1.listingsERC1155) {
+    const listings = [];
+    cache$1['listingsERC1155'] = {
+      job: async () => {
+        const listingsLength = await api.contract.listingERC1155Length();
+        for (let i = 0; i < listingsLength; i++) {
+          const address = await contract.callStatic.listingsERC1155(i);
+          listings.push({address, listed: await listingListed(address)});
+        }
+        cache$1['listingERC1155'].value = listings;
+      }
+    };
+    await cache$1['listingERC1155'].job();
   }
-
-  sendJSON$1(ctx, listings);
-  return
+  sendJSON$1(ctx, {
+    ERC1155: cache$1['listingERC1155'].value,
+    ERC721: cache$1['listingERC721'].value
+  });
 });
 
 router$2.get('/listing/info', async ctx => {
-  console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listingInfo_${address}`]) {
     cache$1[`listingInfo_${address}`] = {

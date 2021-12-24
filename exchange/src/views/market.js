@@ -32,10 +32,23 @@ export default customElements.define('market-view', class MarketView extends Bas
         location.href = '#!/market'
         response = await fetch('https://api.artonline.site/listings/ERC1155')
         listings = await response.json();
-      } else {
-      response = await fetch('https://api.artonline.site/listings/ERC1155')
+        listings = listings.map(listing => {
+          listing.type = 'ERC1155'
+          return listing
+        })
 
+        response = await fetch('https://api.artonline.site/listings/ERC721')
+        listings = [...await response.json(), ...listings];
+      } else {
+        response = await fetch('https://api.artonline.site/listings/ERC1155')
         listings = await response.json();
+        listings = listings.map(listing => {
+          listing.type = 'ERC1155'
+          return listing
+        })
+
+        response = await fetch('https://api.artonline.site/listings/ERC721')
+        listings = [...await response.json(), ...listings];
       }
       this.listings = listings
       // if (globalThis.showOnlyListed === true) {
