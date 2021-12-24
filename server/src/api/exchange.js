@@ -38,7 +38,7 @@ const updateCache = (key, value) => {
 
 const sendJSON = (ctx, value) => {
   ctx.type = mime.lookup('json')
-  ctx.body = JSON.stringify(value)
+  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value
 }
 
 const listingListed = async (address) => {
@@ -100,9 +100,9 @@ router.get('/listings', async ctx => {
     const listings = []
     jobber['listingsERC721'] = {
       job: async () => {
-        const listingsLength = await api.contract.listingERC721Length()
+        const listingsLength = await api.contract.listingLength()
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC721(i)
+          const address = await contract.callStatic.listings(i)
           listings.push({address, listed: await listingListed(address)})
         }
         jobber['listingsERC721'].value = listings
@@ -139,37 +139,37 @@ router.get('/listing/info', async ctx => {
         const contract = new ethers.Contract(address, ERC1155_ABI, provider)
         let promises = [
           contract.callStatic.price(),
-          contract.callStatic.id(),
+          contract.callStatic.tokenId(),
           contract.callStatic.currency(),
           contract.callStatic.contractAddress(),
           listingListed(address)
         ]
         promises = await Promise.all(promises)
-        let tokenId
+        let id
         let type = 'ERC721'
         try {
-          tokenId = await contract.callStatic.tokenId()
+          id = await contract.callStatic.id()
           type = 'ERC1155'
         } catch (e) {
-
+          console.log(e);
         }
-
         const json = await getJsonFor(promises[3], promises[1], type)
         const metadataURI = await getMetadataURI(promises[3], promises[1], type)
         jobber[`listingInfo_${address}`].value = {
           price: ethers.utils.formatUnits(promises[0], 18),
-          id: promises[1].toString(),
-          tokenId: tokenId.toString(),
+          tokenId: promises[1].toString(),
           currency: promises[2],
           contractAddress: promises[3],
           listed: promises[4],
           metadataURI,
           json
         }
+        if (id) jobber[`listingInfo_${address}`].value.id = id.toString()
       }
     }
+    await jobber[`listingInfo_${address}`].job()
   }
-  await jobber[`listingInfo_${address}`].job()
+
   sendJSON(ctx, jobber[`listingInfo_${address}`].value)
 })
 
@@ -180,8 +180,9 @@ router.get('/listing/listed', async ctx => {
     jobber[`listed_${address}`] = {
       job: async () => jobber[`listed_${address}`].value = await listingListed(address)
     }
+    await jobber[`listed_${address}`].job()
   }
-  await jobber[`listed_${address}`].job()
+
   ctx.body = jobber[`listed_${address}`].value
 })
 

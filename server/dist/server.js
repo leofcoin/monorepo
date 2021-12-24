@@ -3,6 +3,7 @@
 var Koa = require('koa');
 var ethers = require('ethers');
 var fetch = require('node-fetch');
+var cid = require('multiformats/cid');
 var mime = require('mime-types');
 var Router = require('@koa/router');
 var cors = require('@koa/cors');
@@ -2393,13 +2394,26 @@ const getJsonFor = async (address, id, type) => {
     cache$1[`uri_${address}_${id}`] = {
       job: async () => cache$1[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
     };
-    cache$1[`uri_${address}_${id}`].value = await cache$1[`uri_${address}_${id}`].job();
-
+    await cache$1[`uri_${address}_${id}`].job();
   }
 
-  const uri = cache$1[`uri_${address}_${id}`].value;
-  const response = await fetch__default["default"](uri);
-  return response.json()
+  let uri = cache$1[`uri_${address}_${id}`].value;
+  let response;
+
+  if (uri) {
+    try {
+      const cid$1 = cid.CID.parse(uri);
+      uri = `https://ipfs.io/ipfs/${cid$1.toV1().toString()}`;
+      response = await fetch__default["default"](uri);
+      response = await response.text();
+      response = JSON.parse(response.replace(/\n/g, '').replace(/\r/g, '').replace(/\t/g, '').replace(',}', '}'));
+    } catch {
+      response = await fetch__default["default"](uri);
+      response = await response.json();  
+    }
+
+  }
+  return response
 };
 
 const router$2 = new Router__default["default"]();
@@ -2428,7 +2442,7 @@ router$2.get('/countdown', ctx => {
 
 const sendJSON$1 = (ctx, value) => {
   ctx.type = mime__default["default"].lookup('json');
-  ctx.body = JSON.stringify(value);
+  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value;
 };
 
 const listingListed = async (address) => {
@@ -2490,9 +2504,9 @@ router$2.get('/listings', async ctx => {
     const listings = [];
     cache$1['listingsERC721'] = {
       job: async () => {
-        const listingsLength = await api.contract.listingERC721Length();
+        const listingsLength = await api.contract.listingLength();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC721(i);
+          const address = await contract.callStatic.listings(i);
           listings.push({address, listed: await listingListed(address)});
         }
         cache$1['listingsERC721'].value = listings;
@@ -2529,37 +2543,37 @@ router$2.get('/listing/info', async ctx => {
         const contract = new ethers__default["default"].Contract(address, abi$4, provider);
         let promises = [
           contract.callStatic.price(),
-          contract.callStatic.id(),
+          contract.callStatic.tokenId(),
           contract.callStatic.currency(),
           contract.callStatic.contractAddress(),
           listingListed(address)
         ];
         promises = await Promise.all(promises);
-        let tokenId;
+        let id;
         let type = 'ERC721';
         try {
-          tokenId = await contract.callStatic.tokenId();
+          id = await contract.callStatic.id();
           type = 'ERC1155';
         } catch (e) {
-
+          console.log(e);
         }
-
         const json = await getJsonFor(promises[3], promises[1], type);
         const metadataURI = await getMetadataURI(promises[3], promises[1], type);
         cache$1[`listingInfo_${address}`].value = {
           price: ethers__default["default"].utils.formatUnits(promises[0], 18),
-          id: promises[1].toString(),
-          tokenId: tokenId.toString(),
+          tokenId: promises[1].toString(),
           currency: promises[2],
           contractAddress: promises[3],
           listed: promises[4],
           metadataURI,
           json
         };
+        if (id) cache$1[`listingInfo_${address}`].value.id = id.toString();
       }
     };
+    await cache$1[`listingInfo_${address}`].job();
   }
-  await cache$1[`listingInfo_${address}`].job();
+
   sendJSON$1(ctx, cache$1[`listingInfo_${address}`].value);
 });
 
@@ -2570,8 +2584,9 @@ router$2.get('/listing/listed', async ctx => {
     cache$1[`listed_${address}`] = {
       job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
     };
+    await cache$1[`listed_${address}`].job();
   }
-  await cache$1[`listed_${address}`].job();
+
   ctx.body = cache$1[`listed_${address}`].value;
 });
 
