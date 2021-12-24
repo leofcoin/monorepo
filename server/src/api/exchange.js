@@ -54,7 +54,7 @@ router.get('/listings/ERC721', async ctx => {
         const listings = []
         const listingsLength = await contract.listingLength()
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC721(i)
+          const address = await contract.callStatic.listings(i)
           if (!jobber[`listed_${address}`]) {
             jobber[`listed_${address}`] = {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
