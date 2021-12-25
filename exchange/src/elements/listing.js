@@ -108,7 +108,10 @@ export default customElements.define('listing-element', class Listinglement exte
 <asset-player></asset-player>
 <flex-column>
   <flex-row class="symbol">
-    ${this.symbol ? `<span>${this.symbol}</span><flex-one></flex-one><span>#</span><span>${this.tokenId}</span>` : '<busy-animation></busy-animation>'}
+    ${this.symbol ? `<span>${this.symbol}</span>` : '<busy-animation></busy-animation>'}
+    <flex-one></flex-one>
+    <span>#</span>
+    ${this.tokenId ? `<span>${this.tokenId}</span>` : '<busy-animation></busy-animation>'}
   </flex-row>
   <span class="description">${this.description ? this.description : '<busy-animation></busy-animation>'}</span>
 
