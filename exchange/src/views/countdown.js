@@ -77,10 +77,10 @@ export default customElements.define('countdown-view', class CountdownView exten
     }
     this.sec -= 1
 
-    this.sqs('.days').innerHTML = this.days > 0 ? `${this.days.length > 1 ? this.days : `0${this.days}`} :` : ''
-    this.sqs('.hours').innerHTML = this.hours > 0 ? `${this.hours.length > 1 ? this.hours : `0${this.hours}`} : ` : ''
-    this.sqs('.min').innerHTML = this.min > 0 ? `${this.min.length > 1 ? this.min : `0${this.min}`} : ` : ''
-    this.sqs('.sec').innerHTML = this.sec > 0 ? this.sec.length > 1 ? this.sec : `0${this.sec}` : ''
+    this.sqs('.days').innerHTML = this.days > 0 ? `${String(this.days).length !== 1 ? this.days : `0${this.days}`} :` : ''
+    this.sqs('.hours').innerHTML = this.hours > 0 ? `${String(this.hours).length !== 1 ? this.hours : `0${this.hours}`} : ` : ''
+    this.sqs('.min').innerHTML = this.min > 0 ? `${String(this.min).length !== 1 ? this.min : `0${this.min}`} : ` : ''
+    this.sqs('.sec').innerHTML = this.sec > 0 ? String(this.sec).length !== 1 ? this.sec : `0${this.sec}` : ''
   }
 
   get template() {
