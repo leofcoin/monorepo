@@ -1,6 +1,3 @@
-import './../elements/fab'
-import './../elements/dialog'
-import './../elements/listing'
 import './../../node_modules/custom-tabs/custom-tabs'
 import './../../node_modules/custom-tabs/custom-tab'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
@@ -230,10 +227,6 @@ export default customElements.define('list-view', class ListView extends BaseCla
 
   flex-wrap-around {
     width: 100%;
-  }
-
-  fab-element {
-    pointer-events: auto;
   }
 
   custom-tab, custom-svg-icon {
