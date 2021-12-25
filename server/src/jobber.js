@@ -18,7 +18,7 @@ const timeout = () => {
     }
     if (done) console.log(`jobs took ${getTime() - start}s`);
     timeout()
-  }, 10 * 60 * 1000);
+  }, 5 * 60 * 1000);
 }
 
 timeout()
