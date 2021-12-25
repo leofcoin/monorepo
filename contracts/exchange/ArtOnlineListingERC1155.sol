@@ -74,7 +74,7 @@ contract ArtOnlineListingERC1155 is ArtOnlineListing, IERC1155Receiver, IArtOnli
     return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
   }
 
-   function supportsInterface(bytes4 interfaceId) external pure override(IArtOnlineListing, IERC165) returns (bool) {
+   function supportsInterface(bytes4 interfaceId) external pure override(IArtOnlineListingERC1155, IERC165) returns (bool) {
      return
        interfaceId == type(IERC1155).interfaceId;
    }

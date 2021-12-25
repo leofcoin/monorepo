@@ -19,20 +19,20 @@ var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
   "access": "0x94097a3370Bc989525EDe428cC65531BF938770B",
-  "bridger": "0xfEDd5754a73aef381f9bab7a63DaB90e69046314",
-  "mining": "0x90155c15F4e42040343A81Aaf8709A716144B430",
+  "bridger": "0x82499304fcf47735c97302B2818b9d020497CfF9",
+  "mining": "0x952723E4348194B704C8Ae0Caf348d4732C8EfDE",
   "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
   "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
-  "platform": "0xaE733fe860dC149fAA5208E4EF2D36592AB8a632",
-  "exchange": "0xd01C823Aacb35f5eF302d914E8cDEfBf77cB4618",
-  "exchangeFactory": "0xBFF5f9843C0a924a5897d89384fcFcb21dCdb71a",
-  "staking": "0x6523e0376901fc072e905045C722Cae2176636BA",
+  "platform": "0xf72b115B6D180BE330283d6C5faf9f691a6b2b00",
+  "exchange": "0x9dAe198d07B8d00926407073c13c5ce887e11A8A",
+  "exchangeFactory": "0x540C7CEE8bC9dd4FDe26B3bBfBfF591E38925d73",
+  "staking": "0x59c0466178d05085092901036237f7e2B6B524A4",
   "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   "panCakeRouter": "0x9ac64cc6e4415144c455bd8e4837fea55603e5c3",
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
-  "partnershipToken": "0x37292f1a9890FE17a037B9Ad3EF25397703C1B82",
-  "splitter": "0xDb9C4643B289B73f4cC9e82EE6f6d9CEceFDBF5b",
-  "partnerPool": "0xB9A3889C4f906268cCa013d196e53b5eD990a96E"
+  "partnershipToken": "0x83636ADE42378B4e55b43c6E0502747c1c08E1bF",
+  "splitter": "0x06669dC8Fc1bBFe4104cC661EF0da91a2BBD0367",
+  "partnerPool": "0x8fe4711e3d29D7EF4CdC99CAB53Fd7450883615e"
 };
 
 var abi$3 = [
