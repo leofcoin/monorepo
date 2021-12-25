@@ -31,7 +31,8 @@ const compareVersion = async activeVersion => {
             let activeVersion = await ArtOnlineStorage.get(new exports.Key('active-version'));
             activeVersion = activeVersion.toString()
             if (activeVersion && compareVersion(activeVersion)) {
-                await confirm('Update available, press ok to reload!')
+                await confirm(`Update available, press ok to reload!
+${activeVersion} => ${version}`)
                 location.reload()
               // document.getElementById('update').innerHTML =
               //   'Update available! reload!';
