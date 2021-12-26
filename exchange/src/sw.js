@@ -67,7 +67,7 @@ const reAdd = async (response, request)=> {
   if (request.url.includes('sw-loader')) return fetch(request)
   if (request.method !== 'GET') return fetch(request)
 
-  if (request.url.includes('listings/ERC1155') || request.url.includes('listings/ERC721')) {
+  if (request.url.includes('listings/ERC1155') || request.url.includes('listings/ERC721') || !response) {
     try {
       response = await updateCache(request)
     } catch (e) {
