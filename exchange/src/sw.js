@@ -56,6 +56,34 @@ const fetchAndAdd = async request => {
   return response;
 }
 
+const updateCache = async request => {
+  const response = await fetch(request)
+  const cache = await caches.open('cache-' + version)
+  cache.put(request, response.clone())
+  return response
+}
+
+const reAdd = async (response, request)=> {
+  if (request.url.includes('sw-loader')) return fetch(request)
+  if (request.method !== 'GET') return fetch(request)
+
+  if (request.url.includes('listings/ERC1155') || request.url.includes('listings/ERC721')) {
+    try {
+      response = await updateCache(request)
+    } catch (e) {
+
+    }
+  } else {
+    try {
+      updateCache(request)
+    } catch (e) {
+
+    }
+  }
+
+  return response;
+}
+
 self.addEventListener('activate', async event => {
   console.log('activating' + version);
   await event.waitUntil
@@ -82,6 +110,6 @@ self.addEventListener('redundant', event => {
 
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(response => response || fetchAndAdd(event.request))
+    caches.match(event.request).then(response => reAdd(response, event.request) || fetchAndAdd(event.request))
   );
 });
