@@ -1,7 +1,7 @@
 import jobber from './../jobber'
 import Router from '@koa/router'
 const router = new Router()
-import { getJsonFor, getMetadataURI } from './shared'
+import { getJsonFor, sendJSON, getMetadataURI } from './shared'
 
 router.get('/nft', ctx => {
   ctx.body = 'v0.0.1-alpha'

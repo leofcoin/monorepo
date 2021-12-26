@@ -14,7 +14,7 @@ const provider = new ethers.providers.JsonRpcProvider('https://data-seed-prebsc-
 
 export const sendJSON = (ctx, value) => {
   ctx.type = mime.lookup('json')
-  ctx.body = JSON.stringify(value)
+  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value
 }
 
 export const getMetadataURI = async (address, id, type) => {
@@ -46,7 +46,7 @@ export const getJsonFor = async (address, id, type) => {
       response = JSON.parse(response.replace(/\n/g, '').replace(/\r/g, '').replace(/\t/g, '').replace(',}', '}'))
     } catch {
       response = await fetch(uri)
-      response = await response.json()  
+      response = await response.json()
     }
 
   }

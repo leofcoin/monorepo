@@ -2,7 +2,7 @@ import addresses from './../../../addresses/addresses/binance-smartchain-testnet
 import { abi as ERC1155_ABI } from './../../../build/contracts/ArtOnlineListingERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ArtOnlineListing.json'
 import { abi as ABI } from './../../../build/contracts/ArtOnlineExchangeFactory.json'
-import { getJsonFor, getMetadataURI } from './shared'
+import { getJsonFor, sendJSON, getMetadataURI } from './shared'
 // import cache from './../cache'
 import jobber from './../jobber'
 import mime from 'mime-types'
@@ -34,11 +34,6 @@ router.get('/countdown', ctx => {
 
 const updateCache = (key, value) => {
   cache[key] = value
-}
-
-const sendJSON = (ctx, value) => {
-  ctx.type = mime.lookup('json')
-  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value
 }
 
 const listingListed = async (address) => {

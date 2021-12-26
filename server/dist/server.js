@@ -2033,6 +2033,11 @@ const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('htt
   chainId: 97
 });
 
+const sendJSON = (ctx, value) => {
+  ctx.type = mime__default["default"].lookup('json');
+  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value;
+};
+
 const getMetadataURI = async (address, id, type) => {
   const contract = type === 'ERC1155' ?
                    new ethers__default["default"].Contract(address, abi$1, provider$1) :
@@ -2062,7 +2067,7 @@ const getJsonFor = async (address, id, type) => {
       response = JSON.parse(response.replace(/\n/g, '').replace(/\r/g, '').replace(/\t/g, '').replace(',}', '}'));
     } catch {
       response = await fetch__default["default"](uri);
-      response = await response.json();  
+      response = await response.json();
     }
 
   }
@@ -2093,11 +2098,6 @@ router$2.get('/countdown', ctx => {
   }
 });
 
-const sendJSON$1 = (ctx, value) => {
-  ctx.type = mime__default["default"].lookup('json');
-  ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value;
-};
-
 const listingListed = async (address) => {
   const listingContract = new ethers__default["default"].Contract(address, abi$3, provider);
   const listed = await listingContract.callStatic.listed();
@@ -2124,7 +2124,7 @@ router$2.get('/listings/ERC721', async ctx => {
     };
     await cache$1.listingsERC721.job();
   }
-  sendJSON$1(ctx, cache$1.listingsERC721.value);
+  sendJSON(ctx, cache$1.listingsERC721.value);
 });
 
 router$2.get('/listings/ERC1155', async ctx => {
@@ -2148,7 +2148,7 @@ router$2.get('/listings/ERC1155', async ctx => {
 
     await cache$1.listingsERC1155.job();
   }
-  sendJSON$1(ctx, cache$1.listingsERC1155.value);
+  sendJSON(ctx, cache$1.listingsERC1155.value);
 });
 
 router$2.get('/listings', async ctx => {
@@ -2182,7 +2182,7 @@ router$2.get('/listings', async ctx => {
     };
     await cache$1['listingERC1155'].job();
   }
-  sendJSON$1(ctx, {
+  sendJSON(ctx, {
     ERC1155: cache$1['listingERC1155'].value,
     ERC721: cache$1['listingERC721'].value
   });
@@ -2227,7 +2227,7 @@ router$2.get('/listing/info', async ctx => {
     await cache$1[`listingInfo_${address}`].job();
   }
 
-  sendJSON$1(ctx, cache$1[`listingInfo_${address}`].value);
+  sendJSON(ctx, cache$1[`listingInfo_${address}`].value);
 });
 
 router$2.get('/listing/listed', async ctx => {
@@ -2246,13 +2246,13 @@ router$2.get('/listing/listed', async ctx => {
 router$2.get('/listing/ERC721', async ctx => {
   const { address, tokenId } = ctx.params;
   const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
-  sendJSON$1(ctx, listing);
+  sendJSON(ctx, listing);
 });
 
 router$2.get('/listing/ERC1155', async ctx => {
   const { address, id, tokenId } = ctx.params;
   const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
-  sendJSON$1(ctx, listing);
+  sendJSON(ctx, listing);
 });
 
 const router$1 = new Router__default["default"]();
