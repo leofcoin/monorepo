@@ -18,21 +18,21 @@ var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
 var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
-  "access": "0x9bE73667F91291a77eA269F66FdB52FFc4A8B497",
-  "bridger": "0x7fE2e9e18D59D2614292c38FF9CDB0a3979a3cC6",
-  "mining": "0x8B8bB9512d02B0eB43E0EF88f3d969bD1b388602",
+  "access": "0x2f4e5002c4e434b3FcD4F6E61E774a92b27B581E",
+  "bridger": "0x5C699a5b12c2Ba0b40D06B4CCAB3eD2F4E38bfE0",
+  "mining": "0x7a449021522b98eCF95F668885f9cb80Dc066b9d",
   "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
   "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
-  "platform": "0xf389a49De81DD08CdE5b34a9853d72780897922C",
-  "exchange": "0x0f1962B3FDd2d7016108CEe59d2c21038FdD3a2F",
-  "exchangeFactory": "0xb54b17BA42A8f4028a7348BD2a887dF701F156d3",
-  "staking": "0x180B098976357995C907bE3e240e40331DcA60b4",
+  "platform": "0xef68bfD8c9f0aaF22238f9Db9fCF8f44EFd5953b",
+  "exchange": "0xD8755Ab54a78226D5Fa43aAd6e27D3A3F610ef2c",
+  "exchangeFactory": "0x82fbb2d33316d444D9659adE182BcDC81222E89A",
+  "staking": "0xA5c38188FDF9B6Ab4168e4BFBc13827180E0103b",
   "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
   "panCakeRouter": "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
-  "partnershipToken": "0x948FF3153e44187b3C0C0Ed249E64c2460f50966",
-  "splitter": "0x825f16424FcB90f6d9ae9059e5f829158147b721",
-  "partnerPool": "0x156aaa5847d7Ed91D628bF884FDCC194afF59b25"
+  "partnershipToken": "0x70510F3bE8486573C63399a1E029011fbb06352A",
+  "splitter": "0x317F7f0eEa510e5F8A6BF3bc90e607e254C6d6Af",
+  "partnerPool": "0x6251c76a009D6961977CbBe0CB80884664d7e595"
 };
 
 var abi$3 = [
