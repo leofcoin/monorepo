@@ -1,3 +1,5 @@
+import './../animations/loading'
+
 export default customElements.define('countdown-view', class CountdownView extends BaseClass {
   static get observedAttributes() {
     return ['value']
@@ -71,7 +73,7 @@ export default customElements.define('countdown-view', class CountdownView exten
   }
 
   _parse() {
-    if (!this.sec || this.sec === 0) {
+    if (!this.sec && this.min > 0 || this.sec === 0 && this.min > 0) {
       this.min -= 1
       this.sec = 60
     }
@@ -96,14 +98,15 @@ export default customElements.define('countdown-view', class CountdownView exten
         font-size: 40px;
       }
 
-      .sec {
-        padding-left: 6px;
-      }
-
       flex-row {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
         align-items: baseline;
       }
     </style>
+    <loading-animation></loading-animation>
 <flex-row>
   <span class="days"></span>
   <span class="hours"></span>
