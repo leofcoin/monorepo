@@ -1,4 +1,5 @@
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)
 
 
 /**
@@ -23,6 +24,7 @@ interface IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC1155/IERC1155.sol)
 
 
 
@@ -146,6 +148,7 @@ interface IERC1155 is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC1155/IERC1155Receiver.sol)
 
 
 
@@ -197,6 +200,7 @@ interface IERC1155Receiver is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC1155/IERC1155.sol)
 
 
 
@@ -320,6 +324,7 @@ interface IERC1155 is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC1155/extensions/IERC1155MetadataURI.sol)
 
 
 
@@ -340,6 +345,7 @@ interface IERC1155MetadataURI is IERC1155 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
 
 
 /**
@@ -556,6 +562,7 @@ library Address {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -579,6 +586,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
 
@@ -605,6 +613,75 @@ abstract contract ERC165 is IERC165 {
     }
 }
 
+
+// OpenZeppelin Contracts v4.4.1 (utils/Strings.sol)
+
+
+/**
+ * @dev String operations.
+ */
+library Strings {
+    bytes16 private constant _HEX_SYMBOLS = "0123456789abcdef";
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` decimal representation.
+     */
+    function toString(uint256 value) internal pure returns (string memory) {
+        // Inspired by OraclizeAPI's implementation - MIT licence
+        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation.
+     */
+    function toHexString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0x00";
+        }
+        uint256 temp = value;
+        uint256 length = 0;
+        while (temp != 0) {
+            length++;
+            temp >>= 8;
+        }
+        return toHexString(value, length);
+    }
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
+     */
+    function toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(2 * length + 2);
+        buffer[0] = "0";
+        buffer[1] = "x";
+        for (uint256 i = 2 * length + 1; i > 1; --i) {
+            buffer[i] = _HEX_SYMBOLS[value & 0xf];
+            value >>= 4;
+        }
+        require(value == 0, "Strings: hex length insufficient");
+        return string(buffer);
+    }
+}
+
+
+// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
 
 
 
@@ -811,6 +888,18 @@ library ECDSA {
     }
 
     /**
+     * @dev Returns an Ethereum Signed Message, created from `s`. This
+     * produces hash corresponding to the one signed with the
+     * https://eth.wiki/json-rpc/API#eth_sign[`eth_sign`]
+     * JSON-RPC method as part of EIP-191.
+     *
+     * See {recover}.
+     */
+    function toEthSignedMessageHash(bytes memory s) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", Strings.toString(s.length), s));
+    }
+
+    /**
      * @dev Returns an Ethereum Signed Typed Data, created from a
      * `domainSeparator` and a `structHash`. This produces hash corresponding
      * to the one signed with the
@@ -825,6 +914,7 @@ library ECDSA {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -848,6 +938,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
 
 
 
@@ -940,428 +1031,7 @@ abstract contract Pausable is Context {
 
 
 
-interface IArtOnline {
-  function mint(address to, uint256 amount) external;
-  function burn(address from, uint256 amount) external;
-  function totalSupply() external view returns (uint256);
-
-  function balanceOf(address account) external view returns (uint256);
-
-  function transfer(address recipient, uint256 amount) external returns (bool);
-
-  function allowance(address owner, address spender) external view returns (uint256);
-
-  function approve(address spender, uint256 amount) external returns (bool);
-
-  function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) external returns (bool);
-
-  event Transfer(address indexed from, address indexed to, uint256 value);
-
-  event Approval(address indexed owner, address indexed spender, uint256 value);
-}
-
-
-
-
-/**
- * @dev External interface of AccessControl declared to support ERC165 detection.
- */
-interface IAccessControl {
-    /**
-     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
-     *
-     * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
-     * {RoleAdminChanged} not being emitted signaling this.
-     *
-     * _Available since v3.1._
-     */
-    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
-
-    /**
-     * @dev Emitted when `account` is granted `role`.
-     *
-     * `sender` is the account that originated the contract call, an admin role
-     * bearer except when using {AccessControl-_setupRole}.
-     */
-    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
-
-    /**
-     * @dev Emitted when `account` is revoked `role`.
-     *
-     * `sender` is the account that originated the contract call:
-     *   - if using `revokeRole`, it is the admin role bearer
-     *   - if using `renounceRole`, it is the role bearer (i.e. `account`)
-     */
-    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
-
-    /**
-     * @dev Returns `true` if `account` has been granted `role`.
-     */
-    function hasRole(bytes32 role, address account) external view returns (bool);
-
-    /**
-     * @dev Returns the admin role that controls `role`. See {grantRole} and
-     * {revokeRole}.
-     *
-     * To change a role's admin, use {AccessControl-_setRoleAdmin}.
-     */
-    function getRoleAdmin(bytes32 role) external view returns (bytes32);
-
-    /**
-     * @dev Grants `role` to `account`.
-     *
-     * If `account` had not been already granted `role`, emits a {RoleGranted}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     */
-    function grantRole(bytes32 role, address account) external;
-
-    /**
-     * @dev Revokes `role` from `account`.
-     *
-     * If `account` had been granted `role`, emits a {RoleRevoked} event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     */
-    function revokeRole(bytes32 role, address account) external;
-
-    /**
-     * @dev Revokes `role` from the calling account.
-     *
-     * Roles are often managed via {grantRole} and {revokeRole}: this function's
-     * purpose is to provide a mechanism for accounts to lose their privileges
-     * if they are compromised (such as when a trusted device is misplaced).
-     *
-     * If the calling account had been granted `role`, emits a {RoleRevoked}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must be `account`.
-     */
-    function renounceRole(bytes32 role, address account) external;
-}
-
-
-
-
-/**
- * @dev String operations.
- */
-library Strings {
-    bytes16 private constant _HEX_SYMBOLS = "0123456789abcdef";
-
-    /**
-     * @dev Converts a `uint256` to its ASCII `string` decimal representation.
-     */
-    function toString(uint256 value) internal pure returns (string memory) {
-        // Inspired by OraclizeAPI's implementation - MIT licence
-        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
-
-        if (value == 0) {
-            return "0";
-        }
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-        return string(buffer);
-    }
-
-    /**
-     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation.
-     */
-    function toHexString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0x00";
-        }
-        uint256 temp = value;
-        uint256 length = 0;
-        while (temp != 0) {
-            length++;
-            temp >>= 8;
-        }
-        return toHexString(value, length);
-    }
-
-    /**
-     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
-     */
-    function toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
-        bytes memory buffer = new bytes(2 * length + 2);
-        buffer[0] = "0";
-        buffer[1] = "x";
-        for (uint256 i = 2 * length + 1; i > 1; --i) {
-            buffer[i] = _HEX_SYMBOLS[value & 0xf];
-            value >>= 4;
-        }
-        require(value == 0, "Strings: hex length insufficient");
-        return string(buffer);
-    }
-}
-
-
-
-
-
-/**
- * @dev Implementation of the {IERC165} interface.
- *
- * Contracts that want to implement ERC165 should inherit from this contract and override {supportsInterface} to check
- * for the additional interface id that will be supported. For example:
- *
- * ```solidity
- * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
- *     return interfaceId == type(MyInterface).interfaceId || super.supportsInterface(interfaceId);
- * }
- * ```
- *
- * Alternatively, {ERC165Storage} provides an easier to use but more expensive implementation.
- */
-abstract contract ERC165 is IERC165 {
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
-    }
-}
-
-
-
-
-
-
-
-
-/**
- * @dev Contract module that allows children to implement role-based access
- * control mechanisms. This is a lightweight version that doesn't allow enumerating role
- * members except through off-chain means by accessing the contract event logs. Some
- * applications may benefit from on-chain enumerability, for those cases see
- * {AccessControlEnumerable}.
- *
- * Roles are referred to by their `bytes32` identifier. These should be exposed
- * in the external API and be unique. The best way to achieve this is by
- * using `public constant` hash digests:
- *
- * ```
- * bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
- * ```
- *
- * Roles can be used to represent a set of permissions. To restrict access to a
- * function call, use {hasRole}:
- *
- * ```
- * function foo() public {
- *     require(hasRole(MY_ROLE, msg.sender));
- *     ...
- * }
- * ```
- *
- * Roles can be granted and revoked dynamically via the {grantRole} and
- * {revokeRole} functions. Each role has an associated admin role, and only
- * accounts that have a role's admin role can call {grantRole} and {revokeRole}.
- *
- * By default, the admin role for all roles is `DEFAULT_ADMIN_ROLE`, which means
- * that only accounts with this role will be able to grant or revoke other
- * roles. More complex role relationships can be created by using
- * {_setRoleAdmin}.
- *
- * WARNING: The `DEFAULT_ADMIN_ROLE` is also its own admin: it has permission to
- * grant and revoke this role. Extra precautions should be taken to secure
- * accounts that have been granted it.
- */
-abstract contract AccessControl is Context, IAccessControl, ERC165 {
-    struct RoleData {
-        mapping(address => bool) members;
-        bytes32 adminRole;
-    }
-
-    mapping(bytes32 => RoleData) private _roles;
-
-    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
-
-    /**
-     * @dev Modifier that checks that an account has a specific role. Reverts
-     * with a standardized message including the required role.
-     *
-     * The format of the revert reason is given by the following regular expression:
-     *
-     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
-     *
-     * _Available since v4.1._
-     */
-    modifier onlyRole(bytes32 role) {
-        _checkRole(role, _msgSender());
-        _;
-    }
-
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IAccessControl).interfaceId || super.supportsInterface(interfaceId);
-    }
-
-    /**
-     * @dev Returns `true` if `account` has been granted `role`.
-     */
-    function hasRole(bytes32 role, address account) public view override returns (bool) {
-        return _roles[role].members[account];
-    }
-
-    /**
-     * @dev Revert with a standard message if `account` is missing `role`.
-     *
-     * The format of the revert reason is given by the following regular expression:
-     *
-     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
-     */
-    function _checkRole(bytes32 role, address account) internal view {
-        if (!hasRole(role, account)) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "AccessControl: account ",
-                        Strings.toHexString(uint160(account), 20),
-                        " is missing role ",
-                        Strings.toHexString(uint256(role), 32)
-                    )
-                )
-            );
-        }
-    }
-
-    /**
-     * @dev Returns the admin role that controls `role`. See {grantRole} and
-     * {revokeRole}.
-     *
-     * To change a role's admin, use {_setRoleAdmin}.
-     */
-    function getRoleAdmin(bytes32 role) public view override returns (bytes32) {
-        return _roles[role].adminRole;
-    }
-
-    /**
-     * @dev Grants `role` to `account`.
-     *
-     * If `account` had not been already granted `role`, emits a {RoleGranted}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     */
-    function grantRole(bytes32 role, address account) public virtual override onlyRole(getRoleAdmin(role)) {
-        _grantRole(role, account);
-    }
-
-    /**
-     * @dev Revokes `role` from `account`.
-     *
-     * If `account` had been granted `role`, emits a {RoleRevoked} event.
-     *
-     * Requirements:
-     *
-     * - the caller must have ``role``'s admin role.
-     */
-    function revokeRole(bytes32 role, address account) public virtual override onlyRole(getRoleAdmin(role)) {
-        _revokeRole(role, account);
-    }
-
-    /**
-     * @dev Revokes `role` from the calling account.
-     *
-     * Roles are often managed via {grantRole} and {revokeRole}: this function's
-     * purpose is to provide a mechanism for accounts to lose their privileges
-     * if they are compromised (such as when a trusted device is misplaced).
-     *
-     * If the calling account had been granted `role`, emits a {RoleRevoked}
-     * event.
-     *
-     * Requirements:
-     *
-     * - the caller must be `account`.
-     */
-    function renounceRole(bytes32 role, address account) public virtual override {
-        require(account == _msgSender(), "AccessControl: can only renounce roles for self");
-
-        _revokeRole(role, account);
-    }
-
-    /**
-     * @dev Grants `role` to `account`.
-     *
-     * If `account` had not been already granted `role`, emits a {RoleGranted}
-     * event. Note that unlike {grantRole}, this function doesn't perform any
-     * checks on the calling account.
-     *
-     * [WARNING]
-     * ====
-     * This function should only be called from the constructor when setting
-     * up the initial roles for the system.
-     *
-     * Using this function in any other way is effectively circumventing the admin
-     * system imposed by {AccessControl}.
-     * ====
-     */
-    function _setupRole(bytes32 role, address account) internal virtual {
-        _grantRole(role, account);
-    }
-
-    /**
-     * @dev Sets `adminRole` as ``role``'s admin role.
-     *
-     * Emits a {RoleAdminChanged} event.
-     */
-    function _setRoleAdmin(bytes32 role, bytes32 adminRole) internal virtual {
-        bytes32 previousAdminRole = getRoleAdmin(role);
-        _roles[role].adminRole = adminRole;
-        emit RoleAdminChanged(role, previousAdminRole, adminRole);
-    }
-
-    function _grantRole(bytes32 role, address account) private {
-        if (!hasRole(role, account)) {
-            _roles[role].members[account] = true;
-            emit RoleGranted(role, account, _msgSender());
-        }
-    }
-
-    function _revokeRole(bytes32 role, address account) private {
-        if (hasRole(role, account)) {
-            _roles[role].members[account] = false;
-            emit RoleRevoked(role, account, _msgSender());
-        }
-    }
-}
-
-
-
-
-contract ArtOnlinePlatformStorage is AccessControl {
-  address internal _artOnline;
-  address internal _artOnlineExchange;
-
-  bytes32 public constant MINT_ROLE = keccak256("MINT_ROLE");
-  bytes32 public constant COMMUNITY_ROLE = keccak256("COMMUNITY_ROLE");
+contract ArtOnlinePlatformStorage {
 
   uint256 internal _blockTime = 60;
   string internal _uri;
@@ -1405,10 +1075,9 @@ contract ArtOnlinePlatformStorage is AccessControl {
 }
 
 
-
 
-contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pausable, ArtOnlinePlatformStorage  {
-  using Address for address;
+
+contract EIP712 {
   bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
   uint256 private immutable _CACHED_CHAIN_ID;
 
@@ -1416,33 +1085,11 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
   bytes32 private immutable _HASHED_VERSION;
   bytes32 private immutable _TYPE_HASH;
 
-  modifier isWhiteListed(address account) {
-    require(_blacklist[account] == 0, 'BLACKLISTED');
-    _;
-  }
-
-  modifier onlyExchange() {
-    require(_msgSender() == _artOnlineExchange, 'NO PERMISSION');
-    _;
-  }
-
-  modifier lock() {
-    require(unlocked == 1, 'LOCKED');
-    unlocked = 0;
-    _;
-    unlocked = 1;
-  }
-
-  constructor(string memory uri_, string memory name, string memory version) {
-    _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _setupRole(MINT_ROLE, _msgSender());
-    _setupRole(COMMUNITY_ROLE, _msgSender());
-    _uri = uri_;
-
+  constructor(string memory name, string memory version) {
     bytes32 hashedName = keccak256(bytes(name));
     bytes32 hashedVersion = keccak256(bytes(version));
     bytes32 typeHash = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+      'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
     );
     _HASHED_NAME = hashedName;
     _HASHED_VERSION = hashedVersion;
@@ -1466,40 +1113,269 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
   function _hashTypedDataV4(bytes32 structHash) internal view virtual returns (bytes32) {
     return ECDSA.toTypedDataHash(_domainSeparatorV4(), structHash);
   }
+}
 
-  function setArtOnline(address artonline_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
-    _artOnline = artonline_;
+
+
+
+
+interface IArtOnline {
+  function mint(address to, uint256 amount) external;
+  function burn(address from, uint256 amount) external;
+  function totalSupply() external view returns (uint256);
+
+  function balanceOf(address account) external view returns (uint256);
+
+  function transfer(address recipient, uint256 amount) external returns (bool);
+
+  function allowance(address owner, address spender) external view returns (uint256);
+
+  function approve(address spender, uint256 amount) external returns (bool);
+
+  function transferFrom(
+    address sender,
+    address recipient,
+    uint256 amount
+  ) external returns (bool);
+
+  event Transfer(address indexed from, address indexed to, uint256 value);
+
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+
+
+
+interface IArtOnlineBridger {
+  function setArtOnline(address _address) external;
+  function artOnline() external view returns (address);
+
+  function setArtOnlineExchange(address _address) external;
+  function artOnlineExchange() external view returns (address);
+
+  function setArtOnlinePlatform(address _address) external;
+  function artOnlinePlatform() external view returns (address);
+
+  function setArtOnlineBlacklist(address _address) external;
+  function artOnlineBlacklist() external view returns (address);
+
+  function setArtOnlineMining(address _address) external;
+  function artOnlineMining() external view returns (address);
+
+  function setArtOnlineBridge(address _address) external;
+  function artOnlineBridge() external view returns (address);
+
+  function setArtOnlineFactory(address _address) external;
+  function artOnlineFactory() external view returns (address);
+
+  function setArtOnlineStaking(address _address) external;
+  function artOnlineStaking() external view returns (address);
+
+  function setArtOnlineAccess(address _address) external;
+  function artOnlineAccess() external view returns (address);
+
+  function setArtOnlineExchangeFactory(address _address) external;
+  function artOnlineExchangeFactory() external view returns (address);
+}
+
+
+
+
+
+interface IArtOnlineMining {
+  function setTax(uint256 tax_) external;
+  function tax() external view returns (uint256);
+  function mining(uint256 id, uint256 tokenId) external view returns (uint256);
+  function getReward(address sender, uint256 id) external;
+  function stakeReward(address sender, uint256 id) external returns (bytes32 stakeId);
+  function getRewardBatch(address sender, uint256[] memory ids) external;
+  function stakeRewardBatch(address sender, uint256[] memory ids) external returns (bytes32[] memory stakeIds);
+  function activateGPU(address sender, uint256 id, uint256 tokenId) external;
+  function deactivateGPU(address sender, uint256 id, uint256 tokenId) external;
+  function activateGPUBatch(address sender, uint256[] memory ids, uint256[] memory amounts) external;
+  function deactivateGPUBatch(address sender, uint256[] memory ids, uint256[] memory amounts) external;
+  function activateItem(address sender, uint256 id, uint256 itemId, uint256 tokenId) external;
+  function deactivateItem(address sender, uint256 id, uint256 itemId, uint256 tokenId) external;
+}
+
+
+
+
+interface IArtOnlineAccess {
+  function isAdmin(address account) external returns (bool);
+  function isMinter(address account) external returns (bool);
+}
+
+
+
+
+interface IArtOnlineBlacklist {
+  function blacklist(address account, bool blacklist_) external;
+  function blacklisted(address account) external view returns (bool);
+}
+
+
+
+contract SetArtOnlinePlatform {
+
+  IArtOnline internal _artOnlineInterface;
+  IArtOnlineBridger internal _artOnlineBridgerInterface;
+  IArtOnlineMining internal _artOnlineMiningInterface;
+  IArtOnlineAccess internal _artOnlineAccessInterface;
+  IArtOnlineBlacklist internal _artOnlineBlacklistInterface;
+
+  modifier isWhiteListed(address account) {
+    require(_artOnlineBlacklistInterface.blacklisted(account) == false, 'BLACKLISTED');
+    _;
   }
 
-  function artOnline() external view virtual returns (address) {
-    return _artOnline;
+  modifier onlyAdmin() {
+    require(_artOnlineAccessInterface.isAdmin(msg.sender) == true, 'NO_PERMISSION');
+    _;
   }
 
-  function setArtOnlineExchange(address artOnlineExchange_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
-    _artOnlineExchange = artOnlineExchange_;
+  modifier onlyMinter() {
+    require(_artOnlineAccessInterface.isMinter(msg.sender) == true, 'NO_PERMISSION');
+    _;
   }
 
-  function artOnlineExchange() external view virtual returns (address) {
-    return _artOnlineExchange;
+  modifier onlyExchange() {
+    require(msg.sender == _artOnlineBridgerInterface.artOnlineExchange(), 'NO PERMISSION');
+    _;
+  }
+
+  constructor(address artOnlineBridger_, address artOnlineAccess_) {
+    _artOnlineBridgerInterface = IArtOnlineBridger(artOnlineBridger_);
+    _artOnlineAccessInterface = IArtOnlineAccess(artOnlineAccess_);
+  }
+
+  function artOnlineBridgerInterface() external view returns (address) {
+    return address(_artOnlineBridgerInterface);
+  }
+
+  function artOnlineInterface() external view  returns (address) {
+    return address(_artOnlineInterface);
+  }
+
+  function artOnlineMiningInterface() external view  returns (address) {
+    return address(_artOnlineMiningInterface);
+  }
+
+  function artOnlineAccessInterface() external view  returns (address) {
+    return address(_artOnlineAccessInterface);
+  }
+
+  function setArtOnlineBridgerInterface(address _artOnlineBridger) external onlyAdmin() {
+    _artOnlineBridgerInterface = IArtOnlineBridger(_artOnlineBridger);
+    address _artOnline = _artOnlineBridgerInterface.artOnline();
+    address _artOnlineMining = _artOnlineBridgerInterface.artOnlineMining();
+    address _artOnlineStaking = _artOnlineBridgerInterface.artOnlineStaking();
+    address _artOnlineAccess = _artOnlineBridgerInterface.artOnlineAccess();
+    address _artOnlineBlacklist = _artOnlineBridgerInterface.artOnlineBlacklist();
+
+    if (address(_artOnlineInterface) != _artOnline) {
+      _setArtOnlineInterface(_artOnline);
+    }
+    if (address(_artOnlineMiningInterface) != _artOnlineMining) {
+      _setArtOnlineMiningInterface(_artOnlineMining);
+    }
+    if (address(_artOnlineAccessInterface) != _artOnlineAccess) {
+      _setArtOnlineAccessInterface(_artOnlineAccess);
+    }
+
+    if (address(_artOnlineBlacklistInterface) != _artOnlineBlacklist) {
+      _setArtOnlineBlacklistInterface(_artOnlineBlacklist);
+    }
+  }
+
+  function _setArtOnlineInterface(address _artOnline) internal {
+    _artOnlineInterface = IArtOnline(_artOnline);
+  }
+
+  function _setArtOnlineMiningInterface(address _artOnlineMining) internal {
+    _artOnlineMiningInterface = IArtOnlineMining(_artOnlineMining);
+  }
+
+  function _setArtOnlineAccessInterface(address _artOnlineAccess) internal {
+    _artOnlineAccessInterface = IArtOnlineAccess(_artOnlineAccess);
+  }
+
+  function _setArtOnlineBlacklistInterface(address _artOnlineBlacklist) internal {
+    _artOnlineBlacklistInterface = IArtOnlineBlacklist(_artOnlineBlacklist);
+  }
+
+  function setArtOnlineInterface(address _address) external onlyAdmin() {
+    _setArtOnlineInterface(_address);
+  }
+
+  function setArtOnlineMiningInterface(address _address) external onlyAdmin() {
+    _setArtOnlineMiningInterface(_address);
+  }
+
+  function setArtOnlineAccessInterface(address _address) external onlyAdmin() {
+    _setArtOnlineAccessInterface(_address);
+  }
+
+  function setArtOnlineBlacklistInterface(address _address) external onlyAdmin() {
+    _setArtOnlineBlacklistInterface(_address);
+  }
+}
+
+
+
+
+contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pausable, EIP712, SetArtOnlinePlatform, ArtOnlinePlatformStorage {
+  using Address for address;
+
+  modifier lock() {
+    require(unlocked == 1, 'LOCKED');
+    unlocked = 0;
+    _;
+    unlocked = 1;
+  }
+
+  constructor(string memory uri_, string memory name, string memory version, address bridger, address access)
+    EIP712(name, version)
+    SetArtOnlinePlatform(bridger, access)
+  {
+    _uri = uri_;
+  }
+
+  function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+    if (_i == 0) {
+      return "0";
+    }
+    uint j = _i;
+    uint len;
+    while (j != 0) {
+      len++;
+      j /= 10;
+    }
+    bytes memory bstr = new bytes(len);
+    uint k = len;
+    while (_i != 0) {
+      k = k-1;
+      uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+      bytes1 b1 = bytes1(temp);
+      bstr[k] = b1;
+      _i /= 10;
+    }
+    return string(bstr);
   }
 
   function cap(uint256 id) external view virtual returns (uint256) {
     return _cap[id];
   }
 
-  function mining(uint256 id, uint256 tokenId) external view virtual returns (uint256) {
-    return _mining[id][tokenId];
-  }
-
-  function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC165, IERC165) returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165, IERC165) returns (bool) {
     return
       interfaceId == type(IERC1155).interfaceId ||
       interfaceId == type(IERC1155MetadataURI).interfaceId ||
       super.supportsInterface(interfaceId);
   }
 
-  function uri(uint256) public view virtual override returns (string memory) {
-    return _uri;
+  function uri(uint256 _tokenId) public view virtual override returns (string memory) {
+    return string(abi.encodePacked(_uri, uint2str(_tokenId), ".json"));
   }
 
   function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
@@ -1518,7 +1394,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     uint256[] memory batchBalances = new uint256[](accounts.length);
 
     for (uint256 i = 0; i < accounts.length; ++i) {
-        batchBalances[i] = balanceOf(accounts[i], ids[i]);
+      batchBalances[i] = balanceOf(accounts[i], ids[i]);
     }
 
     return batchBalances;
@@ -1611,7 +1487,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     return _totalSupply[id];
   }
 
-  function addToken(string memory name, uint256 cap_) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+  function addToken(string memory name, uint256 cap_) public virtual onlyAdmin() {
     uint256 id = _tokens.length;
     require(bytes(tokenNames[id]).length == 0, 'token exists');
     _tokens.push(name);
@@ -1620,39 +1496,19 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
     emit AddToken(name, id);
   }
 
-  function addItem(uint256 id, uint256 bonus, uint256 halving) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    _items.push(id);
-    _maxReward[id] = bonus; // percentage
-    _halvings[id] = halving;
-    unchecked {
-      _nextHalving[id] = block.number + halving;
-    }
-    emit AddItem(_tokens[id], id, bonus);
-  }
-
-  function addPool(uint256 id, uint256 maxReward, uint256 halving) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    _pools.push(id);
-    _maxReward[id] = maxReward;
-    _halvings[id] = halving;
-    unchecked {
-      _nextHalving[id] = block.number + halving;
-    }
-    emit AddPool(_tokens[id], id, maxReward);
-  }
-
-  function mint(address to, uint256 id, uint256 amount) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function mint(address to, uint256 id, uint256 amount) public whenNotPaused virtual onlyMinter() {
     _mint(to, id, amount, "");
   }
 
-  function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyMinter() {
     _mintBatch(to, ids, amounts, "");
   }
 
-  function burn(address from, uint256 id, uint256 amount) public virtual whenNotPaused onlyRole(MINT_ROLE) {
+  function burn(address from, uint256 id, uint256 amount) public virtual whenNotPaused onlyMinter() {
     _burn(from, id, amount, "");
   }
 
-  function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyRole(MINT_ROLE) {
+  function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public whenNotPaused virtual onlyMinter() {
     _burnBatch(from, ids, amounts, "");
   }
 
@@ -1698,7 +1554,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
   }
 
   function _removeBalance(address from, uint256 id, uint256 amount, uint256 burns) internal {
-    require(_owners[id][amount] == from, "not an owner");
+    require(_owners[id][amount] == from || isApprovedForAll(_owners[id][amount], _msgSender()), "not an owner or approved");
 
     if (burns == 1) {
       unchecked {
@@ -1723,8 +1579,8 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
         if (from != address(0)) {
           uint256 id = ids[i];
           uint256 amount = amounts[i];
-          require(_mining[id][amount] == 0, "DEACTIVATE_FIRST");
-          require(_owners[id][amount] == from, 'not an owner');
+          require(_artOnlineMiningInterface.mining(id, amount) == 0, "DEACTIVATE_FIRST");
+          require(_owners[id][amount] == from || isApprovedForAll(_owners[id][amount], _msgSender()), "not an owner or approved");
         }
       }
     }
@@ -1804,222 +1660,44 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return array;
     }
 
-    function _rewardPerGPU(uint256 id) internal view returns (uint256) {
-      if (_totalMiners[id] == 0) {
-        return 0;
-      }
-      return _maxReward[id] / _totalMiners[id];
+    function activateGPUBatch(uint256[] memory ids, uint256[] memory tokenIds) external {
+      _artOnlineMiningInterface.activateGPUBatch(msg.sender, ids, tokenIds);
     }
 
-    function setActivationPrice(uint256 id, uint256 price) external onlyRole(DEFAULT_ADMIN_ROLE) {
-      _activationPrice[id] = price;
+    function deactivateGPUBatch(uint256[] memory ids, uint256[] memory tokenIds) external {
+      _artOnlineMiningInterface.deactivateGPUBatch(msg.sender, ids, tokenIds);
     }
 
-    function activationPrice(uint256 id) public view returns (uint256) {
-      return _activationPrice[id];
+    function activateGPU(uint256 id, uint256 tokenId) public {
+      _artOnlineMiningInterface.activateGPU(msg.sender, id, tokenId);
     }
 
-    function getHalvings(uint256 id) public view returns (uint256) {
-      return _halvings[id];
+    function deactivateGPU(uint256 id, uint256 tokenId) public {
+      _artOnlineMiningInterface.deactivateGPU(msg.sender, id, tokenId);
     }
 
-    function getNextHalving(uint256 id) public view returns (uint256) {
-      return _nextHalving[id];
+    function activateItem(uint256 id, uint256 itemId, uint256 tokenId) public {
+      _artOnlineMiningInterface.activateItem(msg.sender, id, itemId, tokenId);
     }
 
-    function rewards(address account, uint256 id) public view returns (uint256) {
-      return _rewards[id][account];
+    function deactivateItem(uint256 id, uint256 itemId, uint256 tokenId) public {
+      _artOnlineMiningInterface.deactivateItem(msg.sender, id, itemId, tokenId);
     }
 
-    function rewardPerGPU(uint256 id) public view returns (uint256) {
-      return _rewardPerGPU(id);
+    function stakeReward(uint256 id) public {
+      _artOnlineMiningInterface.stakeReward(msg.sender, id);
     }
 
-    function getMaxReward(uint256 id) public view returns (uint256) {
-      return _maxReward[id];
+    function getReward(uint256 id) public {
+      _artOnlineMiningInterface.getReward(msg.sender, id);
     }
 
-    function earned(address account, uint256 id) public returns (uint256) {
-      return _calculateReward(account, id);
+    function stakeRewardBatch(uint256[] memory ids) public {
+      _artOnlineMiningInterface.getRewardBatch(msg.sender, ids);
     }
 
-    function miners(uint256 id) public view virtual returns (uint256) {
-      return _totalMiners[id];
-    }
-
-    function activateGPUBatch(uint256[] memory ids, uint256[] memory amounts) external {
-      for (uint256 i = 0; i < ids.length; i++) {
-        activateGPU(ids[i], amounts[i]);
-      }
-    }
-
-    function deactivateGPUBatch(uint256[] memory ids, uint256[] memory amounts) external {
-      for (uint256 i = 0; i < ids.length; i++) {
-        deactivateGPU(ids[i], amounts[i]);
-      }
-    }
-
-    function activateGPU(uint256 id, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, id, tokenId);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _activateGPU(account, id, tokenId);
-      emit Activate(account, id, tokenId);
-    }
-
-    function deactivateGPU(uint256 id, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, id, tokenId);
-      getReward(id);
-      _deactivateGPU(account, id, tokenId);
-      emit Deactivate(account, id, tokenId);
-    }
-
-    function activateItem(uint256 id, uint256 itemId, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, itemId, tokenId);
-      uint256 price = activationPrice(itemId);
-      IArtOnline(_artOnline).burn(account, price);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _activateItem(account, id, itemId, tokenId);
-      emit ActivateItem(account, id, itemId, tokenId);
-    }
-
-    function deactivateItem(uint256 id, uint256 itemId, uint256 tokenId) public whenNotPaused isWhiteListed(msg.sender) {
-      address account = msg.sender;
-      _beforeAction(account, itemId, tokenId);
-      if (_miners[id][account] > 0) {
-        getReward(id);
-      }
-      _deactivateItem(account, id, itemId, tokenId);
-      emit DeactivateItem(account, id, itemId, tokenId);
-    }
-
-    function getReward(uint256 id) public whenNotPaused isWhiteListed(msg.sender) {
-      address sender = msg.sender;
-      uint256 reward = _calculateReward(sender, id);
-      if (reward > 0) {
-        IArtOnline(_artOnline).mint(sender, reward);
-        _rewards[id][sender] = 0;
-        _startTime[id][sender] = block.timestamp;
-        emit Reward(sender, id, reward);
-      }
-    }
-
-    function getRewardBatch(uint256[] memory ids) public whenNotPaused isWhiteListed(msg.sender) {
-      address sender = msg.sender;
-      for (uint256 i = 0; i < ids.length; i++) {
-        uint256 id = ids[i];
-        uint256 reward = _calculateReward(sender, id);
-        if (reward > 0) {
-          IArtOnline(_artOnline).mint(sender, reward);
-          _rewards[id][sender] = 0;
-          _startTime[id][sender] = block.timestamp;
-          emit Reward(sender, id, reward);
-        }
-      }
-
-
-    }
-
-    function itemBonus(uint256 id) external view returns (uint256) {
-      return _maxReward[id];
-    }
-
-    function _itemBonuses(address sender, uint256 id) internal view returns (uint256) {
-      uint256 percentage;
-
-      for (uint256 i = 0; i < _items.length; i++) {
-        uint256 itemId = _items[i];
-        if (_bonuses[id][sender][itemId] > 0) {
-          percentage = percentage + (_maxReward[itemId] * _bonuses[id][sender][itemId]);
-        }
-
-      }
-      return percentage;
-    }
-
-    function _calculateReward(address sender, uint256 id) internal returns (uint256) {
-      uint256 startTime = _startTime[id][sender];
-      if (block.timestamp > startTime + _blockTime) {
-        unchecked {
-          uint256 remainder = block.timestamp - startTime;
-          uint256 reward = _rewardPerGPU(id) * _miners[id][sender];
-          reward = reward * remainder;
-          _rewards[id][sender] = _rewards[id][sender] + (reward + ((reward / 100) * _itemBonuses(sender, id)));
-        }
-        _startTime[id][sender] = block.timestamp;
-      }
-      return _rewards[id][sender];
-    }
-
-    function _beforeAction(address account, uint256 id, uint256 tokenId) internal view {
-      require(tokenId > 0, "NO_ZERO");
-      require(ownerOf(id, tokenId) == account, 'NOT_OWNER');
-    }
-
-    function _activateItem(address account, uint256 id, uint256 itemId, uint256 tokenId) internal {
-      require(_activated[itemId][tokenId] == 0, 'DEACTIVATE_FIRST');
-      unchecked {
-        _bonuses[id][account][itemId] += 1;
-        _activated[itemId][tokenId] = 1;
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _deactivateItem(address account, uint256 id, uint256 itemId, uint256 tokenId) internal {
-      require(_activated[itemId][tokenId] == 0, 'NOT_ACTIVATED');
-      unchecked {
-        _bonuses[id][account][itemId] -= 1;
-        _activated[itemId][tokenId] = 0;
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _activateGPU(address account, uint256 id, uint256 tokenId) internal {
-      unchecked {
-        _startTime[id][account] = block.timestamp;
-        _miners[id][account] += 1;
-      }
-      _mining[id][tokenId] = 1;
-      _totalMiners[id] += 1;
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _deactivateGPU(address account, uint256 id, uint256 tokenId) internal {
-      unchecked {
-        _miners[id][account] -= 1;
-        _totalMiners[id] -= 1;
-        _mining[id][tokenId] = 0;
-      }
-      if (_miners[id][account] == 0) {
-        delete _startTime[id][account];
-      } else {
-        _startTime[id][account] = block.timestamp;
-      }
-      for (uint256 i = 0; i < _items.length; i++) {
-        uint256 itemId = _items[i];
-        require(_bonuses[id][account][itemId] == 0, 'Deactivate upgrades first');
-      }
-      _checkHalving(id);
-      _rewardPerGPU(id);
-    }
-
-    function _checkHalving(uint256 id) internal {
-      uint256 blockHeight = block.number;
-      if (blockHeight > _nextHalving[id]) {
-        unchecked {
-          _nextHalving[id] += _halvings[id];
-          _maxReward[id] = _maxReward[id] / 2;
-        }
-      }
+    function getRewardBatch(uint256[] memory ids) public {
+      _artOnlineMiningInterface.getRewardBatch(msg.sender, ids);
     }
 
     function ownerOf(uint256 id, uint256 tokenId) public view virtual returns (address) {
@@ -2040,44 +1718,16 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return batchOwners;
     }
 
-    function poolsLength() external view returns (uint256) {
-      return _pools.length;
-    }
-
-    function itemsLength() external view returns (uint256) {
-      return _items.length;
-    }
-
-    function tokensLength() external view returns (uint256) {
+    function tokensLength() external view virtual returns (uint256) {
       return _tokens.length;
     }
 
-    function tokens() external view returns (string[] memory) {
+    function tokens() external view virtual returns (string[] memory) {
       return _tokens;
     }
 
-    function pools() external view returns (uint256[] memory) {
-      return _pools;
-    }
-
-    function items() external view returns (uint256[] memory) {
-      return _items;
-    }
-
-    function token(uint256 id) external view returns (string memory) {
+    function token(uint256 id) external view virtual returns (string memory) {
       return _tokens[id];
-    }
-
-    function pool(uint256 id) external view returns (uint256) {
-      return _pools[id];
-    }
-
-    function item(uint256 id) external view returns (uint256) {
-      return _items[id];
-    }
-
-    function activated(uint256 id, uint256 tokenId) external view returns (uint256) {
-      return _activated[id][tokenId];
     }
 
     function mintAsset(address to, uint256 id) external onlyExchange() returns (uint256) {
@@ -2090,7 +1740,7 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
       return __mintAssets(to, id, amount);
     }
 
-    function _mintAssets(address to, uint256 id, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256[] memory) {
+    function _mintAssets(address to, uint256 id, uint256 amount) external onlyAdmin() returns (uint256[] memory) {
       return __mintAssets(to, id, amount);
     }
 
@@ -2102,17 +1752,5 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
         tokenIds[i] = tokenId;
       }
       return tokenIds;
-    }
-
-    function pause() external virtual whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-      super._pause();
-    }
-
-    function unpause() external virtual whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-      super._unpause();
-    }
-
-    function blacklist(address account) external onlyRole(COMMUNITY_ROLE) isWhiteListed(account) {
-      _blacklist[account] = 1;
     }
 }

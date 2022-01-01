@@ -1,4 +1,5 @@
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/IERC20.sol)
 
 
 /**
@@ -80,6 +81,7 @@ interface IERC20 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/IERC20.sol)
 
 
 /**
@@ -161,6 +163,7 @@ interface IERC20 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
 
 
 
@@ -187,6 +190,7 @@ interface IERC20Metadata is IERC20 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -210,6 +214,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -233,6 +238,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
 
 
 
@@ -322,6 +328,7 @@ abstract contract Pausable is Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (access/IAccessControl.sol)
 
 
 /**
@@ -409,6 +416,7 @@ interface IAccessControl {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Strings.sol)
 
 
 /**
@@ -475,6 +483,7 @@ library Strings {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)
 
 
 /**
@@ -499,6 +508,7 @@ interface IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
 
@@ -526,6 +536,7 @@ abstract contract ERC165 is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (access/AccessControl.sol)
 
 
 
@@ -675,7 +686,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * purpose is to provide a mechanism for accounts to lose their privileges
      * if they are compromised (such as when a trusted device is misplaced).
      *
-     * If the calling account had been granted `role`, emits a {RoleRevoked}
+     * If the calling account had been revoked `role`, emits a {RoleRevoked}
      * event.
      *
      * Requirements:
@@ -703,6 +714,8 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * Using this function in any other way is effectively circumventing the admin
      * system imposed by {AccessControl}.
      * ====
+     *
+     * NOTE: This function is deprecated in favor of {_grantRole}.
      */
     function _setupRole(bytes32 role, address account) internal virtual {
         _grantRole(role, account);
@@ -719,14 +732,24 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
         emit RoleAdminChanged(role, previousAdminRole, adminRole);
     }
 
-    function _grantRole(bytes32 role, address account) private {
+    /**
+     * @dev Grants `role` to `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
             emit RoleGranted(role, account, _msgSender());
         }
     }
 
-    function _revokeRole(bytes32 role, address account) private {
+    /**
+     * @dev Revokes `role` from `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _revokeRole(bytes32 role, address account) internal virtual {
         if (hasRole(role, account)) {
             _roles[role].members[account] = false;
             emit RoleRevoked(role, account, _msgSender());
@@ -735,6 +758,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/draft-IERC20Permit.sol)
 
 
 /**
@@ -794,6 +818,8 @@ interface IERC20Permit {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
+
 
 
 /**
@@ -999,6 +1025,18 @@ library ECDSA {
     }
 
     /**
+     * @dev Returns an Ethereum Signed Message, created from `s`. This
+     * produces hash corresponding to the one signed with the
+     * https://eth.wiki/json-rpc/API#eth_sign[`eth_sign`]
+     * JSON-RPC method as part of EIP-191.
+     *
+     * See {recover}.
+     */
+    function toEthSignedMessageHash(bytes memory s) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", Strings.toString(s.length), s));
+    }
+
+    /**
      * @dev Returns an Ethereum Signed Typed Data, created from a
      * `domainSeparator` and a `structHash`. This produces hash corresponding
      * to the one signed with the
@@ -1013,6 +1051,7 @@ library ECDSA {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/cryptography/draft-EIP712.sol)
 
 
 
@@ -1041,6 +1080,7 @@ abstract contract EIP712 {
     // invalidate the cached domain separator if the chain id changes.
     bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
     uint256 private immutable _CACHED_CHAIN_ID;
+    address private immutable _CACHED_THIS;
 
     bytes32 private immutable _HASHED_NAME;
     bytes32 private immutable _HASHED_VERSION;
@@ -1070,6 +1110,7 @@ abstract contract EIP712 {
         _HASHED_VERSION = hashedVersion;
         _CACHED_CHAIN_ID = block.chainid;
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(typeHash, hashedName, hashedVersion);
+        _CACHED_THIS = address(this);
         _TYPE_HASH = typeHash;
     }
 
@@ -1077,7 +1118,7 @@ abstract contract EIP712 {
      * @dev Returns the domain separator for the current chain.
      */
     function _domainSeparatorV4() internal view returns (bytes32) {
-        if (block.chainid == _CACHED_CHAIN_ID) {
+        if (address(this) == _CACHED_THIS && block.chainid == _CACHED_CHAIN_ID) {
             return _CACHED_DOMAIN_SEPARATOR;
         } else {
             return _buildDomainSeparator(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION);
@@ -1113,6 +1154,8 @@ abstract contract EIP712 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
+
 
 
 /**
@@ -1318,6 +1361,18 @@ library ECDSA {
     }
 
     /**
+     * @dev Returns an Ethereum Signed Message, created from `s`. This
+     * produces hash corresponding to the one signed with the
+     * https://eth.wiki/json-rpc/API#eth_sign[`eth_sign`]
+     * JSON-RPC method as part of EIP-191.
+     *
+     * See {recover}.
+     */
+    function toEthSignedMessageHash(bytes memory s) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", Strings.toString(s.length), s));
+    }
+
+    /**
      * @dev Returns an Ethereum Signed Typed Data, created from a
      * `domainSeparator` and a `structHash`. This produces hash corresponding
      * to the one signed with the
@@ -1332,6 +1387,7 @@ library ECDSA {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Counters.sol)
 
 
 /**

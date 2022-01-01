@@ -1,4 +1,5 @@
 
+// OpenZeppelin Contracts v4.4.1 (access/IAccessControl.sol)
 
 
 /**
@@ -86,6 +87,7 @@ interface IAccessControl {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -109,6 +111,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Strings.sol)
 
 
 /**
@@ -175,6 +178,7 @@ library Strings {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)
 
 
 /**
@@ -199,6 +203,7 @@ interface IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
 
@@ -226,6 +231,7 @@ abstract contract ERC165 is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (access/AccessControl.sol)
 
 
 
@@ -375,7 +381,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * purpose is to provide a mechanism for accounts to lose their privileges
      * if they are compromised (such as when a trusted device is misplaced).
      *
-     * If the calling account had been granted `role`, emits a {RoleRevoked}
+     * If the calling account had been revoked `role`, emits a {RoleRevoked}
      * event.
      *
      * Requirements:
@@ -403,6 +409,8 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      * Using this function in any other way is effectively circumventing the admin
      * system imposed by {AccessControl}.
      * ====
+     *
+     * NOTE: This function is deprecated in favor of {_grantRole}.
      */
     function _setupRole(bytes32 role, address account) internal virtual {
         _grantRole(role, account);
@@ -419,14 +427,24 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
         emit RoleAdminChanged(role, previousAdminRole, adminRole);
     }
 
-    function _grantRole(bytes32 role, address account) private {
+    /**
+     * @dev Grants `role` to `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
             emit RoleGranted(role, account, _msgSender());
         }
     }
 
-    function _revokeRole(bytes32 role, address account) private {
+    /**
+     * @dev Revokes `role` from `account`.
+     *
+     * Internal function without access restriction.
+     */
+    function _revokeRole(bytes32 role, address account) internal virtual {
         if (hasRole(role, account)) {
             _roles[role].members[account] = false;
             emit RoleRevoked(role, account, _msgSender());
@@ -440,6 +458,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
 contract ArtOnlineExchangeStorage is AccessControl {
   address internal _artOnline;
   address internal _artOnlinePlatform;
+  address internal _artOnlineStaking;
 
   uint internal unlocked = 1;
 
@@ -463,6 +482,7 @@ contract ArtOnlineExchangeStorage is AccessControl {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
 
 
 /**
@@ -679,6 +699,7 @@ library Address {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 
 /**
@@ -702,6 +723,7 @@ abstract contract Context {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
 
@@ -729,6 +751,7 @@ abstract contract ERC165 is IERC165 {
 }
 
 
+// OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
 
 
 
@@ -815,83 +838,6 @@ abstract contract Pausable is Context {
         _paused = false;
         emit Unpaused(_msgSender());
     }
-}
-
-
-
-contract Initializable {
-  bool inited = false;
-
-  modifier initializer() {
-    require(!inited, "already inited");
-    _;
-    inited = true;
-  }
-}
-
-
-
-contract EIP712Base is Initializable {
-  struct EIP712Domain {
-      string name;
-      string version;
-      address verifyingContract;
-      bytes32 salt;
-  }
-
-  string constant public ERC712_VERSION = "1";
-
-  bytes32 internal constant EIP712_DOMAIN_TYPEHASH = keccak256(
-    bytes(
-      "EIP712Domain(string name,string version,address verifyingContract,bytes32 salt)"
-    )
-  );
-  bytes32 internal domainSeperator;
-
-  // supposed to be called once while initializing.
-  // one of the contractsa that inherits this contract follows proxy pattern
-  // so it is not possible to do this in a constructor
-  function _initializeEIP712(string memory name) internal initializer {
-    _setDomainSeperator(name);
-  }
-
-  function _setDomainSeperator(string memory name) internal {
-    domainSeperator = keccak256(
-      abi.encode(
-        EIP712_DOMAIN_TYPEHASH,
-        keccak256(bytes(name)),
-        keccak256(bytes(ERC712_VERSION)),
-        address(this),
-        bytes32(getChainId())
-      )
-    );
-  }
-
-  function getDomainSeperator() public view returns (bytes32) {
-      return domainSeperator;
-  }
-
-  function getChainId() public view returns (uint256) {
-    uint256 id;
-    assembly {
-      id := chainid()
-    }
-    return id;
-  }
-
-  /**
-   * Accept message hash and returns hash message in EIP712 compatible form
-   * So that it can be used to recover signer from signature signed using EIP712 formatted data
-   * https://eips.ethereum.org/EIPS/eip-712
-   * "\\x19" makes the encoding deterministic
-   * "\\x01" is the version byte to make it compatible to EIP-191
-   */
-  function toTypedMessageHash(bytes32 messageHash) internal view returns (bytes32) {
-  return
-    keccak256(
-      abi.encodePacked("\x19\x01", getDomainSeperator(), messageHash)
-    );
-  }
 }
 
 
@@ -991,6 +937,25 @@ library SafeArtOnline {
 
 
 
+interface IArtOnlineStaking {
+  function totalSupply(address currency_) external view returns (uint256);
+  function balanceOf(address currency_, address account) external view returns (uint256);
+  function setReleaseTime(uint256 releaseTime_) external;
+  function releaseTime() external view returns (uint256);
+  function stake(address account, uint256 amount, address) external returns (bytes32);
+  function withdraw(address account, bytes32 id) external;
+  function holders(address) external returns (address[] memory);
+  function readyToRelease(address account, bytes32 id) external view returns (bool);
+  function claimed(address account, bytes32 id) external returns (bool);
+  function stakeAmount(address account, bytes32 id) external returns (uint256);
+  function currency(address account, bytes32 id) external returns (address);
+  function stakeIds(address account) external returns (bytes32[] memory);
+  function stakeReleaseTime(address account, bytes32 id) external returns (uint256);
+}
+
+
+
+
 
 interface IArtOnlinePlatform {
   function mintAsset(address to, uint256 id) external returns (uint256);
@@ -1012,9 +977,283 @@ interface IArtOnlinePlatform {
 }
 
 
-
+// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
 
-contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineExchangeStorage {
+
+
+/**
+ * @dev Elliptic Curve Digital Signature Algorithm (ECDSA) operations.
+ *
+ * These functions can be used to verify that a message was signed by the holder
+ * of the private keys of a given address.
+ */
+library ECDSA {
+    enum RecoverError {
+        NoError,
+        InvalidSignature,
+        InvalidSignatureLength,
+        InvalidSignatureS,
+        InvalidSignatureV
+    }
+
+    function _throwError(RecoverError error) private pure {
+        if (error == RecoverError.NoError) {
+            return; // no error: do nothing
+        } else if (error == RecoverError.InvalidSignature) {
+            revert("ECDSA: invalid signature");
+        } else if (error == RecoverError.InvalidSignatureLength) {
+            revert("ECDSA: invalid signature length");
+        } else if (error == RecoverError.InvalidSignatureS) {
+            revert("ECDSA: invalid signature 's' value");
+        } else if (error == RecoverError.InvalidSignatureV) {
+            revert("ECDSA: invalid signature 'v' value");
+        }
+    }
+
+    /**
+     * @dev Returns the address that signed a hashed message (`hash`) with
+     * `signature` or error string. This address can then be used for verification purposes.
+     *
+     * The `ecrecover` EVM opcode allows for malleable (non-unique) signatures:
+     * this function rejects them by requiring the `s` value to be in the lower
+     * half order, and the `v` value to be either 27 or 28.
+     *
+     * IMPORTANT: `hash` _must_ be the result of a hash operation for the
+     * verification to be secure: it is possible to craft signatures that
+     * recover to arbitrary addresses for non-hashed data. A safe way to ensure
+     * this is by receiving a hash of the original message (which may otherwise
+     * be too long), and then calling {toEthSignedMessageHash} on it.
+     *
+     * Documentation for signature generation:
+     * - with https://web3js.readthedocs.io/en/v1.3.4/web3-eth-accounts.html#sign[Web3.js]
+     * - with https://docs.ethers.io/v5/api/signer/#Signer-signMessage[ethers]
+     *
+     * _Available since v4.3._
+     */
+    function tryRecover(bytes32 hash, bytes memory signature) internal pure returns (address, RecoverError) {
+        // Check the signature length
+        // - case 65: r,s,v signature (standard)
+        // - case 64: r,vs signature (cf https://eips.ethereum.org/EIPS/eip-2098) _Available since v4.1._
+        if (signature.length == 65) {
+            bytes32 r;
+            bytes32 s;
+            uint8 v;
+            // ecrecover takes the signature parameters, and the only way to get them
+            // currently is to use assembly.
+            assembly {
+                r := mload(add(signature, 0x20))
+                s := mload(add(signature, 0x40))
+                v := byte(0, mload(add(signature, 0x60)))
+            }
+            return tryRecover(hash, v, r, s);
+        } else if (signature.length == 64) {
+            bytes32 r;
+            bytes32 vs;
+            // ecrecover takes the signature parameters, and the only way to get them
+            // currently is to use assembly.
+            assembly {
+                r := mload(add(signature, 0x20))
+                vs := mload(add(signature, 0x40))
+            }
+            return tryRecover(hash, r, vs);
+        } else {
+            return (address(0), RecoverError.InvalidSignatureLength);
+        }
+    }
+
+    /**
+     * @dev Returns the address that signed a hashed message (`hash`) with
+     * `signature`. This address can then be used for verification purposes.
+     *
+     * The `ecrecover` EVM opcode allows for malleable (non-unique) signatures:
+     * this function rejects them by requiring the `s` value to be in the lower
+     * half order, and the `v` value to be either 27 or 28.
+     *
+     * IMPORTANT: `hash` _must_ be the result of a hash operation for the
+     * verification to be secure: it is possible to craft signatures that
+     * recover to arbitrary addresses for non-hashed data. A safe way to ensure
+     * this is by receiving a hash of the original message (which may otherwise
+     * be too long), and then calling {toEthSignedMessageHash} on it.
+     */
+    function recover(bytes32 hash, bytes memory signature) internal pure returns (address) {
+        (address recovered, RecoverError error) = tryRecover(hash, signature);
+        _throwError(error);
+        return recovered;
+    }
+
+    /**
+     * @dev Overload of {ECDSA-tryRecover} that receives the `r` and `vs` short-signature fields separately.
+     *
+     * See https://eips.ethereum.org/EIPS/eip-2098[EIP-2098 short signatures]
+     *
+     * _Available since v4.3._
+     */
+    function tryRecover(
+        bytes32 hash,
+        bytes32 r,
+        bytes32 vs
+    ) internal pure returns (address, RecoverError) {
+        bytes32 s;
+        uint8 v;
+        assembly {
+            s := and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            v := add(shr(255, vs), 27)
+        }
+        return tryRecover(hash, v, r, s);
+    }
+
+    /**
+     * @dev Overload of {ECDSA-recover} that receives the `r and `vs` short-signature fields separately.
+     *
+     * _Available since v4.2._
+     */
+    function recover(
+        bytes32 hash,
+        bytes32 r,
+        bytes32 vs
+    ) internal pure returns (address) {
+        (address recovered, RecoverError error) = tryRecover(hash, r, vs);
+        _throwError(error);
+        return recovered;
+    }
+
+    /**
+     * @dev Overload of {ECDSA-tryRecover} that receives the `v`,
+     * `r` and `s` signature fields separately.
+     *
+     * _Available since v4.3._
+     */
+    function tryRecover(
+        bytes32 hash,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal pure returns (address, RecoverError) {
+        // EIP-2 still allows signature malleability for ecrecover(). Remove this possibility and make the signature
+        // unique. Appendix F in the Ethereum Yellow paper (https://ethereum.github.io/yellowpaper/paper.pdf), defines
+        // the valid range for s in (301): 0 < s < secp256k1n ÷ 2 + 1, and for v in (302): v ∈ {27, 28}. Most
+        // signatures from current libraries generate a unique signature with an s-value in the lower half order.
+        //
+        // If your library generates malleable signatures, such as s-values in the upper range, calculate a new s-value
+        // with 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141 - s1 and flip v from 27 to 28 or
+        // vice versa. If your library also generates signatures with 0/1 for v instead 27/28, add 27 to v to accept
+        // these malleable signatures as well.
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+            return (address(0), RecoverError.InvalidSignatureS);
+        }
+        if (v != 27 && v != 28) {
+            return (address(0), RecoverError.InvalidSignatureV);
+        }
+
+        // If the signature is valid (and not malleable), return the signer address
+        address signer = ecrecover(hash, v, r, s);
+        if (signer == address(0)) {
+            return (address(0), RecoverError.InvalidSignature);
+        }
+
+        return (signer, RecoverError.NoError);
+    }
+
+    /**
+     * @dev Overload of {ECDSA-recover} that receives the `v`,
+     * `r` and `s` signature fields separately.
+     */
+    function recover(
+        bytes32 hash,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal pure returns (address) {
+        (address recovered, RecoverError error) = tryRecover(hash, v, r, s);
+        _throwError(error);
+        return recovered;
+    }
+
+    /**
+     * @dev Returns an Ethereum Signed Message, created from a `hash`. This
+     * produces hash corresponding to the one signed with the
+     * https://eth.wiki/json-rpc/API#eth_sign[`eth_sign`]
+     * JSON-RPC method as part of EIP-191.
+     *
+     * See {recover}.
+     */
+    function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32) {
+        // 32 is the length in bytes of hash,
+        // enforced by the type signature above
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+    }
+
+    /**
+     * @dev Returns an Ethereum Signed Message, created from `s`. This
+     * produces hash corresponding to the one signed with the
+     * https://eth.wiki/json-rpc/API#eth_sign[`eth_sign`]
+     * JSON-RPC method as part of EIP-191.
+     *
+     * See {recover}.
+     */
+    function toEthSignedMessageHash(bytes memory s) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", Strings.toString(s.length), s));
+    }
+
+    /**
+     * @dev Returns an Ethereum Signed Typed Data, created from a
+     * `domainSeparator` and a `structHash`. This produces hash corresponding
+     * to the one signed with the
+     * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`]
+     * JSON-RPC method as part of EIP-712.
+     *
+     * See {recover}.
+     */
+    function toTypedDataHash(bytes32 domainSeparator, bytes32 structHash) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+}
+
+
+
+
+contract EIP712 {
+  bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
+  uint256 private immutable _CACHED_CHAIN_ID;
+
+  bytes32 private immutable _HASHED_NAME;
+  bytes32 private immutable _HASHED_VERSION;
+  bytes32 private immutable _TYPE_HASH;
+
+  constructor(string memory name, string memory version) {
+    bytes32 hashedName = keccak256(bytes(name));
+    bytes32 hashedVersion = keccak256(bytes(version));
+    bytes32 typeHash = keccak256(
+      'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
+    );
+    _HASHED_NAME = hashedName;
+    _HASHED_VERSION = hashedVersion;
+    _CACHED_CHAIN_ID = block.chainid;
+    _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(typeHash, hashedName, hashedVersion);
+    _TYPE_HASH = typeHash;
+  }
+
+  function _domainSeparatorV4() internal view returns (bytes32) {
+    if (block.chainid == _CACHED_CHAIN_ID) {
+      return _CACHED_DOMAIN_SEPARATOR;
+    } else {
+      return _buildDomainSeparator(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION);
+    }
+  }
+
+  function _buildDomainSeparator(bytes32 typeHash, bytes32 nameHash, bytes32 versionHash) private view returns (bytes32) {
+    return keccak256(abi.encode(typeHash, nameHash, versionHash, block.chainid, address(this)));
+  }
+
+  function _hashTypedDataV4(bytes32 structHash) internal view virtual returns (bytes32) {
+    return ECDSA.toTypedDataHash(_domainSeparatorV4(), structHash);
+  }
+}
+
+
+
+
+contract ArtOnlineExchange is Context, ERC165, EIP712, Pausable, ArtOnlineExchangeStorage {
   using Address for address;
 
   modifier isListed(uint256 id, uint256 tokenId) {
@@ -1033,13 +1272,16 @@ contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineEx
     unlocked = 1;
   }
 
-  constructor() {
+  constructor() EIP712('ArtOnline Exchange', 'V2') {
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _initializeEIP712('ArtOnline Exchange');
   }
 
   function setArtOnline(address artonline_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
     _artOnline = artonline_;
+  }
+
+  function setArtOnlineStaking(address artOnlineStaking_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
+    _artOnlineStaking = artOnlineStaking_;
   }
 
   function setArtOnlinePlatform(address artOnlinePlatform_) external onlyRole(DEFAULT_ADMIN_ROLE) lock {
@@ -1125,8 +1367,21 @@ contract ArtOnlineExchange is Context, ERC165, EIP712Base, Pausable, ArtOnlineEx
     require(IArtOnline(_artOnline).balanceOf(account) >= price, 'NOT_ENOUGH_TOKENS');
 
     if (owner == _artOnlinePlatform) {
-      IArtOnline(_artOnline).burn(account, price);
+      address[] memory holders_ = IArtOnlineStaking(_artOnlineStaking).holders(_artOnline);
+      if (holders_.length > 0) {
+        uint256 dividends = (price / 100) * 5;
+        IArtOnline(_artOnline).burn(account, price - dividends);
+
+        uint256 dividend = dividends / holders_.length;
+        for (uint256 i = 0; i < holders_.length; i++) {
+          SafeArtOnline.safeTransferFrom(IArtOnline(_artOnline), account, holders_[i], dividend);
+        }
+      } else {
+        IArtOnline(_artOnline).burn(account, price);
+      }
+
       tokenId = IArtOnlinePlatform(_artOnlinePlatform).mintAsset(account, id);
+
     } else {
       SafeArtOnline.safeTransferFrom(IArtOnline(_artOnline), account, auctions[id][tokenId].seller, price);
       IArtOnlinePlatform(_artOnlinePlatform).safeTransferFrom(address(this), account, id, tokenId, '');
