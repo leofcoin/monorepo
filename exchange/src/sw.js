@@ -11,7 +11,6 @@ const staticContent = [
 ];
 
 const compareVersion = async activeVersion => {
-  console.log('activeVersion:', activeVersion, 'new version:', version);
   const parsedVersion = version.split('.')
   const parsedActiveVersion = activeVersion.split('.')
   return parsedVersion[0] === parsedActiveVersion[0] &&

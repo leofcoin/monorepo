@@ -5,7 +5,7 @@ import addresses from './../../../addresses/addresses'
 import EXCHANGE_FACTORY_ABI from './../../../abis/exchangeFactory'
 import ERC20_ABI from './../../../build/contracts/IERC20.json'
 
-const NETWORK_NAME = 'binance-smartchain-testnet'
+const NETWORK_NAME = 'binance-smartchain'
 const NETWORK_ID = networksByName[NETWORK_NAME]
 
 globalThis.ethers = _ethers

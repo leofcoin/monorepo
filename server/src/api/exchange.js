@@ -1,4 +1,4 @@
-import addresses from './../../../addresses/addresses/binance-smartchain-testnet'
+import addresses from './../../../addresses/addresses/binance-smartchain'
 import { abi as ERC1155_ABI } from './../../../build/contracts/ArtOnlineListingERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ArtOnlineListing.json'
 import { abi as ABI } from './../../../build/contracts/ArtOnlineExchangeFactory.json'

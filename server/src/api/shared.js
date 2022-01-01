@@ -8,8 +8,8 @@ import { CID } from 'multiformats/cid'
 
 import mime from 'mime-types'
 
-const provider = new ethers.providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
-  chainId: 97
+const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+  chainId: 56
 })
 
 export const sendJSON = (ctx, value) => {

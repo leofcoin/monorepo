@@ -11,8 +11,7 @@ import './../token/utils/SafeArtOnline.sol';
 contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineStaking  {
   using Address for address;
   using SafeArtOnline for IArtOnline;
-  uint256 internal _releaseTime = 200;
-  // uint256 internal _releaseTime = 15770000;
+  uint256 internal _releaseTime = 15770000;
   mapping (address => uint256) internal _totalSupply;
   mapping (address => bytes32[]) internal _stakeIds;
   mapping (address => address[]) internal _holders;

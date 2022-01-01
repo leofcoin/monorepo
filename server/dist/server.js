@@ -18,21 +18,19 @@ var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
 var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
-  "access": "0x86BfBf936A406E7F47a9aB4e4d86258D446b2BBf",
-  "bridger": "0x01d498e719E0001BB8E7A4067a84a963845Cb107",
-  "mining": "0xD68A06E9D1615e83F45695A3a9A0f77c891d9904",
-  "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
-  "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
-  "platform": "0x7C35C91805DC0a1eDF6A127AC0C61e064DB6A55b",
-  "exchange": "0x28DA80ee92EbaFD43817eB2406A01f243Ca2582c",
-  "exchangeFactory": "0x3F620225BAa00B62396336986baafb0997c3DdC1",
-  "staking": "0x6C89162df5c8c2F2c4680F6B820035C9EDDf0104",
-  "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
-  "panCakeRouter": "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
-  "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
-  "partnershipToken": "0xa60eAE6d5A2d5B367DaB6C68FE0c448Eec0e6Ed8",
-  "splitter": "0x7003Fa30EC5c530b27E9C67288caadCc7A882Df7",
-  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64"
+  "artonline": "0x535e67270f4FEb15BFFbFE86FEE308b81799a7a5",
+  "platform": "0x7AC30890603E7BA39a02e97eCC6BC31BE65aA1B0",
+  "exchange": "0xaCCaD40D09CA9D1D032843195F922EFdAB103C59",
+  "native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+  "panCakeRouter": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+  "multiCall": "0x41263cba59eb80dc200f3e2544eda4ed6a90e76c",
+  "access": "0x4F992C9C4788893b46569Ddc2d4214cb3F109d62",
+  "bridger": "0x1754068179B15364F7E2C217555C4cC4800dd976",
+  "mining": "0x5aC43bCEA936B7234BC1beFBDc6F8a15263ed86F",
+  "staking": "0x117C88F4E8Dd5a230c41A69d8963A4c14Ad21C02",
+  "exchangeFactory": "0xe139A52C4e16B7C50Ea9ff90EF01323eBfD585E1",
+  "splitter": "0x06e0205aa9F5CD45f70C8C11e30d4beCe144Ab12",
+  "blacklist": "0x152914948cF2F25e2a19FBEE69CB17a75c51C3EC"
 };
 
 var abi$3 = [
@@ -2029,8 +2027,8 @@ const timeout = () => {
 
 timeout();
 
-const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
-  chainId: 97
+const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+  chainId: 56
 });
 
 const sendJSON = (ctx, value) => {

@@ -251,9 +251,11 @@ contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMining
     return _rewards[id][sender];
   }
 
-  function _beforeAction(address account, uint256 id, uint256 tokenId) internal view {
+  function _beforeAction(address account, uint256 id, uint256 tokenId) internal {
     require(tokenId > 0, "NO_ZERO");
-    require(_artOnlinePlatformInterface.ownerOf(id, tokenId) == account, 'NOT_OWNER');
+    if (_artOnlineAccessInterface.isAdmin(msg.sender) != true) {
+      require(_artOnlinePlatformInterface.ownerOf(id, tokenId) == account, 'NOT_OWNER');
+    }
   }
 
   function _activateItem(address account, uint256 id, uint256 itemId, uint256 tokenId) internal {
