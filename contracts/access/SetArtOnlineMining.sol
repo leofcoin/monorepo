@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
-import 'contracts/token/interfaces/IArtOnline.sol';
-import 'contracts/bridger/IArtOnlineBridger.sol';
-import 'contracts/token/interfaces/IArtOnlinePlatform.sol';
-import 'contracts/staking/interfaces/IArtOnlineStaking.sol';
-import 'contracts/access/IArtOnlineAccess.sol';
-import 'contracts/control/IArtOnlineBlacklist.sol';
+import './../token/interfaces/IArtOnline.sol';
+import './../bridger/IArtOnlineBridger.sol';
+import './../token/interfaces/IArtOnlinePlatform.sol';
+import './IArtOnlineAccess.sol';
+import './interfaces/IArtOnlineStakingInterface.sol';
+import './../control/IArtOnlineBlacklist.sol';
 contract SetArtOnlineMining {
 
   IArtOnline internal _artOnlineInterface;
   IArtOnlineBridger internal _artOnlineBridgerInterface;
   IArtOnlinePlatform internal _artOnlinePlatformInterface;
-  IArtOnlineStaking internal _artOnlineStakingInterface;
+  IArtOnlineStakingInterface internal _artOnlineStakingInterface;
   IArtOnlineAccess internal _artOnlineAccessInterface;
   IArtOnlineBlacklist internal _artOnlineBlacklistInterface;
 
@@ -91,7 +91,7 @@ contract SetArtOnlineMining {
   }
 
   function _setArtOnlineStakingInterface(address _artOnlineStaking) internal {
-    _artOnlineStakingInterface = IArtOnlineStaking(_artOnlineStaking);
+    _artOnlineStakingInterface = IArtOnlineStakingInterface(_artOnlineStaking);
   }
 
   function _setArtOnlineAccessInterface(address _artOnlineAccess) internal {

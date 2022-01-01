@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 
 // Create2 adds common methods for minimal proxy with create2

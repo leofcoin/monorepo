@@ -1,35 +1,35 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
+
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "contracts/staking/interfaces/IArtOnlineStaking.sol";
-import 'contracts/access/SetArtOnlineStaking.sol';
-import 'contracts/token/utils/SafeArtOnline.sol';
+import "./interfaces/IArtOnlineStaking.sol";
+import './../access/SetArtOnlineStaking.sol';
+import './../token/utils/SafeArtOnline.sol';
 
 contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineStaking  {
   using Address for address;
   using SafeArtOnline for IArtOnline;
-  uint256 internal _totalSupply;
-  uint256 internal _releaseTime = 15770000;
-  address internal _address;
-  mapping (address => mapping(address => uint256)) internal _balances;
+  uint256 internal _releaseTime = 200;
+  // uint256 internal _releaseTime = 15770000;
+  mapping (address => uint256) internal _totalSupply;
   mapping (address => bytes32[]) internal _stakeIds;
+  mapping (address => address[]) internal _holders;
+  mapping (address => mapping(address => uint256)) internal _balances;
   mapping (address => mapping(bytes32 => uint256)) internal _stakes;
   mapping (address => mapping(bytes32 => uint256)) internal _times;
   mapping (address => mapping(bytes32 => uint256)) internal _claimed;
   mapping (address => mapping(address => uint256)) internal _stakers;
-  mapping (address => address[]) internal _holders;
   mapping (address => mapping(bytes32 => address)) internal _currency;
-
 
   constructor(address bridger, address access)  SetArtOnlineStaking(bridger, access) {}
 
-  function totalSupply() public view override(IArtOnlineStaking) returns (uint256) {
-    return _totalSupply;
+  function totalSupply(address currency_) external view override returns (uint256) {
+    return _totalSupply[currency_];
   }
 
-  function balanceOf(address currency_, address sender) public view virtual override(IArtOnlineStaking) returns (uint256) {
+  function balanceOf(address currency_, address sender) external view virtual override returns (uint256) {
     return _balances[currency_][sender];
   }
 
@@ -49,16 +49,28 @@ contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineS
     return _holders[currency_];
   }
 
-  function stakeIds(address sender) external view returns (bytes32[] memory) {
+  function stakeIds(address sender) external view virtual override returns (bytes32[] memory) {
     return _stakeIds[sender];
   }
 
-  function readyToRelease(address sender, bytes32 id) external view override returns (bool) {
-    return _times[sender][id] >= block.timestamp ? true : false;
+  function readyToRelease(address sender, bytes32 id) external view virtual override returns (bool) {
+    return _times[sender][id] < block.timestamp ? true : false;
   }
 
-  function currency(address sender, bytes32 id) external view returns (address) {
+  function stakeReleaseTime(address sender, bytes32 id) external view virtual override returns (uint256) {
+    return _times[sender][id];
+  }
+
+  function currency(address sender, bytes32 id) external view virtual override returns (address) {
     return _currency[sender][id];
+  }
+
+  function claimed(address sender, bytes32 id) external view virtual override returns (bool) {
+    return _claimed[sender][id] == 1 ? true : false;
+  }
+
+  function stakeAmount(address sender, bytes32 id) external view virtual override returns (uint256) {
+    return _stakes[sender][id];
   }
 
   function stake(address sender, uint256 amount, address currency_) external override onlyMinter() returns (bytes32) {
@@ -82,12 +94,11 @@ contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineS
 
   function withdraw(address sender, bytes32 id) external override {
     require(_claimed[sender][id] == 0, "already withdrawn");
-    require(_times[sender][id] > block.timestamp, "release time is before current time");
+    require(_times[sender][id] < block.timestamp, "release time is before current time");
     uint256 amount = _stakes[sender][id];
     address currency_ = _currency[sender][id];
 
     _beforeWithdraw(currency_, sender, amount);
-
     IArtOnline(currency_).mint(sender, amount);
 
     _balances[currency_][sender] -= amount;

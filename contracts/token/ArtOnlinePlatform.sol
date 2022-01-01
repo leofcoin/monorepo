@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "contracts/storage/ArtOnlinePlatformStorage.sol";
-import 'contracts/token/utils/EIP712.sol';
-import 'contracts/access/SetArtOnlinePlatform.sol';
+import "./../storage/ArtOnlinePlatformStorage.sol";
+import './utils/EIP712.sol';
+import './../access/SetArtOnlinePlatform.sol';
 
 contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pausable, EIP712, SetArtOnlinePlatform, ArtOnlinePlatformStorage {
   using Address for address;
@@ -32,22 +32,22 @@ contract ArtOnlinePlatform is Context, ERC165, IERC1155, IERC1155MetadataURI, Pa
 
   function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
     if (_i == 0) {
-        return "0";
+      return "0";
     }
     uint j = _i;
     uint len;
     while (j != 0) {
-        len++;
-        j /= 10;
+      len++;
+      j /= 10;
     }
     bytes memory bstr = new bytes(len);
     uint k = len;
     while (_i != 0) {
-        k = k-1;
-        uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-        bytes1 b1 = bytes1(temp);
-        bstr[k] = b1;
-        _i /= 10;
+      k = k-1;
+      uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+      bytes1 b1 = bytes1(temp);
+      bstr[k] = b1;
+      _i /= 10;
     }
     return string(bstr);
   }

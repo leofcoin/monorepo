@@ -1,6 +1,6 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
-import "contracts/token/interfaces/IArtOnline.sol";
+import "./../token/interfaces/IArtOnline.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 

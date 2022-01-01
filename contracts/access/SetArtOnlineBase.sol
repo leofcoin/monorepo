@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
-import 'contracts/token/interfaces/IArtOnline.sol';
-import 'contracts/bridger/IArtOnlineBridger.sol';
-import 'contracts/access/IArtOnlineAccess.sol';
+import './../token/interfaces/IArtOnline.sol';
+import './../bridger/IArtOnlineBridger.sol';
+import './IArtOnlineAccess.sol';
 
 contract SetArtOnlineBase {
   IArtOnline internal _artOnlineInterface;

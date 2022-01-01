@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "contracts/storage/ArtOnlineMiningStorage.sol";
-import 'contracts/token/utils/EIP712.sol';
-import 'contracts/access/SetArtOnlineMining.sol';
+import "./../storage/ArtOnlineMiningStorage.sol";
+import './utils/EIP712.sol';
+import './../access/SetArtOnlineMining.sol';
 
 contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMiningStorage  {
   using Address for address;

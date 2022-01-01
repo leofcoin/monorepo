@@ -1,4 +1,4 @@
-pragma solidity 0.8.7;
+pragma solidity 0.8.11;
 
 contract Initializable {
   bool inited = false;

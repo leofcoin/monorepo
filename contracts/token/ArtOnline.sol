@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import "contracts/storage/ArtOnlineStorage.sol";
+import "./../storage/ArtOnlineStorage.sol";
 
 contract ArtOnline is Context, IERC20, IERC20Metadata, Pausable, IERC20Permit, EIP712, ArtOnlineStorage {
   using Counters for Counters.Counter;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
-import "contracts/token/interfaces/IArtOnline.sol";
+import "../interfaces/IArtOnline.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 library SafeArtOnline {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.7;
+pragma solidity 0.8.11;
 
 interface IArtOnlineListing {
   function tokenId() external returns (uint256);

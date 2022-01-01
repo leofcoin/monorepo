@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
-import 'contracts/token/interfaces/IArtOnline.sol';
-import 'contracts/bridger/IArtOnlineBridger.sol';
-import 'contracts/token/interfaces/IArtOnlineMining.sol';
-import 'contracts/staking/interfaces/IArtOnlineStaking.sol';
-import 'contracts/access/IArtOnlineAccess.sol';
-import 'contracts/control/IArtOnlineBlacklist.sol';
+import './../token/interfaces/IArtOnline.sol';
+import './../bridger/IArtOnlineBridger.sol';
+import './../token/interfaces/IArtOnlineMining.sol';
+import './IArtOnlineAccess.sol';
+import './../control/IArtOnlineBlacklist.sol';
 contract SetArtOnlinePlatform {
 
   IArtOnline internal _artOnlineInterface;
   IArtOnlineBridger internal _artOnlineBridgerInterface;
   IArtOnlineMining internal _artOnlineMiningInterface;
-  IArtOnlineStaking internal _artOnlineStakingInterface;
   IArtOnlineAccess internal _artOnlineAccessInterface;
   IArtOnlineBlacklist internal _artOnlineBlacklistInterface;
 
@@ -53,10 +51,6 @@ contract SetArtOnlinePlatform {
     return address(_artOnlineMiningInterface);
   }
 
-  function artOnlineStakingInterface() external view  returns (address) {
-    return address(_artOnlineStakingInterface);
-  }
-
   function artOnlineAccessInterface() external view  returns (address) {
     return address(_artOnlineAccessInterface);
   }
@@ -75,9 +69,6 @@ contract SetArtOnlinePlatform {
     if (address(_artOnlineMiningInterface) != _artOnlineMining) {
       _setArtOnlineMiningInterface(_artOnlineMining);
     }
-    if (address(_artOnlineStakingInterface) != _artOnlineStaking) {
-      _setArtOnlineStakingInterface(_artOnlineStaking);
-    }
     if (address(_artOnlineAccessInterface) != _artOnlineAccess) {
       _setArtOnlineAccessInterface(_artOnlineAccess);
     }
@@ -95,10 +86,6 @@ contract SetArtOnlinePlatform {
     _artOnlineMiningInterface = IArtOnlineMining(_artOnlineMining);
   }
 
-  function _setArtOnlineStakingInterface(address _artOnlineStaking) internal {
-    _artOnlineStakingInterface = IArtOnlineStaking(_artOnlineStaking);
-  }
-
   function _setArtOnlineAccessInterface(address _artOnlineAccess) internal {
     _artOnlineAccessInterface = IArtOnlineAccess(_artOnlineAccess);
   }
@@ -113,10 +100,6 @@ contract SetArtOnlinePlatform {
 
   function setArtOnlineMiningInterface(address _address) external onlyAdmin() {
     _setArtOnlineMiningInterface(_address);
-  }
-
-  function setArtOnlineStakingInterface(address _address) external onlyAdmin() {
-    _setArtOnlineStakingInterface(_address);
   }
 
   function setArtOnlineAccessInterface(address _address) external onlyAdmin() {

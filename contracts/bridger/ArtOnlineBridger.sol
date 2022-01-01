@@ -1,4 +1,4 @@
-import 'contracts/access/IArtOnlineAccess.sol';
+import './../access/IArtOnlineAccess.sol';
 
 contract ArtOnlineBridger {
   address internal _artOnline;

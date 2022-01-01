@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 interface IArtOnline {
   function mint(address to, uint256 amount) external;

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.7;
+pragma solidity 0.8.11;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import 'contracts/exchange/interfaces/IPanCakeRouter.sol';
-import 'contracts/access/SetArtOnlineBase.sol';
-import 'contracts/exchange/interfaces/IArtOnlineExchangeFactory.sol';
+import './../exchange/interfaces/IPanCakeRouter.sol';
+import './../access/SetArtOnlineBase.sol';
+import './../exchange/interfaces/IArtOnlineExchangeFactory.sol';
 
 contract ArtOnlineSplitter is SetArtOnlineBase {
   mapping (string => uint256) internal _splitFor;

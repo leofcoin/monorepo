@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity 0.8.11;
 
-import 'contracts/access/SetArtOnlineBase.sol';
+import './../access/SetArtOnlineBase.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import 'contracts/security/interfaces/IPausable.sol';
-import 'contracts/access/interfaces/IAccess.sol';
+import './../security/interfaces/IPausable.sol';
+import './../access/interfaces/IAccess.sol';
 
 contract ArtOnlinePoolPartner is SetArtOnlineBase {
   string internal _name;
@@ -13,22 +13,22 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
   bytes32 internal _POOL_ROLE;
 
   modifier onlyPool() {
-    require(_artOnlineBridgerInterface.artOnlinePlatform() == msg.sender, 'NO_PERMISSION');
+    require(_artOnlineBridgerInterface.artOnlineMining() == msg.sender, 'ARTPP: NO_PERMISSION');
     _;
   }
 
   modifier onlyPoolAdmin() {
-    require(IAccess(address(_artOnlineAccessInterface)).hasRole(_POOL_ROLE, msg.sender) == true, 'NO_PERMISSION');
+    require(IAccess(address(_artOnlineAccessInterface)).hasRole(_POOL_ROLE, msg.sender) == true, 'ARTPP: NO_PERMISSION');
     _;
   }
 
   modifier whenPaused() {
-    require(IPausable(address(_artOnlineAccessInterface)).paused() == true, 'NO_PERMISSION');
+    require(IPausable(address(_artOnlineAccessInterface)).paused() == true, 'ARTPP: NOT_PAUSED');
     _;
   }
 
   modifier notPaused() {
-    require(IPausable(address(_artOnlineAccessInterface)).paused() == false, 'NO_PERMISSION');
+    require(IPausable(address(_artOnlineAccessInterface)).paused() == false, 'ARTPP: PAUSED');
     _;
   }
 
@@ -69,6 +69,7 @@ contract ArtOnlinePoolPartner is SetArtOnlineBase {
   }
 
   function mint(address receiver, uint256 amount) external notPaused() onlyPool() {
-    SafeERC20.safeTransferFrom(IERC20(_token), address(this), receiver, amount);
+    
+    SafeERC20.safeTransferFrom(IERC20(_token), msg.sender, receiver, amount);
   }
 }

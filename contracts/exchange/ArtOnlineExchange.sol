@@ -1,6 +1,6 @@
 
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.7;
+pragma solidity 0.8.11;
 
 import './../storage/ArtOnlineExchangeStorage.sol';
 import "@openzeppelin/contracts/utils/Address.sol";

@@ -1,4 +1,4 @@
-import 'contracts/access/IArtOnlineAccess.sol';
+import './..//access/IArtOnlineAccess.sol';
 
 contract ArtOnlineBlacklist {
   address internal _artOnlineAccess;
