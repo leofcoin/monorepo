@@ -116,7 +116,6 @@ export default customElements.define('market-view', class MarketView extends Bas
 
   async _onClick(event) {
     const target = event.composedPath()[0]
-    console.log(target);
     if (target.hasAttribute('data-action')) {
       const action = target.getAttribute('data-action')
       if (action === 'show') {
