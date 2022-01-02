@@ -2078,8 +2078,8 @@ const twentyMinutes = 5 * 60 * 1000;
 const start = new Date().getTime();
 const done = start + twentyMinutes;
 
-const provider = new ethers__default["default"].providers.JsonRpcProvider('https://data-seed-prebsc-1-s1.binance.org:8545', {
-  chainId: 97
+const provider = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+  chainId: 56
 });
 
 const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider);
