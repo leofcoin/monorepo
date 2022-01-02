@@ -19,7 +19,7 @@ var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
 var addresses = {
   "artonline": "0x535e67270f4FEb15BFFbFE86FEE308b81799a7a5",
-  "platform": "0x7AC30890603E7BA39a02e97eCC6BC31BE65aA1B0",
+  "platform": "0xc20A25685e4a78E5e22E1Cb6724b0DFB404eD0fC",
   "exchange": "0xaCCaD40D09CA9D1D032843195F922EFdAB103C59",
   "native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
   "panCakeRouter": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
@@ -28,7 +28,7 @@ var addresses = {
   "bridger": "0x1754068179B15364F7E2C217555C4cC4800dd976",
   "mining": "0x5aC43bCEA936B7234BC1beFBDc6F8a15263ed86F",
   "staking": "0x117C88F4E8Dd5a230c41A69d8963A4c14Ad21C02",
-  "exchangeFactory": "0xe139A52C4e16B7C50Ea9ff90EF01323eBfD585E1",
+  "exchangeFactory": "0xb7F55716aAE6B545deb10187159ab09C31c49Ab9",
   "splitter": "0x06e0205aa9F5CD45f70C8C11e30d4beCe144Ab12",
   "blacklist": "0x152914948cF2F25e2a19FBEE69CB17a75c51C3EC"
 };
