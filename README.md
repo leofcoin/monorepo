@@ -26,3 +26,8 @@ npm i
 - deploy token
 - deploy gpus
 - deploy pools
+
+## ipfs
+
+- platform https://ipfs.io/ipfs/QmeUiTq2gTTRUWFoj2H3qaMbAQKShewgZJiMqduMcDUXdk
+- exchange https://ipfs.io/ipfs/QmRf9gj2xRqvGJCFuSj3gpoY1AMG38TmieBpBS2sFtnJ9i
