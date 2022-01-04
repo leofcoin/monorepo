@@ -1,13 +1,17 @@
 export default {
-  "access": "0x461FAf739ECE9E16338C25C96Ec9E6d8903aBa90",
-  "bridger": "0x1D2faeF70fb9FEfB492eB90713dE9D7be341809E",
-  "mining": "0x529213436f7E09e2ee9Fb2718a828D47c7560283",
+  "access": "0x4C0Ea73F3bF4E656F430BDB955f86a91542dde6E",
+  "bridger": "0xCe69B08F201B982C9788469Fa819A194F32D4CFb",
+  "mining": "0x6D129826657430f4323A3Da0FF14ab3D60198BE3",
   "blacklist": "0xb0033d9819BF9AbbE70b1Fd9578982b197E1C8Fd",
-  "artonline": "0xfA885bAE6AD52901561240533a2ceDa2ba35C6f3",
-  "platform": "0x7D662cb5ca410b5df1671D8ED3E8AD88A13766e9",
-  "exchange": "0x82651aD2D162638721A743a07FcB73705Dc4c1dC",
-  "exchangeFactory": "0x70eB4BB1b12D0382c3ec06d169eBa1198FE2bd44",
-  "staking": "0x888ffb9F4F915C054A2A8Ee2fe57e92110DF51c0",
+  "artonline": "0x20F30B7F50f5B5F2C18dFf98a73BD8bee54304f0",
+  "platform": "0x1BF86134f26a737b898AbcfFE09ebD0FCf683928",
+  "exchange": "0x3393dF8Ce4B86CC31444060d26F7559f6F5ba624",
+  "exchangeFactory": "0x4C1d9604321f1082b4A195D6Be112F17d1f30337",
+  "staking": "0x57301ebb031A0a7A39e172567E5eA01252f4cd60",
   "native": "undefined",
-  "panCakeRouter": "undefined"
+  "panCakeRouter": "undefined",
+  "multiCall": "undefined",
+  "partnershipToken": "0x1aA24b4634D9810E974f94baA3347D291893229d",
+  "splitter": "0xBd840693DFD6Ec1222E04bEe923d7C1FBF817E04",
+  "partnerPool": "0x104E375E5908532f98b9D3121140eE3Efe4fA778"
 }
