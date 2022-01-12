@@ -16,20 +16,15 @@ export default customElements.define('staking-view', class StakingView extends H
 
   connectedCallback() {
     this.contract = new ethers.Contract(api.addresses.staking, STAKING_ABI, api.provider)
-    console.log(this.contract);
     this._init()
   }
 
   async _onClick(event) {
-    console.log(event);
     const target = event.composedPath()[0]
-    console.log(target);
     if (!target.hasAttribute('data-action')) return
 
     const stakeId = target.getAttribute('stake-id')
-    console.log(stakeId);
     const claimable = await this.contract.callStatic.readyToRelease(api.signer.address, stakeId)
-    console.log(claimable);
     if (claimable) {
       this.contract = new ethers.Contract(api.addresses.staking, STAKING_ABI, api.signer)
       const tx = await this.contract.withdraw(api.signer.address, stakeId)
@@ -47,14 +42,12 @@ export default customElements.define('staking-view', class StakingView extends H
       const amount = await this.contract.callStatic.stakeAmount(api.signer.address, stakeId)
       const claimed = await this.contract.callStatic.claimed(api.signer.address, stakeId)
       this.totalStaked += Number(ethers.utils.formatUnits(amount))
-      console.log(claimed);
       let releaseTime = 0;
       let claimable = false
       if (!claimed) {
         releaseTime = await this.contract.callStatic.stakeReleaseTime(api.signer.address, stakeId)
         claimable = releaseTime < Math.round(new Date().getTime() / 1000);
       }
-      console.log(claimable);
       items.push({stakeId, shortStakeId: `${stakeId.slice(0, 5)}...${stakeId.slice(stakeId.length - 6, stakeId.length - 1)}`, amount: ethers.utils.formatUnits(amount), claimed, claimable, releaseTime: releaseTime.toString()})
     }
     this.shadowRoot.querySelector('.totalStaked').innerHTML = this.totalStaked
@@ -110,6 +103,10 @@ export default customElements.define('staking-view', class StakingView extends H
         pointer-events: auto;
         --custom-input-color: var(--main-color);
         --custom-input-height: 24px;
+      }
+      .totalStaked {
+        padding-bottom: 24px;
+        padding-left: 6px;
       }
     </style>
     <flex-column class="hero">
