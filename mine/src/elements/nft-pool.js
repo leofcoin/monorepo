@@ -14,14 +14,10 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     this.shadowRoot.innerHTML = this.template
 
     this._onclick = this._onclick.bind(this)
-    this._onStake = this._onStake.bind(this)
-    this._onGet = this._onGet.bind(this)
   }
 
   connectedCallback() {
     this.addEventListener('click', this._onclick)
-    this.shadowRoot.querySelector('.dialog').querySelector('[data-route="stake"]').addEventListener('click', this._onStake)
-    this.shadowRoot.querySelector('.dialog').querySelector('[data-route="now"]').addEventListener('click', this._onGet)
   }
 
   set address(value) {
@@ -32,23 +28,27 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     return this._address
   }
 
-  async _onStake() {
-    const contract = await api.getContract(api.addresses.mining, MINING_ABI, true)
-    try {
-      const tx = await contract.functions.stakeReward(api.signer.address, this.id)
-      await tx.wait()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  async _onGet() {
-    const tx = await this.contract.functions.getReward(this.id)
-    await tx.wait()
-  }
-
   async _onclick(event) {
     const target = event.composedPath()[0]
+    if (this.shadowRoot.querySelector('.dialog').hasAttribute('shown')) {
+      this.shadowRoot.querySelector('.dialog').removeAttribute('shown')
+    }
+    if (target.hasAttribute('data-route')) {
+      const action = target.getAttribute('data-route')
+      let tx
+      if (action === 'stake') {
+        const contract = await api.getContract(api.addresses.mining, MINING_ABI, true)
+        try {
+          tx = await contract.functions.stakeReward(api.signer.address, this.id)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+      if (action === 'now') {
+        tx = await this.contract.functions.getReward(this.id)
+      }
+      await tx.wait()
+    }
     if (!target.hasAttribute('data-action')) return
 
     const action = target.getAttribute('data-action')
@@ -66,7 +66,7 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
       return
     }
 
-    
+
 
     if (action === 'activate') {
       const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
@@ -365,6 +365,7 @@ console.log();
         opacity: 0;
         pointer-events: none;
         height: 148px;
+        background: #000;
       }
       [shown] {
         opacity: 1;
@@ -393,10 +394,10 @@ console.log();
       <flex-one></flex-one>
     </flex-row>
 
-  <span class="dialog">
-        <button data-route="stake">Stake (locks for 6 months, not taxed)</button>
-        <flex-one></flex-one>
-        <button data-route="now">Get (20% tax)</button>
+    <span class="dialog">
+      <button data-route="stake">Stake (locks for 6 months, not taxed)</button>
+      <flex-one></flex-one>
+      <button data-route="now">Get (20% tax)</button>
     </span>
     `
   }

@@ -2,6 +2,8 @@ import EXCHANGE_ABI from './../../../abis/exchange'
 import EXCHANGE_FACTORY_ABI from './../../../abis/exchangeFactory'
 import PLATFORM_ABI from './../../../abis/platform'
 import ART_ONLINE_ABI from './../../../abis/artonline'
+import {abi as ERC1155LISTING_ABI} from './../../../build/contracts/ArtOnlineListingERC1155.json'
+
 import {elevation4dp} from '../styles/elevation'
 import {rotate, rotateBack} from '../styles/shared'
 import './gpu-img'
@@ -21,7 +23,6 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
 
     this._ownerActions = ''
     this.asset = 'assets/arteon.svg'
-    this.price = '0'
     this.shadowRoot.innerHTML = this.template
 
     this._onbuy = this._onbuy.bind(this)
@@ -66,15 +67,21 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
     const supplyCap = await platformContract.cap(id)
     const totalSupply = await platformContract.totalSupply(id)
     let listing
-    if (onExchange === 'true')
-    const address = await exchangeFactoryContract.getListingERC1155(api.addresses.platform, 6, id)
+    if (onExchange === 'true') {
+      const exchangeFactoryContract = await api.getContract(api.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, api.signer)
+      const address = await exchangeFactoryContract.getListingERC1155(api.addresses.platform, 6, id)
       const contract = await api.getContract(address, ERC1155LISTING_ABI, api.signer)
       listing = {}
       listing.price = await contract.callStatic.price()
       listing.listed = await contract.callStatic.listed()
+      listing.currency = await contract.callStatic.currency()
+      if (listing.currency === '0x0000000000000000000000000000000000000000') listing.currency = 'BNB'
+      else listing.currency === 'ART'
     } else {
       listing = await exchangeContract.lists(id)
     }
+
+    this.currency = listing.currency ? listing.currency : 'ART'
 
     this.stock = await api.calculateStock(id)
     this.price = ethers.utils.formatUnits(listing.price, 18)
@@ -250,7 +257,7 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
       </flex-row>
       <flex-row>
         <span>${this.price ? this.price : 'loading'}</span>
-        <strong style="padding-left: 6px">ART</strong>
+        <strong style="padding-left: 6px">${this.currency ? this.currency : ''}</strong>
       </flex-row>
       <flex-row>
         <span>${this.stock ? this.stock : 'loading'}</span>
