@@ -2,28 +2,37 @@ import {rotate, basicRotation} from '../styles/shared'
 
 export default customElements.define('nft-wallet-card', class NFTWalletCard extends HTMLElement {
   static get observedAttributes() {
-    return ['token-id', 'mining', 'status']
+    return ['token-id', 'mining', 'status', 'token']
   }
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
+    this.shadowRoot.innerHTML = this.template
   }
 
   attributeChangedCallback(name, old, value) {
     if (this[name] !== value) {
       if (name === 'token-id') name = 'tokenId'
       this[name] = name === 'mining' ? Boolean(value === 'true') : value
-      this._observer()
+
     }
   }
 
-  _observer() {
-    if (this.tokenId && this.mining !== undefined && this.status) this.shadowRoot.innerHTML = this.template
+  set tokenId(value) {
+    this.shadowRoot.querySelector('strong').innerHTML = value
+    this.shadowRoot.querySelector('custom-svg-icon[icon="arrow-drop-down"]').setAttribute('title', `Transfer token ${value}`)
+    this.shadowRoot.querySelector('custom-svg-icon[icon="arrow-drop-down"]').setAttribute('token-id', value)
+    this._tokenId = value
   }
-// hardware:toys
+
   get template() {
     return `
     <style>
+      * {
+        pointer-events: none;
+        user-select: none;
+      }
+
       :host {
         color: var(--primary-text-color);
         display: flex;
@@ -76,15 +85,18 @@ export default customElements.define('nft-wallet-card', class NFTWalletCard exte
         padding-right: 6px;
       }
 
-      custom-svg-icon[icon="stop"], custom-svg-icon[icon="play"] {
+      custom-svg-icon[icon="arrow-drop-down"], custom-svg-icon[icon="arrow-drop-up"] {
         cursor: pointer;
         pointer-events: auto;
       }
+
+
     </style>
     <custom-svg-icon icon="fan"></custom-svg-icon>
-    <strong>${this.tokenId}</strong>
+    <strong></strong>
     <flex-one></flex-one>
-    <span>${this.status}</span>
+
+    <custom-svg-icon icon="arrow-drop-down" data-action="dropdown"></custom-svg-icon>
     `
   }
 })

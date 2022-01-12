@@ -1,11 +1,12 @@
 import PLATFORM_ABI from './../../../abis/platform.js'
+import MINING_ABI from './../../../abis/mining.js'
 import './../array-repeat'
 import './arteon-button'
 import './gpu-img'
 import {rotate, rotateBack} from './../styles/shared'
 export default customElements.define('pool-selector-item', class PoolSelectorItem extends HTMLElement {
   static get observedAttributes() {
-    return ['symbol', 'id']
+    return ['symbol', 'id', 'bonus']
   }
 
   constructor() {
@@ -19,6 +20,13 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
 
   attributeChangedCallback(name, old, value) {
     if(value !== old && value || !this[name] && value) this[name] = value
+  }
+
+  set bonus(bonus) {
+    if (!bonus) return;
+
+    this._bonus = bonus
+    this._render();
   }
 
   set symbol(symbol) {
@@ -35,6 +43,10 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
     this._render();
   }
 
+  get bonus() {
+    return this._bonus
+  }
+
   get id() {
     return this._id
   }
@@ -44,20 +56,31 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
   }
 
   async _render() {
-    if (this.symbol, this.id) {
-      let contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
-      console.log(contract);
-      let promises = [
-        contract.callStatic.miners(ethers.BigNumber.from(this.id)),
-        contract.callStatic.getMaxReward(ethers.BigNumber.from(this.id)),
-        contract.callStatic.earned(api.signer.address, ethers.BigNumber.from(this.id)),
-        contract.callStatic.cap(ethers.BigNumber.from(this.id)),
-        contract.callStatic.artOnline()
-      ]
-      promises = await Promise.all(promises)
-
+    if (this.symbol && this.id) {
+      let platform = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
+      let mining = api.getContract(api.addresses.mining, MINING_ABI, true)
+      let promises;
+      try {
+        await api.timeout;
+        promises = [
+          mining.callStatic.poolInfo(api.signer.address, ethers.BigNumber.from(this.id)),
+          platform.callStatic.cap(ethers.BigNumber.from(this.id))
+        ]
+        promises = await Promise.all(promises)
+        promises = [...promises[0], promises[1]]
+      } catch (e) {
+        promises = [
+          mining.callStatic.poolInfo(api.signer.address, ethers.BigNumber.from(this.id)),
+          platform.callStatic.cap(ethers.BigNumber.from(this.id))
+        ]
+        promises = await Promise.all(promises)
+        console.log(promises);
+        promises = [...promises[0], promises[1]]
+      }
+      console.log(promises);
       // this.symbol = await gpuContact.callStatic.symbol()
-      this.miners = promises[0].toNumber() > promises[3].toNumber() ? promises[3].toString() : promises[0].toString()
+      // this.miners = promises[0].toNumber() > promises[3].toNumber() ? promises[3].toString() : promises[0].toString()
+      this.miners = promises[0].toNumber() < promises[4] ? promises[0].toNumber() : promises[4]
       this.maxReward = ethers.utils.formatUnits(promises[1], 18)
       this.earned = ethers.utils.formatUnits(promises[2], 18)
       this.maxRewardShort = Math.round(Number(this.maxReward * 1000)) / 1000
@@ -70,17 +93,17 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
       if (this.timeout) clearTimeout(this.timeout)
 
       this.timeout = () => setTimeout(async () => {
-        const earned = await contract.callStatic.earned(api.signer.address, this.id)
+        const earned = await mining.callStatic.earned(api.signer.address, this.id)
         this.earned = ethers.utils.formatUnits(earned, 18)
         this.earnedShort = Math.round(Number(this.earned * 1000)) / 1000
         const el = this.shadowRoot.querySelector('span.earned')
         el.title = `earned: ${this.earned}`
         el.innerHTML = this.earnedShort
-        const miners = await contract.callStatic.miners(ethers.BigNumber.from(this.id))
-        this.miners = miners.toString()
+        const miners = await mining.callStatic.miners(ethers.BigNumber.from(this.id))
+        this.miners = miners.toNumber() < promises[4] ? miners.toNumber() : promises[4]
         this.difficulty = Math.round((this.miners / promises[3] * 1000)) / 1000
         this.timeout()
-      }, 10000);
+      }, 120000);
 
       this.timeout()
     }

@@ -68,9 +68,10 @@ export default customElements.define('gpu-select', class GpuSelect extends HTMLE
     const names = await api.poolNames()
     for (let i = 0; i < pools.length; i++) {
       const el = document.createElement('span')
-      el.innerHTML = names[i]
+      console.log(names[i]);
+      el.innerHTML = names[i][1]
       el.dataset.index = pools[i]
-      el.dataset.route = names[i]
+      el.dataset.route = names[i][1]
       this._select.appendChild(el)
     }
 

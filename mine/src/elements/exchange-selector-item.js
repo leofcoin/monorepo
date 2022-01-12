@@ -1,4 +1,5 @@
 import EXCHANGE_ABI from './../../../abis/exchange'
+import EXCHANGE_FACTORY_ABI from './../../../abis/exchangeFactory'
 import PLATFORM_ABI from './../../../abis/platform'
 import ART_ONLINE_ABI from './../../../abis/artonline'
 import {elevation4dp} from '../styles/elevation'
@@ -28,11 +29,19 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
   }
 
   connectedCallback() {
-    this._render(this.symbol, this.id)
+    this._render(this.symbol, this.id, this.onExchange)
   }
   // attributeChangedCallback(name, old, value) {
   //   if(value !== old || !this[name]) this[name] = value
   // }
+
+  set onExchange(value) {
+    this.setAttribute('on-exchange', value)
+  }
+
+  get onExchange() {
+    return this.getAttribute('on-exchange')
+  }
 
   set id(value) {
     this.setAttribute('id', value)
@@ -50,12 +59,23 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
     return this.getAttribute('symbol')
   }
 
-  async _render(symbol, id) {
+  async _render(symbol, id, onExchange) {
     const exchangeContract = new ethers.Contract(api.addresses.exchange, EXCHANGE_ABI, api.signer)
     const platformContract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, api.signer)
-    const listing = await exchangeContract.lists(id)
+
     const supplyCap = await platformContract.cap(id)
     const totalSupply = await platformContract.totalSupply(id)
+    let listing
+    if (onExchange === 'true')
+    const address = await exchangeFactoryContract.getListingERC1155(api.addresses.platform, 6, id)
+      const contract = await api.getContract(address, ERC1155LISTING_ABI, api.signer)
+      listing = {}
+      listing.price = await contract.callStatic.price()
+      listing.listed = await contract.callStatic.listed()
+    } else {
+      listing = await exchangeContract.lists(id)
+    }
+
     this.stock = await api.calculateStock(id)
     this.price = ethers.utils.formatUnits(listing.price, 18)
     if (listing.listed === 0) {
@@ -87,23 +107,34 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
 
   async _onbuy() {
     const id = this.id
+    if (this.onExchange !== 'false') {
+      const exchangeFactoryContract = await api.getContract(api.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, api.signer)
+      const address = await exchangeFactoryContract.getListingERC1155(api.addresses.platform, 6, this.id)
+
+      globalThis.open(`https://exchange.artonline.site/#!/listing?address=${address}`)
+      return
+    }
+
     const contract = api.getContract(api.addresses.artonline, ART_ONLINE_ABI, api.signer)
     const exchangeContract = api.getContract(api.addresses.exchange, EXCHANGE_ABI, api.signer)
-    const platformContract = api.getContract(api.addresses.platform, PLATFORM_ABI, api.signer)
+
     const listing = await exchangeContract.lists(id)
     if (listing.listed === 0) return;
 
-    let allowance = await contract.callStatic.allowance(api.signer.address, api.addresses.platform)
+    let allowance = await contract.callStatic.allowance(api.signer.address, api.addresses.exchange)
     let approved;
-    if (allowance.isZero()) approved = await contract.approve(api.addresses.platform, listing.price)
-    else if (allowance.lt(listing.price)) approved = await contract.increaseAllowance(api.addresses.platform, listing.price.sub(allowance))
+    if (allowance.isZero()) approved = await contract.approve(api.addresses.exchange, listing.price)
+    else if (allowance.lt(listing.price)) approved = await contract.increaseAllowance(api.addresses.exchange, listing.price.sub(allowance))
 
     if (approved) await approved.wait()
 
     try {
       // tokenid = 0 for mint buys, when auctioned pass trough a tokenId
-      await exchangeContract.buy(id, ethers.BigNumber.from(0))
+      await exchangeContract.buy(id, ethers.BigNumber.from('0'))
     } catch (e) {
+      console.log(e);
+      // alert('')
+      const platformContract = api.getContract(api.addresses.platform, PLATFORM_ABI, api.signer)
       console.warn(`id: ${id} buy failed`);
       const cap = await platformContract.callStatic.cap(id)
       for (let i = 1; i <= cap; i++) {
@@ -229,7 +260,7 @@ export default customElements.define('exchange-selector-item', class ExchangeSel
 
     </span>
 
-    <button>BUY</button>
+    <button>${this.onExchange === 'true' ? 'GO ' : ''}BUY</button>
       `
   }
 })

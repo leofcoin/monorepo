@@ -4,6 +4,7 @@ import './../../node_modules/@vandeurenglenn/flex-elements/src/flex-column'
 import './../../node_modules/@vandeurenglenn/flex-elements/src/flex-row'
 import './../../node_modules/@vandeurenglenn/flex-elements/src/flex-one'
 import PLATFORM_ABI from './../../../abis/platform'
+import MINING_ABI from './../../../abis/mining'
 
 export default customElements.define('calculator-view', class CalculatorView extends HTMLElement {
   constructor() {
@@ -19,6 +20,7 @@ export default customElements.define('calculator-view', class CalculatorView ext
 
   connectedCallback() {
     this.contract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, api.provider)
+    this.miningContract = new ethers.Contract(api.addresses.mining, MINING_ABI, api.provider)
 
     this.shadowRoot.querySelector('gpu-select').addEventListener('selected', this._onselect)
     this.shadowRoot.querySelector('custom-select').addEventListener('selected', this._onperiod)
@@ -42,7 +44,7 @@ export default customElements.define('calculator-view', class CalculatorView ext
   async _oninput() {
     const detail = this.shadowRoot.querySelector('gpu-select').selected
     const id = this.shadowRoot.querySelector('gpu-select').shadowRoot.querySelector(`[data-route="${detail}"]`).dataset.index
-    const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+    const rewardsPerSec = await this.miningContract.callStatic.getMaxReward(id)
     const cap = await this.contract.callStatic.cap(id)
     let miners = this.shadowRoot.querySelector('custom-input').input.value
     if (Number(miners) > cap.toNumber()) this.shadowRoot.querySelector('custom-input').input.value = cap
@@ -55,7 +57,7 @@ export default customElements.define('calculator-view', class CalculatorView ext
   async _onperiod() {
     const detail = this.shadowRoot.querySelector('gpu-select').selected
     const id = this.shadowRoot.querySelector('gpu-select').shadowRoot.querySelector(`[data-route="${detail}"]`).dataset.index
-    const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+    const rewardsPerSec = await this.miningContract.callStatic.getMaxReward(id)
     const cap = await this.contract.callStatic.cap(id)
     const miners = this.shadowRoot.querySelector('custom-input').input.value
 
@@ -70,7 +72,7 @@ export default customElements.define('calculator-view', class CalculatorView ext
       const miners = await this.contract.callStatic.cap(id)
       this.shadowRoot.querySelector('custom-input').input.value = miners.toNumber()
 
-      const rewardsPerSec = await this.contract.callStatic.getMaxReward(id)
+      const rewardsPerSec = await this.miningContract.callStatic.getMaxReward(id)
 
       const rewards = this._calculateRewards(rewardsPerSec, this.shadowRoot.querySelector('custom-select').selected)
       const gpus = Number(this.shadowRoot.querySelector('custom-input.gpus').input.value)

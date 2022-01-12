@@ -14,10 +14,14 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     this.shadowRoot.innerHTML = this.template
 
     this._onclick = this._onclick.bind(this)
+    this._onStake = this._onStake.bind(this)
+    this._onGet = this._onGet.bind(this)
   }
 
   connectedCallback() {
     this.addEventListener('click', this._onclick)
+    this.shadowRoot.querySelector('.dialog').querySelector('[data-route="stake"]').addEventListener('click', this._onStake)
+    this.shadowRoot.querySelector('.dialog').querySelector('[data-route="now"]').addEventListener('click', this._onGet)
   }
 
   set address(value) {
@@ -28,6 +32,21 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     return this._address
   }
 
+  async _onStake() {
+    const contract = await api.getContract(api.addresses.mining, MINING_ABI, true)
+    try {
+      const tx = await contract.functions.stakeReward(api.signer.address, this.id)
+      await tx.wait()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async _onGet() {
+    const tx = await this.contract.functions.getReward(this.id)
+    await tx.wait()
+  }
+
   async _onclick(event) {
     const target = event.composedPath()[0]
     if (!target.hasAttribute('data-action')) return
@@ -35,30 +54,19 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     const action = target.getAttribute('data-action')
 
     const id = target.dataset.id
-    console.log(id);
     if (action === 'getReward') {
 
       // let earned = await this.contract.callStatic.earned(api.signer.address, this.id)
       // earned = ethers.utils.formatUnits(earned)
       // if (Number(earned) >= 1000) {
-      // const answer = await arteondialog.show()
-      const tx = await this.contract.functions.getReward(this.id)
-      await tx.wait()
+      this.shadowRoot.querySelector('.dialog').setAttribute('shown', '')
+
+
       // }
       return
     }
 
-    if (action === 'stakeReward') {
-      const contract = await api.getContract(api.addresses.mining, MINING_ABI, true)
-      try {
-        const tx = await contract.functions.stakeReward(api.signer.address, this.id)
-        console.log(tx);
-        console.log(await tx.wait());
-      } catch (e) {
-        console.error(e)
-      }
-      return
-    }
+    
 
     if (action === 'activate') {
       const card = this.shadowRoot.querySelector('nft-pool-cards').querySelector(`[data-id="${id}"]`)
@@ -343,6 +351,28 @@ console.log();
         border-radius: 24px;
         height: 40px;
       }
+      .dialog {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 24px;
+        border: 1px solid #eee;
+        box-sizing: border-box;
+        padding: 24px;
+        opacity: 0;
+        pointer-events: none;
+        height: 148px;
+      }
+      [shown] {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .dialog button {
+        border-radius: 12px;
+      }
       ${scrollbar}
     </style>
 
@@ -357,23 +387,17 @@ console.log();
       <flex-one></flex-one>
       <button data-action="getReward">get reward</button>
       <flex-two></flex-two>
-      <button data-action="stakeReward">stake reward</button>
-      <flex-two></flex-two>
       <button data-action="activateItem">upgrade</button>
       <flex-two></flex-two>
       <button data-action="activateAll">activate all</button>
       <flex-one></flex-one>
     </flex-row>
 
-  <!--  <arteon-dialog>
-      <custom-tabs>
-        <custom-tab data-input="">
-
-        </custom-tab>
-      </custom-tabs>
-    </arteon-dialog>
-
--->
+  <span class="dialog">
+        <button data-route="stake">Stake (locks for 6 months, not taxed)</button>
+        <flex-one></flex-one>
+        <button data-route="now">Get (20% tax)</button>
+    </span>
     `
   }
 })

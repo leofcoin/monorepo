@@ -1,4 +1,5 @@
 import PLATFORM_ABI from './../../../abis/platform.js'
+import MINING_ABI from './../../../abis/mining.js'
 import './../array-repeat'
 import './pool-selector-item'
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
@@ -39,16 +40,15 @@ export default customElements.define('pool-selector', class PoolSelector extends
   }
 
   async _load() {
+    console.log('load');
     this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI)
     // if (await this._isOwner()) this._ownerSetup()
 
-    const pools = await api.pools()
-    let promises = pools.map(id => this.contract.callStatic.token(id))
+    const pools = await api.poolNames()
+    const ids = pools.map(pool => pool[0]);
 
-    promises = await Promise.all(promises)
-
-    this._arrayRepeat.items = promises.map((symbol, i) => {
-      return {symbol, i: pools[i].toString()}
+    this._arrayRepeat.items =  pools.map((pool, i) => {
+      return {symbol: pool[1], i: pool[0]}
     })
   }
 

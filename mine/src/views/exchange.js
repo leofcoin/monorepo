@@ -43,15 +43,18 @@ export default customElements.define('exchange-view', class ExchangeView extends
     }
     promises = await Promise.all(promises)
     let i = 0
-
-    this.shadowRoot.querySelector('section[data-route="gpus"]').querySelector('array-repeat').items = promises.map((symbol) => {
+    promises = promises.reduce((set, symbol) => {
       i++
-      return {symbol, i: pools[i - 1].toString()}
-    })
+      if (symbol === 'GOLDGEN') set.push({onExchange: true, symbol, i: pools[i - 1].toString()})
+      else if (symbol !== 'SHIBOKI') set.push({symbol, i: pools[i - 1].toString()})
+
+      return set
+    }, [])
+    this.shadowRoot.querySelector('section[data-route="gpus"]').querySelector('array-repeat').items = promises
   }
 
   async _getItems() {
-    const items = await this.contract.callStatic.items()
+    const items = await api.items()
     let promises = []
 
     for (let i = 0; i < items.length; i++) {
@@ -167,7 +170,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
             }
           </style>
           <template>
-            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
+            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]" on-exchange="[[item.onExchange]]"></exchange-selector-item>
           </template>
         </array-repeat>
       </section>
@@ -180,7 +183,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
             }
           </style>
           <template>
-            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]"></exchange-selector-item>
+            <exchange-selector-item symbol="[[item.symbol]]" data-route="[[item.i]]" id="[[item.i]]" on-exchange="[[item.onExchange]]"></exchange-selector-item>
           </template>
         </array-repeat>
       </section>

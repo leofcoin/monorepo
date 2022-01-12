@@ -16,13 +16,13 @@ export default customElements.define('nft-wallet-cards', class NFtWalletCards ex
   }
 
   async _load(cards) {
-    console.log(cards);
       this.innerHTML = ''
 
-    for (const {tokenId, mining = false} of cards) {
+    for (const {tokenId, mining = false, token} of cards) {
       const card = document.createElement('nft-wallet-card')
       card.setAttribute('token-id', tokenId)
       card.setAttribute('mining', mining)
+      card.setAttribute('token', token)
       card.setAttribute('data-id', tokenId)
       card.setAttribute('status', mining ? 'activated' : 'deactivated')
       this.appendChild(card)

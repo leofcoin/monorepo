@@ -1,14 +1,17 @@
 import PLATFORM_ABI from './../../abis/platform.js'
 import EXCHANGE_ABI from './../../abis/exchange.js'
 import ARTONLINE_ABI from './../../abis/artonline.js'
+import MINING_ABI from './../../abis/mining.js'
 import bytecode from './bytecodes/listing.js'
+import {rpcUrlFor} from './../../../network-connect/src/utils'
 
 const cache = {}
 
 export default class Api {
-  constructor(network, provider, signer) {
+  constructor(network, provider, signer, addresses) {
     this.network = network
     this.provider = provider
+    this.addresses = addresses
     // this.provider = new ethers.providers.EtherscanProvider(network, 'SVUVR9EZ8PPS9QTJ9MDNJFRGPWJXHB8BI4')
     if (!provider) return
     const timeout = () => {
@@ -56,25 +59,28 @@ export default class Api {
   get assets() {
     return {
       cards: {
-        GENESIS: './assets/cards/GENESIS-320.png',
-        'ARTX1000': './assets/cards/ARTX 1000-320.png',
-        'ARTX2000': './assets/cards/ARTX 2000-320.png',
-        'XTREME': './assets/cards/XTREME-320.png',
-        'MODULE': './assets/cards/MODULE-320.png',
-        'SPINNER': './assets/fronts/SPINNER.png',
-        'GOLDGEN': './assets/cards/GOLDGEN-320.png'
+        GENESIS: 'https://assets.artonline.site/cards/GENESIS-320.png',
+        'ARTX1000': 'https://assets.artonline.site/cards/ARTX 1000-320.png',
+        'ARTX2000': 'https://assets.artonline.site/cards/ARTX 2000-320.png',
+        'XTREME': 'https://assets.artonline.site/cards/XTREME-320.png',
+        'MODULE': 'https://assets.artonline.site/cards/MODULE-320.png',
+        'SPINNER': 'https://assets.artonline.site/fronts/SPINNER.png',
+        'GOLDGEN': 'https://assets.artonline.site/cards/GOLDGEN-320.png',
+        'SHIBOKI': 'https://assets.artonline.site/cards/SHIBOKI-320.png'
       },
       fans: {
-        GENESIS: './assets/fans/GENESIS.png',
-        'ARTX1000': './assets/fans/ARTX 1000.png',
-        'ARTX2000': './assets/fans/ARTX 2000.png',
-        'XTREME': './assets/fans/XTREME.png',
-        'MODULE': './assets/fans/MODULE.png',
-        'SPINNER': './assets/fans/SPINNER.png',
-        'GOLDGEN': './assets/fans/GOLDGEN.png'
+        GENESIS: 'https://assets.artonline.site/fans/GENESIS.png',
+        'ARTX1000': 'https://assets.artonline.site/fans/ARTX 1000.png',
+        'ARTX2000': 'https://assets.artonline.site/fans/ARTX 2000.png',
+        'XTREME': 'https://assets.artonline.site/fans/XTREME.png',
+        'MODULE': 'https://assets.artonline.site/fans/MODULE.png',
+        'SPINNER': 'https://assets.artonline.site/fans/SPINNER.png',
+        'GOLDGEN': 'https://assets.artonline.site/fans/GOLDGEN.png',
+        'SHIBOKI': 'https://assets.artonline.site/fans/SHIBOKI.png'
       },
       fronts: {
-        'XTREME': './assets/fronts/XTREME.png'
+        'XTREME': 'https://assets.artonline.site/fronts/XTREME.png',
+        'SHIBOKI': 'https://assets.artonline.site/fronts/SHIBOKI.png'
       },
       configs: {
         GENESIS: {
@@ -120,6 +126,16 @@ export default class Api {
             ['4%', '30%', '76px', '76px'],
             ['35.5%', '30%', '76px', '76px'],
             ['68%', '30%', '76px', '76px']
+          ]
+        },
+        SHIBOKI: {
+          fans: [
+            ['12%', '12.5%', '80px', '80px'],
+            ['39%', '15%', '75px', '75px', 1],
+            ['64.3%', '12.5%', '80px', '80px']
+          ], // x, y, h, w, id
+          fronts: [
+            ['22%', '6%', '76%', '62.5%']
           ]
         }
       }
@@ -276,7 +292,7 @@ Try buying using ETH?`)
   }
 
   get cards() {
-    return ['GENESIS', 'ARTX1000', 'ARTX2000', 'XTREME', 'MODULE']
+    return ['GENESIS', 'ARTX1000', 'ARTX2000', 'XTREME', 'MODULE', 'SPINNER', 'GOLDGEN']
   }
 
 
@@ -305,22 +321,29 @@ Try buying using ETH?`)
   }
 
   async pools() {
-    if (!cache['pools']) cache['pools'] = await this.getContract(this.addresses.platform, PLATFORM_ABI).callStatic.pools()
+    if (!cache['pools']) cache['pools'] = await this.getContract(this.addresses.mining, MINING_ABI).callStatic.pools()
     return cache['pools']
+  }
+
+  async items() {
+    if (!cache['items']) cache['items'] = await this.getContract(this.addresses.mining, MINING_ABI).callStatic.items()
+    return cache['items']
   }
 
   async poolNames() {
     if (!cache['tokenNames']) {
       const promises = await Promise.all([ await this.tokenNames(), await this.pools() ])
-      return promises[1].map(id => promises[0][id.toString()])
+      return promises[1].map(id => [id.toNumber(), promises[0][id.toString()]])
     }
-    const pools = await this.pools()
+    const pools = await this.tokens()
     const names = await this.tokenNames()
-    return pools.map(id => names[id])
+    console.log(names, pools);
+    return pools.map(id => [id, names[id]])
   }
 
   get platform() {
     return {
+      contract: new ethers.Contract(api.addresses.platform, PLATFORM_ABI, api.signer ? api.signer : this.provider),
       balanceOfAll: async (address) => {
         const contract = new ethers.Contract(api.addresses.platform, PLATFORM_ABI, this.provider)
         const tokens = await this.tokens()
@@ -330,5 +353,35 @@ Try buying using ETH?`)
         )
       }
     }
+  }
+
+  get mining() {
+    return {
+      contract: new ethers.Contract(api.addresses.mining, MINING_ABI, api.signer ? api.signer : this.provider),
+    }
+  }
+
+  get timeout() {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve()
+      }, 500);
+    })
+  }
+
+  get isHex() {
+    return ethers.utils.isHexString
+  }
+  isEthereumAddress(address) {
+    const hasPrefix = address.slice(0, 2) === '0x';
+    // a prefixed eth address is 21 bytes long
+    if (address.length > 42 || address.length < 40) return false
+    // without prefix
+    if (!hasPrefix && address.length === 40 && this.isHex(address)) return true
+    // with prefix
+    if (hasPrefix && address.length === 42 &&
+      this.isHex(address)) return true
+    // no other cases to handle
+    return false
   }
 }

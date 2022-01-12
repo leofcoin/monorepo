@@ -61,14 +61,27 @@ console.log(detail);
 
       return
     }
-
-    if (detail) {
+    if (detail.includes('send-')) {
+      detail = detail.split('send-')
+      console.log(detail);
+      detail = detail[1].split('-')
+      console.log(detail);
+      const id = detail[0];
+      const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
+      const symbol = el.getAttribute('symbol')
+      const balance = el.getAttribute('balance')
+      this.shadowRoot.querySelector('wallet-token')._load({symbol, id, balance})
       this._pages.select('token')
+      return
+    }
+    console.log(detail);
+    if (detail) {
       const id = detail;
       const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
       const symbol = el.getAttribute('symbol')
       const balance = el.getAttribute('balance')
       this.shadowRoot.querySelector('wallet-token')._load({symbol, id, balance})
+      this._pages.select('token')
       return
     }
   }
@@ -146,6 +159,7 @@ console.log(detail);
 
         <wallet-token data-route="token"></wallet-token>
       </custom-pages>
+      </span>
     `
   }
 })

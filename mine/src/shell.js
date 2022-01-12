@@ -86,10 +86,12 @@ export default customElements.define('mine-shell', class extends HTMLElement {
     const networkVersion = Number(ethereum.networkVersion)
     console.log(networkVersion);
     if (accounts[0] === this.address && api.chainId === Number(ethereum.networkVersion)) return
-    globalThis.api = await new Api(signer)
+
+
+    const addresses = await arteonAddresses(this._networkNameFor(Number(ethereum.networkVersion)))
+    globalThis.api = await new Api(Number(ethereum.networkVersion), provider, signer, addresses)
     this.address = api.signer.address
     api.chainId = Number(ethereum.networkVersion)
-    api.addresses = await arteonAddresses(this._networkNameFor(api.chainId))
     api.getContract(api.addresses.artonline, ARTONLINE_ABI);
     jdenticon.update(this.shadowRoot.querySelector('.avatar'), accounts[0])
   }
@@ -140,8 +142,8 @@ export default customElements.define('mine-shell', class extends HTMLElement {
       const connection = await this.shadowRoot.querySelector('wallet-connect').connect()
       const network = this.shadowRoot.querySelector('wallet-connect').network
       console.log(connection);
-      globalThis.api = await new Api(network, connection.provider)
-      api.addresses = await arteonAddresses(network)
+      const addresses = await arteonAddresses(network)
+      globalThis.api = await new Api(network, connection.provider, connection.signer, addresses)
       const contract = api.getContract(api.addresses.artonline, ARTONLINE_ABI)
       const balance = await contract.callStatic.balanceOf(api.signer.address)
       this.balance = ethers.utils.formatUnits(balance, 18)
@@ -377,6 +379,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="attach-money"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path></g>
         <g id="arrow-back"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></g>
         <g id="arrow-drop-down"><path d="M7 10l5 5 5-5z"></path></g>
+        <g id="arrow-drop-up"><path d="M7 14l5-5 5 5z"></path></g>
         <g id="autorenew"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"></path></g>
         <g id="book"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"></path></g>
         <g id="build"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"></path></g>
@@ -400,6 +403,8 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <g id="gift"><path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"></path></g>
         <g id="settings-input-hdmi"><path d="M18 7V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v3H5v6l3 6v3h8v-3l3-6V7h-1zM8 4h8v3h-2V5h-1v2h-2V5h-1v2H8V4z"></path></g>
         <g id="send"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></g>
+        <g id="vertical-align-bottom"><path d="M16 13h-3V3h-2v10H8l4 4 4-4zM4 19v2h16v-2H4z"></path></g>
+        <g id="vertical-align-top"><path d="M8 11h3v10h2V11h3l-4-4-4 4zM4 3v2h16V3H4z"></path></g>
       </defs></svg>
     </custom-svg-iconset>
 
@@ -414,17 +419,17 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <custom-svg-icon icon="swap-horiz"></custom-svg-icon>
           <span>exchange</span>
         </span>
+
+        <span class="drawer-item" data-route="staking">
+          <custom-svg-icon icon="swap-horiz"></custom-svg-icon>
+          <span>staking</span>
+        </span>
 <!--
         <span class="drawer-item" data-route="auction">
           <custom-svg-icon icon="attach-money"></custom-svg-icon>
           <span>auction</span>
         </span>
 -->
-        <span class="drawer-item" data-route="send">
-          <custom-svg-icon icon="send"></custom-svg-icon>
-          <span>send</span>
-        </span>
-        
         <span class="drawer-item" data-route="wallet">
           <custom-svg-icon icon="wallet"></custom-svg-icon>
           <span>wallet</span>
@@ -443,7 +448,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
 
       <flex-row slot="footer">
         <flex-two></flex-two>
-        <a href="https://twitter.com/ArteonToken" title="Follow us on Twitter!">
+        <a href="https://twitter.com/ArtonlineToken" title="Follow us on Twitter!">
           <img src="./assets/social/twitter-white.svg"></img>
         </a>
         <flex-one></flex-one>
@@ -451,7 +456,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
           <img src="./assets/social/telegram-white.svg"></img>
         </a>
         <flex-one></flex-one>
-        <a href="https://discord.com/invite/gxZAJNg8cM" title="Let's discuss on Discord!">
+        <a href="https://discord.gg/artonline" title="Let's discuss on Discord!">
           <img src="./assets/social/discord-white.svg"></img>
         </a>
         <flex-two></flex-two>
@@ -479,6 +484,7 @@ export default customElements.define('mine-shell', class extends HTMLElement {
         <calculator-view data-route="calculator"></calculator-view>
         <wallet-view data-route="wallet"></wallet-view>
         <send-view data-route="send"></send-view>
+        <staking-view data-route="staking"></staking-view>
         <buy-arteon-view data-route="buy-arteon"></buy-arteon-view>
       </custom-pages>
     </span>
