@@ -80,7 +80,7 @@ export default customElements.define('wallet-token', class WalletToken extends H
       if (target.getAttribute('icon') === 'arrow-drop-up') {
         this._reset()
       }
-      // return
+      return
     }
 
     if (target.dataset.action === 'dropdown') {
