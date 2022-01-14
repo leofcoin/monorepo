@@ -7,8 +7,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./interfaces/IArtOnlineStaking.sol";
 import './../access/SetArtOnlineStaking.sol';
 import './../token/utils/SafeArtOnline.sol';
+import './../common/Initializable.sol';
 
-contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineStaking  {
+contract ArtOnlineStaking is Context, Pausable, Initializable, IArtOnlineStaking, SetArtOnlineStaking  {
   using Address for address;
   using SafeArtOnline for IArtOnline;
   uint256 internal _releaseTime = 15770000;
@@ -22,7 +23,9 @@ contract ArtOnlineStaking is Context, Pausable, IArtOnlineStaking, SetArtOnlineS
   mapping (address => mapping(address => uint256)) internal _stakers;
   mapping (address => mapping(bytes32 => address)) internal _currency;
 
-  constructor(address bridger, address access)  SetArtOnlineStaking(bridger, access) {}
+  function initialize(address bridger, address access) external initializer() onlyAdmin() {
+    SetArtOnlineStaking.initialize(bridger, access);
+  }
 
   function totalSupply(address currency_) external view override returns (uint256) {
     return _totalSupply[currency_];

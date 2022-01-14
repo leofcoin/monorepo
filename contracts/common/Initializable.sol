@@ -1,11 +1,11 @@
 pragma solidity 0.8.11;
 
 contract Initializable {
-  bool inited = false;
+  uint256 inited = 0;
 
   modifier initializer() {
-    require(!inited, "already inited");
+    require(inited == 0, "already inited");
     _;
-    inited = true;
+    inited = 1;
   }
 }

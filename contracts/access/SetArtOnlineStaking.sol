@@ -4,8 +4,9 @@ pragma solidity 0.8.11;
 import './../token/interfaces/IArtOnline.sol';
 import './../bridger/IArtOnlineBridger.sol';
 import './IArtOnlineAccess.sol';
+import './../common/Initializable.sol';
 
-contract SetArtOnlineStaking {
+contract SetArtOnlineStaking is Initializable {
   IArtOnline internal _artOnlineInterface;
   IArtOnlineBridger internal _artOnlineBridgerInterface;
   IArtOnlineAccess internal _artOnlineAccessInterface;
@@ -20,7 +21,7 @@ contract SetArtOnlineStaking {
     _;
   }
 
-  constructor(address artOnlineBridger_, address artOnlineAccess_) {
+  initialize(address artOnlineBridger_, address artOnlineAccess_) external initializer() onlyAdmin() {
     _artOnlineBridgerInterface = IArtOnlineBridger(artOnlineBridger_);
     _artOnlineAccessInterface = IArtOnlineAccess(artOnlineAccess_);
   }
