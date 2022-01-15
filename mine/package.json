@@ -20,7 +20,7 @@
     "browserify": "^17.0.0",
     "ethers": "^5.5.1",
     "rollup": "^2.60.2",
-    "sw-precache": "^5.2.1"
+    "sw-precache": "^4.1.0"
   },
   "dependencies": {
     "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
