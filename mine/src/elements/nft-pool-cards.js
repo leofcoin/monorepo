@@ -16,7 +16,6 @@ export default customElements.define('nft-pool-cards', class NFTPoolCards extend
   }
 
   async _load(cards) {
-    console.log(cards);
       this.innerHTML = ''
 
     for (const {tokenId, bonus, mining = false} of cards) {

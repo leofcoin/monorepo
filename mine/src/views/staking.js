@@ -108,6 +108,13 @@ export default customElements.define('staking-view', class StakingView extends H
         padding-bottom: 24px;
         padding-left: 6px;
       }
+
+
+
+      array-repeat {
+        overflow-y: auto;
+        pointer-events: auto;
+      }
     </style>
     <flex-column class="hero">
     <flex-row>
@@ -115,6 +122,11 @@ export default customElements.define('staking-view', class StakingView extends H
       <span class="totalStaked"></span>
     </flex-row>
     <array-repeat>
+      <style>
+      [claimable="true"] {
+        pointer-events: auto !important;
+      }
+      </style>
       <template>
         <flex-column>
           <span style="padding-right:24px;">[[item.shortStakeId]]</span>

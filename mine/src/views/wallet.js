@@ -54,27 +54,25 @@ export default customElements.define('wallet-view', class WalletView extends HTM
   _select({detail}) {
     // const target = event.composedPath()[0]
     // const route = target.getAttribute('data-route')
-console.log(detail);
     if (detail === 'overview' || detail === 'back') {
       this._pages.select('overview')
       if (detail === 'back') history.back()
 
       return
     }
-    if (detail.includes('send-')) {
-      detail = detail.split('send-')
-      console.log(detail);
-      detail = detail[1].split('-')
-      console.log(detail);
-      const id = detail[0];
-      const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
-      const symbol = el.getAttribute('symbol')
-      const balance = el.getAttribute('balance')
-      this.shadowRoot.querySelector('wallet-token')._load({symbol, id, balance})
-      this._pages.select('token')
-      return
-    }
-    console.log(detail);
+    // if (detail.includes('send-')) {
+    //   detail = detail.split('send-')
+    //   console.log(detail);
+    //   detail = detail[1].split('-')
+    //   console.log(detail);
+    //   const id = detail[0];
+    //   const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
+    //   const symbol = el.getAttribute('symbol')
+    //   const balance = el.getAttribute('balance')
+    //   this.shadowRoot.querySelector('wallet-token')._load({symbol, id, balance})
+    //   this._pages.select('token')
+    //   return
+    // }
     if (detail) {
       const id = detail;
       const el = this.shadowRoot.querySelector('array-repeat').shadowRoot.querySelector(`[data-route="${id}"]`)
