@@ -64,8 +64,9 @@ export default customElements.define('list-view', class ListView extends BaseCla
       busy.done()
       location.href = '#!/market'
     } catch (e) {
+      console.log(e);
       busy.hide()
-      alert(e.data.message)
+      if (e.data.message) alert(e.data.message)
     }
   }
 

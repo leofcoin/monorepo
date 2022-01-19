@@ -27,7 +27,6 @@ export default customElements.define('market-view', class MarketView extends Bas
       const countdown = await response.text()
       let listings
       if (countdown !== '0') {
-        console.log(countdown);
         await showCountDown(countdown)
         location.href = '#!/market'
         response = await fetch('https://api.artonline.site/listings/ERC1155')
@@ -138,10 +137,12 @@ export default customElements.define('market-view', class MarketView extends Bas
             busy.show('Buying')
             tx = await api.contract.buy(address, id, token, { value: ethers.utils.parseUnits(price) });
           } else {
-            const approved = await api.isApproved(currency, price)
+            let operator = await api.contract.getListingERC1155(api.addresses.platform, id, token)
+            if (operator === '0x0000000000000000000000000000000000000000') operator = await api.contract.getListingERC721(api.addresses.platform, token)
+            const approved = await api.isApproved(currency, ethers.utils.parseUnits(price), operator)
             if (!approved) {
               busy.show('Approving')
-              await api.approve(currency, price)
+              await api.approve(currency, ethers.utils.parseUnits(price), operator)
             }
             busy.show('Buying')
             tx = await api.contract.buy(address, id, token);
@@ -151,13 +152,9 @@ export default customElements.define('market-view', class MarketView extends Bas
           busy.done()
         } catch (e) {
           console.log(e);
-          alert(e.data.message)
           busy.hide()
         }
       }
-    }
-    if (target.dataset.event === 'list') {
-      location.href = '#!/list'
     }
   }
   _onSelected(event) {
@@ -215,39 +212,64 @@ export default customElements.define('market-view', class MarketView extends Bas
     width: 100%;
     height: 100%;
     pointer-events: auto;
-    box-sizing: border-box;
-    padding: 12px;
     max-width: 1426px;
   }
 
   [slot="content"] {
-
-      display: flex;
-      width: 100%;
-      height: 100%;
-      flex-flow: row wrap;
-      align-items: center;
-      justify-content: space-evenly;
-      pointer-events: auto;
-      box-sizing: border-box;
-      padding: 12px;
-      max-width: 1426px;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-flow: row wrap;
+    align-items: center;
+    justify-content: space-evenly;
+    pointer-events: auto;
+    box-sizing: border-box;
+    padding: 24px 0;
   }
 
     listing-element {
       cursor: pointer;
       pointer-events: auto;
-      margin-bottom: 12px;
+      /* margin-bottom: 12px; */
+    }
+
+    .wrapper {
+      padding: 0 12px 24px 12px;
+      display: flex;
+      box-sizing: border-box;
+    }
+
+    ::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+      -webkit-box-shadow: inset 0 0 6px rgba(225,225,225,0.3);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 10px;
+      -webkit-box-shadow: inset 0 0 6px rgba(215,16,150,0.5);
+    }
+
+    @media (min-width: 1080px) {
+      array-repeat {
+        align-items: center;
+        max-width: none;
+        box-sizing: border-box;
+        padding: 0 128px;
+      }
     }
 </style>
   <array-repeat max="15">
     <template>
+      <span class="wrapper">
       <listing-element data-action="show" address="[[item.address]]"></listing-element>
+      </span>
     </template>
 
   </array-repeat>
-
-<fab-element data-event="list"></fab-element>
 
     `
   }

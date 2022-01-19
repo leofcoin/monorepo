@@ -30,6 +30,8 @@ export default class ArrayRepeat extends HTMLElement {
     .selected {
       background-color: #EEE;
     }
+
+    
   </style>
 
   <slot name="content"></slot>

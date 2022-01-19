@@ -24,7 +24,9 @@ export default class Api {
     this.provider = new ethers.providers.JsonRpcProvider(this.network.rpcUrl, NETWORK_ID)
     this.addresses = await addresses(NETWORK_NAME)
     this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, this.provider)
+    this.ready = true
     pubsub.publish('api.ready', true)
+
 
     let wallet = localStorage.getItem('wallet')
     let address =
@@ -57,15 +59,17 @@ export default class Api {
     this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, this.connection.provider.getSigner())
   }
 
-  async approve(contract, amount) {
+  async approve(contract, amount, operator) {
+    operator = operator || api.addresses.exchangeFactory
     if (typeof contract === 'string') contract = new ethers.Contract(contract, ERC20_ABI.abi, this.connection.provider.getSigner())
-    let tx = await contract.approve(api.addresses.exchangeFactory, amount)
+    let tx = await contract.approve(operator, amount)
     await tx.wait()
   }
 
-  async isApproved(contract, amount) {
+  async isApproved(contract, amount, operator) {
+    operator = operator || api.addresses.exchangeFactory
     if (typeof contract === 'string') contract = new ethers.Contract(contract, ERC20_ABI.abi, this.connection.provider.getSigner())
-    const allowance = await contract.callStatic.allowance(api.connection.accounts[0], api.addresses.exchangeFactory)
+    const allowance = await contract.callStatic.allowance(api.connection.accounts[0], operator)
     if (allowance.lt(amount)) return false
     return true
   }

@@ -4,18 +4,18 @@ import './elements/search'
 import icons from './ui/icons'
 import header from './ui/header'
 import pages from './ui/pages'
+import drawer from './ui/drawer'
 import './elements/connect'
 import './elements/busy'
-
+import Router from './router'
+import TokenList from './../node_modules/@coinsswap/token-list/token-list.mjs'
 
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
-  if (Object.keys(pubsub.subscribers).length > 0 && pubsub.subscribers['api.ready']?.['value']) resolve()
+  if (globalThis.api && globalThis.api.ready) resolve();
   pubsub.subscribe('api.ready', () => {
     resolve()
   })
 });
-
-
 
 export default customElements.define('exchange-shell', class ExchangeShell extends BaseClass {
   get pages() {
@@ -23,6 +23,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   }
   constructor() {
     super()
+    this._onclick = this._onclick.bind(this)
   }
 
   connectedCallback() {
@@ -38,53 +39,63 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
         location.href = '#!/market'
       }, countdown);
     })
-    globalThis.onhashchange = async () => {
-      if (location.hash === '') {
-        if (this._isFirstVisit()) location.href = `#!/market` // TODO: home!
-        else location.href = `#!/market`
-      }
-      const hash = location.hash.slice(3, location.hash.length)
-      let parts = hash.split('/')
-      let query = []
-      if (parts[0].includes('?')) {
-        const result = parts[0].split('?')
-        parts[0] = result[0]
-        if (result.length > 1) {
-          query = result.slice(1, result.length)
-          query = query[0].split('&')
-          query = query.reduce((p, c) => {
-            const parts = c.split('=')
-            p[parts[0]] = parts[1]
-            return p
-          }, {})
-        }
-      }
-      if (parts[0] === 'listing') {
-        if (query.length === 0) {
-          parts[0] = 'market'
-          location.href = `#!/market`
-        }
-      }
-      if (!customElements.get(`${parts[0]}-view`)) await import(`./${parts[0]}.js`)
-      if (Object.keys(query).length > 0) {
-        this.sqs(`${parts[0]}-view`).parse(query)
-      }
-      this.pages.select(parts[0])
-    }
-    onhashchange()
+
     globalThis.busy = this.sqs('busy-element')
     this._init()
   }
 
   async _init() {
+
+    if (!globalThis.tokenLists) {
+      globalThis.tokenList = {
+        selected: 'pancakeswap'
+      }
+      let tokens = await new TokenList(globalThis.tokenList.selected, 'mainnet' );
+
+      globalThis.tokenList.tokens = tokens
+      console.log(tokens);
+    }
+
+    globalThis.router = new Router(this.pages)
+
     const importee = await import('./api.js')
     globalThis.api = new importee.default()
+    this.addEventListener('click', this._onclick)
+
+
   }
 
-  _isFirstVisit() {
-    let visited = localStorage.getItem('visited')
-    if (!visited) localStorage.setItem('visited', true)
-    return Boolean(visited) ? false : true
+  _toggleDrawer() {
+    if (this.getBoundingClientRect().width >= 960) return
+
+    this.hasAttribute('open-drawer') ? this.removeAttribute('open-drawer') : this.setAttribute('open-drawer', '')
+  }
+
+  _onclick(event) {
+    const target = event.composedPath()[0]
+    if (target.hasAttribute('icon') && target.getAttribute('icon') === 'menu') {
+      this._toggleDrawer()
+      return
+    }
+    if (target.classList.contains('nav-item') && !target.hasAttribute('data-menu')) {
+      this._toggleDrawer()
+      return
+    }
+    if (target.hasAttribute('data-menu')) {
+      const menu = target.getAttribute('data-menu')
+      const submenus = Array.from(this.shadowRoot.querySelectorAll(`[data-submenu="${menu}"]`))
+      if (target.hasAttribute('opened')) {
+        target.removeAttribute('opened')
+        submenus.forEach((sub) => {
+          sub.removeAttribute('shown')
+        });
+      } else {
+        target.setAttribute('opened', '')
+        submenus.forEach((sub) => {
+          sub.setAttribute('shown', '')
+        });
+      }
+    }
   }
 
   async setTheme(theme) {
@@ -106,17 +117,22 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   :host {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
     background: var(--main-background-color);
+    --svg-icon-color: #eee;
   }
-
   h1, h2 {
     margin: 0;
   }
 
   h2 {
     font-weight: 700;
+    font-size: 18px;
   }
 
   [center] {
@@ -127,17 +143,13 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
     text-decoration: none;
     color: var(--main-color);
     cursor: pointer;
-    pointer-events: auto;
+    /* pointer-events: auto; */
   }
 
   .logo {
-    display: flex;
-  }
-
-  .logo img {
-    height: 36px;
-    width: 36px;
-    padding-right: 6px;
+    height: 32px;
+    width: 32px;
+    padding: 12px;
   }
 
   header {
@@ -213,6 +225,11 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   .nav-bar {
     padding-right: 44px;
   }
+
+  [icon="menu"] {
+    pointer-events: auto;
+    --svg-icon-size: 44px;
+  }
   @media (min-width: 960px) {
     search-element.desktop {
       opacity: 1;
@@ -229,10 +246,56 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
       height: 0;
     }
   }
+
+  custom-pages {
+    top: 54px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    position: absolute;
+  }
+
+  :host([open-drawer]) .drawer {
+    right: 0 !important;
+    opacity: 1 !important;
+    width: 264px !important;
+    z-index: 100;
+    top: 54px;
+    pointer-events: auto;
+  }
+
+  @media (min-width: 960px) {
+    [icon="menu"] {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .drawer {
+      top: 0;
+      right: 0 !important;
+      opacity: 1 !important;
+      width: 264px !important;
+      pointer-events: auto !important;
+    }
+    .nav-item {
+      pointer-events: auto !important;
+    }
+    custom-pages {
+      left: 264px;
+      width: calc(100% - 264px);
+    }
+  }
+
+
 </style>
 ${icons}
-${header}
+<flex-row center>
+  <custom-svg-icon icon="menu"></custom-svg-icon>
+  <flex-one></flex-one>
+  <img class="logo" src="https://assets.artonline.site/arteon.svg"></img>
+</flex-row>
 ${pages}
+${drawer}
+
 <connect-element>
   <strong slot="title">Connect Wallet</strong>
 
