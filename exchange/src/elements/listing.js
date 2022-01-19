@@ -56,7 +56,7 @@ export default customElements.define('listing-element', class Listinglement exte
   :host {
     display: flex;
     flex-direction: column;
-    height: 340px;
+    height: 300px;
     width: 234px;
     overflow: hidden;
     box-sizing: border-box;

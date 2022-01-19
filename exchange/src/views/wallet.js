@@ -5,6 +5,14 @@ export default customElements.define('wallet-view', class WalletView extends Bas
     super()
   }
 
+  connectedCallback() {
+    this._init()
+  }
+
+  _init() {
+    console.log(globalThis.tokenList.tokens);
+  }
+
   get template() {
     return html`
     <style>

@@ -50,7 +50,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
       globalThis.tokenList = {
         selected: 'pancakeswap'
       }
-      let tokens = await new TokenList(globalThis.tokenList.selected, 'mainnet' );
+      let tokens = await new TokenList(globalThis.tokenList.selected, 'mainnet');
 
       globalThis.tokenList.tokens = tokens
       console.log(tokens);

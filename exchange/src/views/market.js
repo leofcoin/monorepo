@@ -262,7 +262,7 @@ export default customElements.define('market-view', class MarketView extends Bas
       }
     }
 </style>
-  <array-repeat max="15">
+  <array-repeat max="25">
     <template>
       <span class="wrapper">
       <listing-element data-action="show" address="[[item.address]]"></listing-element>
