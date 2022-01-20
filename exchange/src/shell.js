@@ -1,6 +1,7 @@
 import miniframe from './miniframe'
 import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
 import './elements/search'
+import './array-repeat'
 import icons from './ui/icons'
 import header from './ui/header'
 import pages from './ui/pages'
@@ -9,6 +10,7 @@ import './elements/connect'
 import './elements/busy'
 import Router from './router'
 import TokenList from './../node_modules/@coinsswap/token-list/token-list.mjs'
+
 
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
   if (globalThis.api && globalThis.api.ready) resolve();

@@ -1,6 +1,5 @@
 import './../animations/loading'
 import './../elements/wallet-token-item'
-import './../array-repeat'
 import { abi as IERC20_ABI } from './../../../build/contracts/IERC20.json'
 
 export default customElements.define('wallet-view', class WalletView extends BaseClass {
@@ -53,6 +52,7 @@ export default customElements.define('wallet-view', class WalletView extends Bas
       array-repeat {
         max-width: 640px;
         width: 100%;
+        box-shadow: 1px 1px 13px 5px var(--accent-color);
       }
 
       [slot="content"] {
