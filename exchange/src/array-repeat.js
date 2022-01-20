@@ -31,7 +31,7 @@ export default class ArrayRepeat extends HTMLElement {
       background-color: #EEE;
     }
 
-    
+
   </style>
 
   <slot name="content"></slot>
@@ -284,7 +284,7 @@ export default class ArrayRepeat extends HTMLElement {
    * @return {resolve} promises an array of tasks
    */
   _forOf(item) {
-    const tasks = []
+    let tasks = []
     let oldKey;
     if (item.key) {
       oldKey = item.key;
