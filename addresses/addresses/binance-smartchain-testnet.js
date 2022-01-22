@@ -13,5 +13,11 @@ export default {
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
   "partnershipToken": "0xa60eAE6d5A2d5B367DaB6C68FE0c448Eec0e6Ed8",
   "splitter": "0xDd80C8e36Be2E17866a8F54Da84779795D124cfe",
-  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64"
+  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64",
+  "chainlink": {
+    "token": "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06",
+    "coordinator": "0xa555fC018435bef5A13C6c6870a9d4C11DEC329C",
+    "keyHash": "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186",
+    "fee": "0.1"
+  }
 }

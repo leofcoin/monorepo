@@ -11,5 +11,11 @@ export default {
   "staking": "0x117C88F4E8Dd5a230c41A69d8963A4c14Ad21C02",
   "exchangeFactory": "0x330196396CFDAA551406A621Aa0A9Ddf9a4e634D",
   "splitter": "0x06e0205aa9F5CD45f70C8C11e30d4beCe144Ab12",
-  "blacklist": "0x152914948cF2F25e2a19FBEE69CB17a75c51C3EC"
+  "blacklist": "0x152914948cF2F25e2a19FBEE69CB17a75c51C3EC",
+  "chainlink": {
+    "token": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+    "coordinator": "0x747973a5A2a4Ae1D3a8fDF5479f1514F65Db9C31",
+    "keyHash": "0xc251acd21ec4fb7f31bb8868288bfdbaeb4fbfec2df3735ddbd4f7dc8d60103c",
+    "fee": "0.2"
+  }
 }
