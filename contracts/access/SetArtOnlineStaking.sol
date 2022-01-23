@@ -21,7 +21,7 @@ contract SetArtOnlineStaking is Initializable {
     _;
   }
 
-  initialize(address artOnlineBridger_, address artOnlineAccess_) external initializer() onlyAdmin() {
+  function _initialize(address artOnlineBridger_, address artOnlineAccess_) internal initializer() onlyAdmin() {
     _artOnlineBridgerInterface = IArtOnlineBridger(artOnlineBridger_);
     _artOnlineAccessInterface = IArtOnlineAccess(artOnlineAccess_);
   }

@@ -23,8 +23,8 @@ contract ArtOnlineStaking is Context, Pausable, Initializable, IArtOnlineStaking
   mapping (address => mapping(address => uint256)) internal _stakers;
   mapping (address => mapping(bytes32 => address)) internal _currency;
 
-  function initialize(address bridger, address access) external initializer() onlyAdmin() {
-    SetArtOnlineStaking.initialize(bridger, access);
+  function initialize(address bridger, address access) external virtual initializer() onlyAdmin() {
+    super._initialize(bridger, access);
   }
 
   function totalSupply(address currency_) external view override returns (uint256) {
