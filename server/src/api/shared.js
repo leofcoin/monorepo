@@ -17,19 +17,25 @@ export const sendJSON = (ctx, value) => {
   ctx.body = typeof value === 'string' ? JSON.stringify(value, null, '\t') : value
 }
 
-export const getMetadataURI = async (address, id, type) => {
+export const getMetadataURI = async (address, id, type, tokenId) => {
   const contract = type === 'ERC1155' ?
                    new ethers.Contract(address, ERC1155_ABI, provider) :
                    new ethers.Contract(address, ERC721_ABI, provider)
 
-  const uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id)
+  let uri
+  if (tokenId) {
+    uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId) : await contract.callStatic.tokenURI(id, tokenId)
+  } else {
+    uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id)
+  }
+
   return uri.replace(`{id}`, id)
 }
 
-export const getJsonFor = async (address, id, type) => {
+export const getJsonFor = async (address, id, type, tokenId) => {
   if (!jobber[`uri_${address}_${id}`]) {
     jobber[`uri_${address}_${id}`] = {
-      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
+      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type, tokenId)
     }
     await jobber[`uri_${address}_${id}`].job()
   }

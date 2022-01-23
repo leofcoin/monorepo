@@ -148,8 +148,12 @@ router.get('/listing/info', async ctx => {
         } catch (e) {
           console.log(e);
         }
-        const json = await getJsonFor(promises[3], id ? id : promises[1], type)
-        const metadataURI = await getMetadataURI(promises[3], promises[1], type)
+        let tokenId
+        if (promises[3] === addresses.createables) {
+          tokenId = promises[1]
+        }
+        const json = await getJsonFor(promises[3], id ? id : promises[1], type, tokenId)
+        const metadataURI = await getMetadataURI(promises[3], promises[1], type, tokenId)
         jobber[`listingInfo_${address}`].value = {
           price: ethers.utils.formatUnits(promises[0], 18),
           tokenId: promises[1].toString(),
