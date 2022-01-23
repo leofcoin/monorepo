@@ -19,5 +19,6 @@ export default {
     "coordinator": "0xa555fC018435bef5A13C6c6870a9d4C11DEC329C",
     "keyHash": "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186",
     "fee": "0.1"
-  }
+  },
+  "createables": "0x5e0aD8b39A4F925c7f68492Ed2dB4CF910404DAb"
 }
