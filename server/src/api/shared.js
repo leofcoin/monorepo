@@ -2,6 +2,7 @@
 import ethers from 'ethers'
 import { abi as ERC1155_ABI } from './../../../build/contracts/ERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ERC721.json'
+import { abi as CREATEABLES } from './../../../build/contracts/Createables.json'
 import jobber from './../jobber'
 import fetch from 'node-fetch'
 import { CID } from 'multiformats/cid'
@@ -18,13 +19,13 @@ export const sendJSON = (ctx, value) => {
 }
 
 export const getMetadataURI = async (address, id, type, tokenId) => {
-  const contract = type === 'ERC1155' ?
+  let contract = type === 'ERC1155' ?
                    new ethers.Contract(address, ERC1155_ABI, provider) :
                    new ethers.Contract(address, ERC721_ABI, provider)
-
   let uri
-  if (tokenId) {
-    uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId) : await contract.callStatic.tokenURI(id, tokenId)
+  if (tokenId && tokenId.toNumber() > 0) {
+    contract = new ethers.Contract(address, CREATEABLES, provider)
+    uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId.toString()) : await contract.callStatic.tokenURI(id, tokenId.toString())
   } else {
     uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id)
   }
