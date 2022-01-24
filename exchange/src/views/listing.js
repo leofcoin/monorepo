@@ -18,7 +18,6 @@ export default customElements.define('listing-view', class ListingView extends B
       listing = {...listing, ...listing.json}
       listing.image = listing.image ? listing.image : listing.animation
     }
-    console.log(listing);
     this.id = listing.id
     this.tokenId = listing.tokenId
     this.price = listing.price
@@ -29,7 +28,7 @@ export default customElements.define('listing-view', class ListingView extends B
     this.listed = listing.listed
     this.listing = listing.listing
     this.image = listing.image
-    this.symbol = listing.symbol
+    this.symbol = listing.symbol || listing.name
     this.shadowRoot.innerHTML = this.template
     this.sqs('asset-player').setAttribute('src', listing.image)
   }
@@ -94,13 +93,6 @@ export default customElements.define('listing-view', class ListingView extends B
   button[listed="false"] {
     pointer-events: none;
     background: #555;
-  }
-
-  @media (min-width: 960px) {
-    .container {
-      max-width: 720px;
-      flex-direction: row;
-    }
   }
 </style>
 

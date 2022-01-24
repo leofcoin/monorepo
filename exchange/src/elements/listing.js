@@ -39,7 +39,7 @@ export default customElements.define('listing-element', class Listinglement exte
     this.shadowRoot.innerHTML = this.template
     if (response.json) {
       this.img = response.json.image ? response.json.image : response.json.animation
-      this.symbol = response.json.symbol
+      this.symbol = response.json.symbol || response.json.name 
       this.description = response.json.description
     }
 
