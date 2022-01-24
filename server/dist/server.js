@@ -40,7 +40,7 @@ var addresses = {
   "createables": "0xf3F1f58aD52ff51B5D44E99CBeb88e34CfD186b7"
 };
 
-var abi$3 = [
+var abi$4 = [
 	{
 		inputs: [
 		],
@@ -537,7 +537,7 @@ var abi$3 = [
 	}
 ];
 
-var abi$2 = [
+var abi$3 = [
 	{
 		inputs: [
 			{
@@ -1324,7 +1324,7 @@ var abi$2 = [
 	}
 ];
 
-var abi$1 = [
+var abi$2 = [
 	{
 		inputs: [
 			{
@@ -1653,7 +1653,7 @@ var abi$1 = [
 	}
 ];
 
-var abi = [
+var abi$1 = [
 	{
 		inputs: [
 			{
@@ -2009,6 +2009,440 @@ var abi = [
 	}
 ];
 
+var abi = [
+	{
+		inputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "constructor"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "ApprovalForAll",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				indexed: false,
+				internalType: "uint256[]",
+				name: "values",
+				type: "uint256[]"
+			}
+		],
+		name: "TransferBatch",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "value",
+				type: "uint256"
+			}
+		],
+		name: "TransferSingle",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "string",
+				name: "value",
+				type: "string"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			}
+		],
+		name: "URI",
+		type: "event"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			}
+		],
+		name: "balanceOf",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address[]",
+				name: "accounts",
+				type: "address[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			}
+		],
+		name: "balanceOfBatch",
+		outputs: [
+			{
+				internalType: "uint256[]",
+				name: "",
+				type: "uint256[]"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "account",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			}
+		],
+		name: "isApprovedForAll",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "amounts",
+				type: "uint256[]"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "safeBatchTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "to",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "safeTransferFrom",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "bool",
+				name: "approved",
+				type: "bool"
+			}
+		],
+		name: "setApprovalForAll",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "bytes4",
+				name: "interfaceId",
+				type: "bytes4"
+			}
+		],
+		name: "supportsInterface",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "id_",
+				type: "uint256"
+			},
+			{
+				internalType: "string",
+				name: "uri_",
+				type: "string"
+			}
+		],
+		name: "setMetadataURI",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "id_",
+				type: "uint256"
+			}
+		],
+		name: "uri",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "creator",
+				type: "address"
+			},
+			{
+				internalType: "string",
+				name: "uri_",
+				type: "string"
+			}
+		],
+		name: "create",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "creator_",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "token_",
+				type: "uint256"
+			},
+			{
+				internalType: "string",
+				name: "uri_",
+				type: "string"
+			}
+		],
+		name: "addCreation",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token_",
+				type: "uint256"
+			}
+		],
+		name: "totalSupply",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token_",
+				type: "uint256"
+			}
+		],
+		name: "exists",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	}
+];
+
 const cache$1 = {};
 
 const getTime = () => {
@@ -2044,13 +2478,13 @@ const sendJSON = (ctx, value) => {
 };
 
 const getMetadataURI = async (address, id, type, tokenId) => {
-  const contract = type === 'ERC1155' ?
-                   new ethers__default["default"].Contract(address, abi$1, provider$1) :
-                   new ethers__default["default"].Contract(address, abi, provider$1);
-
+  let contract = type === 'ERC1155' ?
+                   new ethers__default["default"].Contract(address, abi$2, provider$1) :
+                   new ethers__default["default"].Contract(address, abi$1, provider$1);
   let uri;
-  if (tokenId) {
-    uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId) : await contract.callStatic.tokenURI(id, tokenId);
+  if (tokenId && tokenId.toNumber() > 0) {
+    contract = new ethers__default["default"].Contract(address, abi, provider$1);
+    uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId.toString()) : await contract.callStatic.tokenURI(id, tokenId.toString());
   } else {
     uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id);
   }
@@ -2095,7 +2529,7 @@ const provider = new ethers__default["default"].providers.JsonRpcProvider('https
   chainId: 56
 });
 
-const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$2, provider);
+const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$3, provider);
 
 router$2.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha';
@@ -2110,7 +2544,7 @@ router$2.get('/countdown', ctx => {
 });
 
 const listingListed = async (address) => {
-  const listingContract = new ethers__default["default"].Contract(address, abi$3, provider);
+  const listingContract = new ethers__default["default"].Contract(address, abi$4, provider);
   const listed = await listingContract.callStatic.listed();
   return listed.toNumber() === 1
 };
@@ -2204,7 +2638,7 @@ router$2.get('/listing/info', async ctx => {
   if (!cache$1[`listingInfo_${address}`]) {
     cache$1[`listingInfo_${address}`] = {
       job: async () => {
-        const contract = new ethers__default["default"].Contract(address, abi$3, provider);
+        const contract = new ethers__default["default"].Contract(address, abi$4, provider);
         let promises = [
           contract.callStatic.price(),
           contract.callStatic.tokenId(),
@@ -2225,7 +2659,7 @@ router$2.get('/listing/info', async ctx => {
         if (promises[3] === addresses.createables) {
           tokenId = promises[1];
         }
-        const json = await getJsonFor(promises[3], id ? id : promises[1], type, tokenId);
+        const json = await getJsonFor(promises[3], id ? id.toString() : promises[1], type, tokenId);
         const metadataURI = await getMetadataURI(promises[3], promises[1], type, tokenId);
         cache$1[`listingInfo_${address}`].value = {
           price: ethers__default["default"].utils.formatUnits(promises[0], 18),
