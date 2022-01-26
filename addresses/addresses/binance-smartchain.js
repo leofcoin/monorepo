@@ -18,5 +18,5 @@ export default {
     "keyHash": "0xc251acd21ec4fb7f31bb8868288bfdbaeb4fbfec2df3735ddbd4f7dc8d60103c",
     "fee": "0.2"
   },
-  "createables": "0xf3F1f58aD52ff51B5D44E99CBeb88e34CfD186b7"
+  "createables": "0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1"
 }

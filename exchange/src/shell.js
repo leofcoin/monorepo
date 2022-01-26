@@ -10,7 +10,9 @@ import './elements/connect'
 import './elements/busy'
 import Router from './router'
 import TokenList from './../node_modules/@coinsswap/token-list/token-list.mjs'
-
+import './../node_modules/custom-tabs/custom-tabs'
+import './../node_modules/custom-tabs/custom-tab'
+import './../node_modules/@andrewvanardennen/custom-input/custom-input'
 
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
   if (globalThis.api && globalThis.api.ready) resolve();
@@ -195,7 +197,6 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
     box-sizing: border-box;
     border-radius: 12px;
     align-items: center;
-    pointer-events: auto;
     cursor: pointer;
     text-transform: uppercase;
   }

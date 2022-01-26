@@ -37,7 +37,7 @@ var addresses = {
     "keyHash": "0xc251acd21ec4fb7f31bb8868288bfdbaeb4fbfec2df3735ddbd4f7dc8d60103c",
     "fee": "0.2"
   },
-  "createables": "0xf3F1f58aD52ff51B5D44E99CBeb88e34CfD186b7"
+  "createables": "0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1"
 };
 
 var abi$4 = [
@@ -2315,6 +2315,54 @@ var abi = [
 	{
 		inputs: [
 			{
+				internalType: "uint256[]",
+				name: "tokens_",
+				type: "uint256[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids_",
+				type: "uint256[]"
+			}
+		],
+		name: "ownerOfBatch",
+		outputs: [
+			{
+				internalType: "address[]",
+				name: "",
+				type: "address[]"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token_",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "id_",
+				type: "uint256"
+			}
+		],
+		name: "ownerOf",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "uint256",
 				name: "token_",
 				type: "uint256"
@@ -2334,6 +2382,25 @@ var abi = [
 		outputs: [
 		],
 		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		name: "uri",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
 		type: "function"
 	},
 	{
@@ -2580,7 +2647,7 @@ router$2.get('/listings/ERC1155', async ctx => {
         const listingsLength = await contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i);
-          if (!cache$1[`listed_${address}`]) {
+          if (!cache$1[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') {
             cache$1[`listed_${address}`] = {
               job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
             };
@@ -2620,7 +2687,7 @@ router$2.get('/listings', async ctx => {
         const listingsLength = await api.contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i);
-          listings.push({address, listed: await listingListed(address)});
+          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)});
         }
         cache$1['listingERC1155'].value = listings;
       }
@@ -2680,7 +2747,6 @@ router$2.get('/listing/info', async ctx => {
 });
 
 router$2.get('/listing/listed', async ctx => {
-  console.log(ctx.request.query);
   const { address } = ctx.request.query;
   if (!cache$1[`listed_${address}`]) {
     cache$1[`listed_${address}`] = {

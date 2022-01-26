@@ -10,7 +10,7 @@ export default async (address = '/dns4/star.leofcoin.org/tcp/4003/wss/p2p/QmfShD
       const script = document.createElement('script')
       script.onload = () => resolve();
       script.onerror = () => reject();
-      script.setAttribute('defer', '')
+      script.setAttribute('async', '')
       script.src = 'https://cdn.jsdelivr.net/npm/ipfs@latest/index.min.js'
       document.head.appendChild(script)
     })

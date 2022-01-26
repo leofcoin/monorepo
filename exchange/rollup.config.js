@@ -7,7 +7,7 @@ execSync('cp -rf ./../addresses/addresses/**.js www/addresses')
 
 export default [
 	{
-		input: ['src/shell.js', 'src/views/market.js', 'src/views/collections.js', 'src/views/wallet.js', 'src/views/account.js', 'src/views/auctions.js', 'src/views/create.js', 'src/views/listing.js', 'src/views/list.js', 'src/views/home.js', 'src/views/countdown.js', 'src/api/api.js'],
+		input: ['src/shell.js', 'src/views/market.js', 'src/views/collections.js', 'src/views/creations.js', 'src/views/wallet.js', 'src/views/account.js', 'src/views/auctions.js', 'src/views/create.js', 'src/views/listing.js', 'src/views/list.js', 'src/views/home.js', 'src/views/countdown.js', 'src/api/api.js'],
 		output: {
 			dir: 'www',
 			format: 'es',

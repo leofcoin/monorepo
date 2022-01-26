@@ -73,7 +73,7 @@ router.get('/listings/ERC1155', async ctx => {
         const listingsLength = await contract.listingERC1155Length()
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i)
-          if (!jobber[`listed_${address}`]) {
+          if (!jobber[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') {
             jobber[`listed_${address}`] = {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
             }
@@ -113,7 +113,7 @@ router.get('/listings', async ctx => {
         const listingsLength = await api.contract.listingERC1155Length()
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i)
-          listings.push({address, listed: await listingListed(address)})
+          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)})
         }
         jobber['listingERC1155'].value = listings
       }
@@ -173,7 +173,6 @@ router.get('/listing/info', async ctx => {
 })
 
 router.get('/listing/listed', async ctx => {
-  console.log(ctx.request.query);
   const { address } = ctx.request.query
   if (!jobber[`listed_${address}`]) {
     jobber[`listed_${address}`] = {

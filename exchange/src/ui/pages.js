@@ -13,5 +13,6 @@ export default html`
   <create-view data-route="create"></create-view>
   <account-view data-route="account"></account-view>
   <wallet-view data-route="wallet"></wallet-view>
+  <creations-view data-route="creations"></creations-view>
 </custom-pages>
 `

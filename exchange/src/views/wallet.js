@@ -16,7 +16,6 @@ export default customElements.define('wallet-view', class WalletView extends Bas
     if (!api.connection) {
       await api.connectWallet()
     }
-    console.log(api.connection);
     const items = []
     for (const key of Object.keys(globalThis.tokenList.tokens)) {
       const {name, symbol, address, icon, decimals} = globalThis.tokenList.tokens[key]

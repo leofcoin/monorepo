@@ -110,14 +110,19 @@ export default html`
   </span>
   <flex-one></flex-one>
   <span class="content">
-    <a href="#!/account" class="nav-item">
-      <custom-svg-icon icon="account"></custom-svg-icon>
-      account
+    <a href="#!/creations" class="nav-item">
+      <custom-svg-icon icon="photo-library"></custom-svg-icon>
+      creations
       <flex-one></flex-one>
     </a>
     <a href="#!/wallet" class="nav-item">
       <custom-svg-icon icon="account-balance-wallet"></custom-svg-icon>
       wallet
+      <flex-one></flex-one>
+    </a>
+    <a href="#!/account" class="nav-item">
+      <custom-svg-icon icon="account"></custom-svg-icon>
+      account
       <flex-one></flex-one>
     </a>
   </span>
