@@ -2530,7 +2530,7 @@ const timeout = () => {
     }
     if (done) console.log(`jobs took ${getTime() - start}s`);
     timeout();
-  }, 5 * 60 * 1000);
+  }, 1 * 60 * 1000);
 };
 
 timeout();
@@ -2588,7 +2588,7 @@ const getJsonFor = async (address, id, type, tokenId) => {
 
 const router$2 = new Router__default["default"]();
 
-const twentyMinutes = 5 * 60 * 1000;
+const twentyMinutes = 1 * 60 * 1000;
 const start = new Date().getTime();
 const done = start + twentyMinutes;
 

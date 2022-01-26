@@ -10,7 +10,7 @@ import ethers from 'ethers'
 import Router from '@koa/router'
 const router = new Router()
 
-const twentyMinutes = 5 * 60 * 1000
+const twentyMinutes = 1 * 60 * 1000
 const start = new Date().getTime()
 const done = start + twentyMinutes
 
