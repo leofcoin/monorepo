@@ -9,6 +9,7 @@ contract Createables is ERC1155 {
   mapping (uint256 => address) internal _creators;
   mapping (uint256 => mapping(uint256 => string)) internal _uris;
   mapping (uint256 => uint256) internal _totalSupply;
+  mapping (uint256 => mapping(uint256 => address)) internal _owners;
 
   constructor() ERC1155('https://ipfs.io/ipfs/') {
     _manager = msg.sender;
@@ -22,6 +23,26 @@ contract Createables is ERC1155 {
   modifier onlyCreator(uint256 _token) {
     require(_creators[_token] == msg.sender, 'NOT_THE_CREATOR');
     _;
+  }
+
+  function ownerOfBatch(uint256[] memory tokens_, uint256[] memory ids_) external view virtual returns (address[] memory) {
+    require(tokens_.length == ids_.length, "tokens_ and ids_ length mismatch");
+
+    address[] memory batchowners = new address[](tokens_.length);
+
+    for (uint256 i = 0; i < tokens_.length; ++i) {
+        batchowners[i] = _ownerOf(tokens_[i], ids_[i]);
+    }
+
+    return batchowners;
+  }
+
+  function _ownerOf(uint256 token_, uint256 id_) internal view virtual returns (address) {
+    return _owners[token_][id_];
+  }
+
+  function ownerOf(uint256 token_, uint256 id_) external view virtual returns (address) {
+    return _ownerOf(token_, id_);
   }
 
   function _setMetadataURI(uint256 token_, uint256 id_, string memory uri_) internal {
@@ -79,6 +100,13 @@ contract Createables is ERC1155 {
       bytes memory data
   ) internal virtual override {
       super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+
+      for (uint256 i = 0; i < ids.length; i++)  {
+        if (from != address(0)) {
+          require(_owners[ids[i]][amounts[i]] == from, 'NOT_OWNER');
+        }
+        _owners[ids[i]][amounts[i]] = to;
+      }
 
       if (from == address(0)) {
         for (uint256 i = 0; i < ids.length; ++i) {
