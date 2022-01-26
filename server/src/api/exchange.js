@@ -78,7 +78,7 @@ router.get('/listings/ERC1155', async ctx => {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
             }
           }
-          listings.push({address, listed: await listingListed(address)})
+          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)})
         }
         jobber.listingsERC1155.value = listings
       }

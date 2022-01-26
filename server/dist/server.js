@@ -2652,7 +2652,7 @@ router$2.get('/listings/ERC1155', async ctx => {
               job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
             };
           }
-          listings.push({address, listed: await listingListed(address)});
+          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)});
         }
         cache$1.listingsERC1155.value = listings;
       }
