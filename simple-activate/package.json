@@ -13,7 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@arteon/wallet-connect": "^1.1.2",
+    "@arteon/wallet-connect": "^1.1.6",
     "@vandeurenglenn/custom-select": "^0.1.3",
     "@vandeurenglenn/flex-elements": "^0.1.0"
   },
