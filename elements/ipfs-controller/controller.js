@@ -17,9 +17,8 @@ export default async (address = '/dns4/star.leofcoin.org/tcp/4003/wss/p2p/QmfShD
 
 
     await loadScript()
-    console.log(globalThis.ipfs, globalThis.Ipfs);
     globalThis.ipfs = await Ipfs.create({
-      repo: 'test',
+      repo: 'ArtOnline',
       libp2p: {
         config: {
           dht: {
