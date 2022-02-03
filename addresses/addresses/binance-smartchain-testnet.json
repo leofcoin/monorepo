@@ -20,5 +20,10 @@
     "keyHash": "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186",
     "fee": "0.1"
   },
-  "createables": "0x5e0aD8b39A4F925c7f68492Ed2dB4CF910404DAb"
+  "proxyManager": "0x778e398aA6D14572Aa9928636911495be62C72eF",
+  "lotteryProxy": "0x6D5C59b09E81946Adec73E88aBDFc32a8e7Da99c",
+  "stakingProxy": "0x52DA77cb81D996C4f1088ac395d25c276e5E015A",
+  "lottery": "0xc6Dc1Ceb4ae6cd8292B172eCbc43309Bc923b08A",
+  "lotteryTickets": "0x94bebAe1Cd539E92b72081123ED31E545002677D",
+  "randomNumberGenerator": "0xdffb4b90aBf101A0FFc4E470758dB77B8A9bB307"
 }
