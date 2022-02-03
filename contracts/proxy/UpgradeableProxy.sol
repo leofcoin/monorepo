@@ -71,12 +71,12 @@ contract UpgradeableProxy is IUpgradeableProxy {
     return StorageSlot.getAddressAt(PROXY_MANAGER_SLOT);
   }
 
-  function manager() internal ifManager returns (address) {
+  function manager() external ifManager returns (address) {
     return _getManager();
   }
 
   function _beforeFallback() internal virtual {
-    require(msg.sender != manager());
+    require(msg.sender != _getManager(), 'MANAGER_NOT_ALLOWED');
   }
 
   function _fallback() internal virtual {
