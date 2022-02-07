@@ -73,12 +73,12 @@ router.get('/listings/ERC1155', async ctx => {
         const listingsLength = await contract.listingERC1155Length()
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i)
-          if (!jobber[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') {
+          if (!jobber[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') {
             jobber[`listed_${address}`] = {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
             }
           }
-          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)})
+          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)})
         }
         jobber.listingsERC1155.value = listings
       }
@@ -113,7 +113,7 @@ router.get('/listings', async ctx => {
         const listingsLength = await api.contract.listingERC1155Length()
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i)
-          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)})
+          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)})
         }
         jobber['listingERC1155'].value = listings
       }
@@ -137,6 +137,7 @@ router.get('/listing/info', async ctx => {
           contract.callStatic.tokenId(),
           contract.callStatic.currency(),
           contract.callStatic.contractAddress(),
+          contract.callStatic.owner(),
           listingListed(address)
         ]
         promises = await Promise.all(promises)
@@ -159,7 +160,8 @@ router.get('/listing/info', async ctx => {
           tokenId: promises[1].toString(),
           currency: promises[2],
           contractAddress: promises[3],
-          listed: promises[4],
+          owner: promises[4],
+          listed: promises[5],
           metadataURI,
           json
         }

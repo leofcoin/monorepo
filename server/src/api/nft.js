@@ -8,10 +8,10 @@ router.get('/nft', ctx => {
 })
 
 router.get('/nft/uri', async ctx => {
-  const { address, id, type } = ctx.request.query
+  const { address, id, token, type } = ctx.request.query
   if (!jobber[`uri_${address}_${id}`]) {
     jobber[`uri_${address}_${id}`] = {
-      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
+      job: async () => jobber[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type, token)
     }
     jobber[`uri_${address}_${id}`].value = await jobber[`uri_${address}_${id}`].job()
   }
@@ -19,10 +19,10 @@ router.get('/nft/uri', async ctx => {
 })
 
 router.get('/nft/json', async ctx => {
-  const { address, id, type } = ctx.request.query
+  const { address, id, token, type } = ctx.request.query
   if (!jobber[`json_${address}_${id}`]) {
     jobber[`json_${address}_${id}`] = {
-      job: async () => jobber[`json_${address}_${id}`].value = await getJsonFor(address, id, type)
+      job: async () => jobber[`json_${address}_${id}`].value = await getJsonFor(address, id, type, token)
     }
     jobber[`json_${address}_${id}`].value = await jobber[`json_${address}_${id}`].job()
   }

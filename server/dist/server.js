@@ -2011,12 +2011,6 @@ var abi$1 = [
 
 var abi = [
 	{
-		inputs: [
-		],
-		stateMutability: "nonpayable",
-		type: "constructor"
-	},
-	{
 		anonymous: false,
 		inputs: [
 			{
@@ -2210,6 +2204,84 @@ var abi = [
 		inputs: [
 			{
 				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256[]",
+				name: "ids",
+				type: "uint256[]"
+			},
+			{
+				internalType: "uint256[]",
+				name: "values",
+				type: "uint256[]"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC1155BatchReceived",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "operator",
+				type: "address"
+			},
+			{
+				internalType: "address",
+				name: "from",
+				type: "address"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "value",
+				type: "uint256"
+			},
+			{
+				internalType: "bytes",
+				name: "data",
+				type: "bytes"
+			}
+		],
+		name: "onERC1155Received",
+		outputs: [
+			{
+				internalType: "bytes4",
+				name: "",
+				type: "bytes4"
+			}
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
 				name: "from",
 				type: "address"
 			},
@@ -2315,6 +2387,44 @@ var abi = [
 	{
 		inputs: [
 			{
+				internalType: "string",
+				name: "uri_",
+				type: "string"
+			}
+		],
+		name: "initialize",
+		outputs: [
+		],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "token",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "id",
+				type: "uint256"
+			}
+		],
+		name: "uri",
+		outputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "uint256[]",
 				name: "tokens_",
 				type: "uint256[]"
@@ -2382,30 +2492,6 @@ var abi = [
 		outputs: [
 		],
 		stateMutability: "nonpayable",
-		type: "function"
-	},
-	{
-		inputs: [
-			{
-				internalType: "uint256",
-				name: "token",
-				type: "uint256"
-			},
-			{
-				internalType: "uint256",
-				name: "id_",
-				type: "uint256"
-			}
-		],
-		name: "uri",
-		outputs: [
-			{
-				internalType: "string",
-				name: "",
-				type: "string"
-			}
-		],
-		stateMutability: "view",
 		type: "function"
 	},
 	{
@@ -2628,12 +2714,12 @@ router$2.get('/listings/ERC1155', async ctx => {
         const listingsLength = await contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i);
-          if (!cache$1[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') {
+          if (!cache$1[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') {
             cache$1[`listed_${address}`] = {
               job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
             };
           }
-          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)});
+          if (address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)});
         }
         cache$1.listingsERC1155.value = listings;
       }
@@ -2668,7 +2754,7 @@ router$2.get('/listings', async ctx => {
         const listingsLength = await api.contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
           const address = await contract.callStatic.listingsERC1155(i);
-          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9') listings.push({address, listed: await listingListed(address)});
+          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)});
         }
         cache$1['listingERC1155'].value = listings;
       }
@@ -2692,6 +2778,7 @@ router$2.get('/listing/info', async ctx => {
           contract.callStatic.tokenId(),
           contract.callStatic.currency(),
           contract.callStatic.contractAddress(),
+          contract.callStatic.owner(),
           listingListed(address)
         ];
         promises = await Promise.all(promises);
@@ -2714,7 +2801,8 @@ router$2.get('/listing/info', async ctx => {
           tokenId: promises[1].toString(),
           currency: promises[2],
           contractAddress: promises[3],
-          listed: promises[4],
+          owner: promises[4],
+          listed: promises[5],
           metadataURI,
           json
         };
@@ -2768,10 +2856,10 @@ router.get('/nft', ctx => {
 });
 
 router.get('/nft/uri', async ctx => {
-  const { address, id, type } = ctx.request.query;
+  const { address, id, token, type } = ctx.request.query;
   if (!cache$1[`uri_${address}_${id}`]) {
     cache$1[`uri_${address}_${id}`] = {
-      job: async () => cache$1[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type)
+      job: async () => cache$1[`uri_${address}_${id}`].value = await getMetadataURI(address, id, type, token)
     };
     cache$1[`uri_${address}_${id}`].value = await cache$1[`uri_${address}_${id}`].job();
   }
@@ -2779,10 +2867,10 @@ router.get('/nft/uri', async ctx => {
 });
 
 router.get('/nft/json', async ctx => {
-  const { address, id, type } = ctx.request.query;
+  const { address, id, token, type } = ctx.request.query;
   if (!cache$1[`json_${address}_${id}`]) {
     cache$1[`json_${address}_${id}`] = {
-      job: async () => cache$1[`json_${address}_${id}`].value = await getJsonFor(address, id, type)
+      job: async () => cache$1[`json_${address}_${id}`].value = await getJsonFor(address, id, type, token)
     };
     cache$1[`json_${address}_${id}`].value = await cache$1[`json_${address}_${id}`].job();
   }
