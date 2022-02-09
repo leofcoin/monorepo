@@ -39,7 +39,7 @@ const timedOutMessage = ctx => {
   ctx.body = `${ctx.request.query.address} on timeout`
 }
 
-router.get('/faucet', ctx => {
+router.get('/faucet', async ctx => {
   if (timedOut[ctx.request.header['cf-connecting-ip']]) return timedOutMessage(ctx)
   if (timedOut[ctx.resuest.query.address]) return timedOutMessage(ctx)
   const time = new Date().getTime() + 8.64e+7

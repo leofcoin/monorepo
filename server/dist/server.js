@@ -17,7 +17,7 @@ var mime__default = /*#__PURE__*/_interopDefaultLegacy(mime);
 var Router__default = /*#__PURE__*/_interopDefaultLegacy(Router);
 var cors__default = /*#__PURE__*/_interopDefaultLegacy(cors);
 
-var addresses = {
+var addresses$1 = {
   "artonline": "0x535e67270f4FEb15BFFbFE86FEE308b81799a7a5",
   "platform": "0x0B3793D1a1B633d8af3608E4d9036DFF3e733a78",
   "exchange": "0xaCCaD40D09CA9D1D032843195F922EFdAB103C59",
@@ -2602,7 +2602,7 @@ const timeout = () => {
 
 timeout();
 
-const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+const provider$2 = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
   chainId: 56
 });
 
@@ -2613,11 +2613,11 @@ const sendJSON = (ctx, value) => {
 
 const getMetadataURI = async (address, id, type, tokenId) => {
   let contract = type === 'ERC1155' ?
-                   new ethers__default["default"].Contract(address, abi$2, provider$1) :
-                   new ethers__default["default"].Contract(address, abi$1, provider$1);
+                   new ethers__default["default"].Contract(address, abi$2, provider$2) :
+                   new ethers__default["default"].Contract(address, abi$1, provider$2);
   let uri;
   if (tokenId && tokenId.toNumber() > 0) {
-    contract = new ethers__default["default"].Contract(address, abi, provider$1);
+    contract = new ethers__default["default"].Contract(address, abi, provider$2);
     uri = type === 'ERC1155' ? await contract.callStatic.uri(id, tokenId.toString()) : await contract.callStatic.tokenURI(id, tokenId.toString());
   } else {
     uri = type === 'ERC1155' ? await contract.callStatic.uri(id) : await contract.callStatic.tokenURI(id);
@@ -2653,23 +2653,23 @@ const getJsonFor = async (address, id, type, tokenId) => {
   return response
 };
 
-const router$2 = new Router__default["default"]();
+const router$3 = new Router__default["default"]();
 
 const twentyMinutes = 1 * 60 * 1000;
 const start = new Date().getTime();
 const done = start + twentyMinutes;
 
-const provider = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+const provider$1 = new ethers__default["default"].providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
   chainId: 56
 });
 
-const contract = new ethers__default["default"].Contract(addresses.exchangeFactory, abi$3, provider);
+const contract$1 = new ethers__default["default"].Contract(addresses$1.exchangeFactory, abi$3, provider$1);
 
-router$2.get('/', ctx => {
+router$3.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha';
 });
 
-router$2.get('/countdown', ctx => {
+router$3.get('/countdown', ctx => {
   const now = new Date().getTime();
   if (done < now) ctx.body = String(0);
   else {
@@ -2678,19 +2678,19 @@ router$2.get('/countdown', ctx => {
 });
 
 const listingListed = async (address) => {
-  const listingContract = new ethers__default["default"].Contract(address, abi$4, provider);
+  const listingContract = new ethers__default["default"].Contract(address, abi$4, provider$1);
   const listed = await listingContract.callStatic.listed();
   return listed.toNumber() === 1
 };
 
-router$2.get('/listings/ERC721', async ctx => {
+router$3.get('/listings/ERC721', async ctx => {
   if (!cache$1.listingsERC721) {
     cache$1.listingsERC721 = {
       job: async () => {
         const listings = [];
-        const listingsLength = await contract.listingLength();
+        const listingsLength = await contract$1.listingLength();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listings(i);
+          const address = await contract$1.callStatic.listings(i);
           if (!cache$1[`listed_${address}`]) {
             cache$1[`listed_${address}`] = {
               job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
@@ -2706,14 +2706,14 @@ router$2.get('/listings/ERC721', async ctx => {
   sendJSON(ctx, cache$1.listingsERC721.value);
 });
 
-router$2.get('/listings/ERC1155', async ctx => {
+router$3.get('/listings/ERC1155', async ctx => {
   if (!cache$1.listingsERC1155) {
     cache$1.listingsERC1155 = {
       job: async () => {
         const listings = [];
-        const listingsLength = await contract.listingERC1155Length();
+        const listingsLength = await contract$1.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC1155(i);
+          const address = await contract$1.callStatic.listingsERC1155(i);
           if (!cache$1[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') {
             cache$1[`listed_${address}`] = {
               job: async () => cache$1[`listed_${address}`].value = await listingListed(address)
@@ -2730,7 +2730,7 @@ router$2.get('/listings/ERC1155', async ctx => {
   sendJSON(ctx, cache$1.listingsERC1155.value);
 });
 
-router$2.get('/listings', async ctx => {
+router$3.get('/listings', async ctx => {
 
   if (!cache$1.listingsERC721) {
     const listings = [];
@@ -2738,7 +2738,7 @@ router$2.get('/listings', async ctx => {
       job: async () => {
         const listingsLength = await api.contract.listingLength();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listings(i);
+          const address = await contract$1.callStatic.listings(i);
           listings.push({address, listed: await listingListed(address)});
         }
         cache$1['listingsERC721'].value = listings;
@@ -2753,8 +2753,8 @@ router$2.get('/listings', async ctx => {
       job: async () => {
         const listingsLength = await api.contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract.callStatic.listingsERC1155(i);
-          if (addresses !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)});
+          const address = await contract$1.callStatic.listingsERC1155(i);
+          if (addresses$1 !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)});
         }
         cache$1['listingERC1155'].value = listings;
       }
@@ -2767,12 +2767,12 @@ router$2.get('/listings', async ctx => {
   });
 });
 
-router$2.get('/listing/info', async ctx => {
+router$3.get('/listing/info', async ctx => {
   const { address } = ctx.request.query;
   if (!cache$1[`listingInfo_${address}`]) {
     cache$1[`listingInfo_${address}`] = {
       job: async () => {
-        const contract = new ethers__default["default"].Contract(address, abi$4, provider);
+        const contract = new ethers__default["default"].Contract(address, abi$4, provider$1);
         let promises = [
           contract.callStatic.price(),
           contract.callStatic.tokenId(),
@@ -2791,7 +2791,7 @@ router$2.get('/listing/info', async ctx => {
           console.log(e);
         }
         let tokenId;
-        if (promises[3] === addresses.createables) {
+        if (promises[3] === addresses$1.createables) {
           tokenId = promises[1];
         }
         const json = await getJsonFor(promises[3], id ? id.toString() : promises[1], type, tokenId);
@@ -2815,7 +2815,7 @@ router$2.get('/listing/info', async ctx => {
   sendJSON(ctx, cache$1[`listingInfo_${address}`].value);
 });
 
-router$2.get('/listing/listed', async ctx => {
+router$3.get('/listing/listed', async ctx => {
   const { address } = ctx.request.query;
   if (!cache$1[`listed_${address}`]) {
     cache$1[`listed_${address}`] = {
@@ -2827,35 +2827,35 @@ router$2.get('/listing/listed', async ctx => {
   ctx.body = cache$1[`listed_${address}`].value;
 });
 
-router$2.get('/listing/ERC721', async ctx => {
+router$3.get('/listing/ERC721', async ctx => {
   const { address, tokenId } = ctx.params;
-  const listing = cache[`${address}_${tokenId}`] || await contract.callStatic.getListingERC721(address, tokenId);
+  const listing = cache[`${address}_${tokenId}`] || await contract$1.callStatic.getListingERC721(address, tokenId);
   sendJSON(ctx, listing);
 });
 
-router$2.get('/listing/ERC1155', async ctx => {
+router$3.get('/listing/ERC1155', async ctx => {
   const { address, id, tokenId } = ctx.params;
-  const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId);
+  const listing = cache[`${address}_${id}_${tokenId}`] || await contract$1.callStatic.getListingERC1155(address, id, tokenId);
   sendJSON(ctx, listing);
+});
+
+const router$2 = new Router__default["default"]();
+
+router$2.get('/', ctx => {
+
+});
+
+router$2.get('/pools', ctx => {
+
 });
 
 const router$1 = new Router__default["default"]();
 
-router$1.get('/', ctx => {
-
-});
-
-router$1.get('/pools', ctx => {
-
-});
-
-const router = new Router__default["default"]();
-
-router.get('/nft', ctx => {
+router$1.get('/nft', ctx => {
   ctx.body = 'v0.0.1-alpha';
 });
 
-router.get('/nft/uri', async ctx => {
+router$1.get('/nft/uri', async ctx => {
   const { address, id, token, type } = ctx.request.query;
   if (!cache$1[`uri_${address}_${id}`]) {
     cache$1[`uri_${address}_${id}`] = {
@@ -2866,7 +2866,7 @@ router.get('/nft/uri', async ctx => {
   ctx.body = cache$1[`uri_${address}_${id}`].value;
 });
 
-router.get('/nft/json', async ctx => {
+router$1.get('/nft/json', async ctx => {
   const { address, id, token, type } = ctx.request.query;
   if (!cache$1[`json_${address}_${id}`]) {
     cache$1[`json_${address}_${id}`] = {
@@ -2878,12 +2878,71 @@ router.get('/nft/json', async ctx => {
   sendJSON(ctx, cache$1[`json_${address}_${id}`].value);
 });
 
+var ABI = [{"inputs":[{"internalType":"address","name":"platform_","type":"address"},{"internalType":"uint256","name":"cap_","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"account","type":"address"}],"name":"Paused","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"role","type":"bytes32"},{"indexed":true,"internalType":"bytes32","name":"previousAdminRole","type":"bytes32"},{"indexed":true,"internalType":"bytes32","name":"newAdminRole","type":"bytes32"}],"name":"RoleAdminChanged","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"role","type":"bytes32"},{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":true,"internalType":"address","name":"sender","type":"address"}],"name":"RoleGranted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"role","type":"bytes32"},{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":true,"internalType":"address","name":"sender","type":"address"}],"name":"RoleRevoked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"account","type":"address"}],"name":"Unpaused","type":"event"},{"inputs":[],"name":"DEFAULT_ADMIN_ROLE","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MINT_ROLE","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"PAUSER_ROLE","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"}],"name":"getRoleAdmin","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"},{"internalType":"address","name":"account","type":"address"}],"name":"grantRole","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"},{"internalType":"address","name":"account","type":"address"}],"name":"hasRole","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"paused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"percentSettings","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"},{"internalType":"address","name":"account","type":"address"}],"name":"renounceRole","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"role","type":"bytes32"},{"internalType":"address","name":"account","type":"address"}],"name":"revokeRole","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"subtractedValue","type":"uint256"}],"name":"decreaseAllowance","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"addedValue","type":"uint256"}],"name":"increaseAllowance","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newPlatform","type":"address"}],"name":"setPlatform","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"platform","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"cap","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"unpause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"value","type":"uint256"}],"name":"burnPercentage","outputs":[{"internalType":"uint256","name":"percentage","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"burnFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"permit","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"nonces","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DOMAIN_SEPARATOR","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"}];
+
+// import cache from './../cache'
+const router = new Router__default["default"]();
+
+const timedOut = {};
+
+
+const dotenv = require('dotenv').config();
+const config = dotenv.parsed;
+
+const network = 'binance-smartchain-testnet';
+
+const rpcUrls =  {
+  'art-ganache': 'http://127.0.0.1:1337',
+  'binance-smartchain-testnet': 'https://data-seed-prebsc-1-s1.binance.org:8545',
+  'binance-smartchain': 'https://bsc-dataseed.binance.org'
+};
+const chainIds =  {
+  'art-ganache': 1337,
+  'binance-smartchain-testnet': 97,
+  'binance-smartchain': 56
+};
+
+let addresses = require(join(__dirname, `./../../../addresses/addresses/${network}.json`));
+
+const provider = new ethers__default["default"].providers.JsonRpcProvider( rpcUrls[network], {
+  chainId: chainIds[network]
+});
+// 127.0.0.1:1337
+
+const signer = new ethers__default["default"].Wallet(config.FAUCET_PRIVATEKEY, provider);
+
+const contract = new ethers__default["default"].Contract(addresses.artonline, ABI, signer);
+
+const timedOutMessage = ctx => {
+  ctx.body = `${ctx.request.query.address} on timeout`;
+};
+
+router.get('/faucet', async ctx => {
+  if (timedOut[ctx.request.header['cf-connecting-ip']]) return timedOutMessage(ctx)
+  if (timedOut[ctx.resuest.query.address]) return timedOutMessage(ctx)
+  const time = new Date().getTime() + 8.64e+7;
+  timedOut[ctx.resuest.query.address] = time;
+  timedOut[ctx.request.header['cf-connecting-ip']] = time;
+  let tx = await contract.transfer(ctx.resuest.query.address, ethers__default["default"].utils.parseUnits('50000'));
+  // console.log(tx);
+  ctx.body = tx.hash;
+});
+
+router.get('/faucet/tot', ctx => {
+  if (timedOut[ctx.request.header['cf-connecting-ip']])
+    String(timedOut[ctx.request.header['cf-connecting-ip']]);
+
+  if (ctx.request.query.address) ctx.body =
+    String(timedOut[ctx.resuest.query.address]);
+});
+
 const server = new Koa__default["default"]();
 
 server.use(cors__default["default"]({origin: '*'}));
 
-server.use(router.routes());
-server.use(router$2.routes());
 server.use(router$1.routes());
+server.use(router$3.routes());
+server.use(router$2.routes());
+server.use(router.routes());
 
 server.listen(9044);
