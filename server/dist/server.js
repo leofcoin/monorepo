@@ -6,6 +6,7 @@ var fetch = require('node-fetch');
 var cid = require('multiformats/cid');
 var mime = require('mime-types');
 var Router = require('@koa/router');
+var path = require('path');
 var cors = require('@koa/cors');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
@@ -2902,7 +2903,7 @@ const chainIds =  {
   'binance-smartchain': 56
 };
 
-let addresses = require(join(__dirname, `./../../../addresses/addresses/${network}.json`));
+let addresses = require(path.join(__dirname, `./../../../addresses/addresses/${network}.json`));
 
 const provider = new ethers__default["default"].providers.JsonRpcProvider( rpcUrls[network], {
   chainId: chainIds[network]
