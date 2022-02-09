@@ -2920,11 +2920,11 @@ const timedOutMessage = ctx => {
 
 router.get('/faucet', async ctx => {
   if (timedOut[ctx.request.header['cf-connecting-ip']]) return timedOutMessage(ctx)
-  if (timedOut[ctx.resuest.query.address]) return timedOutMessage(ctx)
+  if (timedOut[ctx.request.query.address]) return timedOutMessage(ctx)
   const time = new Date().getTime() + 8.64e+7;
   timedOut[ctx.resuest.query.address] = time;
   timedOut[ctx.request.header['cf-connecting-ip']] = time;
-  let tx = await contract.transfer(ctx.resuest.query.address, ethers__default["default"].utils.parseUnits('50000'));
+  let tx = await contract.transfer(ctx.request.query.address, ethers__default["default"].utils.parseUnits('50000'));
   // console.log(tx);
   ctx.body = tx.hash;
 });
@@ -2934,7 +2934,7 @@ router.get('/faucet/tot', ctx => {
     String(timedOut[ctx.request.header['cf-connecting-ip']]);
 
   if (ctx.request.query.address) ctx.body =
-    String(timedOut[ctx.resuest.query.address]);
+    String(timedOut[ctx.request.query.address]);
 });
 
 const server = new Koa__default["default"]();
