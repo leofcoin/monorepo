@@ -21,9 +21,11 @@ export default {
     "fee": "0.1"
   },
   "proxyManager": "0x778e398aA6D14572Aa9928636911495be62C72eF",
-  "lotteryProxy": "0x6D5C59b09E81946Adec73E88aBDFc32a8e7Da99c",
   "stakingProxy": "0x52DA77cb81D996C4f1088ac395d25c276e5E015A",
-  "lottery": "0xc6Dc1Ceb4ae6cd8292B172eCbc43309Bc923b08A",
-  "lotteryTickets": "0x94bebAe1Cd539E92b72081123ED31E545002677D",
-  "randomNumberGenerator": "0xdffb4b90aBf101A0FFc4E470758dB77B8A9bB307"
+  "createablesProxy": "0x4b61158e5f96374bcF66dC878DD85D57C302eD38",
+  "createables": "0xDb9FB0d51bEaD51b743444c0Dbe9EeD08e96bddb",
+  "lotteryProxy": "0x0E49C9D4BdCda4fbb8F4c315f23b540acb85736b",
+  "lottery": "0x1a62F5AAdDe11e9B8e2a8fa508f05be28A214B54",
+  "lotteryTickets": "0xD7F1376eb5D57A0E756083Fdd4397BFc6178D272",
+  "randomNumberGenerator": "0x29d77464e83c5341589ba8f812C0D4FDF19FA842"
 }

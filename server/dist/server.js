@@ -2903,7 +2903,7 @@ const chainIds =  {
   'binance-smartchain': 56
 };
 
-let addresses = require(path.join(__dirname, `./../../../addresses/addresses/${network}.json`));
+let addresses = require(path.join(__dirname, `./../../addresses/addresses/${network}.json`));
 
 const provider = new ethers__default["default"].providers.JsonRpcProvider( rpcUrls[network], {
   chainId: chainIds[network]
