@@ -1518,10 +1518,10 @@ contract ArtOnline is Context, IERC20, IERC20Metadata, Pausable, IERC20Permit, E
     public virtual override returns (bool) {
     _transfer(from, to, amount);
 
-    uint256 currentAllowance = _allowances[from][_msgSender()];
+    uint256 currentAllowance = _allowances[from][to];
     require(currentAllowance >= amount, "transfer amount exceeds allowance");
     unchecked {
-      _approve(from, _msgSender(), currentAllowance - amount);
+      _approve(from, to, currentAllowance - amount);
     }
     return true;
   }

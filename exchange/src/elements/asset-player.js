@@ -27,7 +27,7 @@ export default customElements.define('asset-player', class AssetPlayer extends B
       this._video.removeAttribute('hidden')
     } else {
       this._video.setAttribute('hidden', '')
-      this._img.src = value
+      this._img.setAttribute('src', value)
       this._img.removeAttribute('hidden')
     }
   }
@@ -39,7 +39,6 @@ export default customElements.define('asset-player', class AssetPlayer extends B
         display: flex;
         height: 100%;
         width: 100%;
-        border-radius: 12px;
         max-height: 150px;
         overflow: hidden;
         background: #000;

@@ -45,7 +45,6 @@ export default customElements.define('create-view', class CreateView extends Bas
     this._add.addEventListener('click', this._onadd)
     this.shadowRoot.querySelector('button').addEventListener('click', this._confirm)
 
-    controller()
   }
 
   _onchange() {

@@ -13,6 +13,8 @@ import TokenList from './../node_modules/@coinsswap/token-list/token-list.mjs'
 import './../node_modules/custom-tabs/custom-tabs'
 import './../node_modules/custom-tabs/custom-tab'
 import './../node_modules/@andrewvanardennen/custom-input/custom-input'
+import controller from './../../elements/ipfs-controller/controller'
+import { version } from './../package.json'
 
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
   if (globalThis.api && globalThis.api.ready) resolve();
@@ -28,6 +30,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   constructor() {
     super()
     this._onclick = this._onclick.bind(this)
+    controller()
   }
 
   connectedCallback() {
@@ -49,7 +52,7 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
   }
 
   async _init() {
-
+    this.shadowRoot.querySelector('.version').innerHTML = `v${version}`
     if (!globalThis.tokenLists) {
       globalThis.tokenList = {
         selected: 'pancakeswap'
@@ -287,7 +290,15 @@ export default customElements.define('exchange-shell', class ExchangeShell exten
       width: calc(100% - 264px);
     }
   }
-
+  .version {
+    position: absolute;
+    pointer-events: none;
+    cursor-select: none;
+    left: 12px;
+    bottom: 12px;
+    font-size: 12px;
+    color: #eee;
+  }
 
 </style>
 ${icons}
@@ -311,6 +322,8 @@ ${drawer}
 </connect-element>
 
 <busy-element></busy-element>
+
+<span class="version"></span>
     `
   }
 })

@@ -1,10 +1,5 @@
 [
 	{
-		"wallet": "0x117398f05Dc4EcF804c1f1e1614B0Af5cababD42",
-		"balance": "3067789.889689337900247651",
-		"type": "contract"
-	},
-	{
 		"wallet": "0x747d51Ef28F36c0a25A45021a9567bc289E89b95",
 		"balance": "12778.872210000000000000",
 		"type": "contract"

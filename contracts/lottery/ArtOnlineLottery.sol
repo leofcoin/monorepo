@@ -2,47 +2,11 @@
 pragma solidity ^0.8.11;
 
 import './../common/Initializable.sol';
-import './interfaces/ILotteryTickets.sol';
-import './interfaces/IRandomNumberGenerator.sol';
-import './../token/interfaces/IArtOnline.sol';
 import "./../../node_modules/@openzeppelin/contracts/utils/Address.sol";
+import './storage/LotteryStorage.sol';
 
-contract ArtOnlineLottery is Initializable {
+contract ArtOnlineLottery is Initializable, LotteryStorage {
   using Address for address;
-  address internal _manager;
-  uint256 internal _lotteryIds;
-  ILotteryTickets internal _lotteryTicketsNFT;
-  IArtOnline internal _artOnline;
-  IRandomNumberGenerator internal _randomNumberGenerator;
-  uint256 internal _lotterySize;
-  uint16 public _maxValidRange;
-  bytes32 _requestId;
-
-  mapping(uint256 => lottoInfo) internal _lotteries;
-
-  event ChangeManager(address previous, address current);
-  event BuyTickets(address indexed owner, uint256 lotteryId, uint256[] numbers, uint256 totalCost);
-  event RequestNumbers(uint256 lotteryId, bytes32 requestId);
-  event LotteryClose(uint256 lotteryId);
-  event LotteryOpen(uint256 lotteryId);
-  event UpdateLotterySize(uint256 newLotterySize);
-  event ChangeMaxRange(uint256 newMaxRange);
-  enum Status {
-    NotStarted,     // The lottery has not started yet
-    Open,           // The lottery is open for ticket purchases
-    Closed,         // The lottery is no longer open for ticket purchases
-    Completed       // The lottery has been closed and the numbers drawn
-  }
-  struct lottoInfo {
-    uint256 id;
-    Status status;
-    uint256 prizePool;
-    uint256 ticketPrice;
-    uint8[] prizeDistribution;
-    uint256 startTime;
-    uint256 endTime;
-    uint16[] winningNumbers;
-  }
 
   modifier onlyRandomGenerator() {
     require(msg.sender == address(_randomNumberGenerator), 'Only random generator');
@@ -60,32 +24,33 @@ contract ArtOnlineLottery is Initializable {
     _;
   }
 
-  function initialize() external initializer() {
+  function initialize() external initializer {
+    emit ChangeManager(_manager, msg.sender);
     _manager = msg.sender;
   }
 
-  function setRandomNumberGenerator(address randomNumberGenerator_) external onlyManager() {
+  function setRandomNumberGenerator(address randomNumberGenerator_) external onlyManager {
     _randomNumberGenerator = IRandomNumberGenerator(randomNumberGenerator_);
   }
 
-  function setMaxRange(uint16 maxRange_) external onlyManager() {
+  function setMaxRange(uint256 maxRange_) external onlyManager {
     _maxValidRange = maxRange_;
     emit ChangeMaxRange(maxRange_);
   }
 
-  function maxRange() external view returns(uint16) {
+  function maxRange() external view returns(uint256) {
     return _maxValidRange;
   }
 
-  function changeLotteryTicketsNFT(address lotteryTicketsAddress_) external virtual onlyManager() {
+  function changeLotteryTicketsNFT(address lotteryTicketsAddress_) external virtual onlyManager {
     _lotteryTicketsNFT = ILotteryTickets(lotteryTicketsAddress_);
   }
 
-  function changeArtOnline(address artOnline_) external virtual onlyManager() {
+  function changeArtOnline(address artOnline_) external virtual onlyManager {
     _artOnline = IArtOnline(artOnline_);
   }
 
-  function setLotterySize(uint256 lotterySize_) external onlyManager() {
+  function setLotterySize(uint256 lotterySize_) external onlyManager {
     _lotterySize = lotterySize_;
   }
 
@@ -106,9 +71,7 @@ contract ArtOnlineLottery is Initializable {
     return _lotteries[id_];
   }
 
-  function createLottery(uint256 duration_, uint256 endTime_, uint256 _prizePool, uint256 _costPerTicket, uint8[] calldata _prizeDistribution) external virtual onlyManager {
-    uint256 startTime_ = endTime_ - duration_;
-
+  function createLottery(uint256 startTime_, uint256 endTime_, uint256 _prizePool, uint256 _costPerTicket, uint8[] calldata _prizeDistribution) external virtual onlyManager {
     _lotteryIds += 1;
 
     require(_prizeDistribution.length == _lotterySize, "Invalid distribution");
@@ -124,7 +87,7 @@ contract ArtOnlineLottery is Initializable {
     require(startTime_ != 0 && startTime_ < endTime_, "Timestamps for lottery invalid");
 
     uint256 id_ = _lotteryIds;
-     uint16[] memory _winningNumbers = new uint16[](_lotterySize);
+    uint256[] memory _winningNumbers = new uint256[](_lotterySize);
     lottoInfo memory _lottery = lottoInfo(
       id_,
       Status.Open,
@@ -141,11 +104,11 @@ contract ArtOnlineLottery is Initializable {
     emit LotteryOpen(id_);
   }
 
-  function drawWinningNumbers(uint256 id_, uint256 seed_) external onlyManager {
+  function drawWinningNumbers(uint256 id_) external onlyManager {
     require(_lotteries[id_].endTime <= block.timestamp, 'LOTTERY_OPEN');
     require( _lotteries[id_].status == Status.Open, 'LOTTERY_STATE_ERROR');
     _lotteries[id_].status = Status.Closed;
-    _requestId = _randomNumberGenerator.getRandomNumber(id_, seed_);
+    _requestId = _randomNumberGenerator.getRandomNumber(id_);
     emit RequestNumbers(id_, _requestId);
     // requestId_ = _callApi()
 
@@ -166,15 +129,14 @@ contract ArtOnlineLottery is Initializable {
      }
      uint256 burn = (_lotteries[_lotteryId].prizePool / 100) * 20;
      _lotteries[_lotteryId].prizePool -= burn;
-     _artOnline.burnFrom(address(this), burn);
+     _artOnline.burn(address(this), burn);
      emit LotteryClose(_lotteryId);
    }
 
   function buyTickets(uint256 id_, uint256 amount, uint256[] memory numbers_) external notContract() {
-    require(_lotteries[id_].endTime < block.timestamp, 'LOTTERY_ENDED');
-    require(_lotteries[id_].startTime > block.timestamp, 'LOTTERY_NOT_STARTED');
-
-    _artOnline.safeTransferFrom(
+    require(block.timestamp < _lotteries[id_].endTime, 'LOTTERY_ENDED');
+    require(block.timestamp > _lotteries[id_].startTime, 'LOTTERY_NOT_STARTED');
+    _artOnline.transferFrom(
       msg.sender,
       address(this),
       amount * _lotteries[id_].ticketPrice
@@ -185,7 +147,11 @@ contract ArtOnlineLottery is Initializable {
   }
 
   function latestLottery() external view virtual returns (lottoInfo memory) {
-    return _lotteries[_lotteryIds];
+    return (_lotteries[_lotteryIds]);
+  }
+
+  function timestamp() external view virtual returns (uint256) {
+    return block.timestamp;
   }
 
   function _beforeClaim(uint256 _lotteryId) internal {
@@ -210,7 +176,7 @@ contract ArtOnlineLottery is Initializable {
        _lotteryId
      );
      _lotteries[_lotteryId].prizePool -= prizeAmount;
-     _artOnline.safeTransferFrom(address(this), address(receiver), prizeAmount);
+     _artOnline.transferFrom(address(this), address(receiver), prizeAmount);
    }
 
   function batchClaimRewards(address receiver, uint256 _lotteryId, uint256[] calldata _tokenIds) external notContract() {
@@ -236,10 +202,10 @@ contract ArtOnlineLottery is Initializable {
         }
       }
     }
-    _artOnline.safeTransferFrom(address(this), address(receiver), totalPrize);
+    _artOnline.transferFrom(address(this), address(receiver), totalPrize);
   }
 
-  function _getNumberOfMatching(uint16[] memory _usersNumbers, uint16[] memory _winningNumbers) internal pure returns(uint8 noOfMatching) {
+  function _getNumberOfMatching(uint256[] memory _usersNumbers, uint256[] memory _winningNumbers) internal pure returns(uint8 noOfMatching) {
      // Loops through all wimming numbers
      for (uint256 i = 0; i < _winningNumbers.length; i++) {
        // If the winning numbers and user numbers match
@@ -260,20 +226,20 @@ contract ArtOnlineLottery is Initializable {
     return prize / 100;
   }
 
-  function _split(uint256 _randomNumber) internal view returns(uint16[] memory) {
-    uint16[] memory winningNumbers = new uint16[](_lotterySize);
+  function _split(uint256 _randomNumber) internal view returns(uint256[] memory) {
+    uint256[] memory winningNumbers = new uint256[](_lotterySize);
     for(uint i = 0; i < _lotterySize; i++){
       // Encodes the random number with its position in loop
       bytes32 hashOfRandom = keccak256(abi.encodePacked(_randomNumber, i));
       // Casts random number hash into uint256
       uint256 numberRepresentation = uint256(hashOfRandom);
-      // Sets the winning number position to a uint16 of random hash number
-      winningNumbers[i] = uint16(numberRepresentation % _maxValidRange);
+      // Sets the winning number position to a uint256 of random hash number
+      winningNumbers[i] = uint256(numberRepresentation % _maxValidRange);
     }
     return winningNumbers;
   }
 
-  function withdraw(uint256 amount_) external onlyManager() {
-    _artOnline.safeTransferFrom(address(this), _manager, amount_);
+  function withdraw(uint256 amount_) external onlyManager {
+    _artOnline.transferFrom(address(this), _manager, amount_);
   }
 }

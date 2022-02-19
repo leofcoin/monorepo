@@ -26,13 +26,17 @@ contract ProxyManager {
   }
 
   function upgrade(IUpgradeableProxy proxy, address implementation) external virtual onlyManager {
-    IUpgradeableProxy(proxy).setImplementation(implementation);
+    IUpgradeableProxy(proxy).upgradeTo(implementation);
+  }
+
+  function upgradeAndCall(IUpgradeableProxy proxy, address implementation, bytes32 data) external virtual onlyManager {
+    IUpgradeableProxy(proxy).upgradeToAndCall(implementation, data);
   }
 
   /**
   * manager_ is address of new ProxyManager
   */
   function changeProxyManager(IUpgradeableProxy proxy, address proxyManager) external virtual onlyManager {
-    IUpgradeableProxy(proxy).changeManager(proxyManager);
+    IUpgradeableProxy(proxy).changeAdmin(proxyManager);
   }
 }

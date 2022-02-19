@@ -29,12 +29,12 @@ export default class Api {
 
 
     let wallet = localStorage.getItem('wallet')
-    let address =
-    await miniframe.load.script('https://cdn.jsdelivr.net/npm/jdenticon@3.1.0/dist/jdenticon.min.js', 'sha384-VngWWnG9GS4jDgsGEUNaoRQtfBGiIKZTiXwm9KpgAeaRn6Y/1tAFiyXqSzqC8Ga/', 'anonymous')
+    // let address =
+    // await miniframe.load.script('https://cdn.jsdelivr.net/npm/jdenticon@3.1.0/dist/jdenticon.min.js', 'sha384-VngWWnG9GS4jDgsGEUNaoRQtfBGiIKZTiXwm9KpgAeaRn6Y/1tAFiyXqSzqC8Ga/', 'anonymous')
     if (wallet) {
       await this.connectWallet()
-    } else {
-      jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), '0x0000000000000000000000000000000000000000')
+    // } else {
+      // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), '0x0000000000000000000000000000000000000000')
     }
   }
 
@@ -55,7 +55,7 @@ export default class Api {
       chainId: NETWORK_ID,
       name: NETWORK_NAME
     })
-    jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
+    // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
     this.contract = new ethers.Contract(this.addresses.exchangeFactory, EXCHANGE_FACTORY_ABI, this.connection.provider.getSigner())
   }
 

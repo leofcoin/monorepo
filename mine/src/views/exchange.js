@@ -46,7 +46,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
     promises = promises.reduce((set, symbol) => {
       i++
       if (symbol === 'GOLDGEN') set.push({onExchange: true, symbol, i: pools[i - 1].toString()})
-      else if (symbol !== 'SHIBOKI') set.push({symbol, i: pools[i - 1].toString()})
+      else if (symbol !== 'SHIBOKI') set.push({onExchange: false, symbol, i: pools[i - 1].toString()})
 
       return set
     }, [])
@@ -64,7 +64,7 @@ export default customElements.define('exchange-view', class ExchangeView extends
     let i = 0
     this.shadowRoot.querySelector('section[data-route="upgrades"]').querySelector('array-repeat').items = promises.map((symbol) => {
       i++
-      return {symbol, i: items[i - 1].toString()}
+      return {onExchange: false, symbol, i: items[i - 1].toString()}
     })
   }
 

@@ -6,7 +6,7 @@ import './../node_modules/custom-pages/src/custom-pages'
 import './../node_modules/custom-selector/src/index'
 import './../node_modules/ethers/dist/ethers.esm'
 import addresses from './../../addresses/addresses/binance-smartchain'
-
+globalThis.exports = {}
 globalThis.ethers = _ethers
 
 globalThis.api = globalThis.api || {
@@ -19,11 +19,19 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
     this._render()
     this._toggleDrawer = this._toggleDrawer.bind(this)
     this._onSelect = this._onSelect.bind(this)
+    this._onhashchange = this._onhashchange.bind(this)
   }
 
   connectedCallback() {
-    this.shadowRoot.querySelector('.menu-button').addEventListener('click', this._toggleDrawer)
-    this.shadowRoot.querySelector('custom-selector').addEventListener('selected', this._onSelect)
+
+    globalThis.onhashchange = this._onhashchange
+    this._onhashchange()
+  }
+
+  _onhashchange() {
+    let hash = globalThis.location.hash
+    hash = hash.split('#!/')
+    this._onSelect({detail: hash[1]})
   }
 
   async _onSelect(event) {
@@ -63,26 +71,6 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
         width: 100%;
       }
 
-      custom-pages {
-        margin-top: 24px;
-        box-sizing: border-box;
-        display: flex;
-      }
-
-      .toolbar {
-        /* margin-top: 24px; */
-        /* margin-left: 24px; */
-        /* margin-right: 24px; */
-        /* background: aliceblue; */
-        border-radius: 24px;
-        align-items: center;
-        box-sizing: border-box;
-        padding: 12px 24px;
-        z-index: 1000;
-        max-width: 840px;
-        width: calc(100% - 48px);
-      }
-
       h1 {
         margin: 0;
         padding: 0;
@@ -92,11 +80,6 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
       a {
         text-decoration: none;
         color: aliceblue;
-      }
-
-      .logo {
-        height: 36px;
-        margin-bottom: 12px;
       }
 
       .nav-item {
@@ -171,59 +154,52 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
         }
       }
 
-      @media (min-width: 1200px) {
-        .menu-button {
-          opacity: 0;
-          pointer-events: none;
-        }
-        .drawer {
-          opacity: 1;
-          pointer-events: auto;
-          width: 248px;
-        }
-        .toolbar {
-          margin-left: 0;
-          margin-right: 0;
-        }
-      }
-
-      .connect {
-        background: #ff1f8a;
-        color: aliceblue;
-        position: absolute;
-        top: 12px;
-        right: 24px;
-        border-radius: 24px;
-        box-sizing: border-box;
-        padding: 12px 24px;
-        border-color: white;
-        cursor: pointer;
-        text-transform: uppercase;
-        opacity: 0;
-      }
-
-      :host([connect]) .connect {
-        opacity: 1;
-        pointer-events: auto;
-      }
-
-      a img {
+      .logo {
         height: 32px;
         width: 32px;
         cursor: pointer;
         pointer-events: auto;
+
+      }
+
+      .nav {
+        /* position: absolute; */
+        /* left: 24px; */
+        /* top: 24px;
+        right: 24px; */
+        /* z-index: 10001; */
+        height: 64px;
+        padding: 12px 24px;
+        box-sizing: border-box;
+        width: 100%;
+        background: var(--main-background-color);
+        color: var(--secondary-accent-color);
+      }
+
+      a {
+        padding: 0 8px;
+        box-sizing: border-box;
+        pointer-events: auto;
+        text-transform: uppercase;
       }
 
     </style>
-    <slot></slot>
-    <custom-svg-icon icon="menu" class="menu-button"></custom-svg-icon>
+    <flex-row class="nav">
+      <a href="#!/home"><img class="logo" src="https://assets.artonline.site/arteon.svg" alt="ArtOnline"  title="ArtOnline"></img></a>
+      <flex-one></flex-one>
+      <a href="#!/products">services</a>
+      <a href="#!/learn-more">info</a>
+      <a href="#!/team">team</a>
+      <!-- <a href="#!/roadmap">roadmap</a> -->
+      <a href="#!/links">links</a>
+    </flex-row>
     <!-- <button class="connect">connect wallet</button> -->
-    <flex-row class="wrapper">
+    <!-- <flex-row class="wrapper">
       <flex-column class="drawer">
         <custom-selector attr-for-selected="data-route">
           <flex-column style="align-items: center;">
             <flex-row style="align-items: flex-start; color: aliceblue;">
-              <img class="logo" src="./assets/arteon.svg" alt="ArtOnline"  title="ArtOnline"></img>
+
             </flex-row>
           </flex-column>
 
@@ -272,14 +248,17 @@ export default customElements.define('art-online', class ArtOnline extends HTMLE
           </a>
           <flex-two></flex-two>
         </flex-row>
-      </flex-column>
+      </flex-column> -->
       <main>
         <custom-pages  attr-for-selected="data-route">
           <home-view data-route="home"></home-view>
-          <buy-view data-route="buy"></buy-view>
+          <learn-more-view data-route="learn-more"></learn-more-view>
+          <team-view data-route="team"></team-view>
+          <links-view data-route="links"></links-view>
+          <whitepaper-view data-route="whitepaper"></whitepaper-view>
+          <products-view data-route="products"></products-view>
         </custom-pages>
       </main>
-    </flex-row>
     `
   }
 })

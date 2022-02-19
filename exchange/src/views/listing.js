@@ -11,7 +11,6 @@ export default customElements.define('listing-view', class ListingView extends B
   }
   async parse({address}) {
     let listing = document.querySelector('exchange-shell').sqs(`[address="${address}"]`)
-    console.log(listing);
     if (!listing) {
       const response = await fetch(`https://api.artonline.site/listing/info?address=${address}`)
       listing = await response.json()
@@ -28,6 +27,7 @@ export default customElements.define('listing-view', class ListingView extends B
     this.listed = listing.listed
     this.listing = listing.listing
     this.image = listing.image
+    this.owner = listing.owner
     this.symbol = listing.symbol || listing.name
     this.shadowRoot.innerHTML = this.template
     this.sqs('asset-player').setAttribute('src', listing.image)
@@ -97,6 +97,11 @@ export default customElements.define('listing-view', class ListingView extends B
 </style>
 
 <flex-column class="container">
+  <flex-row class="owner" title="${this.owner}">
+    <span>owner</span>
+    <flex-one></flex-one>
+    ${this.owner ? `${this.owner.slice(0, 5)}...${this.owner.slice(this.owner.length - 5, this.owner.length)}` : ''}
+  </flex-row>
   <asset-player src="${this.image}"></asset-player>
   <flex-column>
     <flex-row class="symbol">

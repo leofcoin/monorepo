@@ -9,7 +9,6 @@ contract RandomNumberGenerator is VRFConsumerBase {
 
     bytes32 internal keyHash;
     uint256 internal fee;
-    address internal requester;
     uint256 public randomResult;
     uint256 public currentLotteryId;
 
@@ -32,7 +31,6 @@ contract RandomNumberGenerator is VRFConsumerBase {
     function getRandomNumber(uint256 lotteryId) public onlyLottery() returns (bytes32 requestId) {
       require(keyHash != bytes32(0), "Must have valid key hash");
       require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK - fill contract with faucet");
-      requester = msg.sender;
       currentLotteryId = lotteryId;
       return requestRandomness(keyHash, fee);
     }
@@ -41,7 +39,7 @@ contract RandomNumberGenerator is VRFConsumerBase {
      * Callback function used by VRF Coordinator
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-      IArtOnlineLottery(requester).numbersDrawn(
+      IArtOnlineLottery(_lottery).numbersDrawn(
         currentLotteryId,
         requestId,
         randomness

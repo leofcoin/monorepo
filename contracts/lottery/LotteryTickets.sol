@@ -13,7 +13,7 @@ contract LotteryTickets is ERC1155 {
 
   struct TicketInfo {
     address owner;
-    uint16[] numbers;
+    uint256[] numbers;
     uint256 claimed;
     uint256 lotteryId;
   }
@@ -45,7 +45,7 @@ contract LotteryTickets is ERC1155 {
     _manager = manager_;
   }
 
-  function mintTickets(uint256 lotteryId, address to, uint256 amount, uint16[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
+  function mintTickets(uint256 lotteryId, address to, uint256 amount, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
     uint256[] memory tokenIds = new uint256[](amount);
     uint256[] memory ids = new uint256[](amount);
 
@@ -61,7 +61,7 @@ contract LotteryTickets is ERC1155 {
       tokenIds[i] = _totalSupply[lotteryId];
       ids[i] = lotteryId;
 
-      uint16[] calldata numbers = numbers_[start:end];
+      uint256[] calldata numbers = numbers_[start:end];
 
       _ticketInfo[lotteryId][tokenIds[i]] = TicketInfo(
         to,
@@ -93,7 +93,7 @@ contract LotteryTickets is ERC1155 {
     return _totalSupply[id] > 0;
   }
 
-  function getTicketNumbers(uint256 id, uint256 ticketId) external view returns(uint16[] memory) {
+  function getTicketNumbers(uint256 id, uint256 ticketId) external view returns(uint256[] memory) {
     return _ticketInfo[id][ticketId].numbers;
   }
 

@@ -8,7 +8,8 @@ export default class Router {
       'auctions',
       'create',
       'account',
-      'wallet'
+      'wallet',
+      'creations'
     ]
   }
 

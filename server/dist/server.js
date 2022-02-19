@@ -2913,7 +2913,7 @@ const provider = new ethers__default["default"].providers.JsonRpcProvider( rpcUr
 const signer = new ethers__default["default"].Wallet(config.FAUCET_PRIVATEKEY, provider);
 
 const contract = new ethers__default["default"].Contract(addresses.artonline, ABI, signer);
-
+console.log(signer.address);
 const timedOutMessage = ctx => {
   ctx.body = `${ctx.request.query.address} on timeout`;
 };
@@ -2924,7 +2924,8 @@ router.get('/faucet', async ctx => {
   const time = new Date().getTime() + 8.64e+7;
   timedOut[ctx.request.query.address] = time;
   timedOut[ctx.request.header['cf-connecting-ip']] = time;
-  let tx = await contract.transfer(ctx.request.query.address, ethers__default["default"].utils.parseUnits('50000'));
+  console.log(contract);
+  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers__default["default"].utils.parseUnits('50000'), {gasLimit: 21000000});
   // console.log(tx);
   ctx.body = tx.hash;
 });

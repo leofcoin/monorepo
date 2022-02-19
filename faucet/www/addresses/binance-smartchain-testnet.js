@@ -1,0 +1,31 @@
+export default {
+  "access": "0x40F885717341Bd6511BdDe04C97f839Dc0c29B61",
+  "bridger": "0xF1DeC4B2ac133a2a3eFfDFF852f0B19D85836865",
+  "mining": "0xA48bb4BbfCE66D552f58e00C0035596B0c5878C7",
+  "blacklist": "0x50dAFC1F2401E36EcAED44Ef2816cad5959Ac9Dd",
+  "artonline": "0x977D136BA4e4A8a68Ec8A4E406DaC7Da291AdFdd",
+  "platform": "0x4B44199685CFf1ca09be336391E4a8d2CB5dB282",
+  "exchange": "0xA6B20a48CDe115a87abe8f4C65491B706982DD3B",
+  "exchangeFactory": "0x7CB909D14847Ef9f2264Ff280F30683A2177BCD0",
+  "staking": "0xAb03Ddb566247fd32e7F85d282CA58Cd147a8eD5",
+  "native": "0xae13d989dac2f0debff460ac112a837c89baa7cd",
+  "panCakeRouter": "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+  "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
+  "partnershipToken": "0xa60eAE6d5A2d5B367DaB6C68FE0c448Eec0e6Ed8",
+  "splitter": "0xDd80C8e36Be2E17866a8F54Da84779795D124cfe",
+  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64",
+  "chainlink": {
+    "token": "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06",
+    "coordinator": "0xa555fC018435bef5A13C6c6870a9d4C11DEC329C",
+    "keyHash": "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186",
+    "fee": "0.1"
+  },
+  "proxyManager": "0x778e398aA6D14572Aa9928636911495be62C72eF",
+  "stakingProxy": "0x52DA77cb81D996C4f1088ac395d25c276e5E015A",
+  "createablesProxy": "0x4b61158e5f96374bcF66dC878DD85D57C302eD38",
+  "createables": "0xDb9FB0d51bEaD51b743444c0Dbe9EeD08e96bddb",
+  "lotteryProxy": "0x0E49C9D4BdCda4fbb8F4c315f23b540acb85736b",
+  "lottery": "0x1a62F5AAdDe11e9B8e2a8fa508f05be28A214B54",
+  "lotteryTickets": "0xD7F1376eb5D57A0E756083Fdd4397BFc6178D272",
+  "randomNumberGenerator": "0x29d77464e83c5341589ba8f812C0D4FDF19FA842"
+}

@@ -4,6 +4,9 @@ export default customElements.define('connect-element', class ConnectElement ext
     this.attachShadow({mode: 'open'})
     this.shadowRoot.innerHTML = `
       <style>
+        *, .content::slotted(*) {
+          pointer-events: none;
+        }
         :host {
           display: flex;
           background: rgba(0,0,0, 0.87);
@@ -40,6 +43,10 @@ export default customElements.define('connect-element', class ConnectElement ext
           z-index: 10000;
         }
 
+        :host([shown]) .content::slotted(*) {
+          pointer-events: auto !important;
+        }
+
         .heading {
           padding-bottom: 6px;
         }
@@ -55,7 +62,7 @@ export default customElements.define('connect-element', class ConnectElement ext
           <custom-svg-icon icon="clear" data-close></custom-svg-icon>
         </flex-row>
         <flex-one></flex-one>
-        <slot></slot>
+        <slot class="content"></slot>
         <flex-one></flex-one>
       </span>
     `

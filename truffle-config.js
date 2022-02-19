@@ -6,11 +6,11 @@ module.exports = {
   plugins: ["truffle-contract-size"],
   compilers: {
     solc: {
-      version: '0.8.7',
+      version: '0.8.11',
       settings: {
         optimizer: {
           enabled: true,
-          runs: 1000000
+          runs: 200
         },
         // evmVersion: 'berlin'
       }
@@ -21,7 +21,7 @@ module.exports = {
     'art-ganache': {
       provider: () => new HDWalletProvider({
         privateKeys: [config.TEST_PRIVATEKEY],
-        providerOrUrl: 'HTTP://127.0.0.1:1337'
+        providerOrUrl: 'http://127.0.0.1:1337'
       }),
       network_id: 1337
     },

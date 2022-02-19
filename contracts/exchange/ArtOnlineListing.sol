@@ -109,13 +109,13 @@ contract ArtOnlineListing is IArtOnlineListing, IERC721Receiver {
   }
 
   function delist() external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     _listed = 0;
     emit Listed(0);
   }
 
   function list() external override {
-    require(msg.sender == _factory, 'NOT_ALLOWED');
+    require(msg.sender == _owner, 'NOT_ALLOWED');
     _listed = 1;
     emit Listed(1);
   }

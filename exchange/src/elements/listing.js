@@ -29,6 +29,7 @@ export default customElements.define('listing-element', class Listinglement exte
     this.listed = response.listed
     this.price = response.price
     this.id = response.id
+    this.owner = response.owner
     this._currency = response.currency
     if (this._currency === api.addresses.artonline) this.currency = 'ART'
     else this.currency = currencyByAddress[this._currency]
@@ -39,7 +40,7 @@ export default customElements.define('listing-element', class Listinglement exte
     this.shadowRoot.innerHTML = this.template
     if (response.json) {
       this.img = response.json.image ? response.json.image : response.json.animation
-      this.symbol = response.json.symbol || response.json.name 
+      this.symbol = response.json.symbol || response.json.name
       this.description = response.json.description
     }
 

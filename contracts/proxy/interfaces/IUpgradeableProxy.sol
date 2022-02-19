@@ -2,6 +2,9 @@
 pragma solidity ^0.8.11;
 
 interface IUpgradeableProxy {
-  function setImplementation(address) external;
-  function changeManager(address) external;
+  function implementation() external returns (address);
+  function admin() external returns (address);
+  function changeAdmin(address) external;
+  function upgradeTo(address) external;
+  function upgradeToAndCall(address, bytes32) external;
 }

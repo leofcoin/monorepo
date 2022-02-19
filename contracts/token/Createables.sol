@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.11;
+import './../common/Initializable.sol';
+import './ERC1155Upgradeable.sol';
+import './../../node_modules/@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
 
-import './../../node_modules/@openzeppelin/contracts/token/ERC1155/ERC1155.sol';
-
-contract Createables is ERC1155 {
+contract Createables is ERC1155Upgradeable {
   address internal _manager;
   uint256 internal _tokens;
   mapping (uint256 => address) internal _creators;
   mapping (uint256 => mapping(uint256 => string)) internal _uris;
   mapping (uint256 => uint256) internal _totalSupply;
   mapping (uint256 => mapping(uint256 => address)) internal _owners;
-
-  constructor() ERC1155('https://ipfs.io/ipfs/') {
-    _manager = msg.sender;
-  }
 
   modifier onlyManager() {
     require(msg.sender == _manager, 'NOT_MANAGER');
@@ -23,6 +20,15 @@ contract Createables is ERC1155 {
   modifier onlyCreator(uint256 _token) {
     require(_creators[_token] == msg.sender, 'NOT_THE_CREATOR');
     _;
+  }
+
+  function initialize(string memory uri_) external initializer() {
+    _initialize(uri_);
+    _manager = msg.sender;
+  }
+
+  function uri(uint256 token, uint256 id) external view virtual returns (string memory) {
+    return string(abi.encodePacked(_uri, _uris[token][id]));
   }
 
   function ownerOfBatch(uint256[] memory tokens_, uint256[] memory ids_) external view virtual returns (address[] memory) {
@@ -53,9 +59,9 @@ contract Createables is ERC1155 {
     _setMetadataURI(token_, id_, uri_);
   }
 
-  function uri(uint256 token, uint256 id_) public view virtual returns (string memory) {
-    return string(abi.encodePacked('https://ipfs.io/ipfs/', _uris[token][id_]));
-  }
+  // function uri(uint256 token, uint256 id_) public view virtual returns (string memory) {
+  //   return string(abi.encodePacked(ERC1155.uri(0), _uris[token][id_]));
+  // }
 
   function create(address creator, string memory uri_) external {
     unchecked {

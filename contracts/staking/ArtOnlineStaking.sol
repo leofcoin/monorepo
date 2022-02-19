@@ -106,12 +106,14 @@ contract ArtOnlineStaking is Context, Pausable, Initializable, IArtOnlineStaking
     _balances[currency_][sender] -= amount;
     _claimed[sender][id] = 1;
 
-    uint256 index = _stakers[currency_][sender];
-    _holders[currency_][index] = _holders[currency_][_holders[currency_].length - 1];
+    if (_balances[currency_][sender] == 0) {
+      uint256 index = _stakers[currency_][sender];
+      _holders[currency_][index] = _holders[currency_][_holders[currency_].length - 1];
 
-    _holders[currency_].pop();
+      _holders[currency_].pop();
 
-    delete _stakers[currency_][sender];
+      delete _stakers[currency_][sender];
+    }
   }
 
 }
