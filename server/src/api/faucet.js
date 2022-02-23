@@ -56,7 +56,7 @@ router.get('/faucet', async ctx => {
   if (timedOut[ctx.request.query.address]) return timedOutMessage(ctx)
   const time = new Date().getTime() + (60 * 1000) * 60
   timedOut[ctx.request.query.address] = time
-  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers.utils.parseUnits('10000'), {gasLimit: 21000000})
+  let tx = await contract.transfer(ctx.request.query.address, ethers.utils.parseUnits('10000'), {gasLimit: 21000000})
   // console.log(tx);
   ctx.body = tx.hash
 })
