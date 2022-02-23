@@ -2913,27 +2913,33 @@ const provider = new ethers__default["default"].providers.JsonRpcProvider( rpcUr
 const signer = new ethers__default["default"].Wallet(config.FAUCET_PRIVATEKEY, provider);
 
 const contract = new ethers__default["default"].Contract(addresses.artonline, ABI, signer);
-console.log(signer.address);
+
 const timedOutMessage = ctx => {
   ctx.body = `${ctx.request.query.address} on timeout`;
 };
 
+const task = () => {
+  for (const key of Object.keys({...timedOut})) {
+    if (timedOut[key].time <= new Date().getTime()) delete timedOut[key];
+  }
+
+  setTimeout(() => {
+    task();
+  }, 8.64+7);
+};
+
+task();
+
 router.get('/faucet', async ctx => {
-  if (timedOut[ctx.request.header['cf-connecting-ip']]) return timedOutMessage(ctx)
   if (timedOut[ctx.request.query.address]) return timedOutMessage(ctx)
   const time = new Date().getTime() + 8.64e+7;
   timedOut[ctx.request.query.address] = time;
-  timedOut[ctx.request.header['cf-connecting-ip']] = time;
-  console.log(contract);
-  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers__default["default"].utils.parseUnits('50000'), {gasLimit: 21000000});
+  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers__default["default"].utils.parseUnits('10000'), {gasLimit: 21000000});
   // console.log(tx);
   ctx.body = tx.hash;
 });
 
 router.get('/faucet/tot', ctx => {
-  if (timedOut[ctx.request.header['cf-connecting-ip']])
-    String(timedOut[ctx.request.header['cf-connecting-ip']]);
-
   if (ctx.request.query.address) ctx.body =
     String(timedOut[ctx.request.query.address]);
 });

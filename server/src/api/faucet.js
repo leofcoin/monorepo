@@ -53,21 +53,15 @@ const task = () => {
 task()
 
 router.get('/faucet', async ctx => {
-  if (timedOut[ctx.request.header['cf-connecting-ip']]) return timedOutMessage(ctx)
   if (timedOut[ctx.request.query.address]) return timedOutMessage(ctx)
   const time = new Date().getTime() + 8.64e+7
   timedOut[ctx.request.query.address] = time
-  timedOut[ctx.request.header['cf-connecting-ip']] = time
-  console.log(contract);
-  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers.utils.parseUnits('50000'), {gasLimit: 21000000})
+  let tx = await contract.transferFrom(signer.address, ctx.request.query.address, ethers.utils.parseUnits('10000'), {gasLimit: 21000000})
   // console.log(tx);
   ctx.body = tx.hash
 })
 
 router.get('/faucet/tot', ctx => {
-  if (timedOut[ctx.request.header['cf-connecting-ip']])
-    String(timedOut[ctx.request.header['cf-connecting-ip']])
-
   if (ctx.request.query.address) ctx.body =
     String(timedOut[ctx.request.query.address])
 })
