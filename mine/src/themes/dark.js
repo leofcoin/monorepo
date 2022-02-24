@@ -1,5 +1,5 @@
 export default {
-  'main-background-color': '#212121',
+  'main-background-color': '#000',
   'custom-drawer-background': '#33333363',
   'main-color': '#eee',
   'accent-color': '#d70d96',
