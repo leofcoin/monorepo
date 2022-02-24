@@ -110,10 +110,12 @@ export default customElements.define('staking-view', class StakingView extends H
       }
 
 
-
-      array-repeat {
+      .hero {
         overflow-y: auto;
-        pointer-events: auto;
+      }
+      array-repeat {
+        overflow-y: auto !important;
+        pointer-events: auto !important;
       }
     </style>
     <flex-column class="hero">
