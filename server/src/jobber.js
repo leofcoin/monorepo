@@ -7,20 +7,17 @@ const getTime = () => {
 const timeout = () => {
   setTimeout(async () => {
     const start = getTime()
-    let i
-    let done = false
-    for (var key of Object.keys(cache)) {
-      i++
+    let i = 0
+    for (const key of Object.keys(cache)) {
       cache[key].job().then(() => {
+        i++
         console.log(`job ${key} took ${getTime() - start}s`);
-        if (i === Object.keys(cache) - 1) done = true
+        if (Object.keys(cache).length === i) timeout()
       })
     }
-    if (done) console.log(`jobs took ${getTime() - start}s`);
-    timeout()
   }, 1 * 60 * 1000);
 }
 
 timeout()
-
+globalThis.jobber = cache
 export default cache

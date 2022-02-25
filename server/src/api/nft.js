@@ -1,4 +1,3 @@
-import jobber from './../jobber'
 import Router from '@koa/router'
 const router = new Router()
 import { getJsonFor, sendJSON, getMetadataURI } from './shared'

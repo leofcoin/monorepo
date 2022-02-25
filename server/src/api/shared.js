@@ -3,7 +3,6 @@ import ethers from 'ethers'
 import { abi as ERC1155_ABI } from './../../../build/contracts/ERC1155.json'
 import { abi as ERC721_ABI } from './../../../build/contracts/ERC721.json'
 import { abi as CREATEABLES } from './../../../build/contracts/Createables.json'
-import jobber from './../jobber'
 import fetch from 'node-fetch'
 import { CID } from 'multiformats/cid'
 

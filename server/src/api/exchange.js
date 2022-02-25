@@ -4,7 +4,6 @@ import { abi as ERC721_ABI } from './../../../build/contracts/ArtOnlineListing.j
 import { abi as ABI } from './../../../build/contracts/ArtOnlineExchangeFactory.json'
 import { getJsonFor, sendJSON, getMetadataURI } from './shared'
 // import cache from './../cache'
-import jobber from './../jobber'
 import mime from 'mime-types'
 import ethers from 'ethers'
 import Router from '@koa/router'
