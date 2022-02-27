@@ -3754,6 +3754,8 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
     else if (tx.from === burnAddress) mints.push(tx);
   }
   if (response.result.length === 10000) return _getBurns(toBlock + 1, toBlock + 1000000)
+  const currentBlock = await provider.getBlockNumber();
+  if (toBlock < currentBlock) return _getBurns(toBlock + 1, toBlock + 1000000)
 };
 
 
@@ -3791,13 +3793,52 @@ router.get('/token/price', async ctx => {
   ctx.body = jobber[currency].value;
 });
 
-router.get('/token/burns', async ctx => {
-  sendJSON(ctx, burns);
+router.get('/token/mints', async ctx => {
+  if (ctx.query.period === 'all' || ctx.query.period === undefined) {
+    sendJSON(ctx, mints);
+    return
+  }
+
+  let timestamp = new Date().getTime() / 1000;
+  timestamp = Math.round(timestamp);
+  if (ctx.query.period === '24h') {
+    timestamp = Math.round(timestamp - ((24 * 60)*60));
+  } else if (ctx.query.period === 'week') {
+    timestamp = Math.round(timestamp - 604876);
+  } else if (ctx.query.period === 'month') {
+    timestamp = Math.round(timestamp - 2.628e+6);
+  } else if (ctx.query.period === 'year') {
+    timestamp = Math.round(timestamp - 3.154e+7);
+  }
+  sendJSON(ctx, mints.reduce((p,c) => {
+    if (Number(c.timeStamp) > timestamp) p.push(c);
+    return p
+  }, []));
 });
 
-router.get('/token/mints', async ctx => {
-  sendJSON(ctx, mints);
+router.get('/token/burns', async ctx => {
+  if (ctx.query.period === 'all' || ctx.query.period === undefined) {
+    sendJSON(ctx, burns);
+    return
+  }
+
+  let timestamp = new Date().getTime() / 1000;
+  timestamp = Math.round(timestamp);
+  if (ctx.query.period === '24h') {
+    timestamp = Math.round(timestamp - ((24 * 60)*60));
+  } else if (ctx.query.period === 'week') {
+    timestamp = Math.round(timestamp - 604876);
+  } else if (ctx.query.period === 'month') {
+    timestamp = Math.round(timestamp - 2.628e+6);
+  } else if (ctx.query.period === 'year') {
+    timestamp = Math.round(timestamp - 3.154e+7);
+  }
+  sendJSON(ctx, burns.reduce((p,c) => {
+    if (Number(new Date(c.timeStamp * 1000).getTime() / 1000) > timestamp) p.push(c);
+    return p
+  }, []));
 });
+
 
 router.get('/token/totalBurnAmount', async ctx => {
   if (!jobber.totalBurnAmount) {
