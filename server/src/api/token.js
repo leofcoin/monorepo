@@ -69,7 +69,10 @@ router.get('/token/price', async ctx => {
 
 router.get('/token/mints', async ctx => {
   if (ctx.query.period === 'all' || ctx.query.period === undefined) {
-    sendJSON(ctx, mints)
+    sendJSON(ctx, {transactions: mints, amount: Math.round(mints.reduce((p, c) => {
+        p += Number(ethers.utils.formatUnits(c.value))
+        return p
+      }, 0) * 100) / 100})
     return
   }
 
@@ -84,15 +87,23 @@ router.get('/token/mints', async ctx => {
   } else if (ctx.query.period === 'year') {
     timestamp = Math.round(timestamp - 3.154e+7)
   }
-  sendJSON(ctx, mints.reduce((p,c) => {
+  const transactions = mints.reduce((p,c) => {
     if (Number(c.timeStamp) > timestamp) p.push(c)
     return p
-  }, []))
+  }, [])
+
+  sendJSON(ctx, {transactions, amount: Math.round(transactions.reduce((p, c) => {
+      p += Number(ethers.utils.formatUnits(c.value))
+      return p
+    }, 0) * 100) / 100})
 })
 
 router.get('/token/burns', async ctx => {
   if (ctx.query.period === 'all' || ctx.query.period === undefined) {
-    sendJSON(ctx, burns)
+    sendJSON(ctx, {transactions: burns, amount: Math.round(burns.reduce((p, c) => {
+        p += Number(ethers.utils.formatUnits(c.value))
+        return p
+      }, 0) * 100) / 100})
     return
   }
 
@@ -107,10 +118,14 @@ router.get('/token/burns', async ctx => {
   } else if (ctx.query.period === 'year') {
     timestamp = Math.round(timestamp - 3.154e+7)
   }
-  sendJSON(ctx, burns.reduce((p,c) => {
-    if (Number(new Date(c.timeStamp * 1000).getTime() / 1000) > timestamp) p.push(c)
+  const transactions = burns.reduce((p,c) => {
+    if (Number(c.timeStamp) > timestamp) p.push(c)
     return p
-  }, []))
+  }, [])
+  sendJSON(ctx, {transactions, amount: Math.round(transactions.reduce((p, c) => {
+      p += Number(ethers.utils.formatUnits(c.value))
+      return p
+    }, 0) * 100) / 100})
 })
 
 
