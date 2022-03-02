@@ -3761,9 +3761,9 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
 
 _getBurns().then(() => {
   contract.on('Transfer', (from, to, value, {blockNumber}) => {
-    if (from === undefined.burnAddress) {
+    if (from === burnAddress) {
       mints.push({from, to, value, blockNumber});
-    } else if (to === undefined.burnAddress) {
+    } else if (to === burnAddress) {
       burns.push({from, to, value, blockNumber});
     }
   });
