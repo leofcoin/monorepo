@@ -33,3 +33,4 @@ www/www/service-worker.js
 www/www/service-worker.js
 www/www/shell.js
 lottery/www/**/**.js
+/stats/www/**/**.js
