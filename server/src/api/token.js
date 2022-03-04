@@ -34,11 +34,11 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
 
 
 _getBurns().then(() => {
-  contract.on('Transfer', (from, to, value, {blockNumber}) => {
+  contract.on('Transfer', (from, to, value, {blockNumber, timeStamp}) => {
     if (from === burnAddress) {
-      mints.push({from, to, value, blockNumber})
+      mints.push({from, to, value, blockNumber, timeStamp})
     } else if (to === burnAddress) {
-      burns.push({from, to, value, blockNumber})
+      burns.push({from, to, value, blockNumber, timeStamp})
     }
   })
 })
