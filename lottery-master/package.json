@@ -1,0 +1,19 @@
+{
+  "name": "lottery-master",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "c": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lucky-numbers": "^1.2.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^4.1.0"
+  }
+}
