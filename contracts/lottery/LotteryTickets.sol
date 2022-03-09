@@ -45,34 +45,28 @@ contract LotteryTickets is ERC1155 {
     _manager = manager_;
   }
 
-  function mintTickets(uint256 lotteryId, address to, uint256 amount, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
-    uint256[] memory tokenIds = new uint256[](amount);
-    uint256[] memory ids = new uint256[](amount);
-
-    for (uint256 i = 0; i < amount; i++) {
+  function mintTickets(uint256 lotteryId, address to, uint256 tickets_, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
+    for (uint256 i = 0; i < tickets_; i++) {
       uint256 start;
       uint256 end;
       unchecked {
-        _totalSupply[lotteryId] += 1;
-
         start = uint256(i * lotterySize);
         end = uint256((i + 1) * lotterySize);
       }
-      tokenIds[i] = _totalSupply[lotteryId];
-      ids[i] = lotteryId;
+      _totalSupply[lotteryId] += 1;
 
       uint256[] calldata numbers = numbers_[start:end];
 
-      _ticketInfo[lotteryId][tokenIds[i]] = TicketInfo(
+      _ticketInfo[lotteryId][_totalSupply[lotteryId]] = TicketInfo(
         to,
         numbers,
         0,
         lotteryId
       );
       _userTickets[to][lotteryId].push(_totalSupply[lotteryId]);
-
+      _mint(to, lotteryId, 1, msg.data);
     }
-    _mintBatch(to, ids, tokenIds, msg.data);
+
   }
 
   function claim(uint256 lotteryId, uint256 ticketId, uint256 maxRange) external onlyLottery() returns (bool) {
@@ -118,11 +112,11 @@ contract LotteryTickets is ERC1155 {
     bytes memory data
   ) internal virtual override {
     super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
-
-    if (from == address(0)) {
-      for (uint256 i = 0; i < ids.length; ++i) {
-          _totalSupply[ids[i]] += amounts[i];
+      if (from != address(0)) {
+        for (uint256 i = 0; i < ids.length; i++) {
+          require(_ticketInfo[ids[i]][amounts[i]].owner == from, 'NOT_AN_OWNER');
+          _ticketInfo[ids[i]][amounts[i]].owner = to;
+        }
       }
-    }
   }
 }
