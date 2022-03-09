@@ -17,21 +17,33 @@ export default customElements.define('lottery-shell', class LotteryShell extends
   }
   constructor() {
     super()
+    this._onhashchange = this._onhashchange.bind(this)
   }
 
   connectedCallback() {
     this.setTheme('default')
-    this._select('home')
+    globalThis.onhashchange = this._onhashchange;
+    this._onhashchange()
   }
 
   needsAPI(view) {
-    if (view === 'home' || view === 'connect') {
+    if (view === 'home' || view === 'connect' || view === 'history' || view === 'tickets' || view === 'buy' || view === 'results') {
       return true
     }
     return false
   }
 
+  _onhashchange() {
+    let selected = globalThis.location.hash
+    selected = selected.split('#!/')
+    this._select(selected[1] ? selected[1] : selected[0])
+  }
+
   async _select(selected) {
+    selected = selected.split('?')
+    const params = selected[1] ? selected[1].split('=')[1] : undefined
+    selected = selected[0]
+    if (!selected) selected = 'home'
     !await customElements.get(`${selected}-view`) && await import(`./${selected}.js`)
     this._previousSelected = this._pages.selected
     this._pages.select(selected)
@@ -43,6 +55,11 @@ export default customElements.define('lottery-shell', class LotteryShell extends
       const importee = await import('./api.js')
       globalThis.api = new importee.default()
     }
+    if (params) {
+      const el = this.shadowRoot.querySelector(`${selected}-view`)
+      el.load(params)
+    }
+
   }
 
   async setTheme(theme) {
@@ -71,13 +88,27 @@ export default customElements.define('lottery-shell', class LotteryShell extends
     height: 32px;
     width: 32px;
     padding: 12px;
+    pointer-events: auto;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    pointer-events: auto;
+    padding: 12px;
+    box-sizing: border-box;
+    text-decoration: none;
+    color: #111;
+    text-transform: uppercase;
   }
 </style>
 ${icons}
 <flex-row center>
   <custom-svg-icon icon="menu"></custom-svg-icon>
   <flex-one></flex-one>
-  <img class="logo" src="https://assets.artonline.site/arteon.svg"></img>
+  <a title="lottery results" href="#!/results">results</a>
+  <a title="ticket history" href="#!/history">history</a>
+  <a title="home" href="#!/home"><img class="logo" src="https://assets.artonline.site/arteon.svg"></img></a>
 </flex-row>
 ${pages}
     `

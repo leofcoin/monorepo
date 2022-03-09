@@ -251,8 +251,13 @@ export default class ArrayRepeat extends HTMLElement {
    */
   render() {
     const items = Array.from(this.querySelectorAll('.array-repeat-item'))
-    if (items.length === this.items.length) return;
-    this._queriedCollection = this._items.slice(items.length > 0 ? items.length - 1 : 0, items.length > 0 ? (items.length - 1) + this.max : this.max)
+    if (items.length === this._items.length) return;
+
+    let max = this._items.length - items.length - 10
+    max = max < 0 ? this._items.length : this.max
+
+    this._queriedCollection = this._items.slice(items.length > 0 ? items.length : 0, max)
+    console.log(this._queriedCollection, max, items.length);
     if (this._queriedCollection.length > 0) this._runQue(this._queriedCollection)
   }
 
@@ -277,6 +282,13 @@ export default class ArrayRepeat extends HTMLElement {
       child.index = index;
       this._content.appendChild(child)
     }
+  }
+
+  reset() {
+
+    this._queriedCollection = []
+    this._items = []
+    const children = this._content.innerHTML = ''
   }
   /**
    * custom for of loop that returns an array & reruns when an object is found

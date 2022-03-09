@@ -5,5 +5,8 @@ export default html`
   <home-view data-route="home"></home-view>
   <connect-view data-route="connect"></connect-view>
   <buy-view data-route="buy"></buy-view>
+  <history-view data-route="history"></history-view>
+  <tickets-view data-route="tickets"></tickets-view>
+  <results-view data-route="results"></results-view>
 </custom-pages>
 `

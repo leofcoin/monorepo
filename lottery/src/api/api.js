@@ -8,7 +8,7 @@ import ERC20_ABI from './../../../build/contracts/IERC20.json'
 const LOTTERY_ABI = LOTTERY.abi
 const NETWORK_NAME = 'binance-smartchain-testnet'
 const NETWORK_ID = networksByName[NETWORK_NAME]
-
+import TICKETS_ABI from './../../../abis/lotteryTickets'
 globalThis.ethers = _ethers
 
 export default class Api {
@@ -30,8 +30,7 @@ export default class Api {
     this.provider = new ethers.providers.JsonRpcProvider(this.network.rpcUrl, NETWORK_ID)
     this.addresses = await addresses(NETWORK_NAME)
     this.contract = new ethers.Contract(this.addresses.lotteryProxy, LOTTERY_ABI, this.provider)
-    this.ready = true
-    pubsub.publish('api.ready', true)
+    this.ticketsContract = new ethers.Contract(api.addresses.lotteryTickets, TICKETS_ABI, this.provider)
     if (globalThis.ethereum) {
       ethereum.on('accountsChanged', this._reload)
       ethereum.on('chainChanged', this._reload)
@@ -45,6 +44,8 @@ export default class Api {
     // } else {
       // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), '0x0000000000000000000000000000000000000000')
     }
+    this.ready = true
+    pubsub.publish('api.ready', true)
   }
 
   async connectWallet() {
@@ -53,7 +54,7 @@ export default class Api {
       wallet = JSON.parse(wallet)
       this.walletType = wallet.type
     } else {
-      const dialog = document.querySelector('exchange-shell').shadowRoot.querySelector('connect-element');
+      const dialog = document.querySelector('lottery-shell').shadowRoot.querySelector('connect-element');
       const result = await dialog.show()
       this.walletType = dialog.querySelector('custom-selector').selected
       localStorage.setItem('wallet', JSON.stringify({
@@ -66,5 +67,45 @@ export default class Api {
     })
     // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
     this.contract = new ethers.Contract(this.addresses.lotteryProxy, LOTTERY_ABI, this.connection.provider.getSigner())
+  }
+
+  async getPrice() {
+    let response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=artonline&vs_currencies=usd')
+    response = await response.json()
+    return response.artonline.usd
+
+  }
+
+  async getAllTickets() {
+    const lotteries = await api.contract.callStatic.lotteries()
+    const contract = new ethers.Contract(api.addresses.lotteryTickets, TICKETS_ABI, api.connection.provider.getSigner())
+    const ids = []
+    const accounts = []
+    for (let i = 1; i <= lotteries.toNumber(); i++) {
+      ids.push(i)
+      accounts.push(api.connection.accounts[0])
+    }
+    let balances = await contract.balanceOfBatch(accounts, ids)
+    console.log(balances);
+    let i = 0
+    balances = balances.reduce((p, c) => {
+      i++
+      if (c.toNumber() > 0) p.push({lotteryId: i, tickets: c.toNumber()})
+      return p
+    }, [])
+    return balances
+  }
+
+  async getBalance(lottery) {
+    const balance = await this.ticketsContract.balanceOf(api.connection.accounts[0], lottery)
+    return balance
+  }
+
+  async getTickets(lottery) {
+    return this.ticketsContract.tickets(lottery, api.connection.accounts[0])
+  }
+
+  async getTicketNumbers(lottery, ticket) {
+    return this.ticketsContract.getTicketNumbers(lottery, ticket)
   }
 }

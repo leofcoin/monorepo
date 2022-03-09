@@ -30,12 +30,13 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
   }
 
   async _approveAndBuy() {
-
-          // const gaming = new ethers.Contract(api.addresses.gamingProxy, ARTONLINE_GAMING_ABI, api.connection.provider.getSigner())
-          // let tx = gaming.deposit(ethers.utils.parseUnits('10000'))
+    let tx;
+          // const gaming = new ethers.Contract(api.addresses.artonline, ARTONLINE_GAMING_ABI, api.connection.provider.getSigner())
+          // let tx = gaming.deposit(ethers.utils.parseUnits('300000'))
           // await tx.wait()
-    const contract = new ethers.Contract(api.addresses.gamingProxy, ARTONLINE_ABI, api.connection.provider.getSigner())
-    // contract.transfer(api.addresses.gamingProxy, ethers.utils.parseUnits('1000'))
+          // return
+    const contract = new ethers.Contract(api.addresses.artonline, ARTONLINE_ABI, api.connection.provider.getSigner())
+    // contract.transfer(api.addresses.artonline, ethers.utils.parseUnits('1000'))
     let allowance = await contract.callStatic.allowance(api.connection.accounts[0], api.addresses.lotteryProxy)
     const amount = Number(this.shadowRoot.querySelector('input').value) * Number(this.ticketPrice)
 
@@ -56,7 +57,7 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
     }, [])
     console.log(numbers);
 
-    tx = await api.contract.buyTickets(this.id, this.shadowRoot.querySelector('input').value, numbers)
+    tx = await api.contract.buyTickets(this.id, ethers.BigNumber.from(this.shadowRoot.querySelector('input').value), numbers)
     console.log(tx);
   }
 
