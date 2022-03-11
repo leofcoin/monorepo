@@ -2,7 +2,7 @@ import './ticket-number'
 
 export default customElements.define('ticket-element', class TicketElement extends BaseClass {
   static get observedAttributes() {
-    return ['numbers']
+    return ['numbers', 'edit']
   }
   constructor() {
     super()
@@ -20,6 +20,13 @@ export default customElements.define('ticket-element', class TicketElement exten
     this.fourth = value.charAt(3)
     this.fifth = value.charAt(4)
     this.sixth = value.charAt(5)
+  }
+
+  set edit(value) {
+    if (value === 'true') Array.from(this.shadowRoot.querySelectorAll('ticket-number')).forEach((item, i) => {
+      item.setAttribute('edit', 'true')
+    });
+
   }
 
   get numbers() {
