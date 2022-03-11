@@ -86,6 +86,7 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
 
     uint256 id_ = _lotteryIds;
     uint256[] memory _winningNumbers = new uint256[](_lotterySize);
+    uint256[] memory _totalMatches = new uint256[](_lotterySize);
 
     lottoInfo memory _lottery = lottoInfo(
       id_,
@@ -93,6 +94,7 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
       _prizePool,
       _costPerTicket,
       _prizeDistribution,
+      _totalMatches,
       startTime_,
       endTime_,
       _winningNumbers,
@@ -104,7 +106,7 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
     emit LotteryOpen(id_);
   }
 
-  function revealWinningNumbers(uint256 lottery_, uint256[] memory winningNumbers_, string memory proof) external onlyManager {
+  function revealWinningNumbers(uint256 lottery_, uint256[] memory winningNumbers_, uint256[] memory totalMatches_, string memory proof) external onlyManager {
     require(_lotteries[lottery_].endTime <= block.timestamp, 'LOTTERY_OPEN');
     require( _lotteries[lottery_].status == Status.Open, 'LOTTERY_STATE_ERROR');
     // require(_lotteries[lottery_].endTime + 60 <= block.timestamp, 'LOTTERY_END_DELAY');
@@ -117,6 +119,7 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
     _lotteries[lottery_].winningNumbers = _winningNumbers;
     _lotteries[lottery_].proof = proof;
     _lotteries[lottery_].status = Status.Completed;
+    _lotteries[lottery_].totalMatches = totalMatches_;
 
     _artOnline.burn(address(this), _burns[lottery_]);
 
@@ -134,11 +137,11 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
       amount
     );
 
-    uint256 burnAmount_ = amount * 18 / 100;
+    uint256 burnAmount_ = amount * 2 / 100;
     _lotteries[id_].prizePool += amount - burnAmount_;
     _burns[id_] += burnAmount_;
     _lotteryTicketsNFT.mintTickets(id_, msg.sender, tickets, numbers_, _lotterySize);
-    emit BuyTickets(msg.sender, id_, numbers_, amount);
+    emit BuyTickets(msg.sender, id_, numbers_, tickets);
   }
 
   function latestLottery() external view virtual returns (lottoInfo memory) {
@@ -215,7 +218,8 @@ contract ArtOnlineLottery is Initializable, LotteryStorage {
       return 0;
     }
     uint256 perOfPool = _lotteries[_lotteryId].prizeDistribution[_noOfMatching-1];
-    prize = _lotteries[_lotteryId].prizePool * perOfPool;
+    uint256 totalMatches = _lotteries[_lotteryId].totalMatches[_noOfMatching-1];
+    prize = _lotteries[_lotteryId].prizePool * perOfPool / totalMatches;
     return prize / 100;
   }
 

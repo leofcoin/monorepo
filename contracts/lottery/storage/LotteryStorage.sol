@@ -35,6 +35,7 @@ contract LotteryStorage {
     uint256 prizePool;
     uint256 ticketPrice;
     uint256[] prizeDistribution;
+    uint256[] totalMatches;
     uint256 startTime;
     uint256 endTime;
     uint256[] winningNumbers;
