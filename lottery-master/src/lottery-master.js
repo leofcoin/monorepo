@@ -28,7 +28,7 @@ const provider = new ethers.providers.JsonRpcProvider( rpcUrls[network], {
 
 const signer = new ethers.Wallet(config.TEST_PRIVATEKEY, provider)
 
-export const reveal = async (lottery, numbers) => _reveal(addresses, provider, signer, lottery, numbers, matches)
+export const reveal = async (lottery, numbers, matches) => _reveal(addresses, provider, signer, lottery, numbers, matches)
 
 export const create = async (
   ticketPrice = ethers.utils.parseUnits('1000', 18),
