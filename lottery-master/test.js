@@ -1,3 +1,3 @@
 const service = require('./dist/service');
-// service()
+service
 // master.reveal()
