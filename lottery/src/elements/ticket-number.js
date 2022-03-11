@@ -30,7 +30,7 @@ export default customElements.define('ticket-number', class TicketNumber extends
     this.timeout = setTimeout(() => {
       const input = this.shadowRoot.querySelector('input')
       if (Number(input.value) > Number(input.getAttribute('max'))) input.value = Number(input.getAttribute('max'))
-
+      this.style.background = this.colorFor(input.value)
     }, 200);
   }
 
