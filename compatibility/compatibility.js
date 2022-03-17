@@ -18,5 +18,5 @@ export default (string, platform = ['windows', 'mac']) => {
       if (index !== -1) warnings.push(`${target[0]}: ${target[1]} @${index}`)
     }
   }
-  console.log(warnings);
+  return warnings
 }
