@@ -35,3 +35,5 @@ www/www/shell.js
 lottery/www/**/**.js
 /stats/www/**/**.js
 **/dist/**/*
+
+/node/www/**/*.js
