@@ -9,6 +9,7 @@ export default customElements.define('chat-message', class ChatMessage extends B
 
   set author(author) {
     this.shadowRoot.querySelector('.author').innerHTML = author
+    this.shadowRoot.querySelector('.author').style.color = authorColor(author)
   }
 
   get template() {

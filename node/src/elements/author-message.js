@@ -9,7 +9,7 @@ export default customElements.define('author-message', class AuthorMessage exten
 
   set author(author) {
     this.shadowRoot.querySelector('.author').innerHTML = author
-    // this.shadowRoot.querySelector('.author').color = getColor()
+    this.shadowRoot.querySelector('.author').style.color = authorColor(author)
   }
 
   get template() {
