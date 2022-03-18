@@ -7,13 +7,39 @@ export default customElements.define('home-view', class HomeView extends BaseCla
     this._onclick = this._onclick.bind(this)
   }
 
+  async hasMessage(hash) {
+    const hasHash = await peernet.message.has(hash)
+    return hasHash || this.shadowRoot.querySelector(`chat-message[data-hash='${hash}']`)
+  }
+
   connectedCallback() {
-    peernet.subscribe('chat-message', message => {
-      message = JSON.parse(message)
-      const chatMessage = document.createElement('chat-message')
-      chatMessage.value = message.value
-      chatMessage.author = message.author
-      this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+    peernet.subscribe('chat-message', async message => {
+
+        message = JSON.parse(message)
+        if (!await this.hasMessage(message.hash)) {
+        const hash = message.hash
+        delete message.hash
+        message = new peernet.protos['chat-message'](message)
+        if (message.hash === hash) {
+          await peernet.message.put(message.hash, message.encoded)
+
+          const chatMessage = document.createElement('chat-message')
+          this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+          chatMessage.dataset.hash = hash
+          chatMessage.value = message.decoded.value
+          chatMessage.author = message.decoded.author
+          chatMessage.timestamp = message.decoded.timestamp
+        }
+
+      }
+
+    })
+
+    peernet.subscribe('typing-message', async message => {
+      // if (!await peernet.message.has(message)) {
+        this.shadowRoot.querySelector('.typing').innerHTML = `${message} typing ...`
+      // }
+
     })
     // this.shadowRoot.querySelector('button').addEventListener('click', this._onclick)
     // const update = async () => {
@@ -69,6 +95,7 @@ export default customElements.define('home-view', class HomeView extends BaseCla
     border-radius: 48px;
     box-shadow: 0 0 7px 9px #00000012;
     overflow: hidden;
+    max-height: 80%;
   }
   .container, section {
     display: flex;
@@ -158,6 +185,7 @@ export default customElements.define('home-view', class HomeView extends BaseCla
 <section class="container">
   <span class="chat-messages"></span>
   <flex-one></flex-one>
+  <span class="typing"></span>
   <chat-box></chat-box>
 </section>
     `
