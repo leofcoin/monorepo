@@ -15,8 +15,8 @@ const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.bina
 
 const contract = new ethers.Contract(addresses.artonline, ABI, provider)
 
-const burns = []
-const mints = []
+let burns = []
+let mints = []
 const burnAddress = '0x0000000000000000000000000000000000000000'
 const contractAddress = '0x535e67270f4FEb15BFFbFE86FEE308b81799a7a5'
 
@@ -32,6 +32,8 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
   if (toBlock < currentBlock) return _getBurns(toBlock + 1, toBlock + 1000000)
 
   setTimeout(() => {
+    burns = []
+    mints = []
     _getBurns()
   }, 120000);
 }
