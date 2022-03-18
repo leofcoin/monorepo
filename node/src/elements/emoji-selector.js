@@ -48,15 +48,16 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
     this._select = this._select.bind(this)
     this.shadowRoot.querySelector('custom-tabs').addEventListener('selected', this._select)
     this.addEventListener('click', event => {
+      const target = event.composedPath()[0]
       if (!this.opened) {
         this.opened = true;
         this.classList.add('opened')
       // } else {
         // this.opened = false;
         // this.classList.remove('opened')
-      } else if (event.path[0].localName === 'emo-ji') {
+      } else if (target.localName === 'emo-ji') {
         this.opened = false;
-        this.dispatchEvent(new CustomEvent('selected', {detail: event.path[0].innerHTML}));
+        this.dispatchEvent(new CustomEvent('selected', {detail: target.innerHTML}));
         this.classList.remove('opened');
       };
     })
@@ -153,7 +154,7 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
         justify-content: center
       }
       :host(.opened) {
-        height: 280px;
+        height: 480px;
         box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14), 0 1px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 3px -2px rgba(0, 0, 0, 0.4);
       }
       custom-tab.custom-seleced {
@@ -172,7 +173,6 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
         align-content: space-between;
         overflow-y: auto;
         padding-bottom: 12px;
-        min-height: 263px;
         box-sizing: border-box;
       }
       custom-svg-icon {
