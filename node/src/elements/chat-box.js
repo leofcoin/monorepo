@@ -3,6 +3,7 @@ import './author-message'
 export default customElements.define('chat-box', class ChatBox extends BaseClass {
   constructor() {
     super()
+    this._sendMessage = this._sendMessage.bind(this)
   }
 
   _emojiSelector = this.shadowRoot.querySelector('emoji-selector')
@@ -11,15 +12,16 @@ export default customElements.define('chat-box', class ChatBox extends BaseClass
 
   connectedCallback() {
     this._input.addEventListener('input', () => {
+      peernet.publish('typing-message', peernet.id)
       const matches = this._input.value.match(/:(.*):/g);
       if (matches && matches.length > 0) {
         for (let keyword of matches) {
         keyword = keyword.replace(/:/g, '');
           for (const i of Object.keys(emojis)) {
-            const index = emojis[i].keywords.indexOf(keyword);
-            if (emojis[i].keywords.indexOf(keyword) !== -1) {
+            const index = emojis[i].indexOf(keyword);
+            if (emojis[i].indexOf(keyword) !== -1) {
               const reg = new RegExp(`:${keyword}:`, 'g');
-              this._input.value = this._input.value.replace(reg, emojis[i].char);
+              this._input.value = this._input.value.replace(reg, i);
               return;
             }
           }
@@ -36,23 +38,27 @@ export default customElements.define('chat-box', class ChatBox extends BaseClass
     this._send.addEventListener('click', this._sendMessage)
   }
 
-  _sendMessage() {
+  async _sendMessage() {
     const chatMessage = document.createElement('author-message')
     chatMessage.value = this._input.value
     chatMessage.author = peernet.id
     document.querySelector('node-shell').shadowRoot.querySelector('home-view').shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
 
+
     const timestamp = new Date().getTime()
-    const hash = '';
-    const message = JSON.stringify({
+    let message = {
       author: peernet.id,
       value: this._input.value,
-      hash:
       timestamp
-    })
-    peernet.publish('chat-message', message)
+    }
+    message = new peernet.protos['chat-message'](message)
 
-    delete message.hash
+    await peernet.message.put(message.hash, message.encoded)
+
+    peernet.publish('chat-message', JSON.stringify({
+      ...message.decoded,
+      hash: message.hash
+    }))
 
     this._input.value = null
   }
