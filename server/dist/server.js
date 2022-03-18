@@ -2662,7 +2662,7 @@ const provider$2 = new ethers__default["default"].providers.JsonRpcProvider('htt
   chainId: 56
 });
 
-const contract$2 = new ethers__default["default"].Contract(addresses$1.exchangeFactory, abi$4, provider$2);
+const contract$1 = new ethers__default["default"].Contract(addresses$1.exchangeFactory, abi$4, provider$2);
 
 router$4.get('/', ctx => {
   ctx.body = 'v0.0.1-alpha';
@@ -2687,9 +2687,9 @@ router$4.get('/listings/ERC721', async ctx => {
     jobber.listingsERC721 = {
       job: async () => {
         const listings = [];
-        const listingsLength = await contract$2.listingLength();
+        const listingsLength = await contract$1.listingLength();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract$2.callStatic.listings(i);
+          const address = await contract$1.callStatic.listings(i);
           if (!jobber[`listed_${address}`]) {
             jobber[`listed_${address}`] = {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
@@ -2710,9 +2710,9 @@ router$4.get('/listings/ERC1155', async ctx => {
     jobber.listingsERC1155 = {
       job: async () => {
         const listings = [];
-        const listingsLength = await contract$2.listingERC1155Length();
+        const listingsLength = await contract$1.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract$2.callStatic.listingsERC1155(i);
+          const address = await contract$1.callStatic.listingsERC1155(i);
           if (!jobber[`listed_${address}`] && address !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') {
             jobber[`listed_${address}`] = {
               job: async () => jobber[`listed_${address}`].value = await listingListed(address)
@@ -2737,7 +2737,7 @@ router$4.get('/listings', async ctx => {
       job: async () => {
         const listingsLength = await api.contract.listingLength();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract$2.callStatic.listings(i);
+          const address = await contract$1.callStatic.listings(i);
           listings.push({address, listed: await listingListed(address)});
         }
         jobber['listingsERC721'].value = listings;
@@ -2752,7 +2752,7 @@ router$4.get('/listings', async ctx => {
       job: async () => {
         const listingsLength = await api.contract.listingERC1155Length();
         for (let i = 0; i < listingsLength; i++) {
-          const address = await contract$2.callStatic.listingsERC1155(i);
+          const address = await contract$1.callStatic.listingsERC1155(i);
           if (addresses$1 !== '0x5379fb967b4E7114A1B08532E128dEb553FE7cF9' && address !== '0xdD862aE4d47A4978E0f45dC2D2d3f64d29D73Fe1') listings.push({address, listed: await listingListed(address)});
         }
         jobber['listingERC1155'].value = listings;
@@ -2828,13 +2828,13 @@ router$4.get('/listing/listed', async ctx => {
 
 router$4.get('/listing/ERC721', async ctx => {
   const { address, tokenId } = ctx.params;
-  const listing = cache[`${address}_${tokenId}`] || await contract$2.callStatic.getListingERC721(address, tokenId);
+  const listing = cache[`${address}_${tokenId}`] || await contract$1.callStatic.getListingERC721(address, tokenId);
   sendJSON(ctx, listing);
 });
 
 router$4.get('/listing/ERC1155', async ctx => {
   const { address, id, tokenId } = ctx.params;
-  const listing = cache[`${address}_${id}_${tokenId}`] || await contract$2.callStatic.getListingERC1155(address, id, tokenId);
+  const listing = cache[`${address}_${id}_${tokenId}`] || await contract$1.callStatic.getListingERC1155(address, id, tokenId);
   sendJSON(ctx, listing);
 });
 
@@ -2910,10 +2910,10 @@ const provider$1 = new ethers__default["default"].providers.JsonRpcProvider( rpc
 
 const signer = new ethers__default["default"].Wallet(config.FAUCET_PRIVATEKEY, provider$1);
 
-const contract$1 = new ethers__default["default"].Contract(addresses.artonline, ABI, signer);
+const contract = new ethers__default["default"].Contract(addresses.artonline, ABI, signer);
 
 router$1.get('/faucet', async ctx => {
-  let tx = await contract$1.transfer(ctx.request.query.address, ethers__default["default"].utils.parseUnits('10000'), {gasLimit: 21000000});
+  let tx = await contract.transfer(ctx.request.query.address, ethers__default["default"].utils.parseUnits('10000'), {gasLimit: 21000000});
   // console.log(tx);
   ctx.body = tx.hash;
 });
@@ -3739,7 +3739,7 @@ const provider = new ethers__default["default"].providers.JsonRpcProvider('https
   chainId: 56
 });
 
-const contract = new ethers__default["default"].Contract(addresses$1.artonline, abi, provider);
+new ethers__default["default"].Contract(addresses$1.artonline, abi, provider);
 
 const burns = [];
 const mints = [];
@@ -3756,18 +3756,14 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
   if (response.result.length === 10000) return _getBurns(toBlock + 1, toBlock + 1000000)
   const currentBlock = await provider.getBlockNumber();
   if (toBlock < currentBlock) return _getBurns(toBlock + 1, toBlock + 1000000)
+
+  setTimeout(() => {
+    _getBurns();
+  }, 120000);
 };
 
 
-_getBurns().then(() => {
-  contract.on('Transfer', (from, to, value, {blockNumber, timeStamp}) => {
-    if (from === burnAddress) {
-      mints.push({from, to, value, blockNumber, timeStamp});
-    } else if (to === burnAddress) {
-      burns.push({from, to, value, blockNumber, timeStamp});
-    }
-  });
-});
+_getBurns();
 
 const price = async (currency = 'usd') => {
   let response = await fetch__default["default"](`https://api.coingecko.com/api/v3/simple/price?ids=artonline&vs_currencies=${currency}`);

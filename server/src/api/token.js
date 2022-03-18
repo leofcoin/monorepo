@@ -30,18 +30,14 @@ const _getBurns = async (fromBlock = 11399032, toBlock = 14086225) => {
   if (response.result.length === 10000) return _getBurns(toBlock + 1, toBlock + 1000000)
   const currentBlock = await provider.getBlockNumber()
   if (toBlock < currentBlock) return _getBurns(toBlock + 1, toBlock + 1000000)
+
+  setTimeout(() => {
+    _getBurns()
+  }, 120000);
 }
 
 
-_getBurns().then(() => {
-  contract.on('Transfer', (from, to, value, {blockNumber, timeStamp}) => {
-    if (from === burnAddress) {
-      mints.push({from, to, value, blockNumber, timeStamp})
-    } else if (to === burnAddress) {
-      burns.push({from, to, value, blockNumber, timeStamp})
-    }
-  })
-})
+_getBurns()
 
 const price = async (currency = 'usd') => {
   let response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=artonline&vs_currencies=${currency}`)
