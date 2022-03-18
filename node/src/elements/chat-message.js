@@ -8,8 +8,13 @@ export default customElements.define('chat-message', class ChatMessage extends B
   }
 
   set author(author) {
+    this._author = author
+    if (author.length > 34) {
+      author = `${author.slice(4, 9)}...${author.slice(author.length - 5, author.length)}`
+    }
     this.shadowRoot.querySelector('.author').innerHTML = author
-    this.shadowRoot.querySelector('.author').style.color = authorColor(author)
+    this.shadowRoot.querySelector('.author').style.color = authorColor(this._author)
+    this.shadowRoot.querySelector('.author').title = this._author
   }
 
   get template() {
