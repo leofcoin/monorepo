@@ -20,7 +20,6 @@ export default customElements.define('node-shell', class NodeShell extends BaseC
 
   async _init() {
     await new Peernet({network: 'leofcoin:olivia', root: '.artonline', networkName: 'leofcoin:olivia', networkVersion: 'v0.1.0'})
-    if (peernet.stores.indexOf('messages') === -1) await peernet.addStore('messages', peernet.root, peernet.storePrefix, false)
   }
 
   connectedCallback() {
