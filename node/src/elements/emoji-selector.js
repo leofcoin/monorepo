@@ -68,9 +68,7 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
   _parseEmojis() {
     return new Promise((resolve, reject) => {
       this.emojis = {};
-      console.log(emojis);
       for (const i of Object.keys(emojis)) {
-        console.log(lib[i]);
         // exclude _custom & undefined category's
         if (lib[i].group && lib[i].group !== '_custom') {
           this.emojis[lib[i].group] = this.emojis[lib[i].group] || [];
@@ -83,7 +81,6 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
           });
         }
       }
-      console.log(this.emojis);
       resolve(this.emojis);
     });
   }
@@ -99,7 +96,6 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
   _buildPages(emojis) {
     return new Promise((resolve, reject) => {
       for (const category of Object.keys(emojis)) {
-        console.log(category);
         const page = this.querySelector(`span[data-route="${category}"]`) || this._initPage(category);
         for (const emoji of emojis[category]) {
           const el = document.createElement('emo-ji');
@@ -119,7 +115,6 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
   }
   _select({detail}) {
     const route = detail.getAttribute('data-route');
-    console.log(route);
     requestAnimationFrame(() => {
       this._pages.select(route);
     })
