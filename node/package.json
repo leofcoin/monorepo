@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
-    "@leofcoin/peernet": "^0.8.11",
+    "@leofcoin/peernet": "^0.9.2",
     "@vandeurenglenn/flex-elements": "^0.1.0",
     "custom-pages": "^0.12.1",
     "custom-selector": "^0.2.1",
