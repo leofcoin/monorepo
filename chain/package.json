@@ -4,12 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "c": "rollup -c",
+    "w": "rollup -c -w",
+    "b": "browserify ./chain.js -o ./chain.browser.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "rollup": "^2.62.0"
+    "@rollup/plugin-commonjs": "^21.0.2",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^13.1.3",
+    "browserify": "^17.0.0",
+    "rollup": "^2.70.1",
+    "tape": "^5.5.2"
+  },
+  "dependencies": {
+    "@leofcoin/peernet": "^0.9.6"
   }
 }
