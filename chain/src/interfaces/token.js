@@ -1,69 +1,116 @@
 export default class Token {
+  /**
+   * string
+   */
+  #name
+  /**
+   * String
+   */
+  #symbol
+  /**
+   * uint
+   */
+  #holders = 0
+  /**
+   * Object => Object => uint
+   */
+  #balances = {}
+  /**
+   * Object => Object => uint
+   */
+  #approvals = {}
+
+  #decimals = 18
+
+  #totalSupply = 0
+
+  #owner
+
+    // this.#privateField2 = 1
   constructor(name, symbol, decimals = 18) {
     if (!name) throw new Error(`name undefined`)
     if (!symbol) throw new Error(`symbol undefined`)
-    this._name = name
-    this._symbol = symbol
-    this._holders = 0
-    this._balances = {}
-    this._approved = {}
+    this.#name = name
+    this.#symbol = symbol
+    this.#decimals = decimals
+    this.#owner = msg.sender
   }
 
   get name() {
-    return this._name
+    return this.#name
   }
 
   get symbol() {
-    return this._symbol
+    return this.#symbol
   }
 
   get holders() {
-    return this._holders
+    return this.#holders
   }
 
   get balances() {
-    return this._balances
+    return {...this.#balances}
   }
 
-  _beforeTransfer(from, to, amount) {
-    if (this._balances[from] < amount) throw new Error('Balance to low')
+  mint(to, amount) {
+    if (msg.sender === this.#owner) {
+      this.#totalSupply += amount
+      this.#increaseBalance(to, amount)
+    } else {
+      throw new Error('not allowed')
+    }
   }
 
-  _updateHolders(address, previousBalance) {
-    if (this._balances[address] === 0) this._holders -= 1
-    if (this._balances[address] > 0 && previousBalance === 0) this._holders += 1
+  burn(to, amount) {
+    if (globalThis.msg.sender === 'owner') {
+      this.#totalSupply -= amount
+      this.#decreaseBalance(to, amount)
+    } else {
+      throw new Error('not allowed')
+    }
   }
 
-  _increaseBalance(address, amount) {
-    const previousBalance = this._balances[address]
-    this._balances[address] += amount
-    this._updateHolders(address, previousBalance)
+  #beforeTransfer(from, to, amount) {
+    if (!this.#balances[from] || this.#balances[from] < amount) throw new Error('amount exceeds balance')
   }
 
-  _decreaseBalance(address, amount) {
-    const previousBalance = this._balances[address]
-    this._balances[address] -= amount
-    this._updateHolders(address, previousBalance)
+  #updateHolders(address, previousBalance) {
+    if (this.#balances[address] === 0) this.#holders -= 1
+    if (this.#balances[address] > 0 && previousBalance === 0) this.#holders += 1
+  }
+
+  #increaseBalance(address, amount) {
+    const previousBalance = this.#balances[address]
+    if (!this.#balances[address]) this.#balances[address] = 0
+    
+    this.#balances[address] += amount
+    this.#updateHolders(address, previousBalance)
+  }
+
+  #decreaseBalance(address, amount) {
+    const previousBalance = this.#balances[address]
+    this.#balances[address] -= amount
+    this.#updateHolders(address, previousBalance)
   }
 
   balance(address) {
-    return this._balances[address]
+    return this.#balances[address]
   }
 
-  setApproval(owner, operator, amount) {
-    if (!this._approved[owner]) this._approved[owner] = {}
-    this._approved[owner][operator] = amount
+  setApproval(operator, amount) {
+    const owner = globalThis.msg.sender
+    if (!this.#approvals[owner]) this.#approvals[owner] = {}
+    this.#approvals[owner][operator] = amount
   }
-
 
   approved(owner, operator, amount) {
-    return this._approved[owner][operator] === amount
+    return this.#approvals[owner][operator] === amount
   }
 
   transfer(from, to, amount) {
-    amount = this._beforeTransfer(from, to, amount)
-    this._decreaseBalance(from, amount)
-    this._increaseBalance(to, amount)
+    this.#beforeTransfer(from, to, amount)
+    this.#decreaseBalance(from, amount)
+    this.#increaseBalance(to, amount)
   }
 
 
