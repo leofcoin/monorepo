@@ -32,18 +32,15 @@ export default customElements.define('node-shell', class NodeShell extends BaseC
   get _pages() {
     return this.sqs('custom-pages')
   }
-  // #privateField2
+  
   constructor() {
     super()
     this._init()
-    // this.#privateField2 = 1
-    // console.log(this.#privateField2);
-    // this.#privateField2 = 2
-    // console.log(this.#privateField2);
   }
 
   async _init() {
     await new Peernet({network: 'leofcoin:olivia', root: '.artonline', networkName: 'leofcoin:olivia', networkVersion: 'v0.1.0'})
+    pubsub.publish('peernet-ready', true)
   }
 
   connectedCallback() {

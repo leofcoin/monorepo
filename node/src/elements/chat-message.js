@@ -24,14 +24,32 @@ export default customElements.define('chat-message', class ChatMessage extends B
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        padding: 24px;
+        padding: 12px 24px;
+        font-size: 13px;
       }
       .author {
         font-size: 13px;
       }
+      flex-column {
+        box-sizing: border-box;
+        padding: 12px 24px;
+        background: var(--secondary-background-color);
+        border-radius: 24px;
+        box-shadow: 0 0 7px 9px #00000012;
+      }
     </style>
-    <span class="author"></span>
-    <span class="value"></span>
+    <flex-row>
+      <flex-column>
+        <flex-row>
+          <span class="author"></span>
+        </flex-row>
+        <flex-row>
+          <flex-one></flex-one>
+          <span class="value"></span>
+        </flex-row>
+      </flex-column>
+      <flex-one></flex-one>
+    </flex-row>
 
     `
   }

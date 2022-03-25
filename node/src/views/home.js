@@ -1,6 +1,7 @@
 import './../../node_modules/@andrewvanardennen/custom-input/custom-input'
 import './../elements/chat-box'
 import './../elements/chat-message'
+import './../elements/author-message'
 export default customElements.define('home-view', class HomeView extends BaseClass {
   constructor() {
     super()
@@ -12,11 +13,72 @@ export default customElements.define('home-view', class HomeView extends BaseCla
     return hasHash || this.shadowRoot.querySelector(`chat-message[data-hash='${hash}']`)
   }
 
+  async _init() {
+    let messages = await messageStore.get()
+    messages = Object.keys(messages).map(key => new peernet.protos['chat-message'](messages[key]))
+    messages = messages.sort((previous, current) => previous.decoded.timestamp - current.decoded.timestamp)
+    for (const message of messages) {
+      try {
+        const chatMessage = message.decoded.author === peernet.id ? document.createElement('author-message') : document.createElement('chat-message')
+        this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+        chatMessage.dataset.hash = message.hash
+        chatMessage.value = message.decoded.value
+        chatMessage.author = message.decoded.author
+        chatMessage.timestamp = message.decoded.timestamp
+        this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
+      } catch (e) {
+
+      }
+    }
+
+  }
+
   connectedCallback() {
+    peernet.addRequestHandler('messages', async () => {
+      let messages = await messageStore.get()
+
+      return new peernet.protos['peernet-response']({
+        response: JSON.stringify(Object.keys(messages))
+      })
+    })
+
+    pubsub.subscribe('peernet-ready', () => {
+      this._init()
+    })
+
+    pubsub.subscribe('peer:connected', async peer => {
+      const request = new globalThis.peernet.protos['peernet-request']({request: 'messages'})
+      const to = peernet._getPeerId(peer.id)
+      console.log(to);
+      if (to) {
+        const node = await peernet.prepareMessage(to, request.encoded)
+        let response = await peer.request(node.encoded)
+        const proto = new globalThis.peernet.protos['peernet-message'](peernet.Buffer.from(response.data))
+        response = new globalThis.peernet.protos['peernet-response'](peernet.Buffer.from(proto.decoded.data))
+        const messages = JSON.parse(response.decoded.response)
+        for (const message of messages) {
+          if (!await peernet.message.has(message)) {
+            let data = await peernet.message.get(message)
+            await peernet.message.put(message, data)
+
+            data = new peernet.protos['chat-message'](data)
+
+            const chatMessage = document.createElement('chat-message')
+            this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+            chatMessage.dataset.hash = data.hash
+            chatMessage.value = data.decoded.value
+            chatMessage.author = data.decoded.author
+            chatMessage.timestamp = data.decoded.timestamp
+            this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
+          }
+        }
+      }
+    })
+
     peernet.subscribe('chat-message', async message => {
 
-        message = JSON.parse(message)
-        if (!await this.hasMessage(message.hash)) {
+      message = JSON.parse(message)
+      if (!await this.hasMessage(message.hash)) {
         const hash = message.hash
         delete message.hash
         message = new peernet.protos['chat-message'](message)
@@ -29,43 +91,30 @@ export default customElements.define('home-view', class HomeView extends BaseCla
           chatMessage.value = message.decoded.value
           chatMessage.author = message.decoded.author
           chatMessage.timestamp = message.decoded.timestamp
+
+          this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
         }
 
       }
 
     })
 
+
+
     peernet.subscribe('typing-message', async message => {
       // if (!await peernet.message.has(message)) {
-        this.shadowRoot.querySelector('.typing').innerHTML = `${message} typing ...`
+        const color = authorColor(message)
+        this.shadowRoot.querySelector('.typing').style.color = color
+        this.shadowRoot.querySelector('.typing').innerHTML = `${message.slice(0, 5)}...${message.slice(message.length - 6, message.length)} typing ...`
       // }
 
     })
-    // this.shadowRoot.querySelector('button').addEventListener('click', this._onclick)
-    // const update = async () => {
-    //   this.shadowRoot.querySelector('.peerCount').innerHTML = peernet.peerMap.size
-    //   this.shadowRoot.querySelector('.address').innerHTML = peernet.id
-    //
-    //   for (const key of peernet.peerMap.keys()) {
-    //     if (!this.querySelector(`[data-address='${key}']`)) {
-    //       const row = document.createElement('flex-row')
-    //       row.innerHTML = key
-    //       row.dataset.address = key
-    //       this.appendChild(row)
-    //     }
-    //   }
-    //   setTimeout(() => {
-    //     update()
-    //   }, 1000);
-    // }
-    //
-    // update()
+    this.addEventListener('click', this._onclick)
   }
 
-  async _onclick() {
-    const value = this.shadowRoot.querySelector('custom-input').input.value
-    let response = await fetch(`https://api.artonline.site/faucet?address=${value}`)
-    console.log(await response.text());
+  async _onclick(event) {
+    const target = event.composedPath()[0]
+    if (!target.localName === 'emoji-selector' && this.shadowRoot.querySelector('chat-box').shadowRoot.querySelector('emoji-selector').opened) this.shadowRoot.querySelector('chat-box').shadowRoot.querySelector('emoji-selector').close()
   }
 
   get template() {
@@ -90,12 +139,9 @@ export default customElements.define('home-view', class HomeView extends BaseCla
     padding-bottom: 24px;
   }
   .container {
-    background: var(--secondary-background-color);
-    max-width: 480px;
-    border-radius: 48px;
-    box-shadow: 0 0 7px 9px #00000012;
+    <!-- max-width: 480px; -->
     overflow: hidden;
-    max-height: 80%;
+    <!-- max-height: 80%; -->
   }
   .container, section {
     display: flex;
@@ -160,6 +206,7 @@ export default customElements.define('home-view', class HomeView extends BaseCla
     pointer-events: auto;
     overflow: auto;
   }
+
 </style>
 
 <!-- <section class="container">
@@ -185,7 +232,7 @@ export default customElements.define('home-view', class HomeView extends BaseCla
 <section class="container">
   <span class="chat-messages"></span>
   <flex-one></flex-one>
-  <span class="typing"></span>
+  <small class="typing"></small>
   <chat-box></chat-box>
 </section>
     `

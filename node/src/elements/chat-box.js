@@ -39,6 +39,7 @@ export default customElements.define('chat-box', class ChatBox extends BaseClass
   }
 
   async _sendMessage() {
+    if (this._input.value.length === 0) return
     const chatMessage = document.createElement('author-message')
     chatMessage.value = this._input.value
     chatMessage.author = peernet.id
@@ -108,9 +109,11 @@ export default customElements.define('chat-box', class ChatBox extends BaseClass
         margin-right: 24px;
         cursor: pointer;
         pointer-events: auto;
+        --svg-icon-color: #fff;
       }
       input {
         pointer-events: auto;
+        color: #fff;
       }
     </style>
     <emoji-selector></emoji-selector>

@@ -36,10 +36,22 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
   }
   constructor() {
     super();
+    this._click = this._click.bind(this)
     this.attachShadow({mode: 'open'});
     this.render()
     window.emojis = emojis;
   }
+
+  open() {
+    this.opened = true;
+    this.classList.add('opened')
+  }
+
+  close() {
+    this.opened = false;
+    this.classList.remove('opened');
+  }
+
   connectedCallback() {
     async function init(self) {
       const emojis = await self._parseEmojis();
@@ -47,22 +59,20 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
     }
     this._select = this._select.bind(this)
     this.shadowRoot.querySelector('custom-tabs').addEventListener('selected', this._select)
-    this.addEventListener('click', event => {
-      const target = event.composedPath()[0]
-      if (!this.opened) {
-        this.opened = true;
-        this.classList.add('opened')
-      // } else {
-        // this.opened = false;
-        // this.classList.remove('opened')
-      } else if (target.localName === 'emo-ji') {
-        this.opened = false;
-        this.dispatchEvent(new CustomEvent('selected', {detail: target.innerHTML}));
-        this.classList.remove('opened');
-      };
-    })
+    this.addEventListener('click', this._click)
 
     init(this);
+  }
+
+  _click(event) {
+    const target = event.composedPath()[0]
+    if (!this.opened) {
+      this.open()
+    } else if (target.localName === 'emo-ji') {
+      this.close()
+      this.dispatchEvent(new CustomEvent('selected', {detail: target.innerHTML}));
+
+    }
   }
 
   _parseEmojis() {
@@ -136,8 +146,7 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
         outline: none;
       }
       custom-tab {
-        width: 40px;
-        width: 40px;
+        width: 44px;
         align-items: center;
         justify-content: center;
         display: flex;
@@ -179,6 +188,11 @@ export default customElements.define('emoji-selector', class EmojiSelector exten
         height: 50px;
         font-size: 24px;
 
+      }
+
+      custom-svg-icon {
+        --svg-icon-color: #fff;
+        --svg-icon-size: 48px;
       }
     </style>
     <custom-tabs selected="History" id="tabs" tabindex="0" attr-for-seleced="data-route">
