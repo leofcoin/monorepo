@@ -23,9 +23,14 @@ export default class Token {
   #decimals = 18
 
   #totalSupply = 0
-
-  #owner
-
+  /**
+   * Object => Array
+   */
+  #roles = {
+    'OWNER': [],
+    'MINT': [],
+    'BURN': []
+  }
     // this.#privateField2 = 1
   constructor(name, symbol, decimals = 18) {
     if (!name) throw new Error(`name undefined`)
@@ -33,7 +38,7 @@ export default class Token {
     this.#name = name
     this.#symbol = symbol
     this.#decimals = decimals
-    this.#owner = msg.sender
+    this.#grantRole(msg.sender, 'OWNER')
   }
 
   get name() {
@@ -52,22 +57,38 @@ export default class Token {
     return {...this.#balances}
   }
 
+  get roles() {
+    return {...this.#roles}
+  }
+
+  hasRole(address, role) {
+    return this.#roles[role] ? this.#roles[role].indexOf(address) !== -1 : false
+  }
+
+  #grantRole(address, role) {
+    if (this.hasRole(address, role)) throw new Error(`${role} role already granted for ${address}`)
+
+    this.#roles[role].push(address)
+  }
+
+  grantRole(address, role) {
+    if (!this.hasRole(address, 'OWNER')) throw new Error('Not allowed')
+
+    this.#grantRole(address, role)
+  }
+
   mint(to, amount) {
-    if (msg.sender === this.#owner) {
-      this.#totalSupply += amount
-      this.#increaseBalance(to, amount)
-    } else {
-      throw new Error('not allowed')
-    }
+    if (!this.hasRole(msg.sender, 'MINT')) throw new Error('not allowed')
+
+    this.#totalSupply += amount
+    this.#increaseBalance(to, amount)
   }
 
   burn(to, amount) {
-    if (globalThis.msg.sender === 'owner') {
-      this.#totalSupply -= amount
-      this.#decreaseBalance(to, amount)
-    } else {
-      throw new Error('not allowed')
-    }
+    if (!this.hasRole(msg.sender, 'BURN')) throw new Error('not allowed')
+
+    this.#totalSupply -= amount
+    this.#decreaseBalance(to, amount)
   }
 
   #beforeTransfer(from, to, amount) {
@@ -82,7 +103,7 @@ export default class Token {
   #increaseBalance(address, amount) {
     const previousBalance = this.#balances[address]
     if (!this.#balances[address]) this.#balances[address] = 0
-    
+
     this.#balances[address] += amount
     this.#updateHolders(address, previousBalance)
   }
