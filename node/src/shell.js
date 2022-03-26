@@ -32,7 +32,7 @@ export default customElements.define('node-shell', class NodeShell extends BaseC
   get _pages() {
     return this.sqs('custom-pages')
   }
-  
+
   constructor() {
     super()
     this._init()
@@ -40,12 +40,11 @@ export default customElements.define('node-shell', class NodeShell extends BaseC
 
   async _init() {
     await new Peernet({network: 'leofcoin:olivia', root: '.artonline', networkName: 'leofcoin:olivia', networkVersion: 'v0.1.0'})
-    pubsub.publish('peernet-ready', true)
+    this._select('home')
   }
 
   connectedCallback() {
     this.setTheme('default')
-    this._select('home')
   }
 
   async _select(selected) {

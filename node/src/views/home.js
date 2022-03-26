@@ -5,6 +5,7 @@ import './../elements/author-message'
 export default customElements.define('home-view', class HomeView extends BaseClass {
   constructor() {
     super()
+    this._que = []
     this._onclick = this._onclick.bind(this)
   }
 
@@ -15,20 +16,24 @@ export default customElements.define('home-view', class HomeView extends BaseCla
 
   async _init() {
     let messages = await messageStore.get()
-    messages = Object.keys(messages).map(key => new peernet.protos['chat-message'](messages[key]))
+    messages = Object.keys(messages).reduce((set, key) => {
+      try {
+        const message = new peernet.protos['chat-message'](messages[key])
+        set.push(message)
+      } catch (e) {
+        messageStore.delete(key)
+      }
+      return set
+    }, [])
     messages = messages.sort((previous, current) => previous.decoded.timestamp - current.decoded.timestamp)
     for (const message of messages) {
-      try {
-        const chatMessage = message.decoded.author === peernet.id ? document.createElement('author-message') : document.createElement('chat-message')
-        this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
-        chatMessage.dataset.hash = message.hash
-        chatMessage.value = message.decoded.value
-        chatMessage.author = message.decoded.author
-        chatMessage.timestamp = message.decoded.timestamp
-        this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
-      } catch (e) {
-
-      }
+      const chatMessage = message.decoded.author === peernet.id ? document.createElement('author-message') : document.createElement('chat-message')
+      this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+      chatMessage.dataset.hash = message.hash
+      chatMessage.value = message.decoded.value
+      chatMessage.author = message.decoded.author
+      chatMessage.timestamp = message.decoded.timestamp
+      this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
     }
 
   }
@@ -41,14 +46,12 @@ export default customElements.define('home-view', class HomeView extends BaseCla
         response: JSON.stringify(Object.keys(messages))
       })
     })
-
-    pubsub.subscribe('peernet-ready', () => {
-      this._init()
-    })
+    this._init()
 
     pubsub.subscribe('peer:connected', async peer => {
       const request = new globalThis.peernet.protos['peernet-request']({request: 'messages'})
       const to = peernet._getPeerId(peer.id)
+      console.log(`fetvhing messages from ${to}`);
       console.log(to);
       if (to) {
         const node = await peernet.prepareMessage(to, request.encoded)
@@ -56,46 +59,55 @@ export default customElements.define('home-view', class HomeView extends BaseCla
         const proto = new globalThis.peernet.protos['peernet-message'](peernet.Buffer.from(response.data))
         response = new globalThis.peernet.protos['peernet-response'](peernet.Buffer.from(proto.decoded.data))
         const messages = JSON.parse(response.decoded.response)
+
+        let promises = []
         for (const message of messages) {
-          if (!await peernet.message.has(message)) {
-            let data = await peernet.message.get(message)
-            await peernet.message.put(message, data)
-
-            data = new peernet.protos['chat-message'](data)
-
-            const chatMessage = document.createElement('chat-message')
-            this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
-            chatMessage.dataset.hash = data.hash
-            chatMessage.value = data.decoded.value
-            chatMessage.author = data.decoded.author
-            chatMessage.timestamp = data.decoded.timestamp
-            this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
+          console.log(message);
+          const has = await peernet.message.has(message)
+          console.log({has});
+          if (!has) {
+            promises.push(peernet.message.get(message))
           }
         }
+        promises = await Promise.all(promises)
+        promises = promises.reduce((set, data) => {
+          console.log(data);
+          try {
+            data = new peernet.protos['chat-message'](data)
+            set.push(data)
+          } catch (e) {
+
+          }
+          return set
+        }, [])
+        console.log(promises);
+        promises = promises.sort((previous, current) => previous.decoded.timestamp - current.decoded.timestamp)
+
+        for (let data of promises) {
+          try {
+            await peernet.message.put(data.hash, data.encoded)
+            if (!this.shadowRoot.querySelector(`[data-hash="${data.hash}"]`)) {
+              const chatMessage = document.createElement('chat-message')
+              this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+              chatMessage.dataset.hash = data.hash
+              chatMessage.value = data.decoded.value
+              chatMessage.author = data.decoded.author
+              chatMessage.timestamp = data.decoded.timestamp
+              this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
+            }
+
+          } catch (e) {
+            console.warn(`ignored invalid message`);
+          }
+        }
+
       }
     })
 
     peernet.subscribe('chat-message', async message => {
+      this._addToQue(message)
 
-      message = JSON.parse(message)
-      if (!await this.hasMessage(message.hash)) {
-        const hash = message.hash
-        delete message.hash
-        message = new peernet.protos['chat-message'](message)
-        if (message.hash === hash) {
-          await peernet.message.put(message.hash, message.encoded)
 
-          const chatMessage = document.createElement('chat-message')
-          this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
-          chatMessage.dataset.hash = hash
-          chatMessage.value = message.decoded.value
-          chatMessage.author = message.decoded.author
-          chatMessage.timestamp = message.decoded.timestamp
-
-          this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
-        }
-
-      }
 
     })
 
@@ -110,6 +122,36 @@ export default customElements.define('home-view', class HomeView extends BaseCla
 
     })
     this.addEventListener('click', this._onclick)
+  }
+
+  _addToQue(message) {
+    this._que.push(message)
+    if (!this._queRunning) this._runQue()
+
+
+  }
+
+  async _runQue() {
+    this._queRunning = true
+    let message = this._que.shift()
+    message = JSON.parse(message)
+    if (!await this.hasMessage(message.hash)) {
+        delete message.hash
+        message = new peernet.protos['chat-message'](message)
+        await peernet.message.put(message.hash, message.encoded)
+
+        const chatMessage = document.createElement('chat-message')
+        this.shadowRoot.querySelector('.chat-messages').appendChild(chatMessage)
+        chatMessage.dataset.hash = message.hash
+        chatMessage.value = message.decoded.value
+        chatMessage.author = message.decoded.author
+        chatMessage.timestamp = message.decoded.timestamp
+
+        this.shadowRoot.querySelector('.chat-messages').scroll(0, this.shadowRoot.querySelector('.chat-messages').scrollHeight)
+
+    }
+    if  (this._que.length > 0) return this._runQue()
+    this._queRunning = false
   }
 
   async _onclick(event) {
