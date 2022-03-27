@@ -1,1 +1,1 @@
-const project = require('./../dist/project-deploy.js');
+import 'project-deploy'

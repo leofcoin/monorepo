@@ -1,30 +1,9 @@
-import solc from 'solc'
+import { ContractFactory } from 'ethers'
 
-export default async (input, dest) => {
-  input = {
-    language: 'Solidity',
-    sources: {
-      input
-    },
-    settings: {
-      outputSelection: {
-        '*': {
-          '*': ['*']
-        }
-      }
-    }
-  };
-
-  let output = solc.compile(JSON.stringify(input))
-  output = JSON.parse();
-
-  // `output` here contains the JSON output as specified in the documentation
-  for (const path of Object.keys(output.contracts)) {
-    const contractName = output.contracts[path]
-    console.log(
-      contractName +
-        ': ' +
-        output.contracts[path][contractName].evm.bytecode.object
-    );
-  }
+export default async ({ contractName, abi, bytecode }, params = [], signer, logger) => {
+  const factory = new ContractFactory(abi, bytecode, signer)
+  const contract = await factory.deploy(...params, { gasLimit: 21000000 })
+  await contract.deployTransaction.wait()
+  logger.info(`deployed ${contractName} as ${contract.address}`)
+  return contract
 }

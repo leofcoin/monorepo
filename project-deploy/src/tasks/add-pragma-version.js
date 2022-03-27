@@ -1,8 +1,9 @@
 import { read, write } from './../utils.js'
 
-export default async (version, path) => {
+export default async (version, path, logger) => {
   const data = await read(path)
-  data = data.toString()
   await write(path, `pragma solidity ${version};
-${data}`)
+${data.toString()}`)
+
+  logger.info(`adding pragma solidity version ${version} for ${path}`)
 }
