@@ -13,7 +13,7 @@ contract LotteryTickets is ERC1155 {
 
   struct TicketInfo {
     address owner;
-    uint256[] numbers;
+    uint16[] numbers;
     uint256 claimed;
     uint256 lotteryId;
   }
@@ -45,17 +45,17 @@ contract LotteryTickets is ERC1155 {
     _manager = manager_;
   }
 
-  function mintTickets(uint256 lotteryId, address to, uint256 tickets_, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
-    for (uint256 i = 0; i < tickets_; i++) {
-      uint256 start;
-      uint256 end;
+  function mintTickets(uint256 lotteryId, address to, uint256 tickets_, uint16[] calldata numbers_, uint16 lotterySize) external onlyLottery() {
+    for (uint16 i = 0; i < tickets_; i++) {
+      uint16 start;
+      uint16 end;
       unchecked {
-        start = uint256(i * lotterySize);
-        end = uint256((i + 1) * lotterySize);
+        start = uint16(i * lotterySize);
+        end = uint16((i + 1) * lotterySize);
       }
       _totalSupply[lotteryId] += 1;
 
-      uint256[] calldata numbers = numbers_[start:end];
+      uint16[] calldata numbers = numbers_[start:end];
 
       _ticketInfo[lotteryId][_totalSupply[lotteryId]] = TicketInfo(
         to,
@@ -69,7 +69,7 @@ contract LotteryTickets is ERC1155 {
 
   }
 
-  function claim(uint256 lotteryId, uint256 ticketId, uint256 maxRange) external onlyLottery() returns (bool) {
+  function claim(uint256 lotteryId, uint256 ticketId, uint16 maxRange) external onlyLottery() returns (bool) {
     for (uint256 i = 0; i < _ticketInfo[lotteryId][ticketId].numbers.length; i++) {
       if(_ticketInfo[lotteryId][ticketId].numbers[i] > maxRange) {
         return false;
@@ -87,7 +87,7 @@ contract LotteryTickets is ERC1155 {
     return _totalSupply[id] > 0;
   }
 
-  function getTicketNumbers(uint256 id, uint256 ticketId) external view returns(uint256[] memory) {
+  function getTicketNumbers(uint256 id, uint256 ticketId) external view returns(uint16[] memory) {
     return _ticketInfo[id][ticketId].numbers;
   }
 

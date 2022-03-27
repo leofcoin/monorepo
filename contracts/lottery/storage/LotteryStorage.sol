@@ -10,19 +10,19 @@ contract LotteryStorage {
   uint256 internal _lotteryIds;
   ILotteryTickets internal _lotteryTicketsNFT;
   IArtOnline internal _artOnline;
-  uint256 public _lotterySize;
-  uint256 public _maxValidRange;
+  uint16 public _lotterySize;
+  uint16 public _maxValidRange;
 
   mapping(uint256 => lottoInfo) internal _lotteries;
   mapping(uint256 => uint256) internal _burns;
-  mapping(uint256 => uint256[]) internal _winningNumbers;
+  mapping(uint256 => uint16[]) internal _winningNumbers;
 
   event ChangeManager(address previous, address current);
-  event BuyTickets(address indexed owner, uint256 lotteryId, uint256[] numbers, uint256 totalCost);
-  event LotteryClose(uint256 lotteryId, uint256[] winningNumbers, uint256 burns);
+  event BuyTickets(address indexed owner, uint256 lotteryId, uint16[] numbers, uint256 totalCost);
+  event LotteryClose(uint256 lotteryId, uint16[] winningNumbers, uint256 burns);
   event LotteryOpen(uint256 lotteryId);
-  event UpdateLotterySize(uint256 newLotterySize);
-  event ChangeMaxRange(uint256 newMaxRange);
+  event UpdateLotterySize(uint16 newLotterySize);
+  event ChangeMaxRange(uint16 newMaxRange);
 
   enum Status {
     NotStarted,     // The lottery has not started yet
@@ -34,11 +34,11 @@ contract LotteryStorage {
     Status status;
     uint256 prizePool;
     uint256 ticketPrice;
-    uint256[] prizeDistribution;
-    uint256[] totalMatches;
+    uint16[] prizeDistribution;
+    uint16[] totalMatches;
     uint256 startTime;
     uint256 endTime;
-    uint256[] winningNumbers;
+    uint16[] winningNumbers;
     string proof;
   }
 }
