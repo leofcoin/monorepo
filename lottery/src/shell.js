@@ -3,7 +3,8 @@ import './../node_modules/@vandeurenglenn/flex-elements/src/flex-elements'
 import icons from './ui/icons'
 import pages from './ui/pages'
 import './array-repeat'
-
+import './elements/toasts'
+import './elements/toast'
 globalThis.isApiReady = () => new Promise((resolve, reject) => {
   if (globalThis.api && globalThis.api.ready) resolve();
   pubsub.subscribe('api.ready', () => {
@@ -51,7 +52,7 @@ export default customElements.define('lottery-shell', class LotteryShell extends
       await this.shadowRoot.querySelector('connect-view').connect()
       this._pages.select(this._previousSelected)
     }
-    if (this.needsAPI(selected)) {
+    if (this.needsAPI(selected) && !globalThis.api) {
       const importee = await import('./api.js')
       globalThis.api = new importee.default()
     }
@@ -111,6 +112,7 @@ ${icons}
   <a title="home" href="#!/home"><img class="logo" src="https://assets.artonline.site/arteon.svg"></img></a>
 </flex-row>
 ${pages}
+<custom-toasts></custom-toasts>
     `
   }
 })

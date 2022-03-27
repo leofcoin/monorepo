@@ -15,10 +15,18 @@ export default customElements.define('results-view', class resultsView extends B
     this.shadowRoot.querySelector('[icon="chevron-right"]').addEventListener('click', this._next)
   }
 
-  async _claim() {
-    let tx = await api.contract.batchClaimRewards(api.connection.accounts[0], this.lottery, this._userTickets_.map(({ticket}) => ticket))
-    console.log(tx);
+  async _claim(event, tickets) {
+    alert('claimin')
+    if (!tickets) tickets = this._userTickets_.map(({ticket}) => ticket)
+    let batch = []
+    alert('tickets')
+    if (tickets.length > 50) batch = tickets.splice(0, 50)
+    else batch = tickets
+
+    let tx = await api.contract.batchClaimRewards(api.connection.accounts[0], this.lottery, batch)
+
     await tx.wait()
+    if (batch.length === 50) return this._claim(null, tickets)
   }
 
   _previous() {
@@ -36,6 +44,7 @@ export default customElements.define('results-view', class resultsView extends B
     }
     console.log(lottery);
     await isApiReady()
+    if (!api.connection) await document.querySelector('lottery-shell')._select('connect')
     if (!lottery) {
       const lotteries = await api.contract.callStatic.lotteries()
       lottery = lotteries.toNumber() - 1
@@ -66,7 +75,6 @@ export default customElements.define('results-view', class resultsView extends B
     }
     promises = await Promise.all(promises)
     promises = promises.reduce((p, c, i) => {
-      c = c.map(number => number.toNumber())
       c = c.join('')
       if (c.charAt(0) === winningNumbers.charAt(0) ||
           c.charAt(1) === winningNumbers.charAt(1) ||
