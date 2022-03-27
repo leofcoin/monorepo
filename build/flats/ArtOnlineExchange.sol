@@ -206,7 +206,6 @@ interface IERC165 {
 // OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
-
 /**
  * @dev Implementation of the {IERC165} interface.
  *
@@ -231,8 +230,7 @@ abstract contract ERC165 is IERC165 {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (access/AccessControl.sol)
-
+// OpenZeppelin Contracts (last updated v4.5.0) (access/AccessControl.sol)
 
 
 
@@ -311,7 +309,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
     /**
      * @dev Returns `true` if `account` has been granted `role`.
      */
-    function hasRole(bytes32 role, address account) public view override returns (bool) {
+    function hasRole(bytes32 role, address account) public view virtual override returns (bool) {
         return _roles[role].members[account];
     }
 
@@ -322,7 +320,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      *
      *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
      */
-    function _checkRole(bytes32 role, address account) internal view {
+    function _checkRole(bytes32 role, address account) internal view virtual {
         if (!hasRole(role, account)) {
             revert(
                 string(
@@ -343,7 +341,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
      *
      * To change a role's admin, use {_setRoleAdmin}.
      */
-    function getRoleAdmin(bytes32 role) public view override returns (bytes32) {
+    function getRoleAdmin(bytes32 role) public view virtual override returns (bytes32) {
         return _roles[role].adminRole;
     }
 
@@ -454,7 +452,6 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
 
 
 
-
 contract ArtOnlineExchangeStorage is AccessControl {
   address internal _artOnline;
   address internal _artOnlinePlatform;
@@ -482,7 +479,7 @@ contract ArtOnlineExchangeStorage is AccessControl {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/Address.sol)
 
 
 /**
@@ -505,17 +502,22 @@ library Address {
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
      * ====
+     *
+     * [IMPORTANT]
+     * ====
+     * You shouldn't rely on `isContract` to protect against flash loan attacks!
+     *
+     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
+     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
+     * constructor.
+     * ====
      */
     function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
+        // This method relies on extcodesize/address.code.length, which returns 0
+        // for contracts in construction, since the code is only stored at the end
+        // of the constructor execution.
 
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
+        return account.code.length > 0;
     }
 
     /**
@@ -699,60 +701,7 @@ library Address {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
-
-
-/**
- * @dev Provides information about the current execution context, including the
- * sender of the transaction and its data. While these are generally available
- * via msg.sender and msg.data, they should not be accessed in such a direct
- * manner, since when dealing with meta-transactions the account sending and
- * paying for execution may not be the actual sender (as far as an application
- * is concerned).
- *
- * This contract is only required for intermediate, library-like contracts.
- */
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes calldata) {
-        return msg.data;
-    }
-}
-
-
-// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
-
-
-
-/**
- * @dev Implementation of the {IERC165} interface.
- *
- * Contracts that want to implement ERC165 should inherit from this contract and override {supportsInterface} to check
- * for the additional interface id that will be supported. For example:
- *
- * ```solidity
- * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
- *     return interfaceId == type(MyInterface).interfaceId || super.supportsInterface(interfaceId);
- * }
- * ```
- *
- * Alternatively, {ERC165Storage} provides an easier to use but more expensive implementation.
- */
-abstract contract ERC165 is IERC165 {
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
-    }
-}
-
-
 // OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
-
 
 
 /**
@@ -881,7 +830,6 @@ interface IArtOnline {
 
 
 
-
 
 library SafeArtOnline {
     using Address for address;
@@ -988,8 +936,7 @@ interface IArtOnlinePlatform {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
-
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/cryptography/ECDSA.sol)
 
 
 /**
@@ -1104,12 +1051,8 @@ library ECDSA {
         bytes32 r,
         bytes32 vs
     ) internal pure returns (address, RecoverError) {
-        bytes32 s;
-        uint8 v;
-        assembly {
-            s := and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            v := add(shr(255, vs), 27)
-        }
+        bytes32 s = vs & bytes32(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+        uint8 v = uint8((uint256(vs) >> 255) + 27);
         return tryRecover(hash, v, r, s);
     }
 
@@ -1222,7 +1165,6 @@ library ECDSA {
 
 
 
-
 contract EIP712 {
   bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
   uint256 private immutable _CACHED_CHAIN_ID;
@@ -1262,7 +1204,6 @@ contract EIP712 {
 }
 
 
-
 
 contract ArtOnlineExchange is Context, ERC165, EIP712, Pausable, ArtOnlineExchangeStorage {
   using Address for address;

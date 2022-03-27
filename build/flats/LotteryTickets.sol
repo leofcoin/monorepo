@@ -27,7 +27,6 @@ interface IERC165 {
 // OpenZeppelin Contracts v4.4.1 (token/ERC1155/IERC1155.sol)
 
 
-
 /**
  * @dev Required interface of an ERC1155 compliant contract, as defined in the
  * https://eips.ethereum.org/EIPS/eip-1155[EIP].
@@ -148,8 +147,7 @@ interface IERC1155 is IERC165 {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (token/ERC1155/IERC1155Receiver.sol)
-
+// OpenZeppelin Contracts (last updated v4.5.0) (token/ERC1155/IERC1155Receiver.sol)
 
 
 /**
@@ -157,18 +155,20 @@ interface IERC1155 is IERC165 {
  */
 interface IERC1155Receiver is IERC165 {
     /**
-        @dev Handles the receipt of a single ERC1155 token type. This function is
-        called at the end of a `safeTransferFrom` after the balance has been updated.
-        To accept the transfer, this must return
-        `bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))`
-        (i.e. 0xf23a6e61, or its own function selector).
-        @param operator The address which initiated the transfer (i.e. msg.sender)
-        @param from The address which previously owned the token
-        @param id The ID of the token being transferred
-        @param value The amount of tokens being transferred
-        @param data Additional data with no specified format
-        @return `bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))` if transfer is allowed
-    */
+     * @dev Handles the receipt of a single ERC1155 token type. This function is
+     * called at the end of a `safeTransferFrom` after the balance has been updated.
+     *
+     * NOTE: To accept the transfer, this must return
+     * `bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))`
+     * (i.e. 0xf23a6e61, or its own function selector).
+     *
+     * @param operator The address which initiated the transfer (i.e. msg.sender)
+     * @param from The address which previously owned the token
+     * @param id The ID of the token being transferred
+     * @param value The amount of tokens being transferred
+     * @param data Additional data with no specified format
+     * @return `bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))` if transfer is allowed
+     */
     function onERC1155Received(
         address operator,
         address from,
@@ -178,18 +178,21 @@ interface IERC1155Receiver is IERC165 {
     ) external returns (bytes4);
 
     /**
-        @dev Handles the receipt of a multiple ERC1155 token types. This function
-        is called at the end of a `safeBatchTransferFrom` after the balances have
-        been updated. To accept the transfer(s), this must return
-        `bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))`
-        (i.e. 0xbc197c81, or its own function selector).
-        @param operator The address which initiated the batch transfer (i.e. msg.sender)
-        @param from The address which previously owned the token
-        @param ids An array containing ids of each token being transferred (order and length must match values array)
-        @param values An array containing amounts of each token being transferred (order and length must match ids array)
-        @param data Additional data with no specified format
-        @return `bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))` if transfer is allowed
-    */
+     * @dev Handles the receipt of a multiple ERC1155 token types. This function
+     * is called at the end of a `safeBatchTransferFrom` after the balances have
+     * been updated.
+     *
+     * NOTE: To accept the transfer(s), this must return
+     * `bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))`
+     * (i.e. 0xbc197c81, or its own function selector).
+     *
+     * @param operator The address which initiated the batch transfer (i.e. msg.sender)
+     * @param from The address which previously owned the token
+     * @param ids An array containing ids of each token being transferred (order and length must match values array)
+     * @param values An array containing amounts of each token being transferred (order and length must match ids array)
+     * @param data Additional data with no specified format
+     * @return `bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))` if transfer is allowed
+     */
     function onERC1155BatchReceived(
         address operator,
         address from,
@@ -201,7 +204,6 @@ interface IERC1155Receiver is IERC165 {
 
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC1155/extensions/IERC1155MetadataURI.sol)
-
 
 
 /**
@@ -221,7 +223,7 @@ interface IERC1155MetadataURI is IERC1155 {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/Address.sol)
 
 
 /**
@@ -244,17 +246,22 @@ library Address {
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
      * ====
+     *
+     * [IMPORTANT]
+     * ====
+     * You shouldn't rely on `isContract` to protect against flash loan attacks!
+     *
+     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
+     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
+     * constructor.
+     * ====
      */
     function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
+        // This method relies on extcodesize/address.code.length, which returns 0
+        // for contracts in construction, since the code is only stored at the end
+        // of the constructor execution.
 
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
+        return account.code.length > 0;
     }
 
     /**
@@ -465,7 +472,6 @@ abstract contract Context {
 // OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)
 
 
-
 /**
  * @dev Implementation of the {IERC165} interface.
  *
@@ -491,7 +497,6 @@ abstract contract ERC165 is IERC165 {
 
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC1155/ERC1155.sol)
-
 
 
 
@@ -954,7 +959,6 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
 
 
 
-
 contract LotteryTickets is ERC1155 {
   address internal _lotteryContract;
   address internal _manager;
@@ -997,34 +1001,28 @@ contract LotteryTickets is ERC1155 {
     _manager = manager_;
   }
 
-  function mintTickets(uint256 lotteryId, address to, uint256 amount, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
-    uint256[] memory tokenIds = new uint256[](amount);
-    uint256[] memory ids = new uint256[](amount);
-
-    for (uint256 i = 0; i < amount; i++) {
+  function mintTickets(uint256 lotteryId, address to, uint256 tickets_, uint256[] calldata numbers_, uint256 lotterySize) external onlyLottery() {
+    for (uint256 i = 0; i < tickets_; i++) {
       uint256 start;
       uint256 end;
       unchecked {
-        _totalSupply[lotteryId] += 1;
-
         start = uint256(i * lotterySize);
         end = uint256((i + 1) * lotterySize);
       }
-      tokenIds[i] = _totalSupply[lotteryId];
-      ids[i] = lotteryId;
+      _totalSupply[lotteryId] += 1;
 
       uint256[] calldata numbers = numbers_[start:end];
 
-      _ticketInfo[lotteryId][tokenIds[i]] = TicketInfo(
+      _ticketInfo[lotteryId][_totalSupply[lotteryId]] = TicketInfo(
         to,
         numbers,
         0,
         lotteryId
       );
       _userTickets[to][lotteryId].push(_totalSupply[lotteryId]);
-
+      _mint(to, lotteryId, 1, msg.data);
     }
-    _mintBatch(to, ids, tokenIds, msg.data);
+
   }
 
   function claim(uint256 lotteryId, uint256 ticketId, uint256 maxRange) external onlyLottery() returns (bool) {
@@ -1070,11 +1068,11 @@ contract LotteryTickets is ERC1155 {
     bytes memory data
   ) internal virtual override {
     super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
-
-    if (from == address(0)) {
-      for (uint256 i = 0; i < ids.length; ++i) {
-          _totalSupply[ids[i]] += amounts[i];
+      if (from != address(0)) {
+        for (uint256 i = 0; i < ids.length; i++) {
+          require(_ticketInfo[ids[i]][amounts[i]].owner == from, 'NOT_AN_OWNER');
+          _ticketInfo[ids[i]][amounts[i]].owner = to;
+        }
       }
-    }
   }
 }

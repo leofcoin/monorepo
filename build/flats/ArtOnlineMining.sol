@@ -1,5 +1,5 @@
 
-// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/Address.sol)
 
 
 /**
@@ -22,17 +22,22 @@ library Address {
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
      * ====
+     *
+     * [IMPORTANT]
+     * ====
+     * You shouldn't rely on `isContract` to protect against flash loan attacks!
+     *
+     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
+     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
+     * constructor.
+     * ====
      */
     function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
+        // This method relies on extcodesize/address.code.length, which returns 0
+        // for contracts in construction, since the code is only stored at the end
+        // of the constructor execution.
 
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
+        return account.code.length > 0;
     }
 
     /**
@@ -344,8 +349,7 @@ library Strings {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/cryptography/ECDSA.sol)
-
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/cryptography/ECDSA.sol)
 
 
 /**
@@ -460,12 +464,8 @@ library ECDSA {
         bytes32 r,
         bytes32 vs
     ) internal pure returns (address, RecoverError) {
-        bytes32 s;
-        uint8 v;
-        assembly {
-            s := and(vs, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-            v := add(shr(255, vs), 27)
-        }
+        bytes32 s = vs & bytes32(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+        uint8 v = uint8((uint256(vs) >> 255) + 27);
         return tryRecover(hash, v, r, s);
     }
 
@@ -575,7 +575,6 @@ library ECDSA {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 }
-
 
 
 
@@ -739,7 +738,7 @@ interface IArtOnlineBlacklist {
 }
 
 
-
+
 contract SetArtOnlineMining {
 
   IArtOnline internal _artOnlineInterface;
@@ -857,7 +856,6 @@ contract SetArtOnlineMining {
 }
 
 
-
 
 contract ArtOnlineMining is Context, EIP712, SetArtOnlineMining, ArtOnlineMiningStorage  {
   using Address for address;

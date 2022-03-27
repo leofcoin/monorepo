@@ -1,5 +1,5 @@
 
-// OpenZeppelin Contracts v4.4.1 (proxy/Proxy.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (proxy/Proxy.sol)
 
 
 /**
@@ -16,7 +16,7 @@ abstract contract Proxy {
     /**
      * @dev Delegates the current call to `implementation`.
      *
-     * This function does not return to its internall call site, it will return directly to the external caller.
+     * This function does not return to its internal call site, it will return directly to the external caller.
      */
     function _delegate(address implementation) internal virtual {
         assembly {
@@ -101,7 +101,27 @@ interface IBeacon {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (utils/Address.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (interfaces/draft-IERC1822.sol)
+
+
+/**
+ * @dev ERC1822: Universal Upgradeable Proxy Standard (UUPS) documents a method for upgradeability through a simplified
+ * proxy whose upgrades are fully controlled by the current implementation.
+ */
+interface IERC1822Proxiable {
+    /**
+     * @dev Returns the storage slot that the proxiable contract assumes is being used to store the implementation
+     * address.
+     *
+     * IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable itself, because this risks
+     * bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is critical that this
+     * function revert if invoked through a proxy.
+     */
+    function proxiableUUID() external view returns (bytes32);
+}
+
+
+// OpenZeppelin Contracts (last updated v4.5.0) (utils/Address.sol)
 
 
 /**
@@ -124,17 +144,22 @@ library Address {
      *  - an address where a contract will be created
      *  - an address where a contract lived, but was destroyed
      * ====
+     *
+     * [IMPORTANT]
+     * ====
+     * You shouldn't rely on `isContract` to protect against flash loan attacks!
+     *
+     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
+     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
+     * constructor.
+     * ====
      */
     function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
+        // This method relies on extcodesize/address.code.length, which returns 0
+        // for contracts in construction, since the code is only stored at the end
+        // of the constructor execution.
 
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size > 0;
+        return account.code.length > 0;
     }
 
     /**
@@ -402,7 +427,7 @@ library StorageSlot {
 }
 
 
-// OpenZeppelin Contracts v4.4.1 (proxy/ERC1967/ERC1967Upgrade.sol)
+// OpenZeppelin Contracts (last updated v4.5.0) (proxy/ERC1967/ERC1967Upgrade.sol)
 
 
 
@@ -478,33 +503,23 @@ abstract contract ERC1967Upgrade {
      *
      * Emits an {Upgraded} event.
      */
-    function _upgradeToAndCallSecure(
+    function _upgradeToAndCallUUPS(
         address newImplementation,
         bytes memory data,
         bool forceCall
     ) internal {
-        address oldImplementation = _getImplementation();
-
-        // Initial upgrade and setup call
-        _setImplementation(newImplementation);
-        if (data.length > 0 || forceCall) {
-            Address.functionDelegateCall(newImplementation, data);
-        }
-
-        // Perform rollback test if not already in progress
-        StorageSlot.BooleanSlot storage rollbackTesting = StorageSlot.getBooleanSlot(_ROLLBACK_SLOT);
-        if (!rollbackTesting.value) {
-            // Trigger rollback using upgradeTo from the new implementation
-            rollbackTesting.value = true;
-            Address.functionDelegateCall(
-                newImplementation,
-                abi.encodeWithSignature("upgradeTo(address)", oldImplementation)
-            );
-            rollbackTesting.value = false;
-            // Check rollback was effective
-            require(oldImplementation == _getImplementation(), "ERC1967Upgrade: upgrade breaks further upgrades");
-            // Finally reset to the new implementation and log the upgrade
-            _upgradeTo(newImplementation);
+        // Upgrades from old implementations will perform a rollback test. This test requires the new
+        // implementation to upgrade back to the old, non-ERC1822 compliant, implementation. Removing
+        // this special case will break upgrade paths from old UUPS implementation to new ones.
+        if (StorageSlot.getBooleanSlot(_ROLLBACK_SLOT).value) {
+            _setImplementation(newImplementation);
+        } else {
+            try IERC1822Proxiable(newImplementation).proxiableUUID() returns (bytes32 slot) {
+                require(slot == _IMPLEMENTATION_SLOT, "ERC1967Upgrade: unsupported proxiableUUID");
+            } catch {
+                revert("ERC1967Upgrade: new implementation is not UUPS");
+            }
+            _upgradeToAndCall(newImplementation, data, forceCall);
         }
     }
 
@@ -599,7 +614,6 @@ abstract contract ERC1967Upgrade {
 
 
 
-
 /**
  * @dev This contract implements an upgradeable proxy. It is upgradeable because calls are delegated to an
  * implementation address that can be changed. This address is stored in storage in the location specified by
@@ -628,7 +642,6 @@ contract ERC1967Proxy is Proxy, ERC1967Upgrade {
 
 
 // OpenZeppelin Contracts v4.4.1 (proxy/transparent/TransparentUpgradeableProxy.sol)
-
 
 
 /**
@@ -792,8 +805,8 @@ interface IArtOnline {
 interface ILotteryTickets {
   function mintTickets(uint256 lotteryId, address to, uint256 amount, uint256[] calldata numbers_, uint256 lotterySize) external;
   function ownerOf(uint256 id, uint256 ticketId) external returns (address);
-  function claim(uint256 id, uint256 ticketId) external returns (bool);
-  function getTicketNumbers(uint256 tokenId) external returns (uint256[] memory);
+  function claim(uint256 id, uint256 ticketId, uint256 maxRange) external returns (bool);
+  function getTicketNumbers(uint256 id, uint256 tokenId) external returns (uint256[] memory);
   function claimed(uint256 id, uint256 ticketId) external returns (bool);
 }
 
@@ -801,28 +814,26 @@ interface ILotteryTickets {
 
 
 interface IRandomNumberGenerator {
-  function getRandomNumber(uint256 lotteryId, uint256 userProvidedSeed) external returns (bytes32 requestId);
+  function getRandomNumber(uint256 lotteryId) external returns (bytes32 requestId);
 }
 
 
-
 
 contract LotteryStorage {
   address internal _manager;
   uint256 internal _lotteryIds;
   ILotteryTickets internal _lotteryTicketsNFT;
   IArtOnline internal _artOnline;
-  IRandomNumberGenerator internal _randomNumberGenerator;
   uint256 public _lotterySize;
   uint256 public _maxValidRange;
-  bytes32 internal _requestId;
 
   mapping(uint256 => lottoInfo) internal _lotteries;
+  mapping(uint256 => uint256) internal _burns;
+  mapping(uint256 => uint256[]) internal _winningNumbers;
 
   event ChangeManager(address previous, address current);
   event BuyTickets(address indexed owner, uint256 lotteryId, uint256[] numbers, uint256 totalCost);
-  event RequestNumbers(uint256 lotteryId, bytes32 requestId);
-  event LotteryClose(uint256 lotteryId);
+  event LotteryClose(uint256 lotteryId, uint256[] winningNumbers, uint256 burns);
   event LotteryOpen(uint256 lotteryId);
   event UpdateLotterySize(uint256 newLotterySize);
   event ChangeMaxRange(uint256 newMaxRange);
@@ -830,7 +841,6 @@ contract LotteryStorage {
   enum Status {
     NotStarted,     // The lottery has not started yet
     Open,           // The lottery is open for ticket purchases
-    Closed,         // The lottery is no longer open for ticket purchases
     Completed       // The lottery has been closed and the numbers drawn
   }
   struct lottoInfo {
@@ -838,15 +848,16 @@ contract LotteryStorage {
     Status status;
     uint256 prizePool;
     uint256 ticketPrice;
-    uint8[] prizeDistribution;
+    uint256[] prizeDistribution;
+    uint256[] totalMatches;
     uint256 startTime;
     uint256 endTime;
     uint256[] winningNumbers;
+    string proof;
   }
 }
 
 
-
 
 contract ArtOnlineLotteryProxy is TransparentUpgradeableProxy, LotteryStorage {
   constructor(address logic, address admin, bytes memory data) TransparentUpgradeableProxy(logic, admin, data) public {
