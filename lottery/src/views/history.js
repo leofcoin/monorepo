@@ -14,7 +14,8 @@ export default customElements.define('history-view', class historyView extends B
   }
 
   async _init() {
-    await isApiReady()
+    await isApiReady()    
+    if (!api.connection) await document.querySelector('lottery-shell')._select('connect')
     const lotteries = await api.contract.callStatic.lotteries()
     const contract = new ethers.Contract(api.addresses.lotteryTickets, TICKETS_ABI, api.connection.provider.getSigner())
     const ids = []
