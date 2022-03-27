@@ -44,6 +44,51 @@ export default class Api {
     // } else {
       // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), '0x0000000000000000000000000000000000000000')
     }
+
+    if (!api.ready) {
+      api.contract.on('LotteryClose', (id, winningNumbers, burns) => {
+        console.log(winningNumbers);
+        console.log('closed');
+        location.hash = '#!/results'
+      })
+
+      api.contract.on('LotteryOpen', async (id) => {
+        const info = await api.contract.lottery(id)
+        const home = document.querySelector('lottery-shell').shadowRoot.querySelector('home-view')
+        home._endTime = info.endTime.toNumber()
+        home._id = info.id.toNumber()
+        home._prizePool = info.prizePool
+        home._userTicketCount = 0
+        home.shadowRoot.querySelector('[info="tickets-sold"]').innerHTML = 0
+      })
+
+      api.contract.on('BuyTickets', async (buyer, id, numbers, amount) => {
+
+        let promises = [
+          api.contract.callStatic.lottery(id),
+          api.ticketsContract.callStatic.totalSupply(id)
+        ]
+
+        promises = await Promise.all(promises)
+
+        const home = document.querySelector('lottery-shell').shadowRoot.querySelector('home-view')
+        home._prizePool = promises[0].prizePool
+
+        if (buyer.toLowerCase() === api.connection.accounts[0].toLowerCase()) {
+          home._userTicketCount = home._userTicketCount + amount.toNumber()
+        }
+
+
+        home.shadowRoot.querySelector('[info="tickets-sold"]').innerHTML = promises[1]
+      })
+      const art = new ethers.Contract(api.addresses.artonline, ERC20_ABI.abi, api.provider)
+      art.on('Transfer', async (from, to, amount) => {
+        if (from.toLowerCase() === api.contract.address.toLowerCase() && to.toLowerCase() === api.connection.accounts[0].toLowerCase()) {
+          document.querySelector('lottery-shell').shadowRoot.querySelector('custom-toasts').addToast('You won', `${Math.round(ethers.utils.formatUnits(amount))} ART`)
+
+        }
+      })
+    }
     this.ready = true
     pubsub.publish('api.ready', true)
   }
@@ -67,6 +112,8 @@ export default class Api {
     })
     // jdenticon.update(document.querySelector('exchange-shell').shadowRoot.querySelector('.avatar'), this.connection.accounts[0])
     this.contract = new ethers.Contract(this.addresses.lotteryProxy, LOTTERY_ABI, this.connection.provider.getSigner())
+
+
   }
 
   async getPrice() {
@@ -86,7 +133,6 @@ export default class Api {
       accounts.push(api.connection.accounts[0])
     }
     let balances = await contract.balanceOfBatch(accounts, ids)
-    console.log(balances);
     let i = 0
     balances = balances.reduce((p, c) => {
       i++
