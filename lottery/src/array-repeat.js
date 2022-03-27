@@ -250,14 +250,11 @@ export default class ArrayRepeat extends HTMLElement {
    * forces an update
    */
   render() {
+
     const items = Array.from(this.querySelectorAll('.array-repeat-item'))
     if (items.length === this._items.length) return;
 
-    let max = this._items.length - items.length - 10
-    max = max < 0 ? this._items.length : this.max
-
-    this._queriedCollection = this._items.slice(items.length > 0 ? items.length : 0, max)
-    console.log(this._queriedCollection, max, items.length);
+    this._queriedCollection = this._items.splice(0, 10)
     if (this._queriedCollection.length > 0) this._runQue(this._queriedCollection)
   }
 

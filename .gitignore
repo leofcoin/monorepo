@@ -37,3 +37,4 @@ lottery/www/**/**.js
 **/dist/**/*
 
 /node/www/**/*.js
+/project-deploy/build
