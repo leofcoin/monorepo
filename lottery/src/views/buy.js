@@ -19,6 +19,7 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
 
   async _init() {
     await isApiReady()
+    if (!api.connection) await document.querySelector('lottery-shell')._select('connect')
     const [id, status, prizePool, ticketPrice, prizeDistribution, startTime, endTime, winningNumbers] = await api.contract.callStatic.latestLottery()
     this.ticketPrice = ethers.utils.formatUnits(ticketPrice)
     this.id = id
@@ -26,7 +27,9 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
     this._onInput()
     this.shadowRoot.querySelector('.ticketPrice').innerHTML = `${this.ticketPrice} <img class="logo" src="https://assets.artonline.site/arteon.svg"></img>`
     this.shadowRoot.querySelector('[data-action="approveAndBuy"]').addEventListener('click', this._approveAndBuy)
-
+    const contract = new ethers.Contract(api.addresses.artonline, ARTONLINE_ABI, api.connection.provider.getSigner())
+    const balance = await contract.balanceOf(api.connection.accounts[0])
+    this.shadowRoot.querySelector('.balance').innerHTML = `${Math.round(ethers.utils.formatUnits(balance))} <img class="logo" src="https://assets.artonline.site/arteon.svg"></img>`;
   }
 
   async _approveAndBuy() {
@@ -49,16 +52,19 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
       await tx.wait()
     }
 
+
+
     let numbers = Array.from(this.shadowRoot.querySelector('array-repeat').querySelectorAll('ticket-element'))
     numbers = numbers.reduce((set, el) => {
-      console.log(el.numbers);
       el.numbers.forEach(item => set.push(item))
       return set
     }, [])
-    console.log(numbers);
 
     tx = await api.contract.buyTickets(this.id, ethers.BigNumber.from(this.shadowRoot.querySelector('input').value), numbers)
     console.log(tx);
+    await tx.wait()
+    this.shadowRoot.querySelector('input').value = 1
+    location.hash = '#!/home'
   }
 
   _onInput() {
@@ -207,6 +213,11 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
      overflow-y: auto;
      pointer-events: auto;
    }
+
+   .balance {
+     align-items: center;
+     display: flex;
+   }
 </style>
 
 <section class="container">
@@ -218,6 +229,11 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
   <flex-row class="bottom"></flex-row>
 
   <flex-column>
+    <flex-row style="padding: 0; align-items: center; padding-bottom: 8px;">
+      <small>Balance</small>
+      <flex-one></flex-one>
+      <small class="balance"></small>
+    </flex-row>
     <span class="wrapper">
       <flex-one></flex-one>
       <input value="0"></input>
@@ -233,7 +249,7 @@ export default customElements.define('buy-view', class BuyView extends BaseClass
   </flex-row> -->
   <array-repeat>
     <template>
-      <ticket-element numbers="[[item.numbers]]"></ticket-element>
+      <ticket-element numbers="[[item.numbers]]" edit="true"></ticket-element>
     </template>
   </array-repeat>
 
