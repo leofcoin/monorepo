@@ -114,7 +114,7 @@ export default class Token {
     this.#updateHolders(address, previousBalance)
   }
 
-  balance(address) {
+  balanceOf(address) {
     return this.#balances[address]
   }
 
@@ -129,6 +129,7 @@ export default class Token {
   }
 
   transfer(from, to, amount) {
+    amount = Number(amount)
     this.#beforeTransfer(from, to, amount)
     this.#decreaseBalance(from, amount)
     this.#increaseBalance(to, amount)
