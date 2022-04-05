@@ -8,7 +8,7 @@
     return chain.createContractMessage(peernet.id, peernet.Buffer.from(`return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`), params)
   }
   const Chain = require('./../dist/chain');
-  const Node = require('./../dist/Node');
+  const Node = require('./../dist/node');
   const node = await new Node()
   const chain = await new Chain()
   const factory = await createMessage('./dist/contracts/factory.js')
