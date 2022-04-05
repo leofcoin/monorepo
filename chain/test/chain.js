@@ -2,7 +2,7 @@
 
 (async () => {
   const Chain = require('./../dist/chain');
-  const Node = require('./../dist/Node');
+  const Node = require('./../dist/node');
   const node = await new Node()
   const chain = await new Chain()
   let start
