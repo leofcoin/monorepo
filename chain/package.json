@@ -8,7 +8,7 @@
     "c": "rollup -c",
     "w": "rollup -c -w",
     "build": "parcel build",
-    "b": "browserify chain.js -o dist/chain.browser.js --standalone ArtOnlineChain && rm browser.js",
+    "b": "browserify chain.js -o dist/chain.browser.js --standalone ArtOnlineChain && rm chain.js && browserify _node.js -o dist/node.browser.js --standalone Peernet && rm _node.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
@@ -30,12 +30,16 @@
     "tape": "^5.5.2"
   },
   "dependencies": {
+    "@ethersproject/bignumber": "^5.6.0",
     "@ethersproject/units": "^5.6.0",
-    "@leofcoin/peernet": "^0.10.0",
+    "@leofcoin/peernet": "^0.10.8",
     "@swc/helpers": "^0.3.8",
     "acorn-class-fields": "^1.0.0",
     "acorn-private-methods": "^1.0.0",
+    "bittorrent-tracker": "^9.18.5",
+    "chalk": "^4.0.0",
     "protons": "^2.0.3",
-    "regenerator-runtime": "^0.13.9"
+    "regenerator-runtime": "^0.13.9",
+    "wrtc": "^0.4.7"
   }
 }
