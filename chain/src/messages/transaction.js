@@ -4,7 +4,7 @@ import CodecFormat from './../../node_modules/@leofcoin/peernet/src/codec/codec-
 
 export default class TransactionMessage extends CodecFormat {
   get keys() {
-    return ['timestamp', 'from', 'to', 'method', 'params']
+    return ['timestamp', 'from', 'to', 'nonce', 'method', 'params']
   }
 
   constructor(buffer) {
