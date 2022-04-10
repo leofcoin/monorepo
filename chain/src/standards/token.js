@@ -22,7 +22,7 @@ export default class Token {
 
   #decimals = 18
 
-  #totalSupply = 0
+  #totalSupply = BigNumber.from(0)
   /**
    * Object => Array
    */
@@ -80,14 +80,14 @@ export default class Token {
   mint(to, amount) {
     if (!this.hasRole(msg.sender, 'MINT')) throw new Error('not allowed')
 
-    this.#totalSupply += amount
+    this.#totalSupply = this.#totalSupply.add(amount)
     this.#increaseBalance(to, amount)
   }
 
   burn(to, amount) {
     if (!this.hasRole(msg.sender, 'BURN')) throw new Error('not allowed')
 
-    this.#totalSupply -= amount
+    this.#totalSupply = this.#totalSupply.sub(amount)
     this.#decreaseBalance(to, amount)
   }
 
@@ -102,15 +102,15 @@ export default class Token {
 
   #increaseBalance(address, amount) {
     const previousBalance = this.#balances[address]
-    if (!this.#balances[address]) this.#balances[address] = 0
+    if (!this.#balances[address]) this.#balances[address] = BigNumber.from(0)
 
-    this.#balances[address] += amount
+    this.#balances[address] = this.#balances[address].add(amount)
     this.#updateHolders(address, previousBalance)
   }
 
   #decreaseBalance(address, amount) {
     const previousBalance = this.#balances[address]
-    this.#balances[address] -= amount
+    this.#balances[address] = this.#balances[address].sub(amount)
     this.#updateHolders(address, previousBalance)
   }
 
@@ -129,7 +129,7 @@ export default class Token {
   }
 
   transfer(from, to, amount) {
-    amount = Number(amount)
+    amount = BigNumber.from(amount)
     this.#beforeTransfer(from, to, amount)
     this.#decreaseBalance(from, amount)
     this.#increaseBalance(to, amount)
