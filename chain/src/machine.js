@@ -2,6 +2,7 @@ import vm from 'vm'
 import ContractMessage from './messages/contract'
 import TransactionMessage from './messages/transaction'
 import lib from './lib'
+import { info, subinfo } from './utils/utils'
 export default class Machine {
   #contracts = {}
 
@@ -18,7 +19,6 @@ export default class Machine {
   }
 
   async #init() {
-    console.log(lib.contractFactory);
     try {
       let contracts = [
         contractStore.get(lib.contractFactory),
@@ -37,8 +37,6 @@ console.log(e);
     } finally {
 
     }
- const blocks = await blockStore.get()
- console.log({blocks});
     // const transactions = await transactionStore.get()
     // console.log({transactions});
     // for (const key of Object.keys(transactions)) {
@@ -55,7 +53,6 @@ console.log(e);
 
   async #runContract(contractMessage) {
     const params = contractMessage.decoded.constructorParameters
-    console.log(`${Math.round((contractMessage.encoded.length / 1024) * 100) / 100} kb`);
     try {
 
       const func = new Function(contractMessage.decoded.contract.toString())
@@ -64,7 +61,8 @@ console.log(e);
       globalThis.msg = this.#createMessage(contractMessage.decoded.creator)
       // globalThis.msg = {sender: contractMessage.decoded.creator}
       this.#contracts[contractMessage.hash] = new Contract(...params)
-      console.log(this.#contracts);
+      info(`loaded contract: ${contractMessage.hash}`);
+      subinfo(`size: ${Math.round((contractMessage.encoded.length / 1024) * 100) / 100} kb`);
     } catch (e) {
       console.log(e);
       console.warn(`removing contract ${contractMessage.hash}`);
@@ -89,7 +87,6 @@ console.log(e);
   }
 
   get(contract, method, params) {
-    console.log({contract, method, params});
     let result
     if (params?.length > 0) {
       result = this.#contracts[contract][method](params)
