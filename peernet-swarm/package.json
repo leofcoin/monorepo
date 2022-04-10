@@ -1,0 +1,18 @@
+{
+  "name": "peernet-swarm",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": false,
+  "main": "dist/index.js",
+  "module": "src/index.js",
+  "scripts": {
+    "c": "rollup -c"
+  },
+  "description": "project-template",
+  "repository": "https://github.com/vandeurenglenn/peernet-swarm",
+  "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
+  "devDependencies": {
+    "rollup": "^2.70.1"
+  }
+}
