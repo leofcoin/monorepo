@@ -23,7 +23,11 @@ export default class Validators {
     this.#minimumBalance = 50000
     this.#currency = tokenAddress
 
-    this.addValidator(msg.sender)
+    this.#totalValidators += 1
+    this.#validators[msg.sender] = {
+      firstSeen: new Date().getTime(),
+      active: true
+    }
   }
 
   get name() {
