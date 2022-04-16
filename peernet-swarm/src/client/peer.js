@@ -123,7 +123,7 @@ this.socketClient.pubsub.subscribe('signal', this._in)
  }
 
  close() {
-   this.channel.close()
-   this.#connection.close()
+   this.channel?.close()
+   this.#connection?.close()
  }
 }
