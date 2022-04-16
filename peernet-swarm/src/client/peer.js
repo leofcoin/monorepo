@@ -61,7 +61,7 @@ this.socketClient.pubsub.subscribe('signal', this._in)
 
           this.channel = this.#connection.createDataChannel('messageChannel')
           this.channel.onopen = () => {
-            pubsub.publish('peer:connected', )
+            // pubsub.publish('peer:connected', )
             // this.channel.send('hi')
           }
           this.channel.onclose = () => console.log('close');
@@ -120,5 +120,10 @@ this.socketClient.pubsub.subscribe('signal', this._in)
     } catch (e) {
       console.log(e);
     }
+ }
+
+ close() {
+   this.channel.close()
+   this.#connection.close()
  }
 }

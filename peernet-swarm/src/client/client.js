@@ -44,14 +44,6 @@ export default class Client {
   }
 
   peerJoined(id, signal) {
-    if (this.#connections[id]) {
-      this.#connections[id].close()
-      delete this.#connections[id]
-    }
-    if (this.#localConnections[id]) {
-      this.#localConnections[id].close()
-      delete this.#localConnections[id]
-    }
     // RTCPeerConnection
     this.#localConnections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id})
     console.log(`peer ${id} joined`);
