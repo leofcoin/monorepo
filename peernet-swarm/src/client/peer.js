@@ -1,7 +1,5 @@
-import stream from 'readable-stream'
-import PubSub from '@vandeurenglenn/little-this.pubsub'
 
-export default class Peer extends stream.Duplex {
+export default class Peer {
   #connection
   #ready = false
   #connecting = false
@@ -11,256 +9,116 @@ export default class Peer extends stream.Duplex {
   #destroyed = false
   #isNegotiating = false
   #firstNegotiation = true
+  #iceComplete = false
+  #remoteTracks = []
+  #remoteStreams = []
+  #pendingCandidates = []
+  #senderMap = new Map()
+  #iceCompleteTimer
+  #channel
 
-  // constructor(options = { allowHalfOpen: false }) {
+/**
+ * @params {Object} options
+ * @params {string} options.channelName - this peerid : otherpeer id
+ */
 constructor(options = {}) {
-    super(options)
-
-    this.offerOptions options.offerOptions
+    this._in = this._in.bind(this);
+    this.offerOptions = options.offerOptions
     this.initiator = options.initiator
-    this.channelName = options.initiator ? options.channelName ||
-      randombytes(20).toString('hex') : null
+    this.streams = options.streams
+    this.socketClient = options.socketClient
+    this.id = options.id
+    this.to = options.to
 
-    this.pubsub = new PubSub()
-    try {
-      this.#connection = new wrtc.RTCPeerConnection()
+    this.channelName = options.channelName || Buffer.from(Math.random().toString(36).slice(-12)).toString('hex')
+console.log(this.channelName);
+this.options = options
+this.socketClient.pubsub.subscribe('signal', this._in)
+    this.#init()
+   }
 
-      this.#connection.onicecandidate = event => this.#onIceCandidate(event)
-      this.#connection.onicegatheringstatechange = () => this.#onIceStateChange()
-      this.#connection.onconnectionstatechange = () => this.#onConnectionStateChange()
-      this.#connection.onsignalingstatechange = () => this.#onSignalingStateChange()
+   async #init() {
+     try {
 
-      if (this.initiator) this.#setupData({
-        channel: this.#connection.createDataChannel(this.channelName, options.channelConfig)
-      })
-     else this.#connection.ondatachannel = event => this.#setupData(event)
-    } catch (e) {
-      this.destroy(e)
-    }
-  }
+       const iceServers = [{
+        urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
+       }]
+       this.#connection = new wrtc.RTCPeerConnection();
+       this.#connection.onicecandidate = ({ candidate }) => {
+         console.log({candidate});
+        if (candidate) this.sendMessage({candidate});
+       };
+       console.log(this.initiator);
+       // if (this.initiator) this.#connection.onnegotiationneeded = () => {
+         // console.log('create offer');
+         this.#connection.ondatachannel = (message) => {
+           message.channel.onopen = () => message.channel.send('hi');
+           message.channel.onclose = () => console.log('close');
+           message.channel.onmessage = (message) => console.log(message.data);
 
-  #onConnectionStateChange() {
-    !this.destroyed && this.#connection.connectionState === 'failed' && this.destroy('ERR_CONNECTION_FAILURE')
-  }
+         }
+        if (this.initiator) {
 
-  async #needsNegotiation () {
-    if (this.initiator || !this.#firstNegotiation) await this.#negotiate()
+          this.channel = this.#connection.createDataChannel('messageChannel')
+          this.channel.onopen = () => {
+            pubsub.publish('peer:connected', )
+            // this.channel.send('hi')
+          }
+          this.channel.onclose = () => console.log('close');
+          this.channel.onmessage = (message) => console.log({message});
 
-    this.#firstNegotiation = false
-  }
+         const offer = await this.#connection.createOffer()
+         await this.#connection.setLocalDescription(offer)
 
-  async #negotiate () {
-    if (!this.#destroyed && !this.#destroying) {
-      if (this.initiator) await this.#createOffer()
-      else this.pubsub.publish('signal', { type: 'renegotiate', renegotiate: true })
-
-      this.#isNegotiating = true
-    }
-  }
-
-
-  async #onSignalingStateChange() {
-    if (!this.#destroyed) {
-      const signalingState = this.#connection.signalingState
-      if (signalingState === 'stable') {
-        this.#isNegotiating = false
-        if (this.#queuedNegotiation) {
-          this.#queuedNegotiation = false
-          await this.#needsNegotiation()
-        } else {
-          this.pubsub.publish('negotiated', true)
+         this.sendMessage({'sdp': this.#connection.localDescription})
         }
-      }
-      this.pubsub.publish('signalingStateChange', signalingState)
-    }
-  }
+       // }
 
-  async #onIceStateChange () {
-   if (!this.#destroyed)  {
-     const iceConnectionState = this.#connection.iceConnectionState
-     const iceGatheringState = this.#connection.iceGatheringState
-
-     this.pubsub.publish('iceStateChange', {iceConnectionState, iceGatheringState})
-
-     if (iceConnectionState === 'connected' || iceConnectionState === 'completed') {
-       this.#ready = true
-       await this.#readyOrNot()
+       console.log(this.#connection);
+     } catch (e) {
+       console.log(e);
      }
-     if (iceConnectionState === 'failed') this.destroy('ERR_ICE_CONNECTION_FAILURE')
-     if (iceConnectionState === 'closed') this.destroy('ERR_ICE_CONNECTION_CLOSED')
    }
- }
 
- async #readyOrNot() {
-    if (this.#ready && !this.#connecting && !this.#connected && this.#channelReady) {
-      this.#connecting = true
-      await this.#findCandidatePair()
-    }
-  }
+   // async localDescriptionCreated(desc) {
+   //   await this.#connection.setLocalDescription(desc)
+   //   this.sendMessage({'sdp': this.#connection.localDescription})
+   // }
+   //
+   // async remoteDescriptionCreated(desc) {
+   //   await this.#connection.setRemoteDescription(desc)
+   //   this.sendMessage({'sdp': this.#connection.remoteDescription})
+   // }
 
-  async #getStats() {
+   sendMessage(message) {
+     this.socketClient.send({url: 'signal', params: {
+       to: this.to,
+       from: this.id,
+       channelName: this.options.channelName,
+       ...message
+     }})
+   }
+
+   async _in(message, data) {
+    // message = JSON.parse(message);
+    if (message.to !== this.id) return
+    // if (data.videocall) return this._startStream(true, false); // start video and audio stream
+    // if (data.call) return this._startStream(true, true); // start audio stream
+    if (message.candidate) return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
     try {
-      const stats = await this.#connection.getStats()
-      console.log(stats.entries());
-      return Array.from(stats.entries()).reduce((set, entry) => {
-        set.push(entry[1])
-        return set
-      }, [])
-    } catch (e) {
-      throw e
-    }
-  }
-
-  whatFamily(address) {
-    return address.includes(':') ? 'IPv6' : 'IPv4'
-  }
-
-  async #setSelectedCandidatePair(candidatePair) {
-    let local = localCandidates[candidatePair.localCandidateId]
-    let remote = remoteCandidates[candidatePair.remoteCandidateId]
-
-    this.localAddress = local.ip || local.address
-    this.localPort = Number(local.port)
-
-    this.remoteAddress = remote.ip || remote.address
-    this.remotePort = Number(remote.port)
-
-    if (this.localAddress) this.localFamily = this.whatFamily(localAddress)
-    if (this.remoteAddress) this.remoteFamily = this.whatFamily(remoteAddress)
-
-    return true
-  }
-
-  async #findCandidatePair() {
-    if (!this.#destroyed) {
-      const stats = await this.#getStats()
-      if (!this.#destroyed) {
-        console.log(stats);
-        const remoteCandidates = {}
-        const localCandidates = {}
-        const candidatePairs = {}
-        let selectedCandidatePair = false
-
-        for (const stat of stats) {
-          const {type, id} = stat
-          if (type === 'remote-candidate') remoteCandidates[id] = stat
-          if (type === 'local-candidate') localCandidates[id] = stat
-          if (type === 'candidate-pair') candidatePairs[id] = stat
+      if (message.sdp) {
+        if (message.sdp.type === 'offer') {
+          await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
+          const answer = await this.#connection.createAnswer();
+          await this.#connection.setLocalDescription(answer)
+          this.sendMessage({'sdp': this.#connection.localDescription})
         }
-
-        for (const stat of stats) {
-          if (stat.type === 'transport' && stat.candidateId) {
-            const candidateId = stat.selectedCandidatePairId
-            selectedCandidatePair = await this.#setSelectedCandidatePair(candidatePairs[candidateId])
-          } else if (stat.type === 'candidate-pair' && stat.selected) {
-            selectedCandidatePair = await this.#setSelectedCandidatePair(stat)
-          }
+        if (message.sdp.type === 'answer') {
+          await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
         }
-
-        if (!selectedCandidatePair &&
-            (!Object.keys(candidatePairs).length ||
-             Object.keys(localCandidates).length)
-            ) return setTimeout(this.#findCandidatePair.bind(this), 100);
-
-        this.#connecting = false
-        this.#connected = true
-
-        if (typeof this.#channel.bufferedAmountLowThreshold !== 'number') {
-          this._interval = setInterval(() => this._onInterval(), 150)
-          if (this._interval.unref) this._interval.unref()
-        }
-
-        this.this.pubsub.publish('connect', true)
-      }
-    }
-  }
-
-  #sendOffer(offer) {
-    if (!this.destroyed) {
-      offer = this.#connectionc.localDescription || offer
-
-      this.pubsub.publish('offer', offer)
-    }
-  }
-
-  async #createOffer() {
-    if (!this.#destroyed) {
-      const offer = await this.#connection.createOffer(this.offerOptions)
-      if (!this.destroyed) {
-        try {
-          await this.#connection.setLocalDescription(offer)
-          if (!this.#destroyed) {
-            if (this.#iceComplete) this.#sendOffer(offer)
-            // else this.once('_iceComplete', sendOffer)
-          }
-        } catch (e) {
-          this.distroy('ERR_SET_LOCAL_DESCRIPTION')
-        }
-      }
-    }
-  }
-
-  #onIceCandidate(event) {
-    if (!this.destroyed && event.candidate) {
-      // if (event.candidate) {
-        this.pubsub.publish('signal', {
-          type: 'candidate',
-          candidate: {
-            candidate: event.candidate.candidate,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-            sdpMid: event.candidate.sdpMid
-          }
-        })
-      // }
-    // } else if (!event.candidate && !this._iceComplete) {
-    //   this._iceComplete = true
-    //   this.emit('_iceComplete')
-    // }
-    // as soon as we've received one valid candidate start timeout
-    // if (event.candidate) {
-    //   this.startIceCompleteTimeout()
-    // }
-  }
-
-  #setupData (event) {
-   if (!event.channel) {
-     // In some situations `pc.createDataChannel()` returns `undefined` (in wrtc),
-     // which is invalid behavior. Handle it gracefully.
-     // See: https://github.com/feross/simple-peer/issues/163
-     return this.destroy('ERR_DATA_CHANNEL')
-   }
-
-   this.#channel = event.channel
-   this.#channel.binaryType = 'arraybuffer'
-
-   this.channelName = this.#channel.label
-
-   this.#channel.onmessage = event => this._onChannelMessage(event)
-
-   this.#channel.onbufferedamountlow = () => this._onChannelBufferedAmountLow()
-
-   this.#channel.onopen = () => this._onChannelOpen()
-
-   this.#channel.onclose = () => this._onChannelClose()
-
-   this.#channel.onerror = event => {
-     const err = event.error instanceof Error
-       ? event.error
-       : new Error(`Datachannel error: ${event.message} ${event.filename}:${event.lineno}:${event.colno}`)
-     this.destroy('ERR_DATA_CHANNEL')
-   }
-
-   // HACK: Chrome will sometimes get stuck in readyState "closing", let's check for this condition
-   // https://bugs.chromium.org/p/chromium/issues/detail?id=882743
-   let isClosing = false
-   this._closingInterval = setInterval(() => { // No "onclosing" event
-     if (this.#channel && this.#channel.readyState === 'closing') {
-       if (isClosing) this._onChannelClose() // closing timed out: equivalent to onclose firing
-       isClosing = true
-     } else {
-       isClosing = false
      }
-   }, CHANNEL_CLOSING_TIMEOUT)
+    } catch (e) {
+      console.log(e);
+    }
  }
-
 }
