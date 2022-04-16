@@ -1,9 +1,12 @@
 import SocketClient from './../../node_modules/socket-request-client/src/index'
+// import pubsub from './../pubsub'
 import browserRTC from 'get-browser-rtc'
 import Peer from './peer'
 
 export default class Client {
   #peerConnection
+  #connections = {}
+  #localConnections = {}
 
   constructor(id, identifiers = ['peernet-v0.1.0']) {
     this.id = id || Math.random().toString(36).slice(-12);
@@ -17,21 +20,40 @@ export default class Client {
   async _init(identifiers) {
     const wrtc = await browserRTC()
     globalThis.wrtc = wrtc ? wrtc : await import('wrtc')
-    // RTCPeerConnection
-    this.#peerConnection = new Peer({initiator: true})
     this.socketClient = await SocketClient('ws://localhost:4400', identifiers[0])
     const peers = await this.socketClient.peernet.join({id: this.id})
     console.log(peers);
+    for (const id of peers) {
+      if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id})
+    }
 
     this.socketClient.subscribe('peer:joined', this.peerJoined)
     this.socketClient.subscribe('peer:left', this.peerLeft)
   }
 
   peerLeft(id) {
+    if (this.#connections[id]) {
+      this.#connections[id].close()
+      delete this.#connections[id]
+    }
+    if (this.#localConnections[id]) {
+      this.#localConnections[id].close()
+      delete this.#localConnections[id]
+    }
     console.log(`peer ${id} left`);
   }
 
-  peerJoined(id) {
+  peerJoined(id, signal) {
+    if (this.#connections[id]) {
+      this.#connections[id].close()
+      delete this.#connections[id]
+    }
+    if (this.#localConnections[id]) {
+      this.#localConnections[id].close()
+      delete this.#localConnections[id]
+    }
+    // RTCPeerConnection
+    this.#localConnections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id})
     console.log(`peer ${id} joined`);
   }
 }
