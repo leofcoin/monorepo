@@ -42,6 +42,7 @@ export default class Client {
       }, 10000);
     }
     reconnectJob()
+    
     const wrtc = await browserRTC()
     globalThis.wrtc = wrtc ? wrtc : await import('wrtc')
     for (const star of stars) {

@@ -16,6 +16,10 @@ export default class Peer {
   #iceCompleteTimer
   #channel
 
+  get connection() {
+    return this.#connection
+  }
+
 /**
  * @params {Object} options
  * @params {string} options.channelName - this peerid : otherpeer id
@@ -28,6 +32,10 @@ constructor(options = {}) {
     this.socketClient = options.socketClient
     this.id = options.id
     this.to = options.to
+    this.bw = {
+      up: 0,
+      down: 0
+    }
 
     this.channelName = options.channelName || Buffer.from(Math.random().toString(36).slice(-12)).toString('hex')
     console.log(this.channelName);
@@ -37,8 +45,30 @@ constructor(options = {}) {
    }
 
    send(message) {
+     this.bw.up += message.length
      this.channel.send(message)
    }
+
+   request(data) {
+    return new Promise((resolve, reject) => {
+      const id = Math.random().toString(36).slice(-12)
+      data = Buffer.from(JSON.stringify({id, data}))
+      const _onData = (message) => {
+        if (message.id !== id) return
+
+        resolve(message.data)
+      }
+
+      pubsub.subscribe('peer:data', _onData)
+
+      // cleanup subscriptions
+      setTimeout(() => {
+        pubsub.unsubscribe('peer:data', _onData)
+      }, 5000);
+
+      this.send(data)
+    });
+  }
 
    async #init() {
      try {
@@ -70,6 +100,7 @@ constructor(options = {}) {
              if (message.to) {
                if (message.to === this.id) pubsub.publish('peer:data', message)
              } else pubsub.publish('peer:data', message)
+             this.bw.down += message.length
            }
            this.channel = message.channel
          }
@@ -85,6 +116,7 @@ constructor(options = {}) {
             if (message.to) {
               if (message.to === this.id) pubsub.publish('peer:data', message)
             } else pubsub.publish('peer:data', message)
+            this.bw.down += message.length
           }
 
          const offer = await this.#connection.createOffer()
