@@ -1,5 +1,11 @@
 import { broadcastPubSubMessage, sendPubSubMessage } from './utils.js'
 import SocketServer from './../../node_modules/socket-request-server/src/index'
+import { readFile, writeFile } from 'fs'
+import { promisify } from 'util'
+import generateAccount from '@leofcoin/generate-account'
+
+const read = promisify(readFile)
+const write = promisify(writeFile)
 
 const peers = {}
 
@@ -37,30 +43,60 @@ const peerLeft = id => {
 }
 
 export default class Server {
-  constructor(port, identifiers = ['peernet-v0.1.0']) {
-    if (!Array.isArray(identifiers)) identifiers = [identifiers]
-    this.socketserver = SocketServer({port: 4400, protocol: identifiers[0]}, {
-      peernet: (params, response) => {
-        // peer left
+  constructor(port = 44444, identifiers = ['peernet-v0.1.0']) {
+    return this._init(port, identifiers)
+  }
 
-        if (!params.join) return peerLeft(params.id)
+  async _init(port, identifiers) {
 
-        peerJoined(params.id)
-        peers[params.id] = response.connection
-        response.send(Object.keys(peers))
-      }, signal: (params, response) => {
-console.log(params);
-        if (params.to) {
-          sendPubSubMessage('signal', params, peers[params.to])
-          // sendPubSubMessage('signal', params, peers[params.from])
-        } else {
-          broadcastPubSubMessage('signal', params, peers)
+      let config
+      try {
+        config = await read('./star-id.json')
+        config = JSON.parse(config)
+      } catch (e) {
+        config = await generateAccount('leofcoin:olivia')
+        await write('./star-id.json', JSON.stringify(config, null, '\t'))
+      }
+      config = {
+        identity: {
+          publicKey: config.identity.publicKey
         }
       }
-    })
-    console.log(this.socketserver.socketRequestServer);
-    pubsub.subscribe('signal', message => {
 
-    })
+      if (!Array.isArray(identifiers)) identifiers = [identifiers]
+      this.socketserver = SocketServer({port, protocol: identifiers[0]}, {
+        peernet: (params, response) => {
+          // peer left
+          if (!params.join) return peerLeft(params.id)
+
+          peerJoined(params.id)
+          peers[params.id] = response.connection
+          response.send(Object.keys(peers))
+        },
+         signal: (params, response) => {
+          if (params.to) {
+            sendPubSubMessage('signal', params, peers[params.to])
+            // sendPubSubMessage('signal', params, peers[params.from])
+          } else {
+            broadcastPubSubMessage('signal', params, peers)
+          }
+        },
+        id: (params, response) => {
+          response.send(config.identity.publicKey)
+        }
+      })
+      pubsub.subscribe('signal', message => {
+
+      })
+
+
+
+      process.on('SIGINT', () => {
+        process.stdin.resume();
+        broadcastPubSubMessage('star:left', config.identity.publicKey, peers)
+        process.exit()
+      });
+
+      return this
   }
 }
