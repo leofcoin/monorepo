@@ -1,10 +1,10 @@
 {
-  "name": "peernet-swarm",
-  "version": "0.1.0",
-  "main": "dist/index.js",
+  "name": "@leofcoin/peernet-swarm",
+  "version": "0.1.1",
+  "main": "dist/commonjs/index.js",
+  "module": "dist/es/index.js",
   "license": "MIT",
   "private": false,
-  "module": "src/index.js",
   "scripts": {
     "c": "rollup -c",
     "w": "rollup -c -w",
