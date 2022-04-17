@@ -20,6 +20,10 @@ export default class Peer {
     return this.#connection
   }
 
+  get connected() {
+    return this.#connected
+  }
+
 /**
  * @params {Object} options
  * @params {string} options.channelName - this peerid : otherpeer id
@@ -40,8 +44,17 @@ constructor(options = {}) {
     this.channelName = options.channelName || Buffer.from(Math.random().toString(36).slice(-12)).toString('hex')
     console.log(this.channelName);
     this.options = options
-    this.socketClient.pubsub.subscribe('signal', this._in)
     this.#init()
+   }
+
+   set socketClient(value) {
+     // this.socketClient?.pubsub.unsubscribe('signal', this._in)
+     this._socketClient = value
+     this._socketClient.pubsub.subscribe('signal', this._in)
+   }
+
+   get socketClient() {
+     return this._socketClient
    }
 
    send(message) {

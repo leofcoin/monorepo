@@ -64,6 +64,7 @@ export default class Server {
       }
 
       if (!Array.isArray(identifiers)) identifiers = [identifiers]
+      
       this.socketserver = SocketServer({port, protocol: identifiers[0]}, {
         peernet: (params, response) => {
           // peer left

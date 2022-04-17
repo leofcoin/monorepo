@@ -7,7 +7,7 @@ export default class Client {
   #connections = {}
   #stars = {}
 
-  constructor(id, identifiers = ['peernet-v0.1.0']) {
+  constructor(id, identifiers = ['peernet-v0.1.0'], stars = []) {
     this.id = id || Math.random().toString(36).slice(-12);
     if (!Array.isArray(identifiers)) identifiers = [identifiers]
     this.peerJoined = this.peerJoined.bind(this)
@@ -15,7 +15,7 @@ export default class Client {
     this.starLeft = this.starLeft.bind(this)
     this.starJoined = this.starJoined.bind(this)
 
-    this._init(identifiers)
+    this._init(identifiers, stars)
   }
 
   async _init(identifiers, stars = []) {
@@ -23,33 +23,17 @@ export default class Client {
       stars.push('wss://star.leofcoin.org')
       stars.push('ws://localhost:44444')
     }
+    this.identifiers = identifiers
+    this.starsConfig = stars
+    // reconnectJob()
 
-    const reconnectJob = () => {
-      setTimeout(async () => {
-        if (!this.socketClient) {
-          for (const star of stars) {
-            try {
-              this.socketClient = await SocketClient(star, identifiers[0])
-              const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
-              this.#stars[id] = this.socketClient
-              this.setupListeners()
-            } catch (e) {
-              if (stars.indexOf(star) === stars.length -1 && !this.socketClient) throw new Error(`No star available to connect`);
-            }
-          }
-        }
-        reconnectJob()
-      }, 10000);
-    }
-    reconnectJob()
-    
     const wrtc = await browserRTC()
     globalThis.wrtc = wrtc ? wrtc : await import('wrtc')
     for (const star of stars) {
       try {
         this.socketClient = await SocketClient(star, identifiers[0])
         const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
-        console.log(id);
+        this.socketClient.peerId = id
         this.#stars[id] = this.socketClient
       } catch (e) {
         if (stars.indexOf(star) === stars.length -1 && !this.socketClient) throw new Error(`No star available to connect`);
@@ -59,12 +43,13 @@ export default class Client {
     for (const id of peers) {
       if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id})
     }
-
     this.setupListeners()
 
     pubsub.subscribe('peer:connected', (peer) => {
       peer.send(JSON.stringify({data: 'hello', from: this.id, to: peer.to}))
-      console.log({peer})
+      console.log({peer: peer.to})
+      console.log({id: peer.id})
+      console.log({id: this.id})
     })
     pubsub.subscribe('peer:data', (data) => console.log({data}))
   }
@@ -83,22 +68,51 @@ export default class Client {
     console.log(`star ${id} joined`);
   }
 
-  starLeft(id) {
+  async starLeft(id) {
     if (this.#stars[id]) {
       this.#stars[id].close()
       delete this.#stars[id]
     }
+    if (this.socketClient?.peerId === id) {
+
+      this.socketClient.unsubscribe('peer:joined', this.peerJoined)
+      this.socketClient.unsubscribe('peer:left', this.peerLeft)
+      this.socketClient.unsubscribe('star:left', this.starLeft)
+      this.socketClient.close()
+      this.socketClient = undefined
+
+      for (const star of this.starsConfig) {
+        try {
+          this.socketClient = await SocketClient(star, this.identifiers[0])
+          if (!this.socketClient?.client?._connection.connected) return
+          const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
+          this.#stars[id] = this.socketClient
+
+          this.socketClient.peerId = id
+
+          const peers = await this.socketClient.peernet.join({id: this.id})
+          this.setupListeners()
+          for (const id of peers) {
+            if (id !== this.id) {
+              // close connection
+              if (this.#connections[id]) {
+                if (this.#connections[id].connected) await this.#connections[id].close()
+                delete this.#connections[id]
+              }
+              // reconnect
+              if (id !== this.id) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id})
+            }
+
+          }
+        } catch (e) {
+          console.log(e);
+          if (this.starsConfig.indexOf(star) === this.starsConfig.length -1 && !this.socketClient) throw new Error(`No star available to connect`);
+        }
+      }
+    }
 
     console.log(`star ${id} left`);
-    if (Object.keys(this.#stars).length === 0) {
-      this.socketClient.client.close()
-      this.socketClient = undefined
-      // if (globalThis.process) process.exit()
-    } else {
-      console.log('trying another one');
-      this.socketClient = this.#stars[Object.keys(this.#stars)[0]]
-      this.setupListeners()
-    }
+
 
   }
 
@@ -112,7 +126,7 @@ export default class Client {
 
   peerJoined(id, signal) {
     if (this.#connections[id]) {
-      this.#connections[id].close()
+      if (this.#connections[id].connected) this.#connections[id].close()
       delete this.#connections[id]
     }
     // RTCPeerConnection
