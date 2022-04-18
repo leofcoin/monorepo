@@ -1,5 +1,4 @@
 import SocketClient from './../../node_modules/socket-request-client/dist/es/index'
-import browserRTC from 'get-browser-rtc'
 import Peer from './peer'
 
 export default class Client {
@@ -27,8 +26,7 @@ export default class Client {
     this.starsConfig = stars
     // reconnectJob()
 
-    const wrtc = await browserRTC()
-    globalThis.wrtc = wrtc ? wrtc : await import('wrtc')
+    WRTC_IMPORT
     for (const star of stars) {
       try {
         this.socketClient = await SocketClient(star, identifiers[0])
@@ -46,7 +44,7 @@ export default class Client {
     this.setupListeners()
 
     pubsub.subscribe('peer:connected', (peer) => {
-      peer.send(JSON.stringify({data: 'hello', from: this.id, to: peer.to}))
+      // peer.send(JSON.stringify({data: 'hello', from: this.id, to: peer.to}))
       console.log({peer: peer.to})
       console.log({id: peer.id})
       console.log({id: this.id})

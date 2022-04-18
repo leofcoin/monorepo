@@ -1,5 +1,5 @@
 import {execSync} from 'child_process'
-
+import modify from 'rollup-plugin-modify'
 try {
   execSync('rm ./dist/*.js')
 } catch (e) {
@@ -15,5 +15,25 @@ export default  [{
     dir: './dist/commonjs',
     format: 'cjs',
     exports: 'auto'
-  }]
+  }],
+  plugins: [
+    modify({
+      WRTC_IMPORT: `globalThis.wrtc = await import('wrtc')`
+    })
+  ]
+}, {
+  input: ['src/client/client.js'],
+  output: [{
+    dir: './dist/browser',
+    format: 'es'
+  }],
+  plugins: [
+    modify({
+      WRTC_IMPORT: `globalThis.wrtc = {
+        RTCPeerConnection,
+        RTCSessionDescription,
+        RTCIceCandidate
+      }`
+    })
+  ]
 }]
