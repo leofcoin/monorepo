@@ -162,7 +162,7 @@ constructor(options = {}) {
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
       this.remoteProtocol = message.candidate.protocol
-      this.remoteIpFamily = this.remoteAddress.includes('::') ? 'ipv6': 'ipv4'
+      this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6': 'ipv4'
       return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
     }
     try {
