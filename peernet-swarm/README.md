@@ -28,3 +28,14 @@ import {Client} from '@leofcoin/peernet-swarm/dist/client.browser.js'
 new Client(id, identifiers)
 
 ```
+
+## examples
+
+```js
+const client = new Client(id, identifiers)
+// events exposed to pubsub
+pubsub.subscribe('peer:data' data => console.log(data))
+pubsub.subscribe('peer:joined', peer => console.log(peer))
+pubsub.subscribe('peer:left', peer => console.log(peer))
+pubsub.subscribe('peer:connected', peer => console.log(peer))
+```

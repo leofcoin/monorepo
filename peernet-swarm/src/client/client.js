@@ -6,6 +6,10 @@ export default class Client {
   #connections = {}
   #stars = {}
 
+  get connections() {
+    return { ...this.#connections }
+  }
+
   constructor(id, identifiers = ['peernet-v0.1.0'], stars = []) {
     this.id = id || Math.random().toString(36).slice(-12);
     if (!Array.isArray(identifiers)) identifiers = [identifiers]
@@ -49,7 +53,7 @@ export default class Client {
       console.log({id: peer.id})
       console.log({id: this.id})
     })
-    pubsub.subscribe('peer:data', (data) => console.log({data}))
+    // pubsub.subscribe('peer:data', (data) => console.log({data}))
   }
 
   setupListeners() {

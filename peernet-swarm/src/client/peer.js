@@ -85,10 +85,10 @@ constructor(options = {}) {
 
    async #init() {
      try {
-
        const iceServers = [{
         urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
        }]
+       
        this.#connection = new wrtc.RTCPeerConnection();
        this.#connection.onicecandidate = ({ candidate }) => {
 
