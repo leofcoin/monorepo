@@ -65,7 +65,7 @@ constructor(options = {}) {
    request(data) {
     return new Promise((resolve, reject) => {
       const id = Math.random().toString(36).slice(-12)
-      data = Buffer.from(JSON.stringify({id, data}))
+      data = new TextEncoder().encode(JSON.stringify({id, data}))
       const _onData = (message) => {
         if (message.id !== id) return
 
