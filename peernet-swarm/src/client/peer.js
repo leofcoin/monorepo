@@ -88,55 +88,55 @@ constructor(options = {}) {
        const iceServers = [{
         urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
        }]
-       
+
        this.#connection = new wrtc.RTCPeerConnection();
        this.#connection.onicecandidate = ({ candidate }) => {
-
-        if (candidate) {
-
-          this.address = candidate.address
-          this.port = candidate.port
-          this.protocol = candidate.protocol
-
-          this.ipFamily = this.address.includes('::') ? 'ipv6': 'ipv4'
-          this._sendMessage({candidate})
-        }
+         if (candidate) {
+           this.address = candidate.address
+           this.port = candidate.port
+           this.protocol = candidate.protocol
+           this.ipFamily = this.address.includes('::') ? 'ipv6': 'ipv4'
+           this._sendMessage({candidate})
+         }
        };
        // if (this.initiator) this.#connection.onnegotiationneeded = () => {
          // console.log('create offer');
-         this.#connection.ondatachannel = (message) => {
-           message.channel.onopen = () => {
-             pubsub.publish('peer:connected', this)
-           }
-           message.channel.onclose = () => console.log('close');
-           message.channel.onmessage = (message) => {
-             if (message.to) {
-               if (message.to === this.id) pubsub.publish('peer:data', message)
-             } else pubsub.publish('peer:data', message)
-             this.bw.down += message.length
-           }
-           this.channel = message.channel
+       this.#connection.ondatachannel = (message) => {
+         message.channel.onopen = () => {
+           this.#connected = true
+           pubsub.publish('peer:connected', this)
          }
-        if (this.initiator) {
+         message.channel.onclose = () => console.log('close');
+         message.channel.onmessage = (message) => {
+           if (message.to) {
+             if (message.to === this.id) pubsub.publish('peer:data', message)
+           } else pubsub.publish('peer:data', message)
+           this.bw.down += message.length
+         }
+         this.channel = message.channel
+       }
+      if (this.initiator) {
 
-          this.channel = this.#connection.createDataChannel('messageChannel')
-          this.channel.onopen = () => {
-            pubsub.publish('peer:connected', this)
-            // this.channel.send('hi')
-          }
-          this.channel.onclose = () => console.log('close');
-          this.channel.onmessage = (message) => {
-            if (message.to) {
-              if (message.to === this.id) pubsub.publish('peer:data', message)
-            } else pubsub.publish('peer:data', message)
-            this.bw.down += message.length
-          }
-
-         const offer = await this.#connection.createOffer()
-         await this.#connection.setLocalDescription(offer)
-
-         this._sendMessage({'sdp': this.#connection.localDescription})
+        this.channel = this.#connection.createDataChannel('messageChannel')
+        this.channel.onopen = () => {
+          this.#connected = true
+          pubsub.publish('peer:connected', this)
+          // this.channel.send('hi')
         }
+        this.channel.onclose = () => this.close.bind(this);
+
+        this.channel.onmessage = (message) => {
+          if (message.to) {
+            if (message.to === this.id) pubsub.publish('peer:data', message)
+          } else pubsub.publish('peer:data', message)
+          this.bw.down += message.length
+        }
+
+       const offer = await this.#connection.createOffer()
+       await this.#connection.setLocalDescription(offer)
+
+       this._sendMessage({'sdp': this.#connection.localDescription})
+      }
        // }
 
      } catch (e) {
