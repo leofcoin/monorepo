@@ -30,7 +30,7 @@ new Client(id, identifiers)
 ```
 
 ## examples
-
+events
 ```js
 const client = new Client(id, identifiers)
 // events exposed to pubsub
@@ -38,4 +38,13 @@ pubsub.subscribe('peer:data' data => console.log(data))
 pubsub.subscribe('peer:joined', peer => console.log(peer))
 pubsub.subscribe('peer:left', peer => console.log(peer))
 pubsub.subscribe('peer:connected', peer => console.log(peer))
+```
+
+properties
+```js
+const client = new Client(id, identifiers)
+client.id
+client.connection
+client.connections // object {id: connection}
+
 ```
