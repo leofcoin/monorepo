@@ -66,8 +66,8 @@ constructor(options = {}) {
     return new Promise((resolve, reject) => {
       const id = Math.random().toString(36).slice(-12)
       data = new TextEncoder().encode(JSON.stringify({id, data}))
-      const _onData = (message) => {
-        message = JSON.parse(new TextDecoder().decode(message))
+      const _onData = message => {
+        message = JSON.parse(new TextDecoder().decode(message.data))
         if (message.id === id) {
           resolve(message.data)
           pubsub.unsubscribe('peer:data', _onData)
