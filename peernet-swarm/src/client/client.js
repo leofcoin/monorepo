@@ -132,7 +132,7 @@ export default class Client {
       delete this.#connections[id]
     }
     // RTCPeerConnection
-    this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: this.id})
+    this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     console.log(`peer ${id} joined`);
   }
 
