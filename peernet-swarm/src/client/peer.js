@@ -65,6 +65,7 @@ constructor(options = {}) {
    request(data) {
     return new Promise((resolve, reject) => {
       const id = Math.random().toString(36).slice(-12)
+      // TODO: get rid of JSON
       data = new TextEncoder().encode(JSON.stringify({id, data}))
       const _onData = message => {
         message = JSON.parse(new TextDecoder().decode(message.data))
@@ -113,7 +114,7 @@ constructor(options = {}) {
            if (message.to) {
              if (message.to === this.id) pubsub.publish('peer:data', message)
            } else pubsub.publish('peer:data', message)
-           this.bw.down += message.length
+           this.bw.down += message.length || message.byteLength
          }
          this.channel = message.channel
        }
@@ -131,7 +132,7 @@ constructor(options = {}) {
           if (message.to) {
             if (message.to === this.id) pubsub.publish('peer:data', message)
           } else pubsub.publish('peer:data', message)
-          this.bw.down += message.length
+          this.bw.down += message.length || message.byteLength
         }
 
        const offer = await this.#connection.createOffer()
