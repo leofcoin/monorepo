@@ -15,6 +15,7 @@ export default class Peer {
   #senderMap = new Map()
   #iceCompleteTimer
   #channel
+  #peerId
 
   get connection() {
     return this.#connection
@@ -41,10 +42,15 @@ constructor(options = {}) {
       down: 0
     }
 
-    this.channelName = options.channelName || Buffer.from(Math.random().toString(36).slice(-12)).toString('hex')
-    console.log(this.channelName);
+    this.channelName = options.channelName
+
+    this.#peerId = options.peerId
     this.options = options
     this.#init()
+   }
+
+   get peerId() {
+     return this.#peerId
    }
 
    set socketClient(value) {
