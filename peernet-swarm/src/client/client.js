@@ -43,7 +43,7 @@ export default class Client {
     }
     const peers = await this.socketClient.peernet.join({id: this.id})
     for (const id of peers) {
-      if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id})
+      if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     }
     this.setupListeners()
 
@@ -102,7 +102,7 @@ export default class Client {
                 delete this.#connections[id]
               }
               // reconnect
-              if (id !== this.id) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id})
+              if (id !== this.id) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
             }
 
           }
@@ -132,7 +132,7 @@ export default class Client {
       delete this.#connections[id]
     }
     // RTCPeerConnection
-    this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id})
+    this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: this.id})
     console.log(`peer ${id} joined`);
   }
 

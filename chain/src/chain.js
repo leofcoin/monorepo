@@ -8,19 +8,21 @@ globalThis.BigNumber = BigNumber
 const { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } = lib
 // check if browser or local
 export default class Chain {
-  #contractFactory = lib.contractFactory
-  #nativeToken = lib.nativeToken
-  #nameService = lib.nameService
-  #validators = lib.validators
+  #validators = []
   #blocks = []
   #machine
+  #lastBlock = {index: 0, previousHash: '0x0'}
 
   constructor() {
     return this.#init()
   }
 
+  get lastBlock() {
+    return this.#lastBlock
+  }
+
   get nativeToken() {
-    return this.#nativeToken
+    return lib.nativeToken
   }
 
   get validators() {
@@ -94,7 +96,7 @@ export default class Chain {
     try {
       let localBlock = await chainStore.get('lastBlock')
       localBlock = await peernet.get(new TextDecoder().decode(new Uint8Array(localBlock.buffer, localBlock.buffer.byteOffset, localBlock.buffer.byteLength)))
-      this.lastBlock = new BlockMessage(new Uint8Array(localBlock.buffer, localBlock.buffer.byteOffset, localBlock.buffer.byteLength))
+      this.#lastBlock = new BlockMessage(new Uint8Array(localBlock.buffer, localBlock.buffer.byteOffset, localBlock.buffer.byteLength))
       console.log(this.lastBlock.decoded.transactions);
     } catch (e) {
       await this.#sync()
@@ -153,8 +155,8 @@ console.log(peer.id);
         console.log({lastBlock});
         if (this.lastBlock?.index < lastBlock.index) {
              // TODO: check if valid
-             await this.resolveBlock(block.hash)
-             this.lastBlock = this.#blocks[this.#blocks.length - 1]
+             await this.resolveBlock(lastBlock.hash)
+             this.#lastBlock = this.#blocks[this.#blocks.length - 1]
              const blocksSynced = this.lastBlock.index - index
              info(`synced ${blocksSynced} ${blocksSynced < 1 ? 'blocks' : 'block'}`)
 
@@ -189,7 +191,7 @@ console.log(peer.id);
     try {
       const localBlock = await chainStore.get('lastBlock')
       await this.resolveBlock(new TextDecoder().decode(localBlock))
-      this.lastBlock = this.#blocks[this.#blocks.length - 1]
+      this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       await this.#loadBlocks(this.#blocks)
     } catch (e) {
 // console.log(e);
@@ -242,7 +244,7 @@ console.log(peer.id);
         pubsub.publish(`transaction.completed.${transaction.hash}`, {status: 'fail', hash: transaction.hash, error: e})
       }
     }
-    this.lastBlock = {hash: blockMessage.hash, ...blockMessage.decoded}
+    this.#lastBlock = {hash: blockMessage.hash, ...blockMessage.decoded}
     await blockStore.put(blockMessage.hash, blockMessage.encoded)
     await chainStore.put('lastBlock', new TextEncoder().encode(blockMessage.hash))
     info(`added block: ${blockMessage.hash}`)
@@ -255,21 +257,21 @@ console.log(peer.id);
     // introduce peer-reputation
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
-    if (!await this.staticCall(this.#validators, 'has'))
-    await this.createTransactionFrom(peernet.id, this.#validators, 'addValidator', [peernet.id])
+    if (!await this.staticCall(lib.validators, 'has'))
+    await this.createTransactionFrom(peernet.id, lib.validators, 'addValidator', [peernet.id])
     this.#runEpoch()
   }
 
   calculateFee(transaction) {
     // excluded from fees
-    if (transaction.decoded.to === this.#validators) return 0
+    if (transaction.decoded.to === lib.validators) return 0
     // fee per gb
     return (transaction.encoded.length / 1024) / 1e-6
   }
 
   async #createBlock() {
     let transactions = await transactionPoolStore.get()
-    
+
     if (Object.keys(transactions)?.length === 0 ) return
     let block = {
       transactions: [],
@@ -289,7 +291,7 @@ console.log(peer.id);
         throw Error(`invalid message ${key}`)
       }
     }
-    const validators = await this.staticCall(this.#validators, 'validators')
+    const validators = await this.staticCall(lib.validators, 'validators')
     // block.validators = Object.keys(block.validators).reduce((set, key) => {
     //   if (block.validators[key].active) {
     //     push({
@@ -310,7 +312,7 @@ console.log(peer.id);
                 const bw = await peer.request(node.encoded)
                 console.log(bw);
                 block.validators.push({
-                  address,
+                  address: id,
                   bw: bw.up + bw.down
                 })
               } catch(e) {
@@ -361,7 +363,7 @@ console.log(peer.id);
 
     try {
       let blockMessage = new BlockMessage(block)
-      this.lastBlock = {...block, hash: blockMessage.hash}
+      this.#lastBlock = {...block, hash: blockMessage.hash}
       peernet.publish('add-block', blockMessage.encoded.toString('hex'))
       this.#addBlock(blockMessage.encoded)
     } catch (e) {
@@ -457,7 +459,7 @@ console.log(peer.id);
     const hash = await this.createContractAddress(creator, contract, params)
 
     try {
-      const tx = await this.createTransactionFrom(peernet.id, this.#contractFactory, 'deployContract', [hash, creator, contract, constructorParameters])
+      const tx = await this.createTransactionFrom(peernet.id, lib.contractFactory, 'deployContract', [hash, creator, contract, constructorParameters])
     } catch (e) {
       throw e
     }
@@ -504,15 +506,15 @@ console.log(peer.id);
   }
 
   mint(to, amount) {
-    return this.call(this.#nativeToken, 'mint', [to, amount])
+    return this.call(lib.nativeToken, 'mint', [to, amount])
   }
 
   transfer(from, to, amount) {
-    return this.call(this.#nativeToken, 'transfer', [from, to, amount])
+    return this.call(lib.nativeToken, 'transfer', [from, to, amount])
   }
 
   get balances() {
-    return this.staticCall(this.#nativeToken, 'balances')
+    return this.staticCall(lib.nativeToken, 'balances')
   }
 
   deleteAll() {
@@ -520,6 +522,6 @@ console.log(peer.id);
   }
 
   lookup(name) {
-    return this.call(this.#nameService, 'lookup', [name])
+    return this.call(lib.nameService, 'lookup', [name])
   }
 }

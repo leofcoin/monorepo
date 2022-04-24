@@ -88,6 +88,8 @@ console.log(e);
   }
 
   get(contract, method, params) {
+    console.log(this.#contracts);
+    console.log(contract, method, params);
     let result
     if (params?.length > 0) {
       result = this.#contracts[contract][method](params)
