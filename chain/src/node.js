@@ -9,17 +9,12 @@ export default class Node {
   }
 
   async _init(config = {
-    network: 'leofcoin:olivia',
+    network: 'leofcoin',
     root: '.artonline',
     networkName: 'leofcoin:olivia',
     networkVersion: 'v0.1.0'
   }) {
-    await new Peernet(config)
-
-    await peernet.addRequestHandler('bw-request-message', () => {
-
-      return new BWMessage(peernet.client.bw) || { up: 0, down: 0 }
-    })
+    globalThis.Peernet?.default ? await new globalThis.Peernet.default(config) : await new Peernet(config)
 
     await peernet.addProto('contract-message', ContractMessage)
     await peernet.addProto('transaction-message', TransactionMessage)
@@ -28,26 +23,26 @@ export default class Node {
     await peernet.addProto('bw-request-message', BWRequestMessage)
 
     await peernet.addCodec('contract-message', {
-      codec: '636d',
+      codec: parseInt('636d', 16),
       hashAlg: 'keccak-256'
     })
     await peernet.addCodec('transaction-message', {
-      codec: '746d',
+      codec: parseInt('746d', 16),
       hashAlg: 'keccak-256'
     })
 
     await peernet.addCodec('block-message', {
-      codec: '626d',
+      codec: parseInt('626d', 16),
       hashAlg: 'keccak-256'
     })
 
     await peernet.addCodec('bw-message', {
-      codec: '62776d',
+      codec: parseInt('62776d', 16),
       hashAlg: 'keccak-256'
     })
 
     await peernet.addCodec('bw-request-message', {
-      codec: '6277726d',
+      codec: parseInt('6277726d', 16),
       hashAlg: 'keccak-256'
     })
 

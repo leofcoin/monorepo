@@ -4,11 +4,10 @@ import CodecFormat from './../../node_modules/@leofcoin/peernet/src/codec/codec-
 
 export default class ContractMessage extends CodecFormat {
   get keys() {
-    return ['creator', 'constructorParameters', 'contract']
+    return ['creator', 'contract', 'constructorParameters']
   }
 
   constructor(buffer) {
-    const name = 'contract-message'
-    super(buffer, protons(proto).ContractMessage, {name})
+    super(buffer, protons(proto).ContractMessage, {name: 'contract-message'})
   }
 }

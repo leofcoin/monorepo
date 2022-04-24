@@ -19,6 +19,7 @@ export default class Machine {
   }
 
   async #init() {
+    // return
     try {
       let contracts = [
         contractStore.get(lib.contractFactory),
@@ -29,7 +30,7 @@ export default class Machine {
 
       contracts = await Promise.all(contracts)
       for (const contract of contracts) {
-        const message = new ContractMessage(contract)
+        const message = new ContractMessage(new Uint8Array(contract.buffer, contract.buffer.byteOffset, contract.buffer.byteLength))
         await this.#runContract(message)
       }
     } catch (e) {
@@ -55,7 +56,7 @@ console.log(e);
     const params = contractMessage.decoded.constructorParameters
     try {
 
-      const func = new Function(contractMessage.decoded.contract.toString())
+      const func = new Function(new TextDecoder().decode(contractMessage.decoded.contract))
       const Contract = func()
 
       globalThis.msg = this.#createMessage(contractMessage.decoded.creator)

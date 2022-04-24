@@ -39,11 +39,11 @@ export default class Chain {
   }
 
   async #setup() {
-    await contractStore.put(lib.contractFactory, Buffer.from(lib.contractFactoryMessage, 'hex'))
-    await contractStore.put(lib.nativeToken, Buffer.from(lib.nativeTokenMessage, 'hex'))
-    await contractStore.put(lib.validators, Buffer.from(lib.validatorsMessage, 'hex'))
-    await contractStore.put(lib.nameService, Buffer.from(lib.nameServiceMessage, 'hex'))
-    // console.log('handle native contracts');
+    await contractStore.put(lib.contractFactory, lib.contractFactoryMessage)
+    await contractStore.put(lib.nativeToken, lib.nativeTokenMessage)
+    await contractStore.put(lib.validators, lib.validatorsMessage)
+    await contractStore.put(lib.nameService, lib.nameServiceMessage)
+    console.log('handle native contracts');
     // handle native contracts
   }
 
@@ -88,12 +88,14 @@ export default class Chain {
     })
 
     await peernet.addRequestHandler('lastBlock', () => {
-      return new peernet.protos['peernet-response']({response: JSON.stringify({ hash: this.lastBlock?.hash, index: this.lastBlock?.index })})
+      return new peernet.protos['peernet-response']({response: new TextEncoder().encode(JSON.stringify({ hash: this.lastBlock?.hash, index: this.lastBlock?.index }))})
     })
 
     try {
-      const localBlock = await chainStore.get('lastBlock')
-      this.lastBlock = new BlockMessage(localBlock.toString()).decoded
+      let localBlock = await chainStore.get('lastBlock')
+      localBlock = await peernet.get(new TextDecoder().decode(new Uint8Array(localBlock.buffer, localBlock.buffer.byteOffset, localBlock.buffer.byteLength)))
+      this.lastBlock = new BlockMessage(new Uint8Array(localBlock.buffer, localBlock.buffer.byteOffset, localBlock.buffer.byteLength))
+      console.log(this.lastBlock.decoded.transactions);
     } catch (e) {
       await this.#sync()
       // this.#setup()
@@ -102,7 +104,7 @@ export default class Chain {
     peernet.subscribe('add-block', this.#addBlock)
 
     peernet.subscribe('add-transaction', async transaction => {
-      if (!Buffer.isBuffer(transaction)) transaction = Buffer.from(transaction, 'hex')
+      console.log({transaction});
       try {
         transaction = new TransactionMessage(transaction)
         await transactionPoolStore.put(transaction.hash, transaction.encoded)
@@ -135,12 +137,19 @@ export default class Chain {
         // })
       pubsub.subscribe('peer:connected', async (peer) => {
         let node = new peernet.protos['peernet-request']({request: 'lastBlock'})
-
-        node = await peernet.prepareMessage(peernet._getPeerId(peer.id), node.encoded)
+console.log(node);
+console.log(peer.id);
+        node = await peernet.prepareMessage(peer.id, node.encoded)
+        console.log(node);
         let response = await peer.request(node.encoded)
-        const proto = new globalThis.peernet.protos['peernet-message'](Buffer.from(response.data))
-        response = new globalThis.peernet.protos['peernet-response'](Buffer.from(proto.decoded.data))
-        let lastBlock = JSON.parse(response.decoded.response)
+        response = new Uint8Array(Object.values(response))
+        console.log(new TextDecoder().decode(response));
+        const proto = new globalThis.peernet.protos['peernet-message'](response)
+        console.log('pd');
+        console.log(new TextDecoder().decode(proto.decoded.data));
+        response = new globalThis.peernet.protos['peernet-response'](proto.decoded.data)
+        console.log({response});
+        let lastBlock = JSON.parse(new TextDecoder().decode(response.decoded.response))
         console.log({lastBlock});
         if (this.lastBlock?.index < lastBlock.index) {
              // TODO: check if valid
@@ -154,7 +163,7 @@ export default class Chain {
 
              await this.#loadBlocks(this.#blocks.slice(start, end))
              await blockStore.put(this.lastBlock.hash, this.lastBlock.encoded)
-             await chainStore.put('lastBlock', this.lastBlock.hash)
+             await chainStore.put('lastBlock', new TextEncoder().encode(this.lastBlock.hash))
            }
       })
 
@@ -166,9 +175,8 @@ export default class Chain {
   }
 
   async resolveBlock(hash) {
-    console.log(hash);
     let block = await peernet.get(hash, 'block')
-    block = new BlockMessage(block)
+    block = new BlockMessage(new Uint8Array(block.buffer, block.buffer.byteOffset, block.buffer.byteLength))
     block = {...block.decoded, hash}
     this.#blocks[block.index] = block
     console.log(`loaded block: ${hash} @${block.index}`);
@@ -179,9 +187,8 @@ export default class Chain {
 
   async resolveBlocks() {
     try {
-
       const localBlock = await chainStore.get('lastBlock')
-      await this.resolveBlock(localBlock.toString())
+      await this.resolveBlock(new TextDecoder().decode(localBlock))
       this.lastBlock = this.#blocks[this.#blocks.length - 1]
       await this.#loadBlocks(this.#blocks)
     } catch (e) {
@@ -206,10 +213,9 @@ export default class Chain {
   }
 
   async #addBlock(block) {
-    if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
-
     const blockMessage = new BlockMessage(block)
-    for (let transaction of blockMessage.decoded.transactions) {
+    // if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
+    const transactionJob = async transaction => {
       try {
         transaction = await transactionPoolStore.get(transaction)
       } catch (e) {
@@ -219,7 +225,14 @@ export default class Chain {
           console.warn(`couldn't resolve ${transaction}`);
         }
       }
-      transaction = new TransactionMessage(transaction)
+      transaction = new TransactionMessage(new Uint8Array(transaction.buffer, transaction.buffer.byteOffset, transaction.buffer.byteLength))
+      return transaction
+    }
+
+
+    let transactions = blockMessage.decoded.transactions.map(tx => transactionJob(tx))
+    transactions = await Promise.all(transactions)
+    for (let transaction of transactions) {
       await transactionStore.put(transaction.hash, transaction.encoded)
       await transactionPoolStore.delete(transaction.hash)
       try {
@@ -231,7 +244,7 @@ export default class Chain {
     }
     this.lastBlock = {hash: blockMessage.hash, ...blockMessage.decoded}
     await blockStore.put(blockMessage.hash, blockMessage.encoded)
-    await chainStore.put('lastBlock', blockMessage.hash)
+    await chainStore.put('lastBlock', new TextEncoder().encode(blockMessage.hash))
     info(`added block: ${blockMessage.hash}`)
   }
 
@@ -256,13 +269,17 @@ export default class Chain {
 
   async #createBlock() {
     let transactions = await transactionPoolStore.get()
+    
     if (Object.keys(transactions)?.length === 0 ) return
     let block = {
       transactions: [],
       validators: [],
       fees: 0
     }
-    transactions = Object.keys(transactions).map(transaction => new TransactionMessage(transactions[transaction]))
+    transactions = Object.keys(transactions).map(transaction => {
+      const buffer = transactions[transaction]
+      return new TransactionMessage(new Uint8Array(buffer, buffer.byteOffset, buffer.byteLength))
+    })
     transactions = transactions.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
     for (const transaction of transactions) {
       try {
@@ -403,7 +420,7 @@ export default class Chain {
     let message = new TransactionMessage({timestamp: new Date().getTime(), from, to, nonce, method, params})
     try {
       await transactionPoolStore.put(message.hash, message.encoded)
-      peernet.publish('add-transaction', message.encoded.toString('hex'))
+      peernet.publish('add-transaction', message.encoded)
     } catch (e) {
       throw e
     }
