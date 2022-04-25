@@ -78,11 +78,11 @@ constructor(options = {}) {
         if (message.id === id) resolve(message.data)
       }
 
-      pubsub.subscribe('peer:data', _onData)
+      pubsub.subscribe(`peer:data-request-${id}`, _onData)
 
       // cleanup subscriptions
       setTimeout(() => {
-        pubsub.unsubscribe('peer:data', _onData)
+        pubsub.unsubscribe(`peer:data-request-${id}`, _onData)
       }, 5000);
 
       this.send(data)
