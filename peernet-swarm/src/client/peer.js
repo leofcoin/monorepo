@@ -64,7 +64,7 @@ constructor(options = {}) {
    }
 
    send(message) {
-     this.bw.up += message.length
+     this.bw.up += message.length || message.byteLength
      this.channel.send(message)
    }
 
@@ -75,10 +75,7 @@ constructor(options = {}) {
       data = new TextEncoder().encode(JSON.stringify({id, data}))
       const _onData = message => {
         message = JSON.parse(new TextDecoder().decode(message.data))
-        if (message.id === id) {
-          resolve(message.data)
-          pubsub.unsubscribe('peer:data', _onData)
-        }
+        if (message.id === id) resolve(message.data)
       }
 
       pubsub.subscribe('peer:data', _onData)
@@ -117,9 +114,7 @@ constructor(options = {}) {
          }
          message.channel.onclose = () => console.log('close');
          message.channel.onmessage = (message) => {
-           if (message.to) {
-             if (message.to === this.id) pubsub.publish('peer:data', message)
-           } else pubsub.publish('peer:data', message)
+           pubsub.publish('peer:data', message)
            this.bw.down += message.length || message.byteLength
          }
          this.channel = message.channel
@@ -135,9 +130,7 @@ constructor(options = {}) {
         this.channel.onclose = () => this.close.bind(this);
 
         this.channel.onmessage = (message) => {
-          if (message.to) {
-            if (message.to === this.id) pubsub.publish('peer:data', message)
-          } else pubsub.publish('peer:data', message)
+          pubsub.publish('peer:data', message)
           this.bw.down += message.length || message.byteLength
         }
 

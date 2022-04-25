@@ -24,7 +24,6 @@ export default class Client {
   async _init(identifiers, stars = []) {
     if (stars.length === 0) {
       stars.push('wss://star.leofcoin.org')
-      stars.push('ws://localhost:44444')
     }
     this.identifiers = identifiers
     this.starsConfig = stars
@@ -46,14 +45,6 @@ export default class Client {
       if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     }
     this.setupListeners()
-
-    pubsub.subscribe('peer:connected', (peer) => {
-      // peer.send(JSON.stringify({data: 'hello', from: this.id, to: peer.to}))
-      console.log({peer: peer.to})
-      console.log({id: peer.id})
-      console.log({id: this.id})
-    })
-    // pubsub.subscribe('peer:data', (data) => console.log({data}))
   }
 
   setupListeners() {
@@ -112,10 +103,7 @@ export default class Client {
         }
       }
     }
-
     console.log(`star ${id} left`);
-
-
   }
 
   peerLeft(id) {
