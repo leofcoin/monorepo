@@ -1,3 +1,5 @@
+import '@vandeurenglenn/debug'
+
 export default class Peer {
   #connection
   #ready = false
@@ -115,6 +117,8 @@ constructor(options = {}) {
          message.channel.onclose = () => console.log('close');
          message.channel.onmessage = (message) => {
            pubsub.publish('peer:data', message)
+           debug(`incoming message from ${this.id}`)
+           debug(message)
            this.bw.down += message.length || message.byteLength
          }
          this.channel = message.channel
@@ -131,6 +135,8 @@ constructor(options = {}) {
 
         this.channel.onmessage = (message) => {
           pubsub.publish('peer:data', message)
+          debug(`incoming message from ${this.peerId}`)
+          debug(message)
           this.bw.down += message.length || message.byteLength
         }
 
@@ -161,6 +167,8 @@ constructor(options = {}) {
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
     if (message.candidate) {
+      debug(`incoming candidate ${this.channelName}`)
+      debug(message.candidate.candidate)
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
       this.remoteProtocol = message.candidate.protocol
@@ -170,12 +178,14 @@ constructor(options = {}) {
     try {
       if (message.sdp) {
         if (message.sdp.type === 'offer') {
+          debug(`incoming offer ${this.channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
           const answer = await this.#connection.createAnswer();
           await this.#connection.setLocalDescription(answer)
           this._sendMessage({'sdp': this.#connection.localDescription})
         }
         if (message.sdp.type === 'answer') {
+          debug(`incoming answer ${this.channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
         }
      }

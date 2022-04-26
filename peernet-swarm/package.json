@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/peernet-swarm",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "main": "dist/commonjs/client.js",
   "module": "dist/es/client.js",
   "browser": "dist/browser/client.js",
@@ -15,6 +15,7 @@
   "repository": "https://github.com/vandeurenglenn/peernet-swarm",
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "devDependencies": {
+    "@vandeurenglenn/debug": "^1.0.0",
     "browserify": "^17.0.0",
     "rollup": "^2.70.2",
     "rollup-plugin-modify": "^3.0.0"
