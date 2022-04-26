@@ -1,7 +1,5 @@
-const Client = require('./../dist/client');
-const Server = require('./../dist/server');
+const Client = require('./../dist/commonjs/client');
+const Server = require('./../dist/commonjs/server');
 
-
-const server = new Server()
-
-const client = new Client()
+globalThis.DEBUG = true
+const server = new Server().then(() => new Client())

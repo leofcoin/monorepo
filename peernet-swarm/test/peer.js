@@ -1,3 +1,3 @@
-const Client = require('./../dist/client');
-
+const Client = require('./../dist/commonjs/client');
+globalThis.DEBUG = true
 const client = new Client()
