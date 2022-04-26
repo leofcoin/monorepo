@@ -1,5 +1,6 @@
 import SocketClient from './../../node_modules/socket-request-client/dist/es/index'
 import Peer from './peer'
+import '@vandeurenglenn/debug'
 
 export default class Client {
   #peerConnection
@@ -103,7 +104,7 @@ export default class Client {
         }
       }
     }
-    console.log(`star ${id} left`);
+    debug(`star ${id} left`);
   }
 
   peerLeft(id) {
@@ -111,7 +112,7 @@ export default class Client {
       this.#connections[id].close()
       delete this.#connections[id]
     }
-    console.log(`peer ${id} left`);
+    debug(`peer ${id} left`)
   }
 
   peerJoined(id, signal) {
@@ -121,7 +122,7 @@ export default class Client {
     }
     // RTCPeerConnection
     this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
-    console.log(`peer ${id} joined`);
+    debug(`peer ${id} joined`)
   }
 
 

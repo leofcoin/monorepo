@@ -114,7 +114,8 @@ constructor(options = {}) {
            this.#connected = true
            pubsub.publish('peer:connected', this)
          }
-         message.channel.onclose = () => console.log('close');
+         message.channel.onclose = () => this.close.bind(this)
+         
          message.channel.onmessage = (message) => {
            pubsub.publish('peer:data', message)
            debug(`incoming message from ${this.id}`)
@@ -131,7 +132,7 @@ constructor(options = {}) {
           pubsub.publish('peer:connected', this)
           // this.channel.send('hi')
         }
-        this.channel.onclose = () => this.close.bind(this);
+        this.channel.onclose = () => this.close.bind(this)
 
         this.channel.onmessage = (message) => {
           pubsub.publish('peer:data', message)
@@ -195,6 +196,7 @@ constructor(options = {}) {
  }
 
  close() {
+   debug(`closing ${this.peerId}`)
    this.channel?.close()
    this.#connection?.close()
 
