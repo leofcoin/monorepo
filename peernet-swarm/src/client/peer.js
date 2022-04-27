@@ -77,15 +77,18 @@ constructor(options = {}) {
       data = new TextEncoder().encode(JSON.stringify({id, data}))
       const _onData = message => {
         message = JSON.parse(new TextDecoder().decode(message.data))
-        if (message.id === id) resolve(message.data)
+        if (message.id === id) {
+          resolve(message.data)
+          pubsub.unsubscribe(`peer:data`, _onData)
+        }
       }
 
-      pubsub.subscribe(`peer:data-request-${id}`, _onData)
+      pubsub.subscribe(`peer:data`, _onData)
 
       // cleanup subscriptions
-      setTimeout(() => {
-        pubsub.unsubscribe(`peer:data-request-${id}`, _onData)
-      }, 5000);
+      // setTimeout(() => {
+      //   pubsub.unsubscribe(`peer:data-request-${id}`, _onData)
+      // }, 5000);
 
       this.send(data)
     });
@@ -115,7 +118,7 @@ constructor(options = {}) {
            pubsub.publish('peer:connected', this)
          }
          message.channel.onclose = () => this.close.bind(this)
-         
+
          message.channel.onmessage = (message) => {
            pubsub.publish('peer:data', message)
            debug(`incoming message from ${this.id}`)
