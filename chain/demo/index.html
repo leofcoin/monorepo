@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <body>
+    <script src="./../dist/node.browser.js"></script>
+    <script src="./../dist/chain.browser.js"></script>
+
+    <script>
+      new LeofcoinNode.default().then(() => new LeofcoinChain.default().then(chain => globalThis.chain = chain))
+
+    </script>
+  </body>
+</html>
