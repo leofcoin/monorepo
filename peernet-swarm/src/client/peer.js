@@ -27,6 +27,10 @@ export default class Peer {
     return this.#connected
   }
 
+  get readyState() {
+    return this.channel?.readyState
+  }
+
 /**
  * @params {Object} options
  * @params {string} options.channelName - this peerid : otherpeer id
