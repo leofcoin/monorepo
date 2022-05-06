@@ -66,8 +66,19 @@ constructor(options = {}) {
    }
 
    send(message) {
-     this.bw.up += message.length || message.byteLength
-     this.channel.send(message)
+     switch (this.channel?.readyState) {
+       case 'open':
+        this.bw.up += message.length || message.byteLength
+        this.channel.send(message)
+       break;
+       case 'closed':
+       case 'closing':
+        debug('channel already closed, this usually means a bad implementation, try checking the readyState or check if the peer is connected before sending')
+       break;
+       case undefined:
+       debug(`trying to send before a channel is created`)
+       break;
+     }
    }
 
    request(data) {
@@ -140,7 +151,6 @@ constructor(options = {}) {
         this.channel.onmessage = (message) => {
           pubsub.publish('peer:data', message)
           debug(`incoming message from ${this.peerId}`)
-          debug(message)
           this.bw.down += message.length || message.byteLength
         }
 
@@ -200,6 +210,7 @@ constructor(options = {}) {
 
  close() {
    debug(`closing ${this.peerId}`)
+   this.#connected = false
    this.channel?.close()
    this.#connection?.close()
 
