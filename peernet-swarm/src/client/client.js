@@ -11,6 +11,10 @@ export default class Client {
     return { ...this.#connections }
   }
 
+  get peers() {
+    return Object.entries(this.#connections)
+  }
+
   constructor(id, identifiers = ['peernet-v0.1.0'], stars = []) {
     this.id = id || Math.random().toString(36).slice(-12);
     if (!Array.isArray(identifiers)) identifiers = [identifiers]
@@ -123,6 +127,15 @@ export default class Client {
     // RTCPeerConnection
     this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     debug(`peer ${id} joined`)
+  }
+
+  removePeer(peer) {
+    const id = peer.peerId || peer
+    if (this.#connections[id]) {
+      this.#connections[id].connected && this.#connections[id].close()
+      delete this.#connections[id]
+    }
+    debug(`peer ${id} removed`)
   }
 
 
