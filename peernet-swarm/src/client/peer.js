@@ -90,7 +90,7 @@ export default class Peer {
    }
 
    async send(message, id) {
-     const { chunks, size } = await this.splitMessage(data)
+     const { chunks, size } = await this.splitMessage(message)
      let offset = 0
      for (const chunk of chunks) {
         const start = offset

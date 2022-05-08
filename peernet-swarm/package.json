@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/peernet-swarm",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "main": "dist/commonjs/client.js",
   "module": "dist/es/client.js",
   "browser": "dist/browser/client.js",
