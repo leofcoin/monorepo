@@ -137,8 +137,7 @@ export default class Peer {
 
          message.channel.onmessage = (message) => {
            pubsub.publish('peer:data', message)
-           debug(`incoming message from ${this.id}`)
-           debug(message)
+           debug(`incoming message from ${this.peerId}`)
            this.bw.down += message.length || message.byteLength
          }
          this.channel = message.channel
@@ -163,15 +162,6 @@ export default class Peer {
        await this.#connection.setLocalDescription(offer)
 
        this._sendMessage({'sdp': this.#connection.localDescription})
-
-       this.#connection.onnegotiationneeded = async () => {
-         const offer = await this.#connection.createOffer()
-         await this.#connection.setLocalDescription(offer)
-
-         this._sendMessage({'sdp': this.#connection.localDescription})
-       }
-      }
-       // }
 
      } catch (e) {
        console.log(e);

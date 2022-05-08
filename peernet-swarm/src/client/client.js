@@ -111,7 +111,8 @@ export default class Client {
     debug(`star ${id} left`);
   }
 
-  peerLeft(id) {
+  peerLeft(peer) {
+    const id = peer.peerId || peer
     if (this.#connections[id]) {
       this.#connections[id].close()
       delete this.#connections[id]
@@ -119,7 +120,8 @@ export default class Client {
     debug(`peer ${id} left`)
   }
 
-  peerJoined(id, signal) {
+  peerJoined(peer, signal) {
+    const id = peer.peerId || peer
     if (this.#connections[id]) {
       if (this.#connections[id].connected) this.#connections[id].close()
       delete this.#connections[id]
