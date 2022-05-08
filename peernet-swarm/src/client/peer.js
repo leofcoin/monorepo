@@ -35,7 +35,7 @@ export default class Peer {
  * @params {Object} options
  * @params {string} options.channelName - this peerid : otherpeer id
  */
-constructor(options = {}) {
+ constructor(options = {}) {
     this._in = this._in.bind(this);
     this.offerOptions = options.offerOptions
     this.initiator = options.initiator
@@ -116,6 +116,7 @@ constructor(options = {}) {
        }]
 
        this.#connection = new wrtc.RTCPeerConnection();
+
        this.#connection.onicecandidate = ({ candidate }) => {
          if (candidate) {
            this.address = candidate.address
@@ -162,6 +163,13 @@ constructor(options = {}) {
        await this.#connection.setLocalDescription(offer)
 
        this._sendMessage({'sdp': this.#connection.localDescription})
+
+       this.#connection.onnegotiationneeded = async () => {
+         const offer = await this.#connection.createOffer()
+         await this.#connection.setLocalDescription(offer)
+
+         this._sendMessage({'sdp': this.#connection.localDescription})
+       }
       }
        // }
 

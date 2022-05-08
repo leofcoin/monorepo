@@ -7,7 +7,6 @@ module.exports = [
     optimization: {
       minimize: false
     },
-
     experiments: {
       outputModule: true
     },
