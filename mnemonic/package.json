@@ -1,0 +1,18 @@
+{
+  "name": "@leofcoin/mnemonic",
+  "version": "1.0.0",
+  "description": "bip39 mnemonic",
+  "main": "dist/mnemonic.js",
+  "module": "dist/mnemonic.es.js",
+  "scripts": {
+    "c": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^2.72.0",
+    "tape": "^5.5.3"
+  }
+}
