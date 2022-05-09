@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "base64-img": "^1.0.4",
+    "base64-img": "^1.0.1",
     "globby": "^13.1.1"
   }
 }
