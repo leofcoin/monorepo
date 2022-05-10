@@ -22,7 +22,7 @@
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@chainlink/contracts": "^0.3.1",
+    "@chainlink/contracts": "^0.4.0",
     "@openzeppelin/contracts-upgradeable": "^4.5.1",
     "@vandeurenglenn/custom-select": "^0.1.3",
     "@vandeurenglenn/little-pubsub": "^1.3.1",
