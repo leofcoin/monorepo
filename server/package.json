@@ -15,7 +15,7 @@
     "@koa/router": "^10.1.1",
     "ethers": "^5.5.3",
     "koa": "^2.13.4",
-    "multiformats": "^9.5.8"
+    "multiformats": "^9.6.4"
   },
   "devDependencies": {
     "@rollup/plugin-json": "^4.1.0",
