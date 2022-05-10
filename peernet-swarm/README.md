@@ -38,6 +38,8 @@ pubsub.subscribe('peer:data' data => console.log(data))
 pubsub.subscribe('peer:joined', peer => console.log(peer))
 pubsub.subscribe('peer:left', peer => console.log(peer))
 pubsub.subscribe('peer:connected', peer => console.log(peer))
+peernet.subscribe('peernet-shard', async message => console.log(message) // {id, data, size}
+// const finished = await _handleMessage()
 ```
 
 properties
