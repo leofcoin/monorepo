@@ -79,7 +79,7 @@ export default class Peer {
      return new Promise((resolve, reject) => {
        const splitMessage = () => {
          const chunk = message.slice(offset, offset + this.#chunkSize > size ? size : offset + this.#chunkSize)
-         offset += offset + this.#chunkSize
+         offset += this.#chunkSize
          chunks.push(chunk)
          if (offset < size) return splitMessage()
          else resolve({chunks, size})
@@ -208,7 +208,6 @@ export default class Peer {
        delete messageQue[message.id]
      }
      this.bw.down += message.byteLength || message.length
-
    }
 
    _sendMessage(message) {
