@@ -1,10 +1,7 @@
 import '@vandeurenglenn/debug'
 
-const messageQue = {}
-
 export default class Peer {
   #connection
-  #ready = false
   #connecting = false
   #connected = false
   #channelReady = false
@@ -17,10 +14,14 @@ export default class Peer {
   #remoteStreams = []
   #pendingCandidates = []
   #senderMap = new Map()
+  #messageQue = []
+  #chunksQue = {}
   #iceCompleteTimer
   #channel
   #peerId
-  #chunkSize = 16384
+  #chunkSize = 16 * 1024 // 16384
+  #queRunning = false
+  #MAX_BUFFERED_AMOUNT = 16 * 1024 * 1024
 
   get connection() {
     return this.#connection
@@ -89,27 +90,53 @@ export default class Peer {
      })
    }
 
+   async #runQue() {
+     this.#queRunning = true
+     if (this.#messageQue.length > 0 && this.channel.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
+       const message = this.#messageQue.shift()
+
+       switch (this.channel?.readyState) {
+         case 'open':
+          await this.channel.send(message);
+          if (this.#messageQue.length > 0) return this.#runQue()
+          else this.#queRunning = false
+         break;
+         case 'closed':
+         case 'closing':
+          this.#messageQue = []
+          this.#queRunning = false
+          debug('channel already closed, this usually means a bad implementation, try checking the readyState or check if the peer is connected before sending');
+         break;
+         case undefined:
+          this.#messageQue = []
+          this.#queRunning = false
+          debug(`trying to send before a channel is created`);
+         break;
+       }
+
+
+     } else {
+       return setTimeout(() => this.#runQue(), 50)
+     }
+   }
+
+   #trySend({ size, id, chunks }) {
+     let offset = 0
+
+     for (const chunk of chunks) {
+       const start = offset
+       const end = offset + chunk.length
+
+       const message = new TextEncoder().encode(JSON.stringify({ size, id, chunk, start, end }));
+       this.#messageQue.push(message)
+     }
+
+     if (!this.queRunning) return this.#runQue()
+   }
+
    async send(message, id) {
      const { chunks, size } = await this.splitMessage(message)
-     let offset = 0
-     for (const chunk of chunks) {
-        const start = offset
-        const end = offset + chunk.length
-        const message = new TextEncoder().encode(JSON.stringify({ size, id, chunk, start, end }));
-        switch (this.channel?.readyState) {
-          case 'open':
-           this.bw.up += message.length || message.byteLength;
-           this.channel.send(message);
-          break;
-          case 'closed':
-          case 'closing':
-           debug('channel already closed, this usually means a bad implementation, try checking the readyState or check if the peer is connected before sending');
-          break;
-          case undefined:
-          debug(`trying to send before a channel is created`);
-          break;
-        }
-      }
+     return this.#trySend({ size, id, chunks })
    }
 
    request(data) {
@@ -195,17 +222,20 @@ export default class Peer {
      message = JSON.parse(new TextDecoder().decode(message.data))
      // allow sharding (multiple peers share data)
      pubsub.publish('peernet:shard', message)
-     if (!messageQue[message.id]) messageQue[message.id] = []
+     const { id } = message
 
-     if (message.size > messageQue[message.id].length || message.size === messageQue[message.id].length) {
+     if (!this.#chunksQue[id]) this.#chunksQue[id] = []
+
+     if (message.size > this.#chunksQue[id].length || message.size === this.#chunksQue[id].length) {
        for (const value of Object.values(message.chunk)) {
-         messageQue[message.id].push(value)
+         this.#chunksQue[id].push(value)
        }
      }
 
-     if (message.size === messageQue[message.id].length) {
-       pubsub.publish('peer:data', {id: message.id, data: new Uint8Array(Object.values(messageQue[message.id]))})
-       delete messageQue[message.id]
+     if (message.size === this.#chunksQue[id].length) {
+       const data = new Uint8Array(Object.values(this.#chunksQue[id]))
+       delete this.#chunksQue[id]
+       pubsub.publish('peer:data', { id, data })
      }
      this.bw.down += message.byteLength || message.length
    }
