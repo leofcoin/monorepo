@@ -1,4 +1,6 @@
-export default class Token {
+import Roles from './roles.js'
+
+export default class Token extends Roles {
   /**
    * string
    */
@@ -23,22 +25,37 @@ export default class Token {
   #decimals = 18
 
   #totalSupply = BigNumber.from(0)
-  /**
-   * Object => Array
-   */
-  #roles = {
-    'OWNER': [],
-    'MINT': [],
-    'BURN': []
-  }
+
     // this.#privateField2 = 1
-  constructor(name, symbol, decimals = 18) {
+  constructor(name, symbol, decimals = 18, state) {
     if (!name) throw new Error(`name undefined`)
     if (!symbol) throw new Error(`symbol undefined`)
+
+    super(state.roles)
+
     this.#name = name
     this.#symbol = symbol
     this.#decimals = decimals
-    this.#grantRole(msg.sender, 'OWNER')
+  }
+
+  // enables snapshotting
+  // needs dev attention so nothing breaks after snapshot happens
+  // iow everything that is not static needs to be included in the stateObject
+  /**
+   * @return {Object} {holders, balances, ...}
+   */
+  get state() {
+    return {
+      ...super.state,
+      holders: this.holders,
+      balances: this.balances,
+      approvals: { ...this.#approvals },
+      totalSupply: this.totalSupply
+    }
+  }
+
+  get totalSupply() {
+    return this.#totalSupply
   }
 
   get name() {
@@ -55,26 +72,6 @@ export default class Token {
 
   get balances() {
     return {...this.#balances}
-  }
-
-  get roles() {
-    return {...this.#roles}
-  }
-
-  hasRole(address, role) {
-    return this.#roles[role] ? this.#roles[role].indexOf(address) !== -1 : false
-  }
-
-  #grantRole(address, role) {
-    if (this.hasRole(address, role)) throw new Error(`${role} role already granted for ${address}`)
-
-    this.#roles[role].push(address)
-  }
-
-  grantRole(address, role) {
-    if (!this.hasRole(address, 'OWNER')) throw new Error('Not allowed')
-
-    this.#grantRole(address, role)
   }
 
   mint(to, amount) {
@@ -129,6 +126,7 @@ export default class Token {
   }
 
   transfer(from, to, amount) {
+    // TODO: is BigNumber?
     amount = BigNumber.from(amount)
     this.#beforeTransfer(from, to, amount)
     this.#decreaseBalance(from, amount)
