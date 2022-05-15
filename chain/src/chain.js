@@ -1,4 +1,3 @@
-
 import { BigNumber, formatUnits, parseUnits, info } from './utils/utils'
 import Machine from './machine'
 import lib from './lib'
@@ -11,6 +10,7 @@ export default class Chain {
   #validators = []
   #blocks = []
   #machine
+  #runningEpoch = false
   #lastBlock = {index: 0, previousHash: '0x0'}
 
   constructor() {
@@ -37,11 +37,20 @@ export default class Chain {
     return [...this.#blocks]
   }
 
-  #runEpoch() {
-    setTimeout(async () => {
-      await this.#createBlock()
-      return this.#runEpoch()
-    }, 10000);
+  async hasTransactionToHandle() {
+    const size = await transactionPoolStore.size()
+    if (size > 0) return true
+    return false
+  }
+
+  async #runEpoch() {
+    this.#runningEpoch = true
+    const start = new Date().getTime()
+    await this.#createBlock()
+    const end = new Date().getTime()
+    console.log((end - start) / 1000 + ' s');
+    if (await this.hasTransactionToHandle()) return this.#runEpoch()
+    this.#runningEpoch = false
   }
 
   async #setup() {
@@ -66,7 +75,6 @@ export default class Chain {
     // if (this.)
 
     promises = await Promise.allSettled(promises)
-    console.log(promises);
     promises = promises.reduce((set, c) => {
       console.log({c});
       if (c.index > set.index) {
@@ -75,7 +83,6 @@ export default class Chain {
       }
       return set
     }, {index: 0, hash: '0x0'})
-    console.log({promises});
     // get lastblock
   }
 
@@ -112,36 +119,13 @@ export default class Chain {
       try {
         transaction = new TransactionMessage(transaction)
         await transactionPoolStore.put(transaction.hash, transaction.encoded)
+        if (await this.hasTransactionToHandle() && !this.#runningEpoch) return this.#runEpoch()
       } catch (e) {
         throw Error('invalid transaction')
       }
     })
 
-    // peernet.subscribe('lastBlock', async hash => {
-    //   if (!await peernet.has(hash, 'block')) {
-    //     let block = await peernet.get(hash, 'block')
-    //     block = new BlockMessage(block)
-    //     const index = this.lastBlock.index
-    //     if (this.lastBlock.index < block.decoded.index) {
-    //       // TODO: check if valid
-    //       await this.resolveBlock(block.hash)
-    //       this.lastBlock = this.#blocks[this.#blocks.length - 1]
-    //       const blocksSynced = this.lastBlock.index - index
-    //       info(`synced ${blocksSynced} ${blocksSynced < 1 ? 'blocks' : 'block'}`)
-    //
-    //       const end = this.#blocks.length - 1
-    //       const start = (this.#blocks.length - 1) - blocksSynced
-    //
-    //       await this.#loadBlocks(this.#blocks.slice(start, end))
-    //       await blockStore.put(this.lastBlock.hash, this.lastBlock.encoded)
-    //       await chainStore.put('lastBlock', this.lastBlock.hash)
-    //     }
-    //   }
-
-        // })
-      pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
-
-
+    pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
 
     // load local blocks
     await this.resolveBlocks()
@@ -184,10 +168,12 @@ export default class Chain {
 
   async resolveBlock(hash) {
     let block = await peernet.get(hash, 'block')
+    if (!await peernet.has(hash, 'block')) await peernet.put(hash, block, 'block')
     block = await new BlockMessage(block)
+    const size = block.encoded.length || block.encoded.byteLength
     block = {...block.decoded, hash}
     this.#blocks[block.index] = block
-    console.log(`loaded block: ${hash} @${block.index}`);
+    console.log(`loaded block: ${hash} @${block.index} ${Math.round((size / 1024 / 1024) * 100) / 100} mb`);
     if (block.index !== 0) {
       return this.resolveBlock(block.previousHash)
     }
@@ -212,59 +198,96 @@ export default class Chain {
   async #loadBlocks(blocks) {
     for (const block of blocks) {
       if (!block.loaded) {
-        let message = await peernet.get(block.hash, 'block')
-        message = new BlockMessage(message)
-        for (const hash of message.decoded.transactions) {
-          let transaction = await peernet.get(hash, 'transaction')
-          transaction = new TransactionMessage(transaction)
+        for (const transaction of block.transactions) {
           try {
-            await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
+            await this.#machine.execute(transaction.to, transaction.method, transaction.params)
 
           } catch (e) {
-  // console.log(e);
+  console.log(e);
           }
         }
         block.loaded = true
+        // let message = await peernet.get(block.hash, 'block')
+
+        // const compressed = pako.deflate(message);
+        // const result = pako.inflate(compressed);
+        // console.log(result.length, compressed.length);
+        //
+        // console.log(result.length - compressed.length);
+
+        // message = new BlockMessage(message)
+  //       for (const transaction of message.decoded.transactions) {
+  //         try {
+  //           await this.#machine.execute(transaction.to, transaction.method, transaction.params)
+  //
+  //         } catch (e) {
+  // // console.log(e);
+  //         }
+  //       }
+        // block.loaded = true
       }
+    }
+  }
+
+  async #executeTransaction({hash, from, to, method, params, nonce}) {
+    try {
+      let result = await this.#machine.execute(to, method, params, from, nonce)
+      // if (!result) result = this.#machine.state
+      pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
+      return result ? result : 'no state change'
+    } catch (e) {
+      pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: e})
+      throw e
     }
   }
 
   async #addBlock(block) {
     const blockMessage = new BlockMessage(block)
     // if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
-    const transactionJob = async transaction => {
-      try {
-        transaction = await transactionPoolStore.get(transaction)
-      } catch (e) {
-        try {
-          transaction = await peernet.get(transaction, 'transaction')
-        } catch (e) {
-          console.warn(`couldn't resolve ${transaction}`);
-        }
-      }
-      transaction = new TransactionMessage(transaction)
-      return transaction
-    }
+    // const transactionJob = async transaction => {
+    //   try {
+    //     transaction = await transactionPoolStore.get(transaction)
+    //   } catch (e) {
+    //     try {
+    //       transaction = await peernet.get(transaction, 'transaction')
+    //     } catch (e) {
+    //       console.warn(`couldn't resolve ${transaction}`);
+    //     }
+    //   }
+    //   transaction = new TransactionMessage(transaction)
+    //   return transaction
+    // }
+    await Promise.all(blockMessage.decoded.transactions
+      .map(transaction => transactionPoolStore.delete(transaction.hash)))
 
-
-    let transactions = blockMessage.decoded.transactions.map(tx => transactionJob(tx))
-    transactions = await Promise.all(transactions)
-    for (let transaction of transactions) {
-      await transactionStore.put(transaction.hash, transaction.encoded)
-      await transactionPoolStore.delete(transaction.hash)
-      try {
-        console.log({tx: transaction.decoded.method});
-        await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
-        pubsub.publish(`transaction.completed.${transaction.hash}`, {status: 'fulfilled', hash: transaction.hash})
-      } catch (e) {
-        pubsub.publish(`transaction.completed.${transaction.hash}`, {status: 'fail', hash: transaction.hash, error: e})
-      }
-    }
+    // let transactions = blockMessage.decoded.transactions.map(tx => transactionJob(tx))
+    // transactions = await Promise.all(transactions)
     this.#lastBlock = {hash: blockMessage.hash, ...blockMessage.decoded}
     await blockStore.put(blockMessage.hash, blockMessage.encoded)
     await chainStore.put('lastBlock', new TextEncoder().encode(blockMessage.hash))
     info(`added block: ${blockMessage.hash}`)
+    let promises = []
+    let contracts = []
+    for (let transaction of blockMessage.decoded.transactions) {
+      // await transactionStore.put(transaction.hash, transaction.encoded)
+      const index = contracts.indexOf(transaction.to)
+      if (index === -1) contracts.push(transaction.to)
+      promises.push(this.#executeTransaction(transaction))
+    }
+    try {
+      promises = await Promise.allSettled(promises)
+
+      for (const contract of contracts) {
+        const state = await this.#machine.get(contract, 'state')
+        console.log(state);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+
   }
+
+
 
   async participate() {
     // TODO: validate participant
@@ -273,9 +296,8 @@ export default class Chain {
     // introduce peer-reputation
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
-    if (!await this.staticCall(lib.validators, 'has'))
-    await this.createTransactionFrom(peernet.id, lib.validators, 'addValidator', [peernet.id])
-    this.#runEpoch()
+    if (!await this.staticCall(lib.validators, 'has', [peernet.id])) await this.createTransactionFrom(peernet.id, lib.validators, 'addValidator', [peernet.id])
+    if (await this.hasTransactionToHandle() && !this.#runningEpoch) return this.#runEpoch()
   }
 
   calculateFee(transaction) {
@@ -294,21 +316,37 @@ export default class Chain {
       validators: [],
       fees: 0
     }
-    transactions = Object.keys(transactions).map(transaction => {
-      const buffer = transactions[transaction]
-      return new TransactionMessage(new Uint8Array(buffer, buffer.byteOffset, buffer.byteLength))
-    })
-    transactions = transactions.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
-    for (const transaction of transactions) {
+
+    let _transactions = []
+
+    // exclude failing tx
+    for (let transaction of Object.values(transactions)) {
+      transaction = new TransactionMessage(new Uint8Array(transaction, transaction.byteOffset, transaction.byteLength))
+
+      block.fees += Number(lib.calculateFee(transaction))
+      _transactions.push({...transaction.decoded, hash: transaction.hash })
+    }
+
+    transactions = _transactions.sort((a, b) => a.nonce - b.nonce)
+    _transactions = []
+    for (let transaction of transactions) {
       try {
-        block.transactions.push(transaction.hash)
-        block.fees += Number(lib.calculateFee(transaction))
+        await this.#executeTransaction(transaction)
+        _transactions.push(transaction)
       } catch (e) {
-        throw Error(`invalid message ${key}`)
+        transaction = new TransactionMessage(transaction)
+        block.fees -= Number(lib.calculateFee(transaction))
+        await transactionPoolStore.delete(transaction.hash)
+
       }
     }
+    transactions = _transactions
+    // don't add empty block
+    if (transactions.length === 0) return
+
+    block.transactions = transactions
     const validators = await this.staticCall(lib.validators, 'validators')
-    console.log(validators);
+    console.log({validators});
     // block.validators = Object.keys(block.validators).reduce((set, key) => {
     //   if (block.validators[key].active) {
     //     push({
@@ -320,17 +358,12 @@ export default class Chain {
     for (const entry of peernet.peerEntries) {
       peers[entry[0]] = entry[1]
     }
-console.log(peers);
     for (const validator of Object.keys(validators)) {
       if (validators[validator].active) {
         const peer = peers[validator]
-        console.log(peer);
-        console.log(validator);
         if (peer && peer.connected) {
           let data = new BWMessageRequest()
-          console.log({data});
           const node = await peernet.prepareMessage(validator, data.encoded)
-          console.log({node});
           try {
             const bw = await peer.request(node.encoded)
             console.log(bw);
@@ -352,6 +385,8 @@ console.log(peers);
         }
 
     }
+
+    console.log(block.validators);
 
     block.reward = 150
     block.validators = block.validators.map(validator => {
@@ -385,7 +420,6 @@ console.log(peers);
     try {
       let blockMessage = new BlockMessage(block)
       this.#lastBlock = {...block, hash: blockMessage.hash}
-      console.log({enc: blockMessage.encoded});
       peernet.publish('add-block', blockMessage.encoded)
       this.#addBlock(blockMessage.encoded)
     } catch (e) {
@@ -399,28 +433,27 @@ console.log(peers);
     let transactions = await transactionPoolStore.get()
     transactions = Object.keys(transactions).map(tx => new TransactionMessage(transactions[tx]))
     transactions = transactions.filter(tx => tx.decoded.from === address)
+    transactions = transactions.map(tx => { return {...tx.decoded, hash: tx.hash} })
     if (this.lastBlock && transactions.length === 0) {
       let block = await peernet.get(this.lastBlock.hash)
-      console.log({block});
       block = new BlockMessage(block)
 
-      for (let tx of block.decoded?.transactions) {
-        tx = await peernet.get(tx, 'transaction')
-        transactions.push(new TransactionMessage(tx))
-      }
-      transactions = transactions.filter(tx => tx.decoded.from === address)
-      while (transactions.length === 0 && block.index !== 0) {
-        block = await blockStore.get(block.previousHash)
+      // for (let tx of block.decoded?.transactions) {
+      //   tx = await peernet.get(tx, 'transaction')
+      //   transactions.push(new TransactionMessage(tx))
+      // }
+      transactions = transactions.filter(tx => tx.from === address)
+      while (transactions.length === 0 && block.decoded.index !== 0) {
+        block = await blockStore.get(block.decoded.previousHash)
         block = new BlockMessage(block)
-        transactions = block.transactions.map(tx => new TransactionMessage(tx))
-        transactions = transactions.filter(tx => tx.decoded.from === address)
+        transactions = block.decoded.transactions.filter(tx => tx.from === address)
       }
 
     }
     if (transactions.length === 0) return 0
 
-    transactions = transactions.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
-    return transactions[transactions.length - 1].decoded.nonce
+    transactions = transactions.sort((a, b) => a.timestamp - b.timestamp)
+    return transactions[transactions.length - 1].nonce
   }
 
   /**
@@ -446,6 +479,7 @@ console.log(peers);
     let data
     let message = new TransactionMessage({timestamp: new Date().getTime(), from, to, nonce, method, params})
     try {
+      // await transactionPoolStore.put(message.hash, new TextEncoder().encode(JSON.stringify({signature, message: message.encoded})))
       await transactionPoolStore.put(message.hash, message.encoded)
       peernet.publish('add-transaction', message.encoded)
     } catch (e) {
@@ -459,6 +493,8 @@ console.log(peers);
       }
       pubsub.subscribe(`transaction.completed.${message.hash}`, completed)
     })
+
+    if (await this.hasTransactionToHandle() && !this.#runningEpoch) this.#runEpoch()
     return {hash: message.hash, data, fee: lib.calculateFee(message), wait}
   }
 
