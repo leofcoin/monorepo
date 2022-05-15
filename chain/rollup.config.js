@@ -19,6 +19,19 @@ export default [{
     // cjs()
   ]
 }, {
+  input: ['./src/chain.js'],
+  output: {
+    dir: './',
+    format: 'cjs'
+  },
+  plugins: [
+    json()
+    // terser({
+    //   keep_classnames: true
+    // }),
+    // cjs()
+  ]
+}, {
   input: ['./src/lib.js'],
   output: {
     file: 'lib.js',
@@ -26,6 +39,22 @@ export default [{
   },
   plugins: [
     json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/node.js'],
+  output: {
+    file: './_node.js',
+    format: 'cjs'
+  },
+  plugins: [
+    json(),
+		modify({
+			"import fetch from 'node-fetch'": ''
+		}),
     terser({
       keep_classnames: true
     }),
@@ -54,7 +83,7 @@ export default [{
     json(),
     strip(),
     terser({
-      mangle: true,
+      mangle: false,
       keep_classnames: true
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
@@ -69,7 +98,7 @@ export default [{
     json(),
     strip(),
     terser({
-      mangle: true,
+      mangle: false,
       keep_classnames: true
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
@@ -84,7 +113,7 @@ export default [{
     json(),
     strip(),
     terser({
-      mangle: true,
+      mangle: false,
       keep_classnames: true
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
@@ -99,7 +128,7 @@ export default [{
     json(),
     strip(),
     terser({
-      mangle: true,
+      mangle: false,
       keep_classnames: true
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
@@ -114,7 +143,7 @@ export default [{
     json(),
     strip(),
     terser({
-      mangle: true,
+      mangle: false,
       keep_classnames: true
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
