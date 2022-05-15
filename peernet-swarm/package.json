@@ -26,6 +26,7 @@
     "@leofcoin/generate-account": "^1.0.3",
     "@vandeurenglenn/little-pubsub": "^1.3.3",
     "get-browser-rtc": "^1.1.0",
+    "pako": "^2.0.4",
     "socket-request-client": "^1.6.2",
     "socket-request-server": "^1.5.2"
   },

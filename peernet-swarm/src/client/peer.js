@@ -1,4 +1,5 @@
 import '@vandeurenglenn/debug'
+import pako from 'pako'
 
 export default class Peer {
   #connection
@@ -75,6 +76,7 @@ export default class Peer {
 
    splitMessage(message) {
      const chunks = []
+     message = pako.deflate(message)
      const size = message.byteLength || message.length
      let offset = 0
      return new Promise((resolve, reject) => {
@@ -233,8 +235,9 @@ export default class Peer {
      }
 
      if (message.size === this.#chunksQue[id].length) {
-       const data = new Uint8Array(Object.values(this.#chunksQue[id]))
+       let data = new Uint8Array(Object.values(this.#chunksQue[id]))
        delete this.#chunksQue[id]
+       data = pako.inflate(data)
        pubsub.publish('peer:data', { id, data })
      }
      this.bw.down += message.byteLength || message.length
