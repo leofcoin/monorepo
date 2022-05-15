@@ -14,7 +14,7 @@ export default class Node {
     networkName: 'leofcoin:olivia',
     networkVersion: 'v0.1.0'
   }) {
-    globalThis.Peernet?.default ? await new globalThis.Peernet.default(config) : await new Peernet(config)
+    globalThis.Peernet ? await new globalThis.Peernet(config) : await new Peernet(config)
 
     await peernet.addProto('contract-message', ContractMessage)
     await peernet.addProto('transaction-message', TransactionMessage)
