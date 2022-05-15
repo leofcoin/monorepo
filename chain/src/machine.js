@@ -3,9 +3,11 @@ import ContractMessage from './messages/contract'
 import TransactionMessage from './messages/transaction'
 import lib from './lib'
 import { info, subinfo } from './utils/utils'
+// import State from './state'
+
 export default class Machine {
   #contracts = {}
-
+  #nonces = {}
   constructor() {
     return this.#init()
   }
@@ -35,8 +37,6 @@ export default class Machine {
       }
     } catch (e) {
 console.log(e);
-    } finally {
-
     }
     // const transactions = await transactionStore.get()
     // console.log({transactions});
@@ -83,16 +83,35 @@ console.log(e);
     throw new Error('duplicate contract')
   }
 
-  execute(contract, method, params) {
-    return this.#contracts[contract][method](...params)
+  async execute(contract, method, params) {
+    try {
+      let result
+      // don't execute the method on a proxy
+      if (this.#contracts[contract].fallback) {
+        result = this.#contracts[contract].fallback(method, params)
+      } else {
+        result = await this.#contracts[contract][method](...params)
+      }
+
+      // this.#state.put(result)
+      return result
+    } catch (e) {
+      throw e
+    }
+  }
+
+  addJob(contract, method, params, from, nonce) {
+    if (!this.#nonces[from]) this.#nonces[from] = nonce
+    if (nonce === this.#nonces[from] + 1) return this.#contracts[contract][method](...params)
+    // return setTimeout(() => {
+    //   return this.addJob(contract, method, params, from, nonce)
+    // }, 50)
   }
 
   get(contract, method, params) {
-    console.log(this.#contracts);
-    console.log(contract, method, params);
     let result
     if (params?.length > 0) {
-      result = this.#contracts[contract][method](params)
+      result = this.#contracts[contract][method](...params)
     } else {
       result = this.#contracts[contract][method]
     }
