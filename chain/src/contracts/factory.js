@@ -12,6 +12,20 @@ export default class Factory {
    */
   #contracts = []
 
+  constructor(state) {
+    if (state) {
+      this.#contracts = state.contracts
+      this.#totalContracts = state.totalContracts
+    }
+  }
+
+  get state() {
+    return {
+      totalContracts: this.#totalContracts,
+      contracts: this.#contracts
+    }
+  }
+
   get name() {
     return this.#name
   }

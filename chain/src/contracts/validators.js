@@ -18,16 +18,36 @@ export default class Validators {
 
   #minimumBalance
 
-  constructor(tokenAddress) {
-    this.#owner = msg.sender
-    this.#minimumBalance = 50000
-    this.#currency = tokenAddress
-
-    this.#totalValidators += 1
-    this.#validators[msg.sender] = {
-      firstSeen: new Date().getTime(),
-      active: true
+  get state() {
+    return {
+      owner: this.#owner,
+      minimumBalance: this.#minimumBalance,
+      currency: this.#currency,
+      totalValidators: this.#totalValidators,
+      validators: this.#validators
     }
+  }
+
+  constructor(tokenAddress, state) {
+    if (state) {
+      this.#owner = state.owner
+      this.#minimumBalance = state.minimumBalance
+      this.#currency = state.currency
+
+      this.#totalValidators = state.totalValidators
+      this.#validators = state.validators
+    } else {
+      this.#owner = msg.sender
+      this.#minimumBalance = 50000
+      this.#currency = tokenAddress
+
+      this.#totalValidators += 1
+      this.#validators[msg.sender] = {
+        firstSeen: new Date().getTime(),
+        active: true
+      }
+    }
+
   }
 
   get name() {
@@ -69,7 +89,7 @@ export default class Validators {
 
   async addValidator(validator) {
     if (this.has(validator)) throw new Error('already a validator')
-    const balance = await msg.staticCall(this.currency, 'balanceOf', msg.sender)
+    const balance = await msg.staticCall(this.currency, 'balanceOf', [msg.sender])
 
     if (balance < this.minimumBalance) throw new Error(`balance to low! got: ${balance} need: ${this.#minimumBalance}`)
 
@@ -89,7 +109,7 @@ export default class Validators {
 
   async updateValidator(validator, active) {
     if (!this.has(validator)) throw new Error('validator not found')
-    const balance = await msg.staticCall(this.currency, 'balanceOf', msg.sender)
+    const balance = await msg.staticCall(this.currency, 'balanceOf', [msg.sender])
     if (balance < this.minimumBalance && this.#validators[validator].active) this.#validators[validator].active = false
 
     if (balance < this.minimumBalance) throw new Error(`balance to low! got: ${balance} need: ${this.#minimumBalance}`)

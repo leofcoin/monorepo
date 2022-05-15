@@ -29,25 +29,37 @@ export default class NameService {
     return {...this.#registry}
   }
 
+  get state() {
+
+  }
+
   // TODO: control with contract
-  constructor(factoryAddress, tokenAddress, validatorAddress) {
-    this.#owner = msg.sender
-    this.#registry['ArtOnlineContractFactory'] = {
-      owner: msg.sender,
-      address: factoryAddress
-    }
+  constructor(factoryAddress, currency, validatorAddress, price, state) {
+    if (state) {
+      this.#owner = state.owner
+      this.#registry = state.registry
+      this.#currency = state.currency
+      this.#price = state.price
+    } else {
+      this.#owner = msg.sender
+      this.#price = price
+      this.#registry['ArtOnlineContractFactory'] = {
+        owner: msg.sender,
+        address: factoryAddress
+      }
 
-    this.#registry['ArtOnlineToken'] = {
-      owner: msg.sender,
-      address: tokenAddress
-    }
+      this.#registry['ArtOnlineToken'] = {
+        owner: msg.sender,
+        address: currency
+      }
 
-    this.#registry['ArtOnlineValidators'] = {
-      owner: msg.sender,
-      address: validatorAddress
-    }
+      this.#registry['ArtOnlineValidators'] = {
+        owner: msg.sender,
+        address: validatorAddress
+      }
 
-    this.#currency = tokenAddress
+      this.#currency = currency
+    }
   }
 
   changeOwner(owner) {
