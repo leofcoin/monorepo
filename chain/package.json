@@ -7,14 +7,14 @@
   "scripts": {
     "c": "rollup -c",
     "w": "rollup -c -w",
-    "build": "webpack && cp node_modules/@leofcoin/peernet/dist/browser/326.peernet.js dist/326.peernet.js",
+    "build": "npm run c && webpack",
     "demo": "jsproject --serve ./ --port 5478 --open demo",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^21.0.2",
     "@rollup/plugin-json": "^4.1.0",
@@ -33,10 +33,11 @@
     "@ethersproject/bignumber": "^5.6.0",
     "@ethersproject/units": "^5.6.0",
     "@leofcoin/multi-wallet": "^2.1.1",
-    "@leofcoin/peernet": "^0.11.14",
+    "@leofcoin/peernet": "^0.11.23",
     "@leofcoin/storage": "^2.3.0",
     "chalk": "^4.0.0",
-    "datastore-level": "^8.0.0"
+    "datastore-level": "^8.0.0",
+    "pako": "^2.0.4"
   },
   "directories": {
     "example": "examples",
