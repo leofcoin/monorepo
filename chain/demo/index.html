@@ -5,11 +5,13 @@
     <title></title>
   </head>
   <body>
-    <script src="./../dist/node.browser.js"></script>
-    <script src="./../dist/chain.browser.js"></script>
+    <!-- <script src="./../dist/node.browser.js"></script> -->
+    <!-- <script src="./../dist/chain.browser.js"></script> -->
 
-    <script>
-      new LeofcoinNode.default().then(() => new LeofcoinChain.default().then(chain => globalThis.chain = chain))
+    <script type="module">
+      import LeofcoinNode from './../dist/node.browser.js'
+      import LeofcoinChain from './../dist/chain.browser.js'
+      new LeofcoinNode().then(() => new LeofcoinChain().then(chain => globalThis.chain = chain))
 
     </script>
   </body>
