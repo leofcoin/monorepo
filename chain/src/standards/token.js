@@ -31,7 +31,7 @@ export default class Token extends Roles {
     if (!name) throw new Error(`name undefined`)
     if (!symbol) throw new Error(`symbol undefined`)
 
-    super(state.roles)
+    super(state?.roles)
 
     this.#name = name
     this.#symbol = symbol
@@ -93,13 +93,13 @@ export default class Token extends Roles {
   }
 
   #updateHolders(address, previousBalance) {
-    if (this.#balances[address] === 0) this.#holders -= 1
-    if (this.#balances[address] > 0 && previousBalance === 0) this.#holders += 1
+    if (this.#balances[address].toHexString() === '0x00') this.#holders -= 1
+    else if (this.#balances[address].toHexString() !== '0x00' && previousBalance.toHexString() === '0x00') this.#holders += 1
   }
 
   #increaseBalance(address, amount) {
-    const previousBalance = this.#balances[address]
     if (!this.#balances[address]) this.#balances[address] = BigNumber.from(0)
+    const previousBalance = this.#balances[address]
 
     this.#balances[address] = this.#balances[address].add(amount)
     this.#updateHolders(address, previousBalance)

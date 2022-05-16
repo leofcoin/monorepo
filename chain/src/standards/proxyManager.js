@@ -7,7 +7,7 @@ export default class ProxyManager extends Roles {
 
 
   constructor(name, state) {
-    super(state.roles)
+    super(state?.roles)
     this.#name = name
 
     if (state) {

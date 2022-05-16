@@ -5,7 +5,7 @@ export default class Proxy extends Roles {
   #implementation
 
   constructor(proxyManager, state) {
-    super(state.roles)
+    super(state?.roles)
     if (state) {
       this.#proxyManager = state.proxyManager
     } else {
