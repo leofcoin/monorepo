@@ -44,6 +44,9 @@ export default class Chain {
   }
 
   async #runEpoch() {
+    const validators = await this.staticCall(lib.validators, 'validators')
+    if (!validators[peernet.id]?.active) return
+
     this.#runningEpoch = true
     const start = new Date().getTime()
     await this.#createBlock()
@@ -277,8 +280,10 @@ export default class Chain {
     try {
       promises = await Promise.allSettled(promises)
 
+      // todo finish state
       for (const contract of contracts) {
         const state = await this.#machine.get(contract, 'state')
+        // await stateStore.put(contract, state)
         console.log(state);
       }
     } catch (e) {
@@ -362,7 +367,7 @@ export default class Chain {
       if (validators[validator].active) {
         const peer = peers[validator]
         if (peer && peer.connected) {
-          let data = new BWMessageRequest()
+          let data = new BWRequestMessage()
           const node = await peernet.prepareMessage(validator, data.encoded)
           try {
             const bw = await peer.request(node.encoded)
