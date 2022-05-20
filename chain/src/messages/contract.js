@@ -1,6 +1,6 @@
 import protons from 'protons'
 import proto from './../protos/contract.proto.js'
-import CodecFormat from './../../node_modules/@leofcoin/peernet/src/codec/codec-format-interface'
+import { FormatInterface as CodecFormat } from '@leofcoin/codec-format-interface'
 
 export default class ContractMessage extends CodecFormat {
   get keys() {

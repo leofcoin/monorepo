@@ -1,6 +1,6 @@
 import protons from 'protons'
 import proto from './../protos/transaction.proto.js'
-import CodecFormat from './../../node_modules/@leofcoin/peernet/src/codec/codec-format-interface'
+import { FormatInterface as CodecFormat } from '@leofcoin/codec-format-interface'
 
 export default class TransactionMessage extends CodecFormat {
   get keys() {

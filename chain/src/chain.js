@@ -281,11 +281,12 @@ export default class Chain {
       promises = await Promise.allSettled(promises)
 
       // todo finish state
-      for (const contract of contracts) {
-        const state = await this.#machine.get(contract, 'state')
-        // await stateStore.put(contract, state)
-        console.log(state);
-      }
+      // for (const contract of contracts) {
+      //   const state = await this.#machine.get(contract, 'state')
+      //   // await stateStore.put(contract, state)
+      //   console.log(state);
+      // }
+      pubsub.publish('block-processed', blockMessage.decoded)
     } catch (e) {
       console.log(e);
     }
