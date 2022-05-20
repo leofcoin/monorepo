@@ -1,4 +1,4 @@
-import { BigNumber, formatUnits, parseUnits, info } from './utils/utils'
+import { BigNumber, formatUnits, parseUnits } from './utils/utils'
 import Machine from './machine'
 import lib from './lib'
 
@@ -154,7 +154,7 @@ export default class Chain {
       console.log(this.#blocks);
       let blocksSynced = localIndex > 0 ? localIndex - index : index
       blocksSynced += 1
-      info(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+      debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const end = this.#blocks.length
       const start = (this.#blocks.length) - blocksSynced
@@ -268,7 +268,7 @@ export default class Chain {
     this.#lastBlock = {hash: blockMessage.hash, ...blockMessage.decoded}
     await blockStore.put(blockMessage.hash, blockMessage.encoded)
     await chainStore.put('lastBlock', new TextEncoder().encode(blockMessage.hash))
-    info(`added block: ${blockMessage.hash}`)
+    debug(`added block: ${blockMessage.hash}`)
     let promises = []
     let contracts = []
     for (let transaction of blockMessage.decoded.transactions) {

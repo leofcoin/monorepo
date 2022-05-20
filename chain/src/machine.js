@@ -2,7 +2,6 @@ import vm from 'vm'
 import ContractMessage from './messages/contract'
 import TransactionMessage from './messages/transaction'
 import lib from './lib'
-import { info, subinfo } from './utils/utils'
 // import State from './state'
 
 export default class Machine {
@@ -62,8 +61,8 @@ console.log(e);
       globalThis.msg = this.#createMessage(contractMessage.decoded.creator)
       // globalThis.msg = {sender: contractMessage.decoded.creator}
       this.#contracts[contractMessage.hash] = new Contract(...params)
-      info(`loaded contract: ${contractMessage.hash}`);
-      subinfo(`size: ${Math.round((contractMessage.encoded.length / 1024) * 100) / 100} kb`);
+      debug(`loaded contract: ${contractMessage.hash}`);
+      debug(`size: ${Math.round((contractMessage.encoded.length / 1024) * 100) / 100} kb`);
     } catch (e) {
       console.log(e);
       console.warn(`removing contract ${contractMessage.hash}`);
