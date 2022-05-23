@@ -166,10 +166,20 @@ export default class Peer {
    async #init() {
      try {
        const iceServers = [{
-        urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
+         urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
+       }, {
+         urls: "stun:openrelay.metered.ca:80",
+       }, {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+       }, {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
        }]
 
-       this.#connection = new wrtc.RTCPeerConnection();
+       this.#connection = new wrtc.RTCPeerConnection({iceServers});
 
        this.#connection.onicecandidate = ({ candidate }) => {
          if (candidate) {
