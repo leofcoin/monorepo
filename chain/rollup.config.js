@@ -19,48 +19,6 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./src/chain.js'],
-  output: {
-    dir: './',
-    format: 'cjs'
-  },
-  plugins: [
-    json()
-    // terser({
-    //   keep_classnames: true
-    // }),
-    // cjs()
-  ]
-}, {
-  input: ['./src/lib.js'],
-  output: {
-    file: 'lib.js',
-    format: 'cjs'
-  },
-  plugins: [
-    json(),
-    terser({
-      keep_classnames: true
-    }),
-    // cjs()
-  ]
-}, {
-  input: ['./src/node.js'],
-  output: {
-    file: './_node.js',
-    format: 'cjs'
-  },
-  plugins: [
-    json(),
-		modify({
-			"import fetch from 'node-fetch'": ''
-		}),
-    terser({
-      keep_classnames: true
-    }),
-    // cjs()
-  ]
-}, {
   input: ['./src/node.js'],
   output: {
     dir: 'dist',
