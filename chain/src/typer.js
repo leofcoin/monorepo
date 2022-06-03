@@ -1,4 +1,4 @@
-import {BigNumber} from './utils/utils'
+import {BigNumber} from '@leofcoin/utils'
 
 const codec = '0x'
 

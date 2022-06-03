@@ -1,7 +1,6 @@
 import vm from 'vm'
-import ContractMessage from './messages/contract'
-import TransactionMessage from './messages/transaction'
-import lib from './lib'
+import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
+import lib from '@leofcoin/lib'
 // import State from './state'
 
 export default class Machine {
