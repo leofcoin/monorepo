@@ -60,7 +60,7 @@ const update = async () => {
     // const ticketPrice = ethers.utils.parseUnits('1000', 18) // 10 Art
     // const distribution = [ethers.BigNumber.from('2'), ethers.BigNumber.from('3'), ethers.BigNumber.from('5'), ethers.BigNumber.from('10'), ethers.BigNumber.from('20'), ethers.BigNumber.from('40')];
     try {
-      await contract.drawWinningNumbers('5', {gasLimit: 21000000})
+      await contract.drawWinningNumbers(30)
       // logger.info(`created lottery`)
     } catch (e) {
       console.warn(e);

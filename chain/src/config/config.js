@@ -1,6 +1,6 @@
 import main from './main'
 import protocol from './protocol'
-import { read } from './../utils'
+import { read, write } from './../utils/utils'
 
 export default async () => {
   let config = { ...main, ...protocol }

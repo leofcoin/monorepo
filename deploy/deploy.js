@@ -13,6 +13,8 @@ const gaming = require('./gaming')
 const PROXY_MANAGER = require('./../build/contracts/ProxyManager.json');
 const LOTTERY_TICKETS = require('./../build/contracts/LotteryTickets.json');
 const LOTTERY = require('./../build/contracts/ArtOnlineLottery.json');
+const ARTONLINE_ABI = require('./../build/contracts/ArtOnline.json');
+const MINT_ROLE = '0x154c00819833dac601ee5ddded6fda79d9d8b506b911b3dbd54cdb95fe6c3686'
 
 // let addresses = require(join(__dirname, './../addresses/addresses/binance-smartchain-testnet.json'))
 
@@ -65,25 +67,23 @@ const update = async () => {
   result = await lottery({deploy}, result.addresses, result.contracts, signer)
 
   result = await proxy({deploy}, result.addresses, result.contracts, signer)
-  let contract = new ethers.Contract(addresses.lotteryTickets, LOTTERY_TICKETS.abi, signer)
-  tx = await contract.setLotteryContract(addresses.lotteryProxy)
-  await tx.wait()
-  // let contract = new ethers.Contract(addresses.lotteryTickets, LOTTERY_TICKETS.abi, signer)
-  // let tx = await contract.setLotteryContract(addresses.lottery)
-  // await tx.wait()
   contract = new ethers.Contract(addresses.lotteryProxy, LOTTERY.abi, signer);
-  // tx = await contract.initialize()
+  // let tx = await contract.initialize()
   // await tx.wait()
-  tx = await contract.setRandomNumberGenerator(addresses.randomNumberGenerator)
-  await tx.wait()
-  tx = await contract.setMaxRange(ethers.BigNumber.from('9'))
-  await tx.wait()
-  tx = await contract.changeLotteryTicketsNFT(addresses.lotteryTickets)
-  await tx.wait()
-  tx = await contract.changeArtOnline(addresses.gamingProxy)
-  await tx.wait()
-  tx = await contract.setLotterySize(ethers.BigNumber.from('6'))
-  await tx.wait()
+  // // let tx = await contract.changeManager(signer.address)
+  // // await tx.wait()
+  //
+  // let tx = await contract.setMaxRange(ethers.BigNumber.from('9'))
+  // await tx.wait()
+  // tx = await contract.changeLotteryTicketsNFT(addresses.lotteryTickets)
+  // await tx.wait()
+  // tx = await contract.changeArtOnline(addresses.artonline)
+  // await tx.wait()
+  // tx = await contract.setLotterySize(ethers.BigNumber.from('6'))
+  // await tx.wait()
+  // contract = new ethers.Contract(addresses.artonline, ARTONLINE_ABI.abi, signer);
+  // tx = await contract.grantRole(MINT_ROLE, addresses.lotteryProxy)
+  // await tx.wait()
   await write(join(__dirname, `./../addresses/addresses/${network}.json`), `${JSON.stringify(result.addresses, null, 2)}`)
   await write(join(__dirname, `./../addresses/addresses/${network}.js`), `export default ${JSON.stringify(result.addresses, null, 2)}`)
 }

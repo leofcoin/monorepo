@@ -64,12 +64,11 @@ const update = async () => {
   if (addresses.lotteryProxy && addresses.lottery) {
     const contract = new ethers.Contract(addresses.lotteryProxy, LOTTERY.abi, signer)
     const startTime = UTCDate + 60
-    const endTime = UTCDate + 120 // 2 hours
-    const prizePool = ethers.utils.parseUnits('100000', 18) // 10000 Art
+    const endTime = UTCDate + 3600 // 2 hours
     const ticketPrice = ethers.utils.parseUnits('1000', 18) // 10 Art
-    const distribution = [ethers.BigNumber.from('2'), ethers.BigNumber.from('3'), ethers.BigNumber.from('5'), ethers.BigNumber.from('10'), ethers.BigNumber.from('20'), ethers.BigNumber.from('40')];
+    const distribution = [ethers.BigNumber.from('2'), ethers.BigNumber.from('3'), ethers.BigNumber.from('5'), ethers.BigNumber.from('10'), ethers.BigNumber.from('30'), ethers.BigNumber.from('50')];
     try {
-      await contract.createLottery(startTime, endTime, prizePool, ticketPrice, distribution)
+      await contract.createLottery(startTime, endTime, ticketPrice, distribution, {gasLimit: 21000000})
       // logger.info(`created lottery`)
     } catch (e) {
       console.warn(e);

@@ -8,5 +8,6 @@ export default html`
   <history-view data-route="history"></history-view>
   <tickets-view data-route="tickets"></tickets-view>
   <results-view data-route="results"></results-view>
+  <win-view data-route="win"></win-view>
 </custom-pages>
 `

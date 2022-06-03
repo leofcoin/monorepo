@@ -467,6 +467,11 @@ export default class Chain {
    *
    * example: [hash]
    * createTransaction('0x0', 'createContract', [hash])
+   *
+   * @param {String} to - the contract address for the contract to interact with
+   * @param {String} method - the method/function to run
+   * @param {Array} params - array of paramters to apply to the contract method
+   * @param {Number} nonce - total transaction count [optional]
    */
   createTransaction(to, method, params, nonce) {
     return this.createTransactionFrom(peernet.id, to, method, params, nonce)
@@ -475,6 +480,12 @@ export default class Chain {
    * every tx done is trough contracts so no need for amount
    * data is undefined when nothing is returned
    * error is thrown on error so undefined data doesn't mean there is an error...
+   *
+   * @param {String} from - the sender address
+   * @param {String} to - the contract address for the contract to interact with
+   * @param {String} method - the method/function to run
+   * @param {Array} params - array of paramters to apply to the contract method
+   * @param {Number} nonce - total transaction count [optional]
    */
   async createTransactionFrom(from, to, method, params, nonce) {
     if (nonce === undefined) {
@@ -519,6 +530,7 @@ export default class Chain {
 
   /**
    *
+   * @param {String} contract - a contract string (see plugins/deployContract)
    */
   async deployContract(contract, params = []) {
     globalThis.msg = {sender: peernet.id, call: this.call}
@@ -588,6 +600,15 @@ export default class Chain {
     return this.#machine.deleteAll()
   }
 
+  /**
+   * lookup an address for a registered name using the builtin nameService
+   * @check nameService
+   *
+   * @param {String} - contractName
+   * @returns {String} - address
+   *
+   * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
+   */
   lookup(name) {
     return this.call(lib.nameService, 'lookup', [name])
   }

@@ -13,5 +13,21 @@ export default {
   "multiCall": "0xae11c5b5f29a6a25e955f0cb8ddcc416f522af5c",
   "partnershipToken": "0xa60eAE6d5A2d5B367DaB6C68FE0c448Eec0e6Ed8",
   "splitter": "0xDd80C8e36Be2E17866a8F54Da84779795D124cfe",
-  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64"
+  "partnerPool": "0x8dd27432779bf13F975A8fD56975b54f1F565C64",
+  "chainlink": {
+    "token": "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06",
+    "coordinator": "0xa555fC018435bef5A13C6c6870a9d4C11DEC329C",
+    "keyHash": "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186",
+    "fee": "0.1"
+  },
+  "proxyManager": "0x92d444f4752662BAA734314fF25b60892bDc561F",
+  "createablesProxy": "0xd5cAc8a026a6Cdd117807F8698CBc7ABAEe83930",
+  "stakingProxy": "0x3C873Fc0F84048201A68A3f3E23a4b356208edC8",
+  "createables": "0xbeD9FD8ECa672A79eD31f32620e00206cC68eE8C",
+  "lotteryProxy": "0xC0ac2E1Dd7DaFD253796981B58062bB5B4D23B42",
+  "gaming": "0xB280b0EA6eb52daEFCFD0236abFd7993fE9C6d65",
+  "gamingProxy": "0x2671F09701F380d5924f63d990f65f018aeAD91d",
+  "randomNumberGenerator": "0xEdCf19D4af28594f28195e1307335617Ed0C72c6",
+  "lottery": "0xa5cF4313f516A2987146EB21D7BCFF5881FB4D04",
+  "lotteryTickets": "0x372a75279D25647Aec3cF45ca8c1C09deA8fB06d"
 }

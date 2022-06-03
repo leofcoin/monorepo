@@ -4,6 +4,7 @@ import mime from 'mime-types'
 import ethers from 'ethers'
 import Router from '@koa/router'
 import { join } from 'path'
+// import WebSocket from 'websocket'
 const router = new Router()
 
 const timedOut = {}
@@ -41,7 +42,7 @@ const timedOutMessage = ctx => {
 }
 
 router.get('/faucet', async ctx => {
-  let tx = await contract.transfer(ctx.request.query.address, ethers.utils.parseUnits('10000'), {gasLimit: 21000000})
+  let tx = await contract.transfer(ctx.request.query.address, ethers.utils.parseUnits('100000'), {gasLimit: 21000000})
   // console.log(tx);
   ctx.body = tx.hash
 })
@@ -50,5 +51,17 @@ router.get('/faucet/tot', ctx => {
   if (ctx.request.query.address) ctx.body =
     String(timedOut[ctx.request.query.address])
 })
+
+// const getBNB = () => {
+//   const server = new WebSocket("wss://testnet.binance.org/faucet-smart/api")
+//   const captcha = null
+//   server.send(JSON.stringify({url: signer.address, symbol: 'BNB', tier: 0, captcha}))
+//   console.log('bnb');
+//   setTimeout(() => {
+//     getBNB()
+//   }, (24 * 3600) * 1000);
+// }
+//
+// getBNB()
 
 export default router

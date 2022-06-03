@@ -1,23 +1,30 @@
 import addresses from './../../../addresses/addresses/binance-smartchain'
-import provider from './provider'
+import { abi as ABI } from './../../../build/contracts/ArtOnlineLottery.json'
+import {sendJSON} from './shared'
 // import cache from './../cache'
 import mime from 'mime-types'
 import ethers from 'ethers'
+
+import fetch from 'node-fetch'
 import Router from '@koa/router'
 const router = new Router()
 
-router.get('/countdown', ctx => {
-  // const now = new Date().getTime()
-  // if (done < now) ctx.body = String(0)
-  // else {
-  //   ctx.body = String(done - now)
-  // }
+const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org', {
+  chainId: 56
 })
 
-router.get('/lottery/mint-ticket', async ctx => {
-  const { address, proof } = ctx.params
-  const listing = cache[`${address}_${id}_${tokenId}`] || await contract.callStatic.getListingERC1155(address, id, tokenId)
-  sendJSON(ctx, listing)
+const contract = new ethers.Contract(addresses.lotteryProxy, ABI, provider)
+
+router.get('/lottery/tickets', async ctx => {
+  const query = ctx.request.query
+  const address = query.address
+  const lottery = query.lottery || 1
+  let tickets;
+  if (address) {
+    tickets = await ticketsContract.tickets(lottery, address)
+  } else {
+
+  }
 })
 
 export default router
