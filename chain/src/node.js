@@ -1,7 +1,6 @@
 // import config from './config/config'
 import Peernet from '@leofcoin/peernet'
-import lib from '@leofcoin/lib'
-const { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } = lib
+import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/lib'
 
 export default class Node {
   constructor() {

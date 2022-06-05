@@ -16,7 +16,7 @@
         "disableSort": false,
         "collapse": true,
         "resources": {
-          "github": "https://github.com/arteontoken/monorepo/chain"
+          "github": "https://github.com/arteontoken/monorepo/tree/main/chain"
         }
     },
     "opts": {

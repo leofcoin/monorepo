@@ -1,9 +1,10 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.0.14",
+  "version": "1.0.22",
   "description": "<a rel=\"license\" href=\"http://creativecommons.org/licenses/by-nc/4.0/\"><img alt=\"Creative Commons Licence\" style=\"border-width:0\" src=\"https://i.creativecommons.org/l/by-nc/4.0/88x31.png\" /></a><br />This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-nc/4.0/\">Creative Commons Attribution-NonCommercial 4.0 International License</a>.",
   "source": "./src/node.js",
   "main": "./dist/node.js",
+  "module": "./dist/chain.esm",
   "scripts": {
     "c": "rollup -c",
     "w": "rollup -c -w",
@@ -35,11 +36,12 @@
   "dependencies": {
     "@ethersproject/bignumber": "^5.6.0",
     "@ethersproject/units": "^5.6.0",
-    "@leofcoin/lib": "^1.0.0",
+    "@leofcoin/lib": "^1.0.5",
+    "@leofcoin/messages": "^1.1.0",
     "@leofcoin/multi-wallet": "^2.1.1",
-    "@leofcoin/peernet": "^0.11.31",
+    "@leofcoin/peernet": "^0.12.2",
     "@leofcoin/storage": "^2.3.0",
-    "@leofcoin/utils": "^1.0.0",
+    "@leofcoin/utils": "^1.0.2",
     "chalk": "^4.0.0",
     "datastore-level": "^8.0.0",
     "pako": "^2.0.4"
