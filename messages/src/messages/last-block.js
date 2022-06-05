@@ -1,14 +1,17 @@
-import protons from 'protons'
-import proto from './../protos/last-block.proto.js'
-import { FormatInterface as CodecFormat } from '@leofcoin/codec-format-interface'
+import proto from './../protos/block.proto.js'
+import { FormatInterface } from '@leofcoin/codec-format-interface'
 
-export default class LastBlockMessage extends CodecFormat {
+export default class LastBlockMessage extends FormatInterface {
   get keys() {
     return ['hash', 'index']
   }
 
+  get messageName() {
+    return 'LastBlockMessage'
+  }
+
   constructor(buffer) {
     const name = 'last-block-message'
-    super(buffer, protons(proto).LastBlockMessage, {name})
+    super(buffer, proto, {name})
   }
 }
