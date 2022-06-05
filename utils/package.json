@@ -1,11 +1,11 @@
 {
   "name": "@leofcoin/utils",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "",
   "main": "dist/utils.js",
   "module": "src/utils.js",
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && webpack",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,6 +16,8 @@
     "@ethersproject/units": "^5.6.1"
   },
   "devDependencies": {
-    "rollup": "^2.75.5"
+    "rollup": "^2.75.5",
+    "webpack": "^5.73.0",
+    "webpack-cli": "^4.9.2"
   }
 }
