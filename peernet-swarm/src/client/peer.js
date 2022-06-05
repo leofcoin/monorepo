@@ -1,5 +1,4 @@
 import '@vandeurenglenn/debug'
-import pako from 'pako'
 
 export default class Peer {
   #connection
@@ -57,7 +56,7 @@ export default class Peer {
 
     this.#peerId = options.peerId
     this.options = options
-    this.#init()
+    return this.#init()
    }
 
    get peerId() {
@@ -165,6 +164,13 @@ export default class Peer {
 
    async #init() {
      try {
+
+       if (!globalThis.pako) {
+         const importee = await import(/* webpackChunkName: "pako" */ 'pako')
+         globalThis.pako = importee.default
+       }
+
+
        const iceServers = [{
          urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
        }, {
@@ -226,6 +232,8 @@ export default class Peer {
      } catch (e) {
        console.log(e);
      }
+
+     return this
    }
 
    _handleMessage(peerId, message) {
