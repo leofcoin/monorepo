@@ -1,7 +1,7 @@
 export default [{
   input: ['./src/utils.js'],
-  output: {
-    dir: './dist',
+  output: [{
+    file: './dist/utils.js',
     format: 'cjs'
-  }
+  }]
 }]
