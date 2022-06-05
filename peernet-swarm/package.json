@@ -3,7 +3,6 @@
   "version": "0.3.2",
   "main": "dist/commonjs/client.js",
   "module": "src/client/client.js",
-  "browser": "dist/browser/client.js",
   "license": "MIT",
   "private": false,
   "scripts": {
