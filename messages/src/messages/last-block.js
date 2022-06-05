@@ -1,4 +1,4 @@
-import proto from './../protos/block.proto.js'
+import proto from './../protos/last-block.proto.js'
 import { FormatInterface } from '@leofcoin/codec-format-interface'
 
 export default class LastBlockMessage extends FormatInterface {
