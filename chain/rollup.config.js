@@ -5,6 +5,14 @@ import strip from '@rollup/plugin-strip';
 import { terser } from "rollup-plugin-terser";
 import modify from 'rollup-plugin-modify'
 
+import { execSync } from 'child_process'
+
+try {
+  execSync(`rm -rf ./dist/**`)
+
+} catch (e) {
+
+}
 export default [{
   input: ['./src/chain.js'],
   output: {

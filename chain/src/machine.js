@@ -1,6 +1,6 @@
 import vm from 'vm'
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import lib from '@leofcoin/lib'
+import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/lib'
 // import State from './state'
 
 export default class Machine {
@@ -22,15 +22,15 @@ export default class Machine {
     // return
     try {
       let contracts = [
-        contractStore.get(lib.contractFactory),
-        contractStore.get(lib.nativeToken),
-        contractStore.get(lib.validators),
-        contractStore.get(lib.nameService)
+        contractStore.get(contractFactory),
+        contractStore.get(nativeToken),
+        contractStore.get(validators),
+        contractStore.get(nameService)
       ]
 
       contracts = await Promise.all(contracts)
       for (const contract of contracts) {
-        const message = new ContractMessage(new Uint8Array(contract.buffer, contract.buffer.byteOffset, contract.buffer.byteLength))
+        const message = await new ContractMessage(new Uint8Array(contract.buffer, contract.buffer.byteOffset, contract.buffer.byteLength))
         await this.#runContract(message)
       }
     } catch (e) {
