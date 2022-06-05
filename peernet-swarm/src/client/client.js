@@ -1,4 +1,4 @@
-import SocketClient from './../../node_modules/socket-request-client/dist/es/index'
+import SocketClient from 'socket-request-client'
 import Peer from './peer'
 import '@vandeurenglenn/debug'
 
@@ -34,7 +34,13 @@ export default class Client {
     this.starsConfig = stars
     // reconnectJob()
 
-    WRTC_IMPORT
+    if (!globalThis.RTCPeerConnection) globalThis.wrtc = await import(/* webpackChunkName: "wrtc" */ 'wrtc')
+    else globalThis.wrtc = {
+      RTCPeerConnection,
+      RTCSessionDescription,
+      RTCIceCandidate
+    }
+
     for (const star of stars) {
       try {
         this.socketClient = await SocketClient(star, identifiers[0])
@@ -47,7 +53,7 @@ export default class Client {
     }
     const peers = await this.socketClient.peernet.join({id: this.id})
     for (const id of peers) {
-      if (id !== this.id && !this.#connections[id]) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
+      if (id !== this.id && !this.#connections[id]) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     }
     this.setupListeners()
   }
@@ -98,7 +104,7 @@ export default class Client {
                 delete this.#connections[id]
               }
               // reconnect
-              if (id !== this.id) this.#connections[id] = new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
+              if (id !== this.id) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
             }
 
           }
@@ -120,14 +126,14 @@ export default class Client {
     debug(`peer ${id} left`)
   }
 
-  peerJoined(peer, signal) {
+  async peerJoined(peer, signal) {
     const id = peer.peerId || peer
     if (this.#connections[id]) {
       if (this.#connections[id].connected) this.#connections[id].close()
       delete this.#connections[id]
     }
     // RTCPeerConnection
-    this.#connections[id] = new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
+    this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     debug(`peer ${id} joined`)
   }
 
