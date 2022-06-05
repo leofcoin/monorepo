@@ -1,14 +1,17 @@
-import protons from 'protons'
-import proto from './../protos/bw.proto.js'
-import { FormatInterface as CodecFormat } from '@leofcoin/codec-format-interface'
+import proto from './../protos/block.proto.js'
+import { FormatInterface } from '@leofcoin/codec-format-interface'
 
-export default class BWMessage extends CodecFormat {
+export default class BWMessage extends FormatInterface {
   get keys() {
     return ['up', 'down']
   }
 
+  get messageName() {
+    return 'BWMessage'
+  }
+
   constructor(buffer) {
     const name = 'bw-message'
-    super(buffer, protons(proto).BWMessage, {name})
+    super(buffer, proto, {name})
   }
 }
