@@ -204,7 +204,7 @@ export default customElements.define('pool-selector-item', class PoolSelectorIte
         </flex-row>
         <flex-row style="align-items: flex-end; height: 24px;">
           <img class="logo" src="assets/arteon.svg"></img>
-          <span class="explainer">potential earnings</span>
+          <span class="explainer">earnings</span>
           <flex-one></flex-one>
           <span title="${this.earned}" class="earned">${this.earnedShort}</span>
         </flex-row>

@@ -195,21 +195,17 @@ export default customElements.define('nft-pool', class NFTPool extends HTMLEleme
     this.id = id
     this.symbol = symbol
 
-    console.log(id, symbol);
-
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('symbol', symbol)
     this.shadowRoot.querySelector('pool-selector-item').setAttribute('id', id)
     this.contract = api.getContract(api.addresses.platform, PLATFORM_ABI, true)
     this.miningContract = api.getContract(api.addresses.mining, MINING_ABI, true)
 
     this._parseRewards()
-    console.log(this.contract);
     let promises = [
       this.contract.callStatic.balanceOf(api.signer.address, id),
       this.contract.callStatic.totalSupply(id)
     ]
     promises = await Promise.all(promises)
-console.log(promises);
     // if (Number(promises[0]) === 0) return;
 
     const totalSupply = promises[1]
@@ -219,14 +215,9 @@ console.log(promises);
       promises.push(this.contract.callStatic.ownerOf(id, i))
     }
     promises = await Promise.allSettled(promises)
-    console.log(promises);
     let cards = []
-    const tokenIdsToCheck = []
-console.log();
     const bonus = await this.miningContract.callStatic.bonuses(this.id, api.signer.address, '5')
-    console.log(bonus);
     for (const result of promises) {
-      console.log(result);
       if (result.status !== 'rejected' && result.value === api.signer.address) {
         const tokenId = promises.indexOf(result) + 1
         const mining = await this.miningContract.callStatic.mining(this.id, tokenId)
