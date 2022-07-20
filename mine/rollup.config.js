@@ -1,4 +1,5 @@
 import json from  '@rollup/plugin-json'
+import resolve from '@rollup/plugin-node-resolve'
 import { execSync } from 'child_process'
 
 execSync('rm -rf www/*.js')
@@ -13,7 +14,7 @@ export default [
 			format: 'es',
 			sourcemap: false
 		},
-		plugins: [json()],
+		plugins: [json(), resolve()],
 		external: [
 			'./third-party/ethers.js',
 			'./third-party/WalletConnectClient.js',

@@ -8,7 +8,7 @@
     "serve": "jsproject --serve www",
     "compile": "rollup -c",
     "watch": "rollup -c -w",
-    "b": "browserify node_modules/ethers/dist/ethers.umd.js -o www/third-party/ethers.js --standalone ethers && browserify ./node_modules/@walletconnect/client/dist/cjs/client.js -o www/third-party/WalletConnectClient.js --standalone WalletConnectClient",
+    "b": "browserify node_modules/ethers/dist/ethers.umd.js -o www/third-party/ethers.js --standalone ethers",
     "precache": "sw-precache --config=sw-precache-config.js",
     "deploy": "npm run compile && npm run precache"
   },
@@ -17,9 +17,10 @@
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "devDependencies": {
     "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
     "browserify": "^17.0.0",
     "ethers": "^5.5.1",
-    "rollup": "^2.60.2"
+    "rollup": "^2.77.0"
   },
   "dependencies": {
     "@andrewvanardennen/custom-input": "git+https://github.com/andrewvanardennen/custom-input.git",
@@ -37,6 +38,7 @@
     "custom-selector": "^0.2.1",
     "custom-svg-icon": "^0.10.2",
     "custom-svg-iconset": "^0.9.2",
-    "custom-tabs": "^0.13.1"
+    "custom-tabs": "^0.13.1",
+    "lit": "^2.2.7"
   }
 }

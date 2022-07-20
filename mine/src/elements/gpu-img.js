@@ -1,43 +1,35 @@
 import {elevation4dp} from '../styles/elevation'
 import {rotate, basicRotation, rotateBack} from '../styles/shared'
+import { LitElement, html } from 'lit'
 
+export default customElements.define('gpu-img', class GpuImage extends LitElement {
 
-export default customElements.define('gpu-img', class GpuImage extends HTMLElement {
-
-  static get observedAttributes() {
-    return ['symbol']
+  static properties = {
+    symbol: {
+      type: String,
+      reflect: true      
+    },
+    asset: {
+      type: String
+    }
   }
 
   constructor() {
     super()
-    this.attachShadow({mode: 'open'})
-  }
-
-  connectedCallback() {
-    if (this.hasAttribute('symbol')) this.symbol = this.getAttribute('symbol')
-
-  }
-
-  attributeChangedCallback(name, old, value) {
-    if(value !== old || !this[name]) this[name] = value
   }
 
   set symbol(value) {
-    this.setAttribute('symbol', value)
-    this._observer()
+    if (value) this._parse()
   }
 
   get symbol() {
     return this.getAttribute('symbol')
   }
 
-  _observer() {
-    if (!this.symbol) return;
-    this._render()
-  }
-
-  async _render(listing, isOwner) {
+  async _parse(listing, isOwner) {
     this.innerHTML = ''
+
+    console.log(this.symbol);
 
     this.asset = api.assets.cards[this.symbol]
     this.fanAsset = api.assets.fans[this.symbol]
@@ -67,10 +59,10 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
       this.appendChild(img)
     }
 
-    this.shadowRoot.innerHTML = this.template
+    this.requestUpdate()
   }
-  get template() {
-    return `
+  render() {
+    return html`
     <style>
       * {
         pointer-events: none;
@@ -121,7 +113,7 @@ export default customElements.define('gpu-img', class GpuImage extends HTMLEleme
     </style>
     <slot name="fan"></slot>
     <slot name="front"></slot>
-    <img class="card" src="${this.asset}"></img>
+    <img class="card" src="${this.asset}" loading="lazy"></img>
 
       `
   }
