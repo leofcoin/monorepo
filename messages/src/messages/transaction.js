@@ -3,7 +3,7 @@ import { FormatInterface } from '@leofcoin/codec-format-interface'
 
 export default class TransactionMessage extends FormatInterface {
   get keys() {
-    return ['timestamp', 'from', 'to', 'nonce', 'method', 'params']
+    return ['timestamp', 'from', 'to', 'nonce', 'method', 'params', 'signature']
   }
 
   get messageName() {

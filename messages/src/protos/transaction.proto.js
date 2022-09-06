@@ -7,5 +7,6 @@ message TransactionMessage {
   required uint64 nonce = 4;
   required string method = 5;
   repeated string params = 6;
+  required string signature = 7;
 }
 `
