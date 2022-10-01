@@ -170,7 +170,6 @@ export default class Peer {
          globalThis.pako = importee.default
        }
 
-
        const iceServers = [{
          urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
        }, {
@@ -256,7 +255,7 @@ export default class Peer {
        let data = new Uint8Array(Object.values(this.#chunksQue[id]))
        delete this.#chunksQue[id]
        data = pako.inflate(data)
-       pubsub.publish('peer:data', { id, data })
+       pubsub.publish('peer:data', { id, data, from: this.peerId })
      }
      this.bw.down += message.byteLength || message.length
    }
