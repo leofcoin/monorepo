@@ -1,0 +1,22 @@
+{
+  "name": "@leofcoin/workers",
+  "version": "1.0.0",
+  "description": "",
+  "module": "src/workers.js",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^22.0.2",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^14.1.0",
+    "rollup": "^2.79.1"
+  },
+  "dependencies": {
+    "@leofcoin/messages": "^1.2.0"
+  }
+}
