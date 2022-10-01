@@ -1,8 +1,13 @@
-import vm from 'vm'
-import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/lib'
+import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
+import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
+import { formatBytes } from './../../utils/src/utils'
+import { Worker, workerData, MessageChannel } from 'worker_threads'
+import { randomBytes } from 'crypto'
+import { resolve } from 'path'
+import { fork } from 'child_process'
+import e from 'express'
 // import State from './state'
-
+const {port1, port2} = new MessageChannel()
 export default class Machine {
   #contracts = {}
   #nonces = {}
@@ -18,57 +23,82 @@ export default class Machine {
     }
   }
 
-  async #init() {
-    // return
-    try {
-      let contracts = [
-        contractStore.get(contractFactory),
-        contractStore.get(nativeToken),
-        contractStore.get(validators),
-        contractStore.get(nameService)
-      ]
+  async #onmessage(data) {
+    switch (data.type) {
+      case 'contractError':
+        console.warn(`removing contract ${await data.hash}`);
+        await contractStore.delete(await data.hash)  
+      break
 
-      contracts = await Promise.all(contracts)
-      for (const contract of contracts) {
-        const message = await new ContractMessage(new Uint8Array(contract.buffer, contract.buffer.byteOffset, contract.buffer.byteLength))
-        await this.#runContract(message)
-      }
-    } catch (e) {
-console.log(e);
+      case 'executionError':
+        console.warn(`error executing transaction ${data.message}`);
+        pubsub.publish(e.id, {error: e.message})
+      break
+
+      case 'debug':
+        data.messages.forEach(message => debug(message))
+      break
+      case 'machine-ready':
+        pubsub.publish('machine.ready')
+      break
+      case 'response':
+        pubsub.publish(data.id, data.value)
+      break
     }
-    // const transactions = await transactionStore.get()
-    // console.log({transactions});
-    // for (const key of Object.keys(transactions)) {
-    //   const message = new TransactionMessage(transactions[key])
-    //   console.log({message});
-    //   const {from, to, method, params} = message.decoded
-    //   globalThis.msg = this.#createMessage(from)
-    //
-    //   console.log({from, to, method, params});
-    //   await this.execute(to, method, params)
-    // }
-    return this
+    
+  }
+
+  async #init() {
+    return new Promise(async (resolve) => {
+    //   this.worker = new Worker('./workers/machine-worker.js')
+    // this.worker.onmessage = this.#onmessage.bind(this)
+
+      pubsub.subscribe('machine.ready', ()  => {
+        resolve(this)
+      })
+this.worker = fork('./workers/machine-worker.js', {serialization: 'advanced'})
+this.worker.on('message', this.#onmessage.bind(this))
+    const blocks = await blockStore.values()
+    const contracts = await Promise.all([
+      contractStore.get(contractFactory),
+      contractStore.get(nativeToken),
+      contractStore.get(validators),
+      contractStore.get(nameService)
+    ])
+    
+    const message = {
+      type: 'init',
+      input: {
+        contracts,
+        blocks,
+        peerid: peernet.peerId
+      }
+    }
+    this.worker.send(message)
+      // this.worker.postMessage(message)
+    })
+    // return
+    
   }
 
   async #runContract(contractMessage) {
     const params = contractMessage.decoded.constructorParameters
     try {
 
-      const func = new Function(new TextDecoder().decode(contractMessage.decoded.contract))
+      const func = new Function(contractMessage.decoded.contract)
       const Contract = func()
 
       globalThis.msg = this.#createMessage(contractMessage.decoded.creator)
       // globalThis.msg = {sender: contractMessage.decoded.creator}
-      this.#contracts[contractMessage.hash] = new Contract(...params)
-      debug(`loaded contract: ${contractMessage.hash}`);
-      debug(`size: ${Math.round((contractMessage.encoded.length / 1024) * 100) / 100} kb`);
+      this.#contracts[await contractMessage.hash] = await new Contract(...params)
+      debug(`loaded contract: ${await contractMessage.hash}`);
+      debug(`size: ${formatBytes(contractMessage.encoded.length)}`);
     } catch (e) {
       console.log(e);
-      console.warn(`removing contract ${contractMessage.hash}`);
-      await contractStore.delete(contractMessage.hash, contractMessage.encoded)
+      console.warn(`removing contract ${await contractMessage.hash}`);
+      await contractStore.delete(await contractMessage.hash, contractMessage.encoded)
     }
   }
-
   /**
    * @params {ContractMessage} - contractMessage
    */
@@ -82,20 +112,24 @@ console.log(e);
   }
 
   async execute(contract, method, params) {
-    try {
-      let result
-      // don't execute the method on a proxy
-      if (this.#contracts[contract].fallback) {
-        result = this.#contracts[contract].fallback(method, params)
-      } else {
-        result = await this.#contracts[contract][method](...params)
+    return new Promise((resolve, reject) => {
+      const id = randomBytes(20).toString('hex')
+      const message = message => {
+        if (message?.error) reject(message.error)
+        else resolve(message)
       }
-
-      // this.#state.put(result)
-      return result
-    } catch (e) {
-      throw e
-    }
+      pubsub.subscribe(id, message)
+      this.worker.send({
+        type: 'execute',
+        id,
+        input: {
+          contract,
+          method,
+          params
+        }
+      })
+    })
+    
   }
 
   addJob(contract, method, params, from, nonce) {
@@ -107,13 +141,22 @@ console.log(e);
   }
 
   get(contract, method, params) {
-    let result
-    if (params?.length > 0) {
-      result = this.#contracts[contract][method](...params)
-    } else {
-      result = this.#contracts[contract][method]
-    }
-    return result
+    return new Promise((resolve, reject) => {
+      const id = randomBytes(20).toString()
+      const message = message => {
+        resolve(message)
+      }
+      pubsub.subscribe(id, message)
+      this.worker.send({
+        type: 'get',
+        id,
+        input: {
+          contract,
+          method,
+          params
+        }
+      })
+    })
   }
 
   async delete(hash) {
