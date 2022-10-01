@@ -1,9 +1,6 @@
-import cjs from '@rollup/plugin-commonjs'
-import resolve from '@rollup/plugin-node-resolve'
 import json from '@rollup/plugin-json'
 import strip from '@rollup/plugin-strip';
 import { terser } from "rollup-plugin-terser";
-import modify from 'rollup-plugin-modify'
 
 import { execSync } from 'child_process'
 
@@ -20,16 +17,102 @@ export default [{
     format: 'cjs'
   },
   plugins: [
-    json()
+    json(),
     // terser({
     //   keep_classnames: true
     // }),
-    // cjs()
   ]
 }, {
   input: ['./src/node.js'],
   output: {
     dir: 'dist',
+    format: 'cjs'
+  },
+  plugins: [
+    json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/chain.js'],
+  output: {
+    dir: './dist/module',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    // terser({
+    //   keep_classnames: true
+    // }),
+  ]
+}, {
+  input: ['./src/node.js'],
+  output: {
+    dir: 'dist/module',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/workers/machine-worker.js'],
+  output: {
+    dir: 'dist/module/workers',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    // cjs()
+  ]
+}, {
+  input: ['./src/workers/machine-worker.js'],
+  output: {
+    dir: 'workers',
+    format: 'cjs'
+  },
+  plugins: [
+    json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/workers/transaction-worker.js'],
+  output: {
+    dir: 'workers',
+    format: 'cjs'
+  },
+  plugins: [
+    json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/workers/pool-worker.js'],
+  output: {
+    dir: 'workers',
+    format: 'cjs'
+  },
+  plugins: [
+    json(),
+    terser({
+      keep_classnames: true
+    }),
+    // cjs()
+  ]
+}, {
+  input: ['./src/workers/block-worker.js'],
+  output: {
+    dir: 'workers',
     format: 'cjs'
   },
   plugins: [
