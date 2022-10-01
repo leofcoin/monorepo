@@ -1,5 +1,5 @@
-export { BigNumber } from '@ethersproject/bignumber'
-export { formatUnits, parseUnits } from '@ethersproject/units'
+export { BigNumber } from './../node_modules/@ethersproject/bignumber/lib.esm/bignumber'
+export { formatUnits, parseUnits } from './../node_modules/@ethersproject/units/lib.esm/index'
 
 export const byteFormats = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
