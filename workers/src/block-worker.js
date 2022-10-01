@@ -1,6 +1,6 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from '../../../messages/src/messages'
-import { formatBytes, BigNumber } from '../../../utils/src/utils'
-import bytecodes  from '../../../lib/src/bytecodes.json'
+import { BlockMessage } from '../../messages/src/messages'
+import { formatBytes, BigNumber } from '../../utils/src/utils'
+import bytecodes  from '../../lib/src/bytecodes.json'
 import { fork } from 'child_process'
 
 const contractFactoryMessage = bytecodes.contractFactory
@@ -18,13 +18,28 @@ const run = async (blocks) => {
   blocks = blocks.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
 
   blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
-    block.decoded.transactions = await Promise.all(
-      block.decoded.transactions
-        .map(async message => new TransactionMessage(message))
-    )
-    const size = block.encoded.length || block.encoded.byteLength
-    console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
-    return block
+    if (globalThis.process) {
+      const worker = fork('./workers/transaction-worker.js', {serialization: 'advanced'})
+    
+      worker.once('message', async transactions => {
+        block.decoded.transactions = transactions
+        const size = block.encoded.length || block.encoded.byteLength
+        console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
+        resolve(block)
+      })
+      
+      worker.send(block.decoded.transactions)
+    } else {
+      const worker = new Worker('./workers/transaction-worker.js')
+      worker.onmessage = async message => {
+        const transactions = message.data
+        block.decoded.transactions = transactions
+        const size = block.encoded.length || block.encoded.byteLength
+        console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
+        resolve(block)
+      }
+      worker.postMessage(block.decoded.transactions)
+    }    
   })))
   return blocks
 }
