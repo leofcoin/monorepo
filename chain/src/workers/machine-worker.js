@@ -12,6 +12,7 @@ globalThis.BigNumber = BigNumber
 globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
 
+
 const get = (contract, method, params) => {
   let result
   if (params?.length > 0) {
@@ -75,6 +76,22 @@ const createMessage = (sender = globalThis.peerid) => {
 }
 
 const _init = async ({ contracts, blocks, peerid })=> {
+  
+  globalThis.peernet.codecs =  {
+    'contract-message': {
+      codec: parseInt('63636d', 16),
+      hashAlg: 'keccak-256'
+    },
+    'transaction-message': {
+      codec: parseInt('746d', 16),
+      hashAlg: 'keccak-256'
+    },
+    'block-message': {
+      codec: parseInt('626d', 16),
+      hashAlg: 'keccak-256'
+    }
+  }
+
   globalThis.peerid = peerid
   contracts = [
     contractFactoryMessage,
@@ -110,26 +127,13 @@ const _init = async ({ contracts, blocks, peerid })=> {
 }
 
 const tasks = async (e) => {
-  globalThis.peernet.codecs =  {
-    'contract-message': {
-      codec: parseInt('63636d', 16),
-      hashAlg: 'keccak-256'
-    },
-    'transaction-message': {
-      codec: parseInt('746d', 16),
-      hashAlg: 'keccak-256'
-    },
-    'block-message': {
-      codec: parseInt('626d', 16),
-      hashAlg: 'keccak-256'
-    }
-  }
+  const id = e.id
     if (e.type === 'init') await _init(e.input)
     if (e.type === 'get') {
       const value = await get(e.input.contract, e.input.method, e.input.params)
       process.send({
         type: 'response',
-        id: e.id,
+        id,
         value
       })
     }
@@ -138,14 +142,14 @@ const tasks = async (e) => {
         const value = await execute(e.input.contract, e.input.method, e.input.params)
         process.send({
           type: 'response',
-          id: e.id,
+          id,
           value
         })
       } catch(e) {
         process.send({
           type: 'executionError',
-          message: e,
-          id: e.id
+          message: e.message,
+          id
           
         })
       }

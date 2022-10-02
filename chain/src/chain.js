@@ -18,6 +18,8 @@ export default class Chain {
   #runningEpoch = false
   #lastBlock = {index: 0, previousHash: '0x0'}
 
+  #jail = []
+
   constructor() {
     return this.#init()
   }
@@ -44,7 +46,6 @@ export default class Chain {
 
   async hasTransactionToHandle() {
     const size = await transactionPoolStore.size()
-    console.log({size});
     if (size > 0) return true
     return false
   }
@@ -149,6 +150,8 @@ export default class Chain {
 
     peernet.subscribe('add-transaction', this.#addTransaction.bind(this))
 
+    peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
+
     pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
 
     try {
@@ -166,12 +169,29 @@ export default class Chain {
     } catch (e) {
       console.log({e});
       await chainStore.put('lastBlock', '0x0')
-      await this.#sync()
+      let localBlock = await chainStore.get('lastBlock')
+      localBlock = new TextDecoder().decode(localBlock)
+      if (localBlock && localBlock !== '0x0') {
+        localBlock = await peernet.get(localBlock)
+        localBlock = await new BlockMessage(localBlock)
+        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
+      } else  {
+        await this.#sync()
+      }
+      
+
       // this.#setup()
     }
     // load local blocks
     if (peernet.connections?.length > 1) await this.resolveBlocks()
     return this
+  }
+
+  async #validatorTimeout(validatorInfo) {
+    setTimeout(() => {
+      this.#jail.splice(this.jail.indexOf(validatorInfo.address), 1)
+    }, validatorInfo.timeout)
+    this.#jail.push(validatorInfo.address)
   }
 
   async #peerConnected(peer) {
@@ -290,7 +310,6 @@ async resolveBlock(hash) {
       pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
       return result ? result : 'no state change'
     } catch (e) {
-      console.log({e});
       pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: e})
       throw e
     }
@@ -424,7 +443,6 @@ async resolveBlock(hash) {
         block.fees += Number(calculateFee(transaction))
         await accountsStore.put(transaction.from, new TextEncoder().encode(String(transaction.nonce)))
       } catch (e) {
-        console.log({e});
         transaction = await new TransactionMessage(transaction)
         await transactionPoolStore.delete(await transaction.hash)
       }
@@ -645,8 +663,6 @@ async #signTransaction (transaction, wallet) {
 
     if (transaction.nonce === undefined) {
       transaction.nonce = await this.getNonce(transaction.from)
-      transaction.nonce += 1
-      await accountsStore.put(transaction.from, new TextEncoder().encode(String(transaction.nonce)))
     } else {
       let nonce = await accountsStore.get(transaction.from)
       nonce = new TextDecoder().decode(nonce)
