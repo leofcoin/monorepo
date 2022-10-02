@@ -1,7 +1,8 @@
-import { BlockMessage } from '../../messages/src/messages'
+import { BlockMessage, ContractMessage, TransactionMessage } from '../../messages/src/messages'
 import { formatBytes, BigNumber } from '../../utils/src/utils'
 import bytecodes  from '../../lib/src/bytecodes.json'
 import { fork } from 'child_process'
+import { join } from 'path'
 
 const contractFactoryMessage = bytecodes.contractFactory
 const nativeTokenMessage = bytecodes.nativeToken
@@ -19,7 +20,7 @@ const run = async (blocks) => {
 
   blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
     if (globalThis.process) {
-      const worker = fork('./workers/transaction-worker.js', {serialization: 'advanced'})
+      const worker = fork(join(__dirname, './transaction-worker.js'), {serialization: 'advanced'})
     
       worker.once('message', async transactions => {
         block.decoded.transactions = transactions
