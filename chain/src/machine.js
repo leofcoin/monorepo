@@ -3,6 +3,7 @@ import { contractFactory, nativeToken, validators, nameService } from './../../a
 import { formatBytes } from './../../utils/src/utils'
 import { randomBytes } from 'crypto'
 import { fork } from 'child_process'
+import { join } from 'path'
 // import State from './state'
 
 export default class Machine {
@@ -53,7 +54,7 @@ export default class Machine {
       pubsub.subscribe('machine.ready', ()  => {
         resolve(this)
       })
-this.worker = fork('./workers/machine-worker.js', {serialization: 'advanced'})
+this.worker = fork(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced'})
 this.worker.on('message', this.#onmessage.bind(this))
     const blocks = await blockStore.values()
     const contracts = await Promise.all([
