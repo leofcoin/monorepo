@@ -31,8 +31,8 @@ export default class Machine {
       break
 
       case 'executionError':
-        console.warn(`error executing transaction ${data.message}`);
-        pubsub.publish(e.id, {error: e.message})
+        // console.warn(`error executing transaction ${data.message}`);
+        pubsub.publish(data.id, {error: data.message})
       break
 
       case 'debug':

@@ -8,8 +8,7 @@ export default class Node {
   }
 
   async _init(config = {
-    network: 'leofcoin',
-    root: '.leofcoin',
+    network: 'leofcoin:mandarine',
     networkName: 'leofcoin:mandarine',
     networkVersion: 'v0.1.0'
   }) {
