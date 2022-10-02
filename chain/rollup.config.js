@@ -73,7 +73,7 @@ export default [{
 }, {
   input: ['./src/workers/machine-worker.js'],
   output: {
-    dir: 'workers',
+    dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
@@ -86,7 +86,7 @@ export default [{
 }, {
   input: ['./src/workers/transaction-worker.js'],
   output: {
-    dir: 'workers',
+    dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
@@ -99,7 +99,7 @@ export default [{
 }, {
   input: ['./src/workers/pool-worker.js'],
   output: {
-    dir: 'workers',
+    dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
@@ -112,7 +112,7 @@ export default [{
 }, {
   input: ['./src/workers/block-worker.js'],
   output: {
-    dir: 'workers',
+    dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
