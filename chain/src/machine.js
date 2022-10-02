@@ -1,13 +1,10 @@
 import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
 import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
 import { formatBytes } from './../../utils/src/utils'
-import { Worker, workerData, MessageChannel } from 'worker_threads'
 import { randomBytes } from 'crypto'
-import { resolve } from 'path'
 import { fork } from 'child_process'
-import e from 'express'
 // import State from './state'
-const {port1, port2} = new MessageChannel()
+
 export default class Machine {
   #contracts = {}
   #nonces = {}
