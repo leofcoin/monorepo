@@ -1,20 +1,28 @@
 
+  console.log('run');
 
 (async () => {
+  console.log('run');
   const {promisify} = require('util')
   const read = promisify(require('fs').readFile)
   const write = promisify(require('fs').writeFile)
   const {join} = require('path')
+  console.log('t');
+  const Chain = require('./../dist/chain');
+  console.log(Chain);
+  const Node = require('./../dist/node');
+  console.log(Node);
+  console.log(Chain);
+  const node = await new Node()
+  console.log(node);
+  const chain = await new Chain()
+  console.log(chain);
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
-    return chain.createContractMessage(peernet.id, new TextEncoder().encode(`return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`), params)
+    return chain.createContractMessage(peernet.id, `return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`, params)
   }
-  const Chain = require('./../dist/chain');
-  const Node = require('./../dist/node');
-  const node = await new Node()
-  const chain = await new Chain()
   const factory = await createMessage('./dist/contracts/factory.js')
-
+  console.log(factory);
   if (!await contractStore.has(factory.hash)) {
     await contractStore.put(factory.hash, factory.encoded)
   }

@@ -5,7 +5,11 @@
   globalThis.DEBUG = true
   const Chain = require('./../dist/chain');
   const Node = require('./../dist/node');
-  const node = await new Node()
+  const node = await new Node({
+    network: 'leofcoin:mandarine',
+    networkName: 'leofcoin:mandarine',
+    networkVersion: 'v0.1.0'
+  })
   const chain = await new Chain()
   let start
   //
@@ -26,25 +30,25 @@
 const job = async () => {
   // setTimeout(async () => {
     let tx
-    // try {
-    //   tx = await chain.createTransaction(chain.nativeToken, 'grantRole', [peernet.id, 'MINT'])
-    //   await tx.wait()
+    try {
+      tx = await chain.createTransaction(chain.nativeToken, 'grantRole', [peernet.id, 'MINT'])
+      await tx.wait()
 
-    // } catch (e) {
-    //   console.log({e});
-    // }
+    } catch (e) {
+      console.log({e});
+    }
 
-    // try {
-    //   tx = await chain.createTransaction(chain.nativeToken, 'mint', [peernet.id, chain.utils.parseUnits('100000000000000').toString()])
+    try {
+      tx = await chain.createTransaction(chain.nativeToken, 'mint', [peernet.id, chain.utils.parseUnits('100000000000000').toString()])
 
-    //   await tx.wait()
-    // } catch (e) {
-    //   console.log({e});
-    // }
+      await tx.wait()
+    } catch (e) {
+      console.log({e});
+    }
     // return
     let nonce = await chain.getNonce(peernet.id)
     console.log({nonce});
-    // return
+    return
     let promises = []
     // nonce += 1
     for (let i = 0; i < 10; i++) {
@@ -63,7 +67,7 @@ const job = async () => {
     balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
-// return
+return
 //     // setTimeout(async () => {
     promises = []
 
