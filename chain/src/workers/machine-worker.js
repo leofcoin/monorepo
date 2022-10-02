@@ -2,6 +2,7 @@ import { BlockMessage, ContractMessage, TransactionMessage } from './../../../me
 import { formatBytes, BigNumber } from './../../../utils/src/utils'
 import bytecodes  from './../../../lib/src/bytecodes.json'
 import { fork } from 'child_process'
+import { join } from 'path'
 const contractFactoryMessage = bytecodes.contractFactory
 const nativeTokenMessage = bytecodes.nativeToken
 const nameServiceMessage = bytecodes.nameService
@@ -106,7 +107,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
     return contract
   }))
 
-  const worker = fork('./workers/block-worker.js', {serialization: 'advanced'})
+  const worker = fork(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
   // worker.on('message')
     worker.once('message', async (blocks) => {
       for (const block of blocks) {
