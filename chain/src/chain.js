@@ -242,8 +242,8 @@ async #lastBlockHandler() {
 async resolveBlock(hash) {
   if (!hash)  throw new Error(`expected hash, got: ${hash}`)
   let block = await peernet.get(hash, 'block')
-  if (!await peernet.has(hash, 'block')) await peernet.put(hash, block, 'block')
   block = await new BlockMessage(block)
+  if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
   const size = block.encoded.length || block.encoded.byteLength
   block = {...block.decoded, hash}
   this.#blocks[block.index] = block
