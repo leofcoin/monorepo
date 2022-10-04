@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "",
   "module": "src/workers.js",
   "scripts": {
