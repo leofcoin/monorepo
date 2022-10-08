@@ -104,7 +104,7 @@ export default class Chain {
       if (peer.peerId !== this.id) {
         let data = new peernet.protos['peernet-request']({request: 'lastBlock'})
 
-        const node = await peernet.prepareMessage(id, data.encoded)
+        const node = await peernet.prepareMessage(data)
         promises.push(peer.request(node.encoded))
       }
     }
