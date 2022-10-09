@@ -93,7 +93,7 @@ export default class Peer {
 
    async #runQue() {
      this.#queRunning = true
-     if (this.#messageQue.length > 0 && this.channel.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
+     if (this.#messageQue.length > 0 && this.channel?.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
        const message = this.#messageQue.shift()
 
        switch (this.channel?.readyState) {
