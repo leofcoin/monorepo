@@ -102,7 +102,7 @@ export default class Chain {
     let promises = []
     for (const peer of peernet.connections) {
       if (peer.peerId !== this.id) {
-        let data = new peernet.protos['peernet-request']({request: 'lastBlock'})
+        let data = await new peernet.protos['peernet-request']({request: 'lastBlock'})
 
         const node = await peernet.prepareMessage(data)
         promises.push(peer.request(node.encoded))
@@ -216,6 +216,7 @@ export default class Chain {
       const end = this.#blocks.length
       const start = (this.#blocks.length) - blocksSynced
       await this.#loadBlocks(this.#blocks)
+      this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       const message = await new BlockMessage(this.lastBlock)
       await blockStore.put(await message.hash, message.encoded)
       await chainStore.put('lastBlock', this.lastBlock.hash)
