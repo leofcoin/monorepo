@@ -2,23 +2,12 @@ import '@vandeurenglenn/debug'
 
 export default class Peer {
   #connection
-  #connecting = false
   #connected = false
-  #channelReady = false
-  #destroying = false
-  #destroyed = false
-  #isNegotiating = false
-  #firstNegotiation = true
-  #iceComplete = false
-  #remoteTracks = []
-  #remoteStreams = []
-  #pendingCandidates = []
-  #senderMap = new Map()
   #messageQue = []
   #chunksQue = {}
-  #iceCompleteTimer
   #channel
   #peerId
+  #channelName
   #chunkSize = 16 * 1024 // 16384
   #queRunning = false
   #MAX_BUFFERED_AMOUNT = 16 * 1024 * 1024
@@ -32,7 +21,7 @@ export default class Peer {
   }
 
   get readyState() {
-    return this.channel?.readyState
+    return this.#channel?.readyState
   }
 
 /**
@@ -52,7 +41,7 @@ export default class Peer {
       down: 0
     }
 
-    this.channelName = options.channelName
+    this.#channelName = options.channelName
 
     this.#peerId = options.peerId
     this.options = options
@@ -93,12 +82,12 @@ export default class Peer {
 
    async #runQue() {
      this.#queRunning = true
-     if (this.#messageQue.length > 0 && this.channel?.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
+     if (this.#messageQue.length > 0 && this.#channel?.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
        const message = this.#messageQue.shift()
 
-       switch (this.channel?.readyState) {
+       switch (this.#channel?.readyState) {
          case 'open':
-          await this.channel.send(message);
+          await this.#channel.send(message);
           if (this.#messageQue.length > 0) return this.#runQue()
           else this.#queRunning = false
          break;
@@ -207,19 +196,19 @@ export default class Peer {
          message.channel.onmessage = (message) => {
            this._handleMessage(this.id, message)
          }
-         this.channel = message.channel
+         this.#channel = message.channel
        }
       if (this.initiator) {
 
-        this.channel = this.#connection.createDataChannel('messageChannel')
-        this.channel.onopen = () => {
+        this.#channel = this.#connection.createDataChannel('messageChannel')
+        this.#channel.onopen = () => {
           this.#connected = true
           pubsub.publish('peer:connected', this)
-          // this.channel.send('hi')
+          // this.#channel.send('hi')
         }
-        this.channel.onclose = () => this.close.bind(this)
+        this.#channel.onclose = () => this.close.bind(this)
 
-        this.channel.onmessage = (message) => {
+        this.#channel.onmessage = (message) => {
           this._handleMessage(this.peerId, message)
         }
 
@@ -269,31 +258,39 @@ export default class Peer {
      }})
    }
 
+   isReallyStable(signalinState) {
+    if (signalinState !== 'stable') return false
+    // remoteDescription & localDescription are null when the connection is just made
+    if (this.#connection.remoteDescription === null && this.#connection.localDescription === null) return false
+    return true
+   }
+
    async _in(message, data) {
     // message = JSON.parse(message);
     if (message.to !== this.id) return
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
     if (message.candidate) {
-      debug(`incoming candidate ${this.channelName}`)
+      debug(`incoming candidate ${this.#channelName}`)
       debug(message.candidate.candidate)
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
       this.remoteProtocol = message.candidate.protocol
       this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6': 'ipv4'
-      return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
+      const signalinState = this.#connection.signalinState
+      if (signalinState !== 'closed' && this.isReallyStable(signalinState)) return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
     }
     try {
       if (message.sdp) {
         if (message.sdp.type === 'offer') {
-          debug(`incoming offer ${this.channelName}`)
+          debug(`incoming offer ${this.#channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
           const answer = await this.#connection.createAnswer();
           await this.#connection.setLocalDescription(answer)
           this._sendMessage({'sdp': this.#connection.localDescription})
         }
         if (message.sdp.type === 'answer') {
-          debug(`incoming answer ${this.channelName}`)
+          debug(`incoming answer ${this.#channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
         }
      }
@@ -305,7 +302,7 @@ export default class Peer {
  close() {
    debug(`closing ${this.peerId}`)
    this.#connected = false
-   this.channel?.close()
+   this.#channel?.close()
    this.#connection?.close()
 
    this.socketClient.pubsub.unsubscribe('signal', this._in)
