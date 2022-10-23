@@ -99,25 +99,27 @@ export default class Chain {
   }
 
   async #sync() {
-    let promises = []
+    let promises = [];
     for (const peer of peernet.connections) {
       if (peer.peerId !== this.id) {
-        let data = await new peernet.protos['peernet-request']({request: 'lastBlock'})
-
-        const node = await peernet.prepareMessage(data)
-        promises.push(peer.request(node.encoded))
+        let data = await new peernet.protos['peernet-request']({request: 'lastBlock'});
+        const node = await peernet.prepareMessage(data);
+        promises.push(peer.request(node.encoded));
       }
     }
-    // if (this.)
-
-    promises = await Promise.allSettled(promises)
-    promises = promises.reduce((set, c) => {
-      if (c.index > set.index) {
-        set.index = c.index
-        set.hash = c.hash
+    promises = await Promise.allSettled(promises);
+    promises = promises.filter(({status}) => status === 'fulfilled')
+    promises = promises.map(({value}) => new peernet.protos['peernet-response'](value))
+    promises = await Promise.all(promises)
+    promises = promises.map(node => node.decoded.response)
+    promises = promises.reduce((set, value) => {
+      
+      if (value.index > set.index) {
+        set.index = value.index;
+        set.hash = value.hash;
       }
       return set
-    }, {index: 0, hash: '0x0'})
+    }, {index: 0, hash: '0x0'});
     // get lastblock
     console.log(promises.hash);
       if (promises.hash && promises.hash !== '0x0') {
@@ -202,7 +204,7 @@ export default class Chain {
     console.log({response});
     response = await new globalThis.peernet.protos['peernet-response'](response)
     let lastBlock = response.decoded.response
-
+    console.log({lastBlock});
     if (!this.lastBlock || this.lastBlock.index < lastBlock.index) {
          // TODO: check if valid
       const localIndex = this.lastBlock ? this.lastBlock.index : 0
