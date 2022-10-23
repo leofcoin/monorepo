@@ -110,6 +110,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
   const worker = fork(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
   // worker.on('message')
     worker.once('message', async (blocks) => {
+      console.log({blocks});
       for (const block of blocks) {
         await Promise.all(block.decoded.transactions.map(async message => {
           const {from, to, method, params} = message.decoded
@@ -118,7 +119,17 @@ const _init = async ({ contracts, blocks, peerid })=> {
           await execute(to, method, params)
         }))
       }
-      process.send({type: 'machine-ready'})
+      let lastBlock
+      if (blocks.length > 0) {
+       lastBlock = blocks[blocks.length - 1].decoded
+      lastBlock.transactions = lastBlock.transactions.map(transaction => ({...transaction.decoded}))
+      lastBlock = await new BlockMessage(lastBlock)
+      lastBlock = {
+        ...lastBlock.decoded,
+        hash: await lastBlock.hash
+      }
+      }
+      process.send({type: 'machine-ready', lastBlock })
       worker.kill() 
         
 

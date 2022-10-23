@@ -19,29 +19,28 @@ const run = async (blocks) => {
   blocks = blocks.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
 
   blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
-    if (globalThis.process) {
+    // if (globalThis.process) {
       const worker = fork(join(__dirname, './transaction-worker.js'), {serialization: 'advanced'})
-    
-      worker.once('message', async transactions => {
-        block.decoded.transactions = transactions
+      // worker.once('message', async transactions => {
+        block.decoded.transactions = await Promise.all(block.decoded.transactions.map(async message => new TransactionMessage(message)))
         const size = block.encoded.length || block.encoded.byteLength
         console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
         resolve(block)
-      })
-      
-      worker.send(block.decoded.transactions)
-    } else {
-      const worker = new Worker('./workers/transaction-worker.js')
-      worker.onmessage = async message => {
-        const transactions = message.data
-        block.decoded.transactions = transactions
-        const size = block.encoded.length || block.encoded.byteLength
-        console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
-        resolve(block)
-      }
-      worker.postMessage(block.decoded.transactions)
-    }    
+      // })
   })))
+      // worker.send(block.decoded.transactions)
+    // } else {
+  //     const worker = new Worker('./workers/transaction-worker.js')
+  //     worker.onmessage = async message => {
+  //       const transactions = message.data
+  //       block.decoded.transactions = transactions
+  //       const size = block.encoded.length || block.encoded.byteLength
+  //       console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
+  //       resolve(block)
+  //     }
+  //     worker.postMessage(block.decoded.transactions)
+  //   }    
+  // })))
   return blocks
 }
 

@@ -9,6 +9,8 @@ import { join } from 'path'
 export default class Machine {
   #contracts = {}
   #nonces = {}
+  lastBlock = {}
+
   constructor() {
     return this.#init()
   }
@@ -37,6 +39,7 @@ export default class Machine {
         data.messages.forEach(message => debug(message))
       break
       case 'machine-ready':
+        this.lastBlock = data.lastBlock
         pubsub.publish('machine.ready')
       break
       case 'response':

@@ -16,7 +16,7 @@ export default class Chain {
   #blocks = []
   #machine
   #runningEpoch = false
-  #lastBlock = {index: 0, previousHash: '0x0'}
+  #lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'}
 
   #jail = []
 
@@ -155,31 +155,39 @@ export default class Chain {
     peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
 
     pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
+console.log(this.#machine.lastBlock);
+// let a = await new BlockMessage(this.#machine.lastBlock)
+// console.log(a.decoded);
+// console.log(await a.hash);
 
     try {
-      let localBlock = await chainStore.get('lastBlock')
+      let localBlock
+      try {
+        localBlock = await chainStore.get('lastBlock')        
+        console.log({localBlock});
+      } catch(e) {
+        await chainStore.put('lastBlock', '0x0')
+        localBlock = await chainStore.get('lastBlock')
+      }
       localBlock = new TextDecoder().decode(localBlock)
+
+      console.log({localBlock});
       if (localBlock && localBlock !== '0x0') {
         localBlock = await peernet.get(localBlock)
         localBlock = await new BlockMessage(localBlock)
         this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
+      } else if (this.#machine.lastBlock?.hash) {
+        // todo remove when network is running
+        // recovering chain (not needed if multiple peers are online)
+        this.#lastBlock = this.#machine.lastBlock
+        console.log(this.#lastBlock);
+        await chainStore.put('lastBlock', this.#lastBlock.hash)
       } else  {
         await this.#sync()
-      }
-      
-      // console.log(this.lastBlock.decoded.transactions);
+      }      
     } catch (e) {
       console.log({e});
-      await chainStore.put('lastBlock', '0x0')
-      let localBlock = await chainStore.get('lastBlock')
-      localBlock = new TextDecoder().decode(localBlock)
-      if (localBlock && localBlock !== '0x0') {
-        localBlock = await peernet.get(localBlock)
-        localBlock = await new BlockMessage(localBlock)
-        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
-      } else  {
-        await this.#sync()
-      }
+      
       
 
       // this.#setup()
@@ -239,7 +247,7 @@ export default class Chain {
 }
 
 async #lastBlockHandler() {
-  return new peernet.protos['peernet-response']({response: { hash: this.lastBlock?.hash, index: this.lastBlock?.index }})
+  return new peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
 }
 
 async resolveBlock(hash) {
@@ -251,7 +259,7 @@ async resolveBlock(hash) {
   block = {...block.decoded, hash}
   this.#blocks[block.index] = block
   console.log(`loaded block: ${hash} @${block.index} ${formatBytes(size)}`);
-  if (block.index !== 0) {
+  if (block.previousHash !== '0x0') {
     return this.resolveBlock(block.previousHash)
   }
 }
