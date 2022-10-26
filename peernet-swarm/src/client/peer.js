@@ -258,11 +258,11 @@ export default class Peer {
      }})
    }
 
-   isReallyStable(signalinState) {
-    if (signalinState !== 'stable') return false
+   isNotReallyStable(signalinState) {
+    if (signalinState !== 'stable') return true
     // remoteDescription & localDescription are null when the connection is just made
-    if (this.#connection.remoteDescription === null && this.#connection.localDescription === null) return false
-    return true
+    if (this.#connection.remoteDescription === null && this.#connection.localDescription === null) return true
+    return false
    }
 
    async _in(message, data) {
@@ -278,7 +278,7 @@ export default class Peer {
       this.remoteProtocol = message.candidate.protocol
       this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6': 'ipv4'
       const signalinState = this.#connection.signalinState
-      if (signalinState !== 'closed' && this.isReallyStable(signalinState)) return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
+      if (signalinState !== 'closed' && this.isNotReallyStable(signalinState)) return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
     }
     try {
       if (message.sdp) {
