@@ -216,9 +216,7 @@ console.log(this.#machine.lastBlock);
       const localIndex = this.lastBlock ? this.lastBlock.index : 0
       const index = lastBlock.index
       await this.resolveBlock(lastBlock.hash)
-      this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       let blocksSynced = localIndex > 0 ? localIndex - index : index
-      blocksSynced += 1
       debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const end = this.#blocks.length
@@ -255,7 +253,7 @@ async resolveBlock(hash) {
   if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
   const size = block.encoded.length || block.encoded.byteLength
   block = {...block.decoded, hash}
-  this.#blocks[block.index] = block
+  this.#blocks[block.index - 1] = block
   console.log(`loaded block: ${hash} @${block.index} ${formatBytes(size)}`);
   if (block.previousHash !== '0x0') {
     return this.resolveBlock(block.previousHash)
@@ -280,7 +278,7 @@ async resolveBlock(hash) {
 
   async #loadBlocks(blocks) {
     for (const block of blocks) {
-      if (!block.loaded) {
+      if (block && !block.loaded) {
         for (const transaction of block.transactions) {
           try {
             await this.#machine.execute(transaction.to, transaction.method, transaction.params)
@@ -726,7 +724,6 @@ async #signTransaction (transaction, wallet) {
       this.#addTransaction(message.encoded)
       return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait}
     } catch (e) {
-      console.log(e);
       console.log(e)
       throw e
     }
