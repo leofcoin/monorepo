@@ -153,7 +153,6 @@ export default class Chain {
     peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
 
     pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
-console.log(this.#machine.lastBlock);
 // let a = await new BlockMessage(this.#machine.lastBlock)
 // console.log(a.decoded);
 // console.log(await a.hash);
@@ -161,15 +160,13 @@ console.log(this.#machine.lastBlock);
     try {
       let localBlock
       try {
-        localBlock = await chainStore.get('lastBlock')        
-        console.log({localBlock});
+        localBlock = await chainStore.get('lastBlock')
       } catch(e) {
         await chainStore.put('lastBlock', '0x0')
         localBlock = await chainStore.get('lastBlock')
       }
       localBlock = new TextDecoder().decode(localBlock)
 
-      console.log({localBlock});
       if (localBlock && localBlock !== '0x0') {
         localBlock = await peernet.get(localBlock)
         localBlock = await new BlockMessage(localBlock)
@@ -178,14 +175,12 @@ console.log(this.#machine.lastBlock);
         // todo remove when network is running
         // recovering chain (not needed if multiple peers are online)
         this.#lastBlock = this.#machine.lastBlock
-        console.log(this.#lastBlock);
         await chainStore.put('lastBlock', this.#lastBlock.hash)
       } else  {
         await this.#sync()
       }      
     } catch (e) {
-      console.log({e});
-      
+      console.log({e});     
       
 
       // this.#setup()
@@ -204,13 +199,11 @@ console.log(this.#machine.lastBlock);
 
   async #peerConnected(peer) {
     let node = await new peernet.protos['peernet-request']({request: 'lastBlock'})
-    console.log(node);
     node = await peernet.prepareMessage(node)
     let response = await peer.request(node.encoded)
-    console.log({response});
     response = await new globalThis.peernet.protos['peernet-response'](response)
     let lastBlock = response.decoded.response
-    console.log({lastBlock});
+
     if (!this.lastBlock || this.lastBlock.index < lastBlock.index) {
          // TODO: check if valid
       const localIndex = this.lastBlock ? this.lastBlock.index : 0

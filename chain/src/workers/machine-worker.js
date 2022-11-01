@@ -59,7 +59,6 @@ const execute = async (contract, method, params) => {
     } else {
       result = await contracts[contract][method](...params)
     }
-
     // state.put(result)
     return result
   } catch (e) {
@@ -110,7 +109,6 @@ const _init = async ({ contracts, blocks, peerid })=> {
   const worker = fork(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
   // worker.on('message')
     worker.once('message', async (blocks) => {
-      console.log({blocks});
       for (const block of blocks) {
         await Promise.all(block.decoded.transactions.map(async message => {
           const {from, to, method, params} = message
