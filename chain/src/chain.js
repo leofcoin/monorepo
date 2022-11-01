@@ -216,7 +216,7 @@ console.log(this.#machine.lastBlock);
       const localIndex = this.lastBlock ? this.lastBlock.index : 0
       const index = lastBlock.index
       await this.resolveBlock(lastBlock.hash)
-      let blocksSynced = localIndex > 0 ? localIndex - index : index
+      let blocksSynced = localIndex > 0 ? localIndex > index ? localIndex - index : index - localIndex : index
       debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const end = this.#blocks.length
