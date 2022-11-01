@@ -56,9 +56,7 @@ export default class Chain {
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log(validators);
     if (!validators[peernet.id]?.active) return
-    console.log('active');
 
-    
     const start = new Date().getTime()
     try {
       await this.#createBlock()
@@ -533,10 +531,13 @@ async resolveBlock(hash) {
     block.fees = Number.parseFloat(String(block.fees)).toFixed(decimals)
 
     try {
+      await Promise.all(block.transactions
+        .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
+
+
       let blockMessage = await new BlockMessage(block)
       const hash = await blockMessage.hash
-      await Promise.all(blockMessage.decoded.transactions
-        .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
+      
       
       this.#lastBlock = { hash, ...blockMessage.decoded }
       await blockStore.put(hash, blockMessage.encoded)

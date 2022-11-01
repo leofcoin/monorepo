@@ -22,7 +22,6 @@ const run = async (blocks) => {
     // if (globalThis.process) {
       const worker = fork(join(__dirname, './transaction-worker.js'), {serialization: 'advanced'})
       // worker.once('message', async transactions => {
-        block.decoded.transactions = await Promise.all(block.decoded.transactions.map(async message => new TransactionMessage(message)))
         const size = block.encoded.length || block.encoded.byteLength
         console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
         resolve(block)
