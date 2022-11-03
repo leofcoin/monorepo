@@ -1,5 +1,5 @@
-import { BlockMessage } from '../../../messages/src/messages'
-import { formatBytes, BigNumber } from '../../../utils/src/utils'
+import { BlockMessage } from './../../messages/src/messages'
+import { formatBytes, BigNumber } from './../../utils/src/utils'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'
 

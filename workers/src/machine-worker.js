@@ -1,6 +1,6 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from './../../../messages/src/messages'
-import { formatBytes, BigNumber } from './../../../utils/src/utils'
-import bytecodes  from './../../../lib/src/bytecodes.json'
+import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
+import { formatBytes, BigNumber } from './../../utils/src/utils'
+import bytecodes  from './../../lib/src/bytecodes.json'
 import { join } from 'path'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'

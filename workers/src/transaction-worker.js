@@ -1,4 +1,4 @@
-import { TransactionMessage } from '../../../messages/src/messages'
+import { TransactionMessage } from './../../messages/src/messages.js'
 
 globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
