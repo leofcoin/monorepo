@@ -272,7 +272,7 @@ export default class Peer {
     // if (data.call) return this._startStream(true, true); // start audio stream
     if (message.candidate) {
       debug(`incoming candidate ${this.#channelName}`)
-      debug(message.candidate.candidate)
+      // debug(message.candidate.candidate)
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
       this.remoteProtocol = message.candidate.protocol
