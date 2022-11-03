@@ -119,9 +119,7 @@ export default class Chain {
       return set
     }, {index: 0, hash: '0x0'});
     // get lastblock
-    console.log(promises.hash);
       if (promises.hash && promises.hash !== '0x0') {
-        console.log('get');
         let localBlock = await peernet.get(promises.hash)
         console.log({localBlock});
       }
@@ -153,9 +151,6 @@ export default class Chain {
     peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
 
     pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
-// let a = await new BlockMessage(this.#machine.lastBlock)
-// console.log(a.decoded);
-// console.log(await a.hash);
 
     try {
       let localBlock

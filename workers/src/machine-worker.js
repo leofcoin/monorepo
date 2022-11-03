@@ -1,8 +1,11 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
-import { formatBytes, BigNumber } from './../../utils/src/utils'
-import bytecodes  from './../../lib/src/bytecodes.json'
-import { fork } from 'child_process'
+import { BlockMessage, ContractMessage, TransactionMessage } from './../../../messages/src/messages'
+import { formatBytes, BigNumber } from './../../../utils/src/utils'
+import bytecodes  from './../../../lib/src/bytecodes.json'
 import { join } from 'path'
+
+import EasyWorker from '@vandeurenglenn/easy-worker'
+const worker = new EasyWorker()
+
 const contractFactoryMessage = bytecodes.contractFactory
 const nativeTokenMessage = bytecodes.nativeToken
 const nameServiceMessage = bytecodes.nameService
@@ -59,7 +62,6 @@ const execute = async (contract, method, params) => {
     } else {
       result = await contracts[contract][method](...params)
     }
-
     // state.put(result)
     return result
   } catch (e) {
@@ -107,19 +109,29 @@ const _init = async ({ contracts, blocks, peerid })=> {
     return contract
   }))
 
-  const worker = fork(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
+  const _worker = new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
   // worker.on('message')
-    worker.once('message', async (blocks) => {
+    _worker.once('message', async (blocks) => {
       for (const block of blocks) {
         await Promise.all(block.decoded.transactions.map(async message => {
-          const {from, to, method, params} = message.decoded
+          const {from, to, method, params} = message
           globalThis.msg = createMessage(from)
         
           await execute(to, method, params)
         }))
       }
-      process.send({type: 'machine-ready'})
-      worker.kill() 
+      let lastBlock
+      if (blocks.length > 0) {
+        lastBlock = blocks[blocks.length - 1].decoded
+     
+        lastBlock = await new BlockMessage(lastBlock)
+        lastBlock = {
+          ...lastBlock.decoded,
+          hash: await lastBlock.hash
+        }
+      }
+      worker.postMessage({type: 'machine-ready', lastBlock })
+      _worker.terminate() 
         
 
       
@@ -132,7 +144,7 @@ const tasks = async (e) => {
     if (e.type === 'init') await _init(e.input)
     if (e.type === 'get') {
       const value = await get(e.input.contract, e.input.method, e.input.params)
-      process.send({
+      worker.postMessage({
         type: 'response',
         id,
         value
@@ -141,13 +153,13 @@ const tasks = async (e) => {
     if (e.type === 'execute') {
       try {
         const value = await execute(e.input.contract, e.input.method, e.input.params)
-        process.send({
+        worker.postMessage({
           type: 'response',
           id,
           value
         })
       } catch(e) {
-        process.send({
+        worker.postMessage({
           type: 'executionError',
           message: e.message,
           id
@@ -157,9 +169,4 @@ const tasks = async (e) => {
     }
   }
 
-
-if (globalThis.process) {
-  process.on('message', tasks)
-} else {
-  onmessage = message => tasks(message.data)
-}
+worker.onmessage(data => tasks(data))

@@ -1,13 +1,9 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from '../../messages/src/messages'
-import { formatBytes, BigNumber } from '../../utils/src/utils'
-import bytecodes  from '../../lib/src/bytecodes.json'
-import { fork } from 'child_process'
-import { join } from 'path'
+import { BlockMessage } from '../../../messages/src/messages'
+import { formatBytes, BigNumber } from '../../../utils/src/utils'
 
-const contractFactoryMessage = bytecodes.contractFactory
-const nativeTokenMessage = bytecodes.nativeToken
-const nameServiceMessage = bytecodes.nameService
-const validatorsMessage = bytecodes.validators
+import EasyWorker from '@vandeurenglenn/easy-worker'
+
+const worker = new EasyWorker()
 
 globalThis.BigNumber = BigNumber
 
@@ -19,42 +15,16 @@ const run = async (blocks) => {
   blocks = blocks.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
 
   blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
-    if (globalThis.process) {
-      const worker = fork(join(__dirname, './transaction-worker.js'), {serialization: 'advanced'})
-    
-      worker.once('message', async transactions => {
-        block.decoded.transactions = transactions
-        const size = block.encoded.length || block.encoded.byteLength
-        console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
-        resolve(block)
-      })
-      
-      worker.send(block.decoded.transactions)
-    } else {
-      const worker = new Worker('./workers/transaction-worker.js')
-      worker.onmessage = async message => {
-        const transactions = message.data
-        block.decoded.transactions = transactions
-        const size = block.encoded.length || block.encoded.byteLength
-        console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
-        resolve(block)
-      }
-      worker.postMessage(block.decoded.transactions)
-    }    
+    // todo: tx worker or nah?
+    const size = block.encoded.length || block.encoded.byteLength
+    console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
+    resolve(block)
   })))
   return blocks
 }
 
 const tasks = async blocks => {
   globalThis.peernet.codecs =  {
-    'contract-message': {
-      codec: parseInt('63636d', 16),
-      hashAlg: 'keccak-256'
-    },
-    'transaction-message': {
-      codec: parseInt('746d', 16),
-      hashAlg: 'keccak-256'
-    },
     'block-message': {
       codec: parseInt('626d', 16),
       hashAlg: 'keccak-256'
@@ -62,11 +32,9 @@ const tasks = async blocks => {
   }  
   
   blocks = await run(blocks)
-  globalThis.process ? process.send(blocks) : postMessage(blocks)
+  worker.postMessage(blocks)
 }
  
-if (globalThis.process) {
-  process.on('message', tasks)
-} else {
-  onmessage = message => tasks(message.data)
-}
+
+worker.onmessage(data => tasks(data))
+
