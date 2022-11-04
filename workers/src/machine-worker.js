@@ -1,4 +1,4 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
+import { BlockMessage, ContractMessage } from './../../messages/src/messages'
 import { formatBytes, BigNumber } from './../../utils/src/utils'
 import bytecodes  from './../../lib/src/bytecodes.json'
 import { join } from 'path'
@@ -109,7 +109,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
     return contract
   }))
 
-  const _worker = new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced'})
+  const _worker = await new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced', type: 'module' })
   // worker.on('message')
     _worker.once('message', async (blocks) => {
       for (const block of blocks) {
@@ -136,7 +136,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
 
       
     })
-    worker.send(blocks)
+    worker.postMessage(blocks)
 }
 
 const tasks = async (e) => {
