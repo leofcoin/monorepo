@@ -110,33 +110,31 @@ const _init = async ({ contracts, blocks, peerid })=> {
   }))
 
   const _worker = await new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced', type: 'module' })
-  // worker.on('message')
-    _worker.once('message', async (blocks) => {
-      for (const block of blocks) {
-        await Promise.all(block.decoded.transactions.map(async message => {
-          const {from, to, method, params} = message
-          globalThis.msg = createMessage(from)
-        
-          await execute(to, method, params)
-        }))
-      }
-      let lastBlock
-      if (blocks.length > 0) {
-        lastBlock = blocks[blocks.length - 1].decoded
-     
-        lastBlock = await new BlockMessage(lastBlock)
-        lastBlock = {
-          ...lastBlock.decoded,
-          hash: await lastBlock.hash
-        }
-      }
-      worker.postMessage({type: 'machine-ready', lastBlock })
-      _worker.terminate() 
-        
+  blocks = await _worker.once(blocks)
+  
+  for (const block of blocks) {
+    await Promise.all(block.decoded.transactions.map(async message => {
+      const {from, to, method, params} = message;
+      globalThis.msg = createMessage(from);
+    
+      await execute(to, method, params);
+    }));
+  }
 
-      
-    })
-    worker.postMessage(blocks)
+  let lastBlock;
+  if (blocks.length > 0) {
+    lastBlock = blocks[blocks.length - 1].decoded;    
+    lastBlock = await new BlockMessage(lastBlock);
+
+    lastBlock = {
+      ...lastBlock.decoded,
+      hash: await lastBlock.hash
+    };
+  }
+  worker.postMessage({type: 'machine-ready', lastBlock });
+  _worker.terminate(); 
+  
+  worker.postMessage(blocks);
 }
 
 const tasks = async (e) => {

@@ -61,7 +61,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./src/workers/machine-worker.js'],
+  input: ['./node_modules/@leofcoin/workers/src/machine-worker.js'],
   output: {
     dir: 'dist/module/workers',
     format: 'es'
@@ -71,55 +71,55 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./src/workers/machine-worker.js'],
+  input: ['./node_modules/@leofcoin/workers/src/machine-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
-  input: ['./src/workers/transaction-worker.js'],
+  input: ['./node_modules/@leofcoin/workers/src/transaction-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
-  input: ['./src/workers/pool-worker.js'],
+  input: ['./node_modules/@leofcoin/workers/src/pool-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
-  input: ['./src/workers/block-worker.js'],
+  input: ['./node_modules/@leofcoin/workers/src/block-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
