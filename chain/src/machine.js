@@ -1,9 +1,9 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from './../../messages/src/messages'
 import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
 import { formatBytes } from './../../utils/src/utils'
 import { randomBytes } from 'crypto'
-import { fork } from 'child_process'
 import { join } from 'path'
+import EasyWorker from '@vandeurenglenn/easy-worker'
+
 // import State from './state'
 
 export default class Machine {
@@ -51,34 +51,31 @@ export default class Machine {
 
   async #init() {
     return new Promise(async (resolve) => {
-    //   this.worker = new Worker('./workers/machine-worker.js')
-    // this.worker.onmessage = this.#onmessage.bind(this)
-
       pubsub.subscribe('machine.ready', ()  => {
         resolve(this)
       })
-this.worker = fork(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced'})
-this.worker.on('message', this.#onmessage.bind(this))
-    const blocks = await blockStore.values()
-    const contracts = await Promise.all([
-      contractStore.get(contractFactory),
-      contractStore.get(nativeToken),
-      contractStore.get(validators),
-      contractStore.get(nameService)
-    ])
-    
-    const message = {
-      type: 'init',
-      input: {
-        contracts,
-        blocks,
-        peerid: peernet.peerId
+
+      this.worker = await new EasyWorker(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced', type:'module'})
+      this.worker.onmessage(this.#onmessage.bind(this))
+
+      const blocks = await blockStore.values()
+      const contracts = await Promise.all([
+        contractStore.get(contractFactory),
+        contractStore.get(nativeToken),
+        contractStore.get(validators),
+        contractStore.get(nameService)
+      ])
+      
+      const message = {
+        type: 'init',
+        input: {
+          contracts,
+          blocks,
+          peerid: peernet.peerId
+        }
       }
-    }
-    this.worker.send(message)
-      // this.worker.postMessage(message)
+      this.worker.postMessage(message)
     })
-    // return
     
   }
 
@@ -120,7 +117,7 @@ this.worker.on('message', this.#onmessage.bind(this))
         else resolve(message)
       }
       pubsub.subscribe(id, message)
-      this.worker.send({
+      this.worker.postMessage({
         type: 'execute',
         id,
         input: {
@@ -148,7 +145,7 @@ this.worker.on('message', this.#onmessage.bind(this))
         resolve(message)
       }
       pubsub.subscribe(id, message)
-      this.worker.send({
+      this.worker.postMessage({
         type: 'get',
         id,
         input: {

@@ -30,9 +30,9 @@ export default [{
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
@@ -55,9 +55,9 @@ export default [{
   },
   plugins: [
     json(),
-    terser({
-      keep_classnames: true
-    }),
+    // terser({
+    //   keep_classnames: true
+    // }),
     // cjs()
   ]
 }, {
@@ -78,9 +78,9 @@ export default [{
   },
   plugins: [
     json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
+    terser({
+      keep_classnames: true
+    }),
     // cjs()
   ]
 }, {
@@ -91,9 +91,9 @@ export default [{
   },
   plugins: [
     json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
+    terser({
+      keep_classnames: true
+    }),
     // cjs()
   ]
 }, {
@@ -104,9 +104,9 @@ export default [{
   },
   plugins: [
     json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
+    terser({
+      keep_classnames: true
+    }),
     // cjs()
   ]
 }, {
@@ -117,9 +117,9 @@ export default [{
   },
   plugins: [
     json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
+    terser({
+      keep_classnames: true
+    }),
     // cjs()
   ]
 }, {
