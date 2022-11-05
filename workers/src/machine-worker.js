@@ -109,29 +109,36 @@ const _init = async ({ contracts, blocks, peerid })=> {
     return contract
   }))
 
-  const _worker = await new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced', type: 'module' })
-  blocks = await _worker.once(blocks)
-  
-  for (const block of blocks) {
-    await Promise.all(block.decoded.transactions.map(async message => {
-      const {from, to, method, params} = message;
-      globalThis.msg = createMessage(from);
+  let lastBlock = {hash: '0x0'}; 
+
+  if (blocks?.length > 0) {
+    const _worker = await new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced', type: 'module' })
+    blocks = await _worker.once(blocks)
     
-      await execute(to, method, params);
-    }));
+    for (const block of blocks) {
+      await Promise.all(block.decoded.transactions.map(async message => {
+        const {from, to, method, params} = message;
+        globalThis.msg = createMessage(from);
+      
+        await execute(to, method, params);
+      }));
+    }
+    
+    if (blocks.length > 0) {
+      lastBlock = blocks[blocks.length - 1].decoded;    
+      lastBlock = await new BlockMessage(lastBlock);
+  
+      lastBlock = {
+        ...lastBlock.decoded,
+        hash: await lastBlock.hash
+      };
+    }
   }
 
-  let lastBlock;
-  if (blocks.length > 0) {
-    lastBlock = blocks[blocks.length - 1].decoded;    
-    lastBlock = await new BlockMessage(lastBlock);
+  
 
-    lastBlock = {
-      ...lastBlock.decoded,
-      hash: await lastBlock.hash
-    };
-  }
-  worker.postMessage({type: 'machine-ready', lastBlock });
+  
+  worker.postMessage({type: 'machine-ready', lastBlock});
   _worker.terminate(); 
   
   worker.postMessage(blocks);
@@ -139,14 +146,33 @@ const _init = async ({ contracts, blocks, peerid })=> {
 
 const tasks = async (e) => {
   const id = e.id
-    if (e.type === 'init') await _init(e.input)
+    if (e.type === 'init') {
+      try {
+        await _init(e.input)
+      } catch (e) {
+        worker.postMessage({
+          type: 'initError',
+          message: e.message,
+          id          
+        })
+      }
+    }
     if (e.type === 'get') {
-      const value = await get(e.input.contract, e.input.method, e.input.params)
-      worker.postMessage({
-        type: 'response',
-        id,
-        value
-      })
+      try {
+        const value = await get(e.input.contract, e.input.method, e.input.params)
+        worker.postMessage({
+          type: 'response',
+          id,
+          value
+        })
+      } catch (e) {
+        worker.postMessage({
+          type: 'fetchError',
+          message: e.message,
+          id          
+        })
+      }
+      
     }
     if (e.type === 'execute') {
       try {
