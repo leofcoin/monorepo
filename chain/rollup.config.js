@@ -71,6 +71,36 @@ export default [{
     // cjs()
   ]
 }, {
+  input: ['./node_modules/@leofcoin/workers/src/block-worker.js'],
+  output: {
+    dir: 'dist/module/workers',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    // cjs()
+  ]
+}, {
+  input: ['./node_modules/@leofcoin/workers/src/transaction-worker.js'],
+  output: {
+    dir: 'dist/module/workers',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    // cjs()
+  ]
+}, {
+  input: ['./node_modules/@leofcoin/workers/src/pool-worker.js'],
+  output: {
+    dir: 'dist/module/workers',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    // cjs()
+  ]
+}, {
   input: ['./node_modules/@leofcoin/workers/src/machine-worker.js'],
   output: {
     dir: 'dist/workers',

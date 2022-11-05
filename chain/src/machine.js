@@ -9,7 +9,7 @@ import EasyWorker from '@vandeurenglenn/easy-worker'
 export default class Machine {
   #contracts = {}
   #nonces = {}
-  lastBlock = {}
+  lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'}
 
   constructor() {
     return this.#init()

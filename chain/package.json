@@ -7,7 +7,7 @@
   "scripts": {
     "c": "rollup -c",
     "w": "rollup -c -w",
-    "build": "npm run c && webpack && cp ./dist/*browser.js ./demo && cp ./dist/machine-worker.js ./demo/workers/machine-worker.js",
+    "build": "npm run c && webpack && cp ./dist/*browser.js ./demo && cp -r ./dist/browser/workers/ ./demo",
     "demo": "jsproject --serve ./demo --port 5478 --open demo",
     "test": "node test --openssl-legacy-provider",
     "pack": "webpack"

@@ -7,6 +7,7 @@ import MultiWallet from '@leofcoin/multi-wallet'
 import {CodecHash} from '@leofcoin/codec-format-interface/dist/index'
 import bs32 from '@vandeurenglenn/base32'
 import { formatBytes } from '../../utils/src/utils.js'
+import debug from '@vandeurenglenn/debug'
 
 globalThis.BigNumber = BigNumber
 
@@ -96,6 +97,25 @@ export default class Chain {
     // handle native contracts
   }
 
+  promiseRequests(promises) {
+    return new Promise(async (resolve, reject) => {
+      const timeout = setTimeout(() => {
+        resolve([{index: 0, hash: '0x0'}])
+        debug('sync timed out')
+      }, 10000)
+  
+      promises = await Promise.allSettled(promises);
+      promises = promises.filter(({status}) => status === 'fulfilled')
+      clearTimeout(timeout)
+
+      promises = promises.map(({value}) => new peernet.protos['peernet-response'](value))
+      promises = await Promise.all(promises)
+      promises = promises.map(node => node.decoded.response)      
+      resolve(promises)
+    })
+    
+  }
+
   async #sync() {
     let promises = [];
     for (const peer of peernet.connections) {
@@ -105,11 +125,7 @@ export default class Chain {
         promises.push(peer.request(node.encoded));
       }
     }
-    promises = await Promise.allSettled(promises);
-    promises = promises.filter(({status}) => status === 'fulfilled')
-    promises = promises.map(({value}) => new peernet.protos['peernet-response'](value))
-    promises = await Promise.all(promises)
-    promises = promises.map(node => node.decoded.response)
+    promises = this.promiseRequests(promises)
     promises = promises.reduce((set, value) => {
       
       if (value.index > set.index) {
@@ -311,7 +327,8 @@ async resolveBlock(hash) {
   }
 
   async #addBlock(block) {
-    const blockMessage = await new BlockMessage(block)
+    console.log(block);
+    const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
     // if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
     // const transactionJob = async transaction => {
     //   try {
@@ -326,14 +343,17 @@ async resolveBlock(hash) {
     //   transaction = new TransactionMessage(transaction)
     //   return transaction
     // }
+
+    console.log(blockMessage);
     const deletions = await Promise.all(blockMessage.decoded.transactions
       .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
     const hash = await blockMessage.hash
     // let transactions = blockMessage.decoded.transactions.map(tx => transactionJob(tx))
     // transactions = await Promise.all(transactions)
-    this.#lastBlock = { hash, ...blockMessage.decoded }
+    
     await blockStore.put(hash, blockMessage.encoded)
-    await chainStore.put('lastBlock', hash)
+    
+    if (this.lastBlock.index < blockMessage.decoded.index) this.#updateState(blockMessage)
     debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
@@ -355,6 +375,8 @@ async resolveBlock(hash) {
       //   // await stateStore.put(contract, state)
       //   console.log(state);
       // }
+
+      
       pubsub.publish('block-processed', blockMessage.decoded)
     } catch (e) {
       console.log({e});
@@ -362,8 +384,10 @@ async resolveBlock(hash) {
 
   }
 
-  async #updateState() {
-    
+  async #updateState(hash) {
+    const hash = await blockMessage.hash
+    this.#lastBlock = { hash, ...message.decoded }
+    await chainStore.put('lastBlock', hash)
   }
 
 
@@ -525,13 +549,11 @@ async resolveBlock(hash) {
       const hash = await blockMessage.hash
       
       
-      this.#lastBlock = { hash, ...blockMessage.decoded }
       await blockStore.put(hash, blockMessage.encoded)
-      await chainStore.put('lastBlock', hash)
+      this.#updateState(blockMessage)
       debug(`created block: ${hash}`)
 
       peernet.publish('add-block', blockMessage.encoded)
-      this.#updateState(blockMessage)
     } catch (e) {
       console.log(e);
       throw Error(`invalid block ${block}`)
