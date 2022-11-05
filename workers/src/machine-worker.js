@@ -37,7 +37,7 @@ const runContract = async (contractMessage) => {
     globalThis.msg = createMessage(contractMessage.decoded.creator)
     // globalThis.msg = {sender: contractMessage.decoded.creator}
     contracts[await contractMessage.hash] = await new Contract(...params)
-    process.send({
+    worker.postMessage({
       type: 'debug',
       messages: [
         `loaded contract: ${await contractMessage.hash}`,
@@ -46,7 +46,7 @@ const runContract = async (contractMessage) => {
     })
   } catch (e) {
     console.log(e);
-    process.send({
+    worker.postMessage({
       type: 'contractError',
       hash: await contractMessage.hash
     })
