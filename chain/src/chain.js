@@ -7,7 +7,6 @@ import MultiWallet from '@leofcoin/multi-wallet'
 import {CodecHash} from '@leofcoin/codec-format-interface/dist/index'
 import bs32 from '@vandeurenglenn/base32'
 import { formatBytes } from '../../utils/src/utils.js'
-import debug from '@vandeurenglenn/debug'
 
 globalThis.BigNumber = BigNumber
 
@@ -116,16 +115,25 @@ export default class Chain {
     
   }
 
+  sync() {
+    return this.#sync()
+  }
+
   async #sync() {
     let promises = [];
+    
+    let data = await new peernet.protos['peernet-request']({request: 'lastBlock'});
+    const node = await peernet.prepareMessage(data);
+
     for (const peer of peernet.connections) {
-      if (peer.peerId !== this.id) {
-        let data = await new peernet.protos['peernet-request']({request: 'lastBlock'});
-        const node = await peernet.prepareMessage(data);
+      if (peer.connected && peer.readyState === 'open' && peer.peerId !== this.id) {        
         promises.push(peer.request(node.encoded));
+      } else if (!peer.connected || peer.readyState !== 'open') {
+        // todo: remove peer
+        // reinitiate channel?
       }
     }
-    promises = this.promiseRequests(promises)
+    promises = await this.promiseRequests(promises)
     promises = promises.reduce((set, value) => {
       
       if (value.index > set.index) {
@@ -384,8 +392,8 @@ async resolveBlock(hash) {
 
   }
 
-  async #updateState(hash) {
-    const hash = await blockMessage.hash
+  async #updateState(message) {
+    const hash = await message.hash
     this.#lastBlock = { hash, ...message.decoded }
     await chainStore.put('lastBlock', hash)
   }
