@@ -263,8 +263,7 @@ export default class Peer {
     if (message.to !== this.id) return
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
-    const signalinState = this.#connection.signalinState
-    if (signalinState === 'stable' && this.#connection.remoteDescription !== null && this.#connection.localDescription !== null) return
+    if (this.#connection?.signalinState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
 
     if (message.candidate) {
       debug(`incoming candidate ${this.#channelName}`)
