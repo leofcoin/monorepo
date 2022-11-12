@@ -189,6 +189,7 @@ export default class Peer {
        this.#connection.ondatachannel = (message) => {
          message.channel.onopen = () => {
            this.#connected = true
+           debug(`peer:connected ${this}`)
            pubsub.publish('peer:connected', this)
          }
          message.channel.onclose = () => this.close.bind(this)
@@ -263,7 +264,7 @@ export default class Peer {
     if (message.to !== this.id) return
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
-    if (this.#connection?.signalinState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
+    if (!this.#connection || this.#connection?.signalinState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
 
     if (message.candidate) {
       debug(`incoming candidate ${this.#channelName}`)
