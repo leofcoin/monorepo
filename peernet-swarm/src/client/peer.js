@@ -258,27 +258,22 @@ export default class Peer {
      }})
    }
 
-   isNotReallyStable(signalinState) {
-    if (signalinState !== 'stable') return true
-    // remoteDescription & localDescription are null when the connection is just made
-    if (this.#connection.remoteDescription === null && this.#connection.localDescription === null) return true
-    return false
-   }
-
    async _in(message, data) {
     // message = JSON.parse(message);
     if (message.to !== this.id) return
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
+    const signalinState = this.#connection.signalinState
+    if (signalinState === 'stable' && this.#connection.remoteDescription !== null && this.#connection.localDescription !== null) return
+
     if (message.candidate) {
       debug(`incoming candidate ${this.#channelName}`)
       // debug(message.candidate.candidate)
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
       this.remoteProtocol = message.candidate.protocol
-      this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6': 'ipv4'
-      const signalinState = this.#connection.signalinState
-      if (signalinState !== 'closed' && this.isNotReallyStable(signalinState)) return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
+      this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6': 'ipv4'      
+      return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
     }
     try {
       if (message.sdp) {
