@@ -223,7 +223,7 @@ export default class Chain {
     response = await new globalThis.peernet.protos['peernet-response'](response)
     let lastBlock = response.decoded.response
 
-    if (!this.lastBlock || this.lastBlock.index < lastBlock.index) {
+    if (!this.lastBlock || Number(this.lastBlock.index) < Number(lastBlock.index)) {
          // TODO: check if valid
       const localIndex = this.lastBlock ? this.lastBlock.index : 0
       const index = lastBlock.index

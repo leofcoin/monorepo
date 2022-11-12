@@ -40,7 +40,7 @@
     "@leofcoin/lib": "^1.0.11",
     "@leofcoin/messages": "^1.2.0",
     "@leofcoin/multi-wallet": "^2.1.1",
-    "@leofcoin/peernet": "^0.14.0",
+    "@leofcoin/peernet": "^0.14.20",
     "@leofcoin/storage": "^3.0.6",
     "@leofcoin/utils": "^1.0.2",
     "@leofcoin/workers": "^1.2.1",
