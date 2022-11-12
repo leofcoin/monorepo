@@ -261,11 +261,12 @@ export default class Peer {
 
    async _in(message, data) {
     // message = JSON.parse(message);
-    if (message.to !== this.id) return
+    if (!this.#connection || message.to !== this.id || message.from !== this.#peerId) return    
     // if (data.videocall) return this._startStream(true, false); // start video and audio stream
     // if (data.call) return this._startStream(true, true); // start audio stream
-    if (!this.#connection || this.#connection?.signalinState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
+    if (this.#connection?.signalinState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
 
+    
     if (message.candidate) {
       debug(`incoming candidate ${this.#channelName}`)
       // debug(message.candidate.candidate)
