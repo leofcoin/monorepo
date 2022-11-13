@@ -112,7 +112,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
   let lastBlock = {hash: '0x0'}; 
 
   if (blocks?.length > 0) {
-    const _worker = await new EasyWorker(join(__dirname, './block-worker.js'), {serialization: 'advanced', type: 'module' })
+    const _worker = await new EasyWorker('./block-worker.js', {serialization: 'advanced', type: 'module' })
     blocks = await _worker.once(blocks)
     
     for (const block of blocks) {
