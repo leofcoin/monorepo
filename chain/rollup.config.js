@@ -142,7 +142,7 @@ export default [{
 }, {
   input: ['./node_modules/@leofcoin/workers/src/block-worker.js'],
   output: {
-    dir: 'dist/workers',
+    dir: './',
     format: 'cjs'
   },
   plugins: [
