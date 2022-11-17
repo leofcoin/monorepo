@@ -15,7 +15,7 @@ export default class Machine {
     return this.#init()
   }
 
-  #createMessage(sender = peernet.id) {
+  #createMessage(sender = peernet.selectedAccount) {
     return {
       sender,
       call: this.execute,
@@ -40,7 +40,7 @@ export default class Machine {
       break
       case 'machine-ready':
         this.lastBlock = data.lastBlock
-        pubsub.publish('machine.ready')
+        pubsub.publish('machine.ready', true)
       break
       case 'response':
         pubsub.publish(data.id, data.value)
@@ -161,6 +161,10 @@ export default class Machine {
     return contractStore.delete(hash)
   }
 
+  /**
+   * 
+   * @returns Promise
+   */
   async deleteAll() {
     let hashes = await contractStore.get()
     hashes = Object.keys(hashes).map(hash => this.delete(hash))

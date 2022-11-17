@@ -55,7 +55,7 @@ export default class Chain {
     console.log('epoch');
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log(validators);
-    if (!validators[peernet.id]?.active) return
+    if (!validators[peernet.selectedAccount]?.active) return
 
     const start = new Date().getTime()
     try {
@@ -145,7 +145,6 @@ export default class Chain {
     // get lastblock
       if (promises.hash && promises.hash !== '0x0') {
         let localBlock = await peernet.get(promises.hash)
-        console.log({localBlock});
       }
       
       
@@ -160,6 +159,29 @@ export default class Chain {
 
     this.#machine = await new Machine()
     this.utils = { BigNumber, formatUnits, parseUnits }
+    
+    try {
+      let localBlock
+      try {
+        localBlock = await chainStore.get('lastBlock')
+      } catch(e) {
+        await chainStore.put('lastBlock', '0x0')
+        localBlock = await chainStore.get('lastBlock')
+      }
+      localBlock = new TextDecoder().decode(localBlock)
+      if (localBlock && localBlock !== '0x0') {
+        localBlock = await peernet.get(localBlock, 'block')
+        localBlock = await new BlockMessage(localBlock)
+        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
+      } else {
+        await this.#sync()
+      }      
+    } catch (e) {
+      console.log({e});     
+      
+
+      // this.#setup()
+    }
 
     await peernet.addRequestHandler('bw-request-message', () => {
 
@@ -176,36 +198,9 @@ export default class Chain {
 
     pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
 
-    try {
-      let localBlock
-      try {
-        localBlock = await chainStore.get('lastBlock')
-      } catch(e) {
-        await chainStore.put('lastBlock', '0x0')
-        localBlock = await chainStore.get('lastBlock')
-      }
-      localBlock = new TextDecoder().decode(localBlock)
-
-      if (localBlock && localBlock !== '0x0') {
-        localBlock = await peernet.get(localBlock)
-        localBlock = await new BlockMessage(localBlock)
-        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
-      } else if (this.#machine.lastBlock?.hash) {
-        // todo remove when network is running
-        // recovering chain (not needed if multiple peers are online)
-        this.#lastBlock = this.#machine.lastBlock
-        await chainStore.put('lastBlock', this.#lastBlock.hash)
-      } else  {
-        await this.#sync()
-      }      
-    } catch (e) {
-      console.log({e});     
-      
-
-      // this.#setup()
-    }
+    
     // load local blocks
-    if (peernet.connections?.length > 1) await this.resolveBlocks()
+    await this.resolveBlocks()
     return this
   }
 
@@ -265,7 +260,8 @@ async resolveBlock(hash) {
   if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
   const size = block.encoded.length || block.encoded.byteLength
   block = {...block.decoded, hash}
-  this.#blocks[block.index - 1] = block
+  if (this.#blocks[block.index]) throw `invalid block ${hash} @${block.index}`
+  this.#blocks[block.index] = block
   console.log(`loaded block: ${hash} @${block.index} ${formatBytes(size)}`);
   if (block.previousHash !== '0x0') {
     return this.resolveBlock(block.previousHash)
@@ -274,11 +270,11 @@ async resolveBlock(hash) {
 
   async resolveBlocks() {
     try {
-
       const localBlock = await chainStore.get('lastBlock')
       const hash = new TextDecoder().decode(localBlock)
+
       if (hash && hash !== '0x0')
-        await this.resolveBlock(localBlock)
+        await this.resolveBlock(hash)
         this.#lastBlock = this.#blocks[this.#blocks.length - 1]
         await this.#loadBlocks(this.#blocks)
     } catch (e) {
@@ -335,7 +331,7 @@ async resolveBlock(hash) {
   }
 
   async #addBlock(block) {
-    console.log(block);
+    // console.log(block);
     const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
     // if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
     // const transactionJob = async transaction => {
@@ -361,7 +357,7 @@ async resolveBlock(hash) {
     
     await blockStore.put(hash, blockMessage.encoded)
     
-    if (this.lastBlock.index < blockMessage.decoded.index) this.#updateState(blockMessage)
+    if (this.lastBlock.index < blockMessage.decoded.index) await this.#updateState(blockMessage)
     debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
@@ -400,7 +396,7 @@ async resolveBlock(hash) {
 
 
 
-  async participate() {
+  async participate(address) {
     // TODO: validate participant
     // hold min amount of 50k ART for 7 days
     // lock the 50k
@@ -408,7 +404,7 @@ async resolveBlock(hash) {
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
     this.participating = true
-    if (!await this.staticCall(addresses.validators, 'has', [peernet.id])) await this.createTransactionFrom(peernet.id, addresses.validators, 'addValidator', [peernet.id])
+    if (!await this.staticCall(addresses.validators, 'has', [address])) await this.createTransactionFrom(address, addresses.validators, 'addValidator', [address])
     if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
     
     // const runEpoch = () => setTimeout(async () => {
@@ -497,7 +493,7 @@ async resolveBlock(hash) {
           const node = await peernet.prepareMessage(validator, data.encoded)
           try {
             const bw = await peer.request(node.encoded)
-            console.log(bw);
+            console.log({bw});
             block.validators.push({
               address: validator,
               bw: bw.up + bw.down
@@ -506,9 +502,9 @@ async resolveBlock(hash) {
 
           }
 
-        } else if (peernet.id === validator) {
+        } else if (peernet.selectedAccount === validator) {
           block.validators.push({
-            address: peernet.id,
+            address: peernet.selectedAccount,
             bw: peernet.bw.up + peernet.bw.down
           })
 
@@ -557,8 +553,8 @@ async resolveBlock(hash) {
       const hash = await blockMessage.hash
       
       
-      await blockStore.put(hash, blockMessage.encoded)
-      this.#updateState(blockMessage)
+      await peernet.put(hash, blockMessage.encoded, 'block')
+      await this.#updateState(blockMessage)
       debug(`created block: ${hash}`)
 
       peernet.publish('add-block', blockMessage.encoded)
@@ -634,7 +630,7 @@ async resolveBlock(hash) {
    * @param {Number} nonce - total transaction count [optional]
    */
   async createTransaction(to, method, params, nonce, signature) {
-    return this.createTransactionFrom(peernet.id, to, method, params, nonce)
+    return this.createTransactionFrom(peernet.selectedAccount, to, method, params, nonce)
   }
 
   
@@ -686,7 +682,7 @@ async #signTransaction (transaction, wallet) {
    * @returns {Object} transaction
    */
   async createRawTransaction(transaction) {
-    if (!transaction.from) transaction.from = peernet.id
+    if (!transaction.from) transaction.from = peernet.selectedAccount
     transaction.timestamp = Date.now()
 
     if (transaction.nonce === undefined) {
@@ -762,21 +758,21 @@ async #signTransaction (transaction, wallet) {
    * @param {String} contract - a contract string (see plugins/deployContract)
    */
   async deployContract(contract, params = []) {
-    globalThis.msg = {sender: peernet.id, call: this.call}
+    globalThis.msg = {sender: peernet.selectedAccount, call: this.call}
 
     const hash = await this.createContractAddress(creator, contract, params)
 console.log(hash);
     try {
-      const tx = await this.createTransactionFrom(peernet.id, addresses.contractFactory, 'deployContract', [hash, creator, contract, constructorParameters])
+      const tx = await this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'deployContract', [hash, creator, contract, constructorParameters])
     } catch (e) {
       throw e
     }
     return this.#machine.addContract(message)
   }
 
-  #createMessage(sender = peernet.id) {
+  #createMessage(sender = peernet.selectedAccount) {
     return {
-      sender: peernet.id,
+      sender,
       call: this.call,
       staticCall: this.staticCall,
       delegate: this.delegate,

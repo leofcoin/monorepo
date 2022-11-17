@@ -10,14 +10,14 @@
   
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
-    return createContractMessage(peernet.id, `return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`, params)
+    return createContractMessage(peernet.selectedAccount, `return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`, params)
   }
   // const Chain = require('./../chain/dist/chain');
   
   const Node = require('./../chain/dist/node');
   const node = await new Node()
   await nodeConfig()
-  console.log(peernet.id);
+  console.log(peernet.selectedAccount);
   // const chain = await new Chain()
   // console.log(chain);
   const factory = await createMessage('./chain/dist/contracts/factory.js')
