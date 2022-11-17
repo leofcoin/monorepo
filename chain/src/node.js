@@ -8,9 +8,9 @@ export default class Node {
   }
 
   async _init(config = {
-    network: 'leofcoin:mandarine',
-    networkName: 'leofcoin:mandarine',
-    networkVersion: 'v0.1.0'
+    network: 'leofcoin:peach',
+    networkName: 'leofcoin:peach',
+    networkVersion: '1.0.0'
   }) {
     globalThis.Peernet ? await new globalThis.Peernet(config) : await new Peernet(config)
     await nodeConfig()
