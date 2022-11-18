@@ -15,22 +15,18 @@ export default class Client {
     return Object.entries(this.#connections)
   }
 
-  constructor(id, identifiers = ['peernet-v0.1.0'], stars = []) {
+  constructor(id, network = 'leofcoin:peach', stars = ['wss://peach.leofcoin.org']) {
     this.id = id || Math.random().toString(36).slice(-12);
-    if (!Array.isArray(identifiers)) identifiers = [identifiers]
     this.peerJoined = this.peerJoined.bind(this)
     this.peerLeft = this.peerLeft.bind(this)
     this.starLeft = this.starLeft.bind(this)
     this.starJoined = this.starJoined.bind(this)
 
-    this._init(identifiers, stars)
+    this._init(network, stars)
   }
 
-  async _init(identifiers, stars = []) {
-    if (stars.length === 0) {
-      stars.push('wss://star.leofcoin.org')
-    }
-    this.identifiers = identifiers
+  async _init(network, stars = []) {
+    this.network = network
     this.starsConfig = stars
     // reconnectJob()
 
@@ -43,7 +39,7 @@ export default class Client {
 
     for (const star of stars) {
       try {
-        this.socketClient = await SocketClient(star, identifiers[0])
+        this.socketClient = await SocketClient(star, network)
         const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
         this.socketClient.peerId = id
         this.#stars[id] = this.socketClient
@@ -87,7 +83,7 @@ export default class Client {
 
       for (const star of this.starsConfig) {
         try {
-          this.socketClient = await SocketClient(star, this.identifiers[0])
+          this.socketClient = await SocketClient(star, this.network)
           if (!this.socketClient?.client?._connection.connected) return
           const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
           this.#stars[id] = this.socketClient
@@ -146,5 +142,20 @@ export default class Client {
     debug(`peer ${id} removed`)
   }
 
+  async close() {
+
+    this.socketClient.unsubscribe('peer:joined', this.peerJoined)
+    this.socketClient.unsubscribe('peer:left', this.peerLeft)
+    this.socketClient.unsubscribe('star:left', this.starLeft)
+
+    const promises = [
+      Object.values(this.#connections).map(connection => connection.close()),
+      Object.values(this.#stars).map(connection => connection.close()),
+      this.socketClient.close()
+    ]
+    
+    return Promise.allSettled(promises)
+    
+  }
 
 }

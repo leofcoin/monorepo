@@ -43,18 +43,18 @@ const peerLeft = id => {
 }
 
 export default class Server {
-  constructor(port = 44444, identifiers = ['peernet-v0.1.0']) {
-    return this._init(port, identifiers)
+  constructor(port = 44444, network = 'leofcoin:peach') {
+    return this._init(port, network)
   }
 
-  async _init(port, identifiers) {
+  async _init(port, network) {
 
       let config
       try {
         config = await read('./star-id.json')
         config = JSON.parse(config)
       } catch (e) {
-        config = await generateAccount('leofcoin:olivia')
+        config = await generateAccount(network)
         await write('./star-id.json', JSON.stringify(config, null, '\t'))
       }
       config = {
@@ -62,10 +62,8 @@ export default class Server {
           publicKey: config.identity.publicKey
         }
       }
-
-      if (!Array.isArray(identifiers)) identifiers = [identifiers]
       
-      this.socketserver = SocketServer({port, protocol: identifiers[0]}, {
+      this.socketserver = SocketServer({port, protocol: network}, {
         peernet: (params, response) => {
           // peer left
           if (!params.join) return peerLeft(params.id)

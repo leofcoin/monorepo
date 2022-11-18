@@ -7,7 +7,10 @@
 ```js
 import {Server} from '@leofcoin/peernet-swarm'
 
-new Server(port, id, identifiers)
+const network = 'leofcoin:peach'
+const port = 44444
+
+new Server(port, network)
 
 ```
 
@@ -15,8 +18,11 @@ new Server(port, id, identifiers)
 ```js
 import {Client} from '@leofcoin/peernet-swarm'
 
+const network = 'leofcoin:peach'
+const stars = ['wss://peach.leofcoin.org']
+
 // wrtc object is added into glabalSpace
-new Client(id, identifiers)
+new Client(id, network, stars)
 
 ```
 
@@ -25,14 +31,14 @@ new Client(id, identifiers)
 import {Client} from '@leofcoin/peernet-swarm/dist/client.browser.js'
 
 // wrtc object is added into glabalSpace
-new Client(id, identifiers)
+new Client(id, network, stars)
 
 ```
 
 ## examples
 events
 ```js
-const client = new Client(id, identifiers)
+const client = new Client(id, network)
 // events exposed to pubsub
 pubsub.subscribe('peer:data' data => console.log(data))
 pubsub.subscribe('peer:joined', peer => console.log(peer))
@@ -44,7 +50,7 @@ peernet.subscribe('peernet-shard', async message => console.log(message) // {id,
 
 properties
 ```js
-const client = new Client(id, identifiers)
+const client = new Client(id, network)
 client.id
 client.connection
 client.connections // object {id: connection}
