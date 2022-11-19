@@ -18,11 +18,10 @@ new Server(port, network)
 ```js
 import {Client} from '@leofcoin/peernet-swarm'
 
-const network = 'leofcoin:peach'
 const stars = ['wss://peach.leofcoin.org']
-
+const networkVersion = 'peach'
 // wrtc object is added into glabalSpace
-new Client(id, network, stars)
+new Client(id, networkVersion, stars)
 
 ```
 
@@ -31,14 +30,14 @@ new Client(id, network, stars)
 import {Client} from '@leofcoin/peernet-swarm/dist/client.browser.js'
 
 // wrtc object is added into glabalSpace
-new Client(id, network, stars)
+new Client(id, networkVersion, stars)
 
 ```
 
 ## examples
 events
 ```js
-const client = new Client(id, network)
+const client = new Client(id, networkVersion, stars)
 // events exposed to pubsub
 pubsub.subscribe('peer:data' data => console.log(data))
 pubsub.subscribe('peer:joined', peer => console.log(peer))

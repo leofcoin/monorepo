@@ -48,6 +48,10 @@ export default class Server {
   }
 
   async _init(port, network) {
+    this.port = port
+    this.network = network
+    const parts = network.split(':')
+    this.networkVersion = parts.length > 1 ? parts[1] : 'mainnet'
 
       let config
       try {
@@ -63,7 +67,7 @@ export default class Server {
         }
       }
       
-      this.socketserver = SocketServer({port, protocol: network}, {
+      this.socketserver = SocketServer({port, protocol: this.networkVersion}, {
         peernet: (params, response) => {
           // peer left
           if (!params.join) return peerLeft(params.id)

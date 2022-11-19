@@ -15,17 +15,18 @@ export default class Client {
     return Object.entries(this.#connections)
   }
 
-  constructor(id, network = 'leofcoin:peach', stars = ['wss://peach.leofcoin.org']) {
+  constructor(id, networkVersion = 'peach', stars = ['wss://peach.leofcoin.org']) {
     this.id = id || Math.random().toString(36).slice(-12);
     this.peerJoined = this.peerJoined.bind(this)
     this.peerLeft = this.peerLeft.bind(this)
     this.starLeft = this.starLeft.bind(this)
     this.starJoined = this.starJoined.bind(this)
+    this.networkVersion = networkVersion
 
     this._init(network, stars)
   }
 
-  async _init(network, stars = []) {
+  async _init(network, stars = [], networkVersion) {
     this.network = network
     this.starsConfig = stars
     // reconnectJob()
@@ -39,7 +40,7 @@ export default class Client {
 
     for (const star of stars) {
       try {
-        this.socketClient = await SocketClient(star, network)
+        this.socketClient = await SocketClient(star, this.networkVersion)
         const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
         this.socketClient.peerId = id
         this.#stars[id] = this.socketClient
@@ -83,7 +84,7 @@ export default class Client {
 
       for (const star of this.starsConfig) {
         try {
-          this.socketClient = await SocketClient(star, this.network)
+          this.socketClient = await SocketClient(star, this.networkVersion)
           if (!this.socketClient?.client?._connection.connected) return
           const id = await this.socketClient.request({url: 'id', params: {from: this.id}})
           this.#stars[id] = this.socketClient
