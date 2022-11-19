@@ -1,3 +1,4 @@
+const { default: networks } = require('../../networks/networks');
 
 
 
@@ -6,9 +7,10 @@
   const Chain = require('./../dist/chain');
   const Node = require('./../dist/node');
   const node = await new Node({
-    network: 'leofcoin:mandarine',
-    networkName: 'leofcoin:mandarine',
-    networkVersion: 'v0.1.0'
+    network: 'leofcoin:peach',
+    networkName: 'leofcoin:peach',
+    networkVersion: 'v1.0.0',
+    stars: networks.leofcoin.peach
   })
   const chain = await new Chain()
   let start
@@ -25,27 +27,28 @@
 //
 //   }
   // '5xdacigaguxg3yjllehp65htk32ha3sztlexxrrhmviobgibz6dt6hkxfu'
-
-      await chain.participate()
+console.log(peernet.selectedAccount);
+      await chain.participate(peernet.selectedAccount)
+      console.log(peernet.selectedAccount);
 const job = async () => {
   // setTimeout(async () => {
     let tx
-    try {
-      tx = await chain.createTransaction(chain.nativeToken, 'grantRole', [peernet.selectedAccount, 'MINT'])
-      await tx.wait()
+    // try {
+    //   tx = await chain.createTransaction(chain.nativeToken, 'grantRole', [peernet.selectedAccount, 'MINT'])
+    //   await tx.wait()
 
-    } catch (e) {
-      console.log({e});
-    }
+    // } catch (e) {
+    //   console.log({e});
+    // }
 
-    try {
-      tx = await chain.createTransaction(chain.nativeToken, 'mint', [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()])
+    // try {
+    //   tx = await chain.createTransaction(chain.nativeToken, 'mint', [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()])
 
-      await tx.wait()
-    } catch (e) {
-      console.log({e});
-    }
-    return
+    //   await tx.wait()
+    // } catch (e) {
+    //   console.log({e});
+    // }
+    // return
     let nonce = await chain.getNonce(peernet.selectedAccount)
     console.log({nonce});
     // return
