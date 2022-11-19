@@ -39,3 +39,4 @@ lottery/www/**/**.js
 /node/www/**/*.js
 /project-deploy/build
 /chain/demo/**/*.js
+/chain/block-worker.js
