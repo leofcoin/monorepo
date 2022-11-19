@@ -23,11 +23,10 @@ export default class Client {
     this.starJoined = this.starJoined.bind(this)
     this.networkVersion = networkVersion
 
-    this._init(network, stars)
+    this._init(stars)
   }
 
-  async _init(network, stars = [], networkVersion) {
-    this.network = network
+  async _init(stars = []) {
     this.starsConfig = stars
     // reconnectJob()
 
