@@ -61,7 +61,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/machine-worker.js'],
+  input: ['./../workers/src/machine-worker.js'],
   output: {
     dir: 'dist/module/workers',
     format: 'es'
@@ -71,7 +71,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/block-worker.js'],
+  input: ['./../workers/src/block-worker.js'],
   output: {
     dir: 'dist/module/workers',
     format: 'es'
@@ -81,7 +81,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/transaction-worker.js'],
+  input: ['./../workers/src/transaction-worker.js'],
   output: {
     dir: 'dist/module/workers',
     format: 'es'
@@ -91,7 +91,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/pool-worker.js'],
+  input: ['./../workers/src/pool-worker.js'],
   output: {
     dir: 'dist/module/workers',
     format: 'es'
@@ -101,7 +101,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/machine-worker.js'],
+  input: ['./../workers/src/machine-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
@@ -114,7 +114,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/transaction-worker.js'],
+  input: ['./../workers/src/transaction-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
@@ -127,7 +127,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/pool-worker.js'],
+  input: ['./../workers/src/pool-worker.js'],
   output: {
     dir: 'dist/workers',
     format: 'cjs'
@@ -140,7 +140,7 @@ export default [{
     // cjs()
   ]
 }, {
-  input: ['./node_modules/@leofcoin/workers/src/block-worker.js'],
+  input: ['./../workers/src/block-worker.js'],
   output: {
     dir: './',
     format: 'cjs'
@@ -163,7 +163,9 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      keep_classnames: true
+      format: {semicolons: true, wrap_iife: true},
+      keep_classnames: true,
+      ecma: 6
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
@@ -178,7 +180,9 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      keep_classnames: true
+      format: {semicolons: true, wrap_iife: true},
+      keep_classnames: true,
+      ecma: 6
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
@@ -193,7 +197,8 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      keep_classnames: true
+      keep_classnames: true,
+      ecma: 6
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
@@ -208,7 +213,9 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      keep_classnames: true
+      format: {semicolons: true, wrap_iife: true},
+      keep_classnames: true,
+      ecma: 6
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
@@ -223,7 +230,9 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      keep_classnames: true
+      format: {semicolons: true, wrap_iife: true},
+      keep_classnames: true,
+      ecma: 6
     })
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
