@@ -139,16 +139,15 @@ const _init = async ({ contracts, blocks, peerid })=> {
         hash: await lastBlock.hash
       };
     }
-    this.blocks = blocks
+    globalThis.blocks = blocks
   }
 
   
 
   
   worker.postMessage({type: 'machine-ready', lastBlock});
-  _worker.terminate(); 
   
-  worker.postMessage(blocks);
+  // worker.postMessage({blocks});
 }
 
 const tasks = async (e) => {
