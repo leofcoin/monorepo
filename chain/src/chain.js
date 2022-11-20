@@ -353,8 +353,6 @@ async resolveBlock(hash) {
     //   transaction = new TransactionMessage(transaction)
     //   return transaction
     // }
-
-    console.log(blockMessage);
     const deletions = await Promise.all(blockMessage.decoded.transactions
       .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
     const hash = await blockMessage.hash
