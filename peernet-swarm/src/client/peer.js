@@ -189,7 +189,7 @@ export default class Peer {
        this.#connection.ondatachannel = (message) => {
          message.channel.onopen = () => {
            this.#connected = true
-           debug(`peer:connected ${this}`)
+          //  debug(`peer:connected ${this}`)
            pubsub.publish('peer:connected', this)
          }
          message.channel.onclose = () => this.close.bind(this)
@@ -226,7 +226,7 @@ export default class Peer {
    }
 
    _handleMessage(peerId, message) {
-     debug(`incoming message from ${peerId}`)
+    //  debug(`incoming message from ${peerId}`)
 
      message = JSON.parse(new TextDecoder().decode(message.data))
      // allow sharding (multiple peers share data)
@@ -268,7 +268,7 @@ export default class Peer {
 
     
     if (message.candidate) {
-      debug(`incoming candidate ${this.#channelName}`)
+      // debug(`incoming candidate ${this.#channelName}`)
       // debug(message.candidate.candidate)
       this.remoteAddress = message.candidate.address
       this.remotePort = message.candidate.port
@@ -279,14 +279,14 @@ export default class Peer {
     try {
       if (message.sdp) {
         if (message.sdp.type === 'offer') {
-          debug(`incoming offer ${this.#channelName}`)
+          // debug(`incoming offer ${this.#channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
           const answer = await this.#connection.createAnswer();
           await this.#connection.setLocalDescription(answer)
           this._sendMessage({'sdp': this.#connection.localDescription})
         }
         if (message.sdp.type === 'answer') {
-          debug(`incoming answer ${this.#channelName}`)
+          // debug(`incoming answer ${this.#channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
         }
      }
@@ -296,7 +296,7 @@ export default class Peer {
  }
 
  close() {
-   debug(`closing ${this.peerId}`)
+  //  debug(`closing ${this.peerId}`)
    this.#connected = false
    this.#channel?.close()
    this.#connection?.close()
