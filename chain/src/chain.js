@@ -201,11 +201,11 @@ export default class Chain {
     
     // load local blocks
     await this.resolveBlocks()
-    this.#machine = await new Machine(this.blocks)
-    for (const block of this.blocks) {
-      block.loaded = true
-    }
-    // await this.#loadBlocks(this.#blocks)
+    this.#machine = await new Machine(this.#blocks)
+    // for (const block of this.#blocks) {
+    //   block.loaded = true
+    // }
+    await this.#loadBlocks(this.#blocks)
     return this
   }
 
@@ -233,7 +233,7 @@ export default class Chain {
 
       const end = this.#blocks.length
       const start = (this.#blocks.length) - blocksSynced
-      await this.#loadBlocks(this.#blocks)
+      await this.#loadBlocks(this.blocks.slice(start))
       this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       const message = await new BlockMessage(this.lastBlock)
       await blockStore.put(await message.hash, message.encoded)
@@ -267,7 +267,7 @@ async resolveBlock(hash) {
   block = {...block.decoded, hash}
   if (this.#blocks[block.index] && this.#blocks[block.index].hash !== block.hash) throw `invalid block ${hash} @${block.index}`
   this.#blocks[block.index] = block
-  console.log(`loaded block: ${hash} @${block.index} ${formatBytes(size)}`);
+  console.log(`resolved block: ${hash} @${block.index} ${formatBytes(size)}`);
   if (block.previousHash !== '0x0') {
     return this.resolveBlock(block.previousHash)
   }
@@ -300,7 +300,8 @@ async resolveBlock(hash) {
   console.log(e);
           }
         }
-        block.loaded = true
+        this.#blocks[block.index].loaded = true
+        console.log(`loaded block: ${block.hash} @${block.index}`);
         // let message = await peernet.get(block.hash, 'block')
 
         // const compressed = pako.deflate(message);

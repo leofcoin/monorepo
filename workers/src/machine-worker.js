@@ -16,6 +16,9 @@ globalThis.BigNumber = BigNumber
 globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
 
+export const unique = arr => arr.filter((el, pos, arr) => {
+  return arr.indexOf(el) == pos;
+})
 
 const get = (contract, method, params) => {
   let result
@@ -113,22 +116,23 @@ const _init = async ({ contracts, blocks, peerid })=> {
 
   if (blocks?.length > 0) {
     const _worker = await new EasyWorker('./block-worker.js', {serialization: 'advanced', type: 'module' })
-    blocks = await _worker.once(blocks)
+    blocks = await _worker.once([blocks[blocks.length - 1]])
     
+    // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
     // for (let i = 0; i < blocks.length; i++) {
 
     // }
-    for (const block of blocks) {
-      await Promise.all(block.decoded.transactions.map(async message => {
-        if (!block.loaded) {
-          const {from, to, method, params} = message;
-          globalThis.msg = createMessage(from);
+    // for (const block of blocks) {
+    //   await Promise.all(block.decoded.transactions.map(async message => {
+    //     if (!block.loaded) {
+    //       const {from, to, method, params} = message;
+    //       globalThis.msg = createMessage(from);
         
-          await execute(to, method, params);
-          block.loaded = true
-        }
-      }));
-    }
+    //       await execute(to, method, params);
+    //       block.loaded = true
+    //     }
+    //   }));
+    // }
     
     if (blocks.length > 0) {
       lastBlock = blocks[blocks.length - 1].decoded;    
