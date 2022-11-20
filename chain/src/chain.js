@@ -157,7 +157,7 @@ export default class Chain {
     const initialized = await contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
 
-    this.#machine = await new Machine()
+   
     this.utils = { BigNumber, formatUnits, parseUnits }
     
     try {
@@ -201,6 +201,11 @@ export default class Chain {
     
     // load local blocks
     await this.resolveBlocks()
+    this.#machine = await new Machine(this.blocks)
+    for (const block of this.blocks) {
+      block.loaded = true
+    }
+    // await this.#loadBlocks(this.#blocks)
     return this
   }
 
@@ -260,7 +265,7 @@ async resolveBlock(hash) {
   if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
   const size = block.encoded.length || block.encoded.byteLength
   block = {...block.decoded, hash}
-  if (this.#blocks[block.index]) throw `invalid block ${hash} @${block.index}`
+  if (this.#blocks[block.index] && this.#blocks[block.index].hash !== block.hash) throw `invalid block ${hash} @${block.index}`
   this.#blocks[block.index] = block
   console.log(`loaded block: ${hash} @${block.index} ${formatBytes(size)}`);
   if (block.previousHash !== '0x0') {
@@ -276,7 +281,7 @@ async resolveBlock(hash) {
       if (hash && hash !== '0x0')
         await this.resolveBlock(hash)
         this.#lastBlock = this.#blocks[this.#blocks.length - 1]
-        await this.#loadBlocks(this.#blocks)
+        
     } catch (e) {
       await chainStore.put('lastBlock', new TextEncoder().encode('0x0'))
       return this.resolveBlocks()

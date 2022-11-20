@@ -115,12 +115,18 @@ const _init = async ({ contracts, blocks, peerid })=> {
     const _worker = await new EasyWorker('./block-worker.js', {serialization: 'advanced', type: 'module' })
     blocks = await _worker.once(blocks)
     
+    // for (let i = 0; i < blocks.length; i++) {
+
+    // }
     for (const block of blocks) {
       await Promise.all(block.decoded.transactions.map(async message => {
-        const {from, to, method, params} = message;
-        globalThis.msg = createMessage(from);
-      
-        await execute(to, method, params);
+        if (!block.loaded) {
+          const {from, to, method, params} = message;
+          globalThis.msg = createMessage(from);
+        
+          await execute(to, method, params);
+          block.loaded = true
+        }
       }));
     }
     
@@ -133,6 +139,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
         hash: await lastBlock.hash
       };
     }
+    this.blocks = blocks
   }
 
   

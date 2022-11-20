@@ -11,8 +11,8 @@ export default class Machine {
   #nonces = {}
   lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'}
 
-  constructor() {
-    return this.#init()
+  constructor(blocks) {
+    return this.#init(blocks)
   }
 
   #createMessage(sender = peernet.selectedAccount) {
@@ -49,7 +49,7 @@ export default class Machine {
     
   }
 
-  async #init() {
+  async #init(blocks) {
     return new Promise(async (resolve) => {
       pubsub.subscribe('machine.ready', ()  => {
         resolve(this)
@@ -58,7 +58,7 @@ export default class Machine {
       this.worker = await new EasyWorker(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
 
-      const blocks = await blockStore.values()
+      // const blocks = await blockStore.values()
       const contracts = await Promise.all([
         contractStore.get(contractFactory),
         contractStore.get(nativeToken),
