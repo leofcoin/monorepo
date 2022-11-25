@@ -371,11 +371,15 @@ async resolveBlock(hash) {
       // await transactionStore.put(transaction.hash, transaction.encoded)
       const index = contracts.indexOf(transaction.to)
       if (index === -1) contracts.push(transaction.to)
+      // Todo: go trough all accounts      
       promises.push(this.#executeTransaction(transaction))
+      
     }
     try {
       promises = await Promise.allSettled(promises)
       for (let transaction of blockMessage.decoded.transactions) {
+        pubsub.publish('transaction-processed', transaction)
+        if (transaction.to === peernet.selectedAccount) pubsub.publish('account-transaction-processed', transaction)        
         await accountsStore.put(transaction.from, String(transaction.nonce))
       }
       
@@ -388,6 +392,7 @@ async resolveBlock(hash) {
 
       
       pubsub.publish('block-processed', blockMessage.decoded)
+      
     } catch (error) {
       console.log({e: error});
     }
