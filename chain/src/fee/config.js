@@ -1,3 +1,3 @@
 export default {
-  deployment: 0.000001
+  deployment: 0.000_001
 }

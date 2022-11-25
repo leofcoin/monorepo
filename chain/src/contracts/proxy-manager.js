@@ -1,4 +1,4 @@
-import ProxyManager from './../standards/proxyManager.js'
+import ProxyManager from '../standards/proxy-manager.js'
 
 export default class ArtOnlineProxyManager extends ProxyManager {
   constructor(state) {

@@ -6,11 +6,7 @@ export default class Proxy extends Roles {
 
   constructor(proxyManager, state) {
     super(state?.roles)
-    if (state) {
-      this.#proxyManager = state.proxyManager
-    } else {
-      this.#proxyManager = proxyManager
-    }
+    this.#proxyManager = state ? state.proxyManager : proxyManager;
   }
 
   get state() {
@@ -35,8 +31,8 @@ export default class Proxy extends Roles {
     this.#proxyManager = address
   }
 
-  fallback(method, params) {
-    if (msg.sender === this.proxyManager) return this[method](...params)
-    return msg.internalCall(msg.sender, this.#implementation, method, params)
+  fallback(method, parameters) {
+    if (msg.sender === this.proxyManager) return this[method](...parameters)
+    return msg.internalCall(msg.sender, this.#implementation, method, parameters)
   }
 }

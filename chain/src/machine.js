@@ -1,7 +1,7 @@
 import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
 import { formatBytes } from './../../utils/src/utils'
-import { randomBytes } from 'crypto'
-import { join } from 'path'
+import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 
 // import State from './state'
@@ -25,26 +25,31 @@ export default class Machine {
 
   async #onmessage(data) {
     switch (data.type) {
-      case 'contractError':
+      case 'contractError': {
         console.warn(`removing contract ${await data.hash}`);
         await contractStore.delete(await data.hash)  
       break
+      }
 
-      case 'executionError':
+      case 'executionError': {
         // console.warn(`error executing transaction ${data.message}`);
         pubsub.publish(data.id, {error: data.message})
       break
+      }
 
-      case 'debug':
-        data.messages.forEach(message => debug(message))
+      case 'debug': {
+        for (const message of data.messages) debug(message)
       break
-      case 'machine-ready':
+      }
+      case 'machine-ready': {
         this.lastBlock = data.lastBlock
         pubsub.publish('machine.ready', true)
       break
-      case 'response':
+      }
+      case 'response': {
         pubsub.publish(data.id, data.value)
       break
+      }
     }
     
   }
@@ -80,19 +85,19 @@ export default class Machine {
   }
 
   async #runContract(contractMessage) {
-    const params = contractMessage.decoded.constructorParameters
+    const parameters = contractMessage.decoded.constructorParameters
     try {
 
-      const func = new Function(contractMessage.decoded.contract)
-      const Contract = func()
+      const function_ = new Function(contractMessage.decoded.contract)
+      const Contract = function_()
 
       globalThis.msg = this.#createMessage(contractMessage.decoded.creator)
       // globalThis.msg = {sender: contractMessage.decoded.creator}
-      this.#contracts[await contractMessage.hash] = await new Contract(...params)
+      this.#contracts[await contractMessage.hash] = await new Contract(...parameters)
       debug(`loaded contract: ${await contractMessage.hash}`);
       debug(`size: ${formatBytes(contractMessage.encoded.length)}`);
-    } catch (e) {
-      console.log(e);
+    } catch (error) {
+      console.log(error);
       console.warn(`removing contract ${await contractMessage.hash}`);
       await contractStore.delete(await contractMessage.hash, contractMessage.encoded)
     }
@@ -109,7 +114,7 @@ export default class Machine {
     throw new Error('duplicate contract')
   }
 
-  async execute(contract, method, params) {
+  async execute(contract, method, parameters) {
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString('hex')
       const message = message => {
@@ -123,22 +128,22 @@ export default class Machine {
         input: {
           contract,
           method,
-          params
+          params: parameters
         }
       })
     })
     
   }
 
-  addJob(contract, method, params, from, nonce) {
+  addJob(contract, method, parameters, from, nonce) {
     if (!this.#nonces[from]) this.#nonces[from] = nonce
-    if (nonce === this.#nonces[from] + 1) return this.#contracts[contract][method](...params)
+    if (nonce === this.#nonces[from] + 1) return this.#contracts[contract][method](...parameters)
     // return setTimeout(() => {
     //   return this.addJob(contract, method, params, from, nonce)
     // }, 50)
   }
 
-  get(contract, method, params) {
+  get(contract, method, parameters) {
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString()
       const message = message => {
@@ -151,7 +156,7 @@ export default class Machine {
         input: {
           contract,
           method,
-          params
+          params: parameters
         }
       })
     })

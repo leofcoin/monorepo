@@ -2,7 +2,7 @@ import json from '@rollup/plugin-json'
 import strip from '@rollup/plugin-strip';
 import { terser } from "rollup-plugin-terser";
 
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
 
 try {
   execSync(`rm -rf ./dist/**`)
@@ -170,7 +170,7 @@ export default [{
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
 }, {
-  input: ['src/contracts/nameService.js'],
+  input: ['src/contracts/name-service.js'],
   output: {
     dir: 'dist/contracts',
     format: 'es'
@@ -187,7 +187,7 @@ export default [{
     // resolve({preferBuiltins: false,browser: false, extensions: ['.js', '.mjs', '.node']}),
   ]
 }, {
-  input: ['src/contracts/nativeToken.js'],
+  input: ['src/contracts/native-token.js'],
   output: {
     dir: 'dist/contracts',
     format: 'es'

@@ -18,7 +18,7 @@ export default class Roles {
       if (roles instanceof Object) {
        this.#roles = {...roles, ...this.#roles}
       } else {
-       throw new Error(`expected roles to be an object`)
+       throw new TypeError(`expected roles to be an object`)
       }
     } else {
       // no roles given so default to the msg sender
@@ -35,7 +35,7 @@ export default class Roles {
   }
 
   hasRole(address, role) {
-    return this.#roles[role] ? this.#roles[role].indexOf(address) !== -1 : false
+    return this.#roles[role] ? this.#roles[role].includes(address) : false
   }
 
   #grantRole(address, role) {

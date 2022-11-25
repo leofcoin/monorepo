@@ -38,12 +38,12 @@ export default class Validators {
       this.#validators = state.validators
     } else {
       this.#owner = msg.sender
-      this.#minimumBalance = 50000
+      this.#minimumBalance = 50_000
       this.#currency = tokenAddress
 
       this.#totalValidators += 1
       this.#validators[msg.sender] = {
-        firstSeen: new Date().getTime(),
+        firstSeen: Date.now(),
         active: true
       }
     }
@@ -95,7 +95,7 @@ export default class Validators {
 
     this.#totalValidators += 1
     this.#validators[validator] = {
-      firstSeen: new Date().getTime(),
+      firstSeen: Date.now(),
       active: true
     }
   }

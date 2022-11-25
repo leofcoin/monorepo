@@ -29,9 +29,7 @@ export default class NameService {
     return {...this.#registry}
   }
 
-  get state() {
-
-  }
+  get state() {}
 
   // TODO: control with contract
   constructor(factoryAddress, currency, validatorAddress, price, state) {
@@ -82,8 +80,8 @@ export default class NameService {
     if (balance < this.#price) throw new Error('price exceeds balance')
     try {
       await msg.call(this.#currency, 'transfer', [msg.sender, this.#owner, this.#price])
-    } catch (e) {
-      throw e
+    } catch (error) {
+      throw error
     }
 
     this.#registry[name] = {

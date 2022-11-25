@@ -1,3 +1,1 @@
-export default class ArtOnlineVoting {
-
-}
+export default class ArtOnlineVoting {}

@@ -19,7 +19,7 @@ export default class Validator {
   async validateTransaction(hash, transaction) {
     delete transaction.hash
     transaction = await create(hasher.hash(transaction))
-    if (transaction !== hash) throw Error('invalid hash')
+    if (transaction !== hash) throw new Error('invalid hash')
     // for (const input of transaction) {
     //   input
     // }

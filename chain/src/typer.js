@@ -11,7 +11,7 @@ export default {
   isType: (type, value) => {
     type = type.toLowercase()
     if (type === 'string') return typeof(value) === type
-    if (type === 'number') return !isNaN(Number(value))
+    if (type === 'number') return !Number.isNaN(Number(value))
     if (type === 'address') return isAddress(value)
     if (type === 'BigNumber') return BigNumber.isBigNumber(value)
   },

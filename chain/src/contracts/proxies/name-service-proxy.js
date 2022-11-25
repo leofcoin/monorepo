@@ -1,4 +1,4 @@
-import Proxy from './../../standards/Proxy.js'
+import Proxy from '../../standards/proxy.js'
 
 export default class NameServiceProxy extends Proxy {
   /**
