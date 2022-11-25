@@ -163,7 +163,7 @@ export default [{
     strip(),
     terser({
       mangle: false,
-      format: {semicolons: true, wrap_iife: true},
+      format: {semicolons: true },
       keep_classnames: true,
       ecma: 6
     })

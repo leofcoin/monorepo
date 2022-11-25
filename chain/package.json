@@ -5,6 +5,8 @@
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
   "scripts": {
+    "np": "np",
+    "lint": "eslint src --fix",
     "c": "rollup -c",
     "w": "rollup -c -w",
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
@@ -13,6 +15,10 @@
     "test": "node test --openssl-legacy-provider",
     "pack": "webpack"
   },
+  "np": {
+		"yarn": false,
+		"contents": "."
+	},
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "keywords": [],
   "author": "",
@@ -22,6 +28,8 @@
     "@rollup/plugin-strip": "^2.1.0",
     "@vandeurenglenn/debug": "^1.0.0",
     "crypto-browserify": "^3.12.0",
+    "eslint": "^8.28.0",
+    "eslint-plugin-unicorn": "^45.0.0",
     "open": "^8.4.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
@@ -30,7 +38,7 @@
     "rollup-plugin-terser": "^7.0.2",
     "stream-browserify": "^3.0.0",
     "tape": "^5.5.2",
-    "terser": "5.15.0",
+    "terser": "^5.16.0",
     "vm-browserify": "^1.1.2",
     "webpack-cli": "^4.9.2"
   },
@@ -53,5 +61,15 @@
     "chalk": "^4.0.0",
     "pako": "^2.0.4",
     "webpack": "^5.74.0"
+  },
+  "eslintConfig": {
+    "env": {
+      "es2022": true
+    },
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "extends": "plugin:unicorn/recommended"
   }
 }

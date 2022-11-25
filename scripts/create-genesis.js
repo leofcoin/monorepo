@@ -10,7 +10,8 @@
   
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
-    return createContractMessage(peernet.selectedAccount, `return ${contract.toString().replace(/export{([A-Z])\w+ as default}/g, '')}`, params)
+    const name = contract.toString().match(/export{([A-Z])\w+|export { ([A-Z])\w+/).replace(/export {|export{/)
+    return createContractMessage(peernet.selectedAccount, contract.toString().replace(/export{([A-Z])\w+ as default}/g, `return ${name}`).replace(/\r?\n|\r/g, ''), params)
   }
   // const Chain = require('./../chain/dist/chain');
   
@@ -26,7 +27,7 @@ console.log(factory);
     await contractStore.put(await factory.hash, factory.encoded)
   }
 
-  const nativeToken = await createMessage('./chain/dist/contracts/nativeToken.js')
+  const nativeToken = await createMessage('./chain/dist/contracts/native-token.js')
   if (!await contractStore.has(await nativeToken.hash)) {
     await contractStore.put(await nativeToken.hash, nativeToken.encoded)
   }
@@ -39,7 +40,7 @@ console.log(factory);
   }
 
 
-  const nameService = await createMessage('./chain/dist/contracts/nameService.js', [await factory.hash, await nativeToken.hash, await validators.hash, parseUnits('1000').toString()])
+  const nameService = await createMessage('./chain/dist/contracts/name-service.js', [await factory.hash, await nativeToken.hash, await validators.hash, parseUnits('1000').toString()])
 
   if (!await contractStore.has(await nameService.hash)) {
     await contractStore.put(await nameService.hash, nameService.encoded)
