@@ -12,7 +12,7 @@ export default class Roles {
   constructor(roles) {
     // allow devs to set their own roles but always keep the default ones included
     // also allows roles to be loaded from the stateStore
-    // carefull when includin gthe roles make sure to add the owner
+    // carefull when including the roles make sure to add the owner
     // since no roles are granted by default when using custom roles
     if (roles) {
       if (roles instanceof Object) {
