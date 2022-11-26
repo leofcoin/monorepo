@@ -4,6 +4,7 @@ export default class Roles {
    * Object => Array
    */
   #roles = {
+    'IMPLEMENTATION_MANAGER': [],
     'OWNER': [],
     'MINT': [],
     'BURN': []
@@ -13,7 +14,7 @@ export default class Roles {
     // allow devs to set their own roles but always keep the default ones included
     // also allows roles to be loaded from the stateStore
     // carefull when including the roles make sure to add the owner
-    // since no roles are granted by default when using custom roles
+    // because no roles are granted by default when using custom roles
     if (roles) {
       if (roles instanceof Object) {
        this.#roles = {...roles, ...this.#roles}
@@ -21,8 +22,9 @@ export default class Roles {
        throw new TypeError(`expected roles to be an object`)
       }
     } else {
-      // no roles given so default to the msg sender
+      // no roles given so fallback to default to the msg sender
       this.#grantRole(msg.sender, 'OWNER')
+      this.#grantRole(msg.sender, 'IMPLEMENTATION_MANAGER')
     }
   }
 
