@@ -16,7 +16,7 @@ globalThis.BigNumber = BigNumber
 globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
 
-export const unique = arr => arr.filter((el, pos, arr) => {
+const unique = arr => arr.filter((el, pos, arr) => {
   return arr.indexOf(el) == pos;
 })
 
