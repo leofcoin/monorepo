@@ -1,6 +1,0 @@
-app/**/*.js
-node_modules
-build
-workers
-# Webpack
-.webpack/
