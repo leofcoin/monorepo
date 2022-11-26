@@ -110,10 +110,7 @@ export default class Validators {
   async updateValidator(validator, active) {
     if (!this.has(validator)) throw new Error('validator not found')
     const balance = await msg.staticCall(this.currency, 'balanceOf', [msg.sender])
-    if (balance < this.minimumBalance && this.#validators[validator].active) this.#validators[validator].active = false
-
-    if (balance < this.minimumBalance) throw new Error(`balance to low! got: ${balance} need: ${this.#minimumBalance}`)
-
-    this.#validators[validator].active = active
+    /** minimum balance always needs to be met */
+    balance < this.minimumBalance && this.#validators[validator].active ? this.#validators[validator].active = false : this.#validators[validator].active = active
   }
 }
