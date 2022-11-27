@@ -567,6 +567,7 @@ async resolveBlock(hash) {
       debug(`created block: ${hash}`)
 
       peernet.publish('add-block', blockMessage.encoded)
+      pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
       console.log(error);
       throw new Error(`invalid block ${block}`)
