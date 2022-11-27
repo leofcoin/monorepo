@@ -764,20 +764,19 @@ async #signTransaction (transaction, wallet) {
   }
 
   /**
-   *
-   * @param {String} contract - a contract string (see plugins/deployContract)
+   * 
+   * @param {String} contract 
+   * @param {Array} parameters 
+   * @returns 
    */
   async deployContract(contract, parameters = []) {
-    globalThis.msg = {sender: peernet.selectedAccount, call: this.call}
-
-    const hash = await this.createContractAddress(creator, contract, parameters)
-console.log(hash);
+    const message = await createContractMessage(peernet.selectedAccount, contract, parameters)
     try {
-      const tx = await this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'deployContract', [hash, creator, contract, constructorParameters])
+      await this.#machine.addContract(message)  
     } catch (error) {
       throw error
     }
-    return this.#machine.addContract(message)
+    return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash])    
   }
 
   #createMessage(sender = peernet.selectedAccount) {
@@ -829,6 +828,19 @@ console.log(hash);
 
   get balances() {
     return this.staticCall(addresses.nativeToken, 'balances')
+  }
+
+  get contracts() {
+    return this.staticCall(addresses.contractFactory, 'contracts')
+  }
+  /**
+   * 
+   * @param {Address} address old contract address
+   * @param {Address} newAddress new contract address
+   * @returns 
+   */
+  async updateImplementation(address, newAddress) {
+    return this.call(addresses.contractFactory, 'updateImplementation', [address, newAddress])
   }
 
   deleteAll() {

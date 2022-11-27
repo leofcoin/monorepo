@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Official javascript implementation",
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
@@ -16,9 +16,9 @@
     "pack": "webpack"
   },
   "np": {
-		"yarn": false,
-		"contents": "."
-	},
+    "yarn": false,
+    "contents": "."
+  },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "keywords": [],
   "author": "",

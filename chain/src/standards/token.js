@@ -81,11 +81,11 @@ export default class Token extends Roles {
     this.#increaseBalance(to, amount)
   }
 
-  burn(to, amount) {
+  burn(from, amount) {
     if (!this.hasRole(msg.sender, 'BURN')) throw new Error('not allowed')
 
     this.#totalSupply = this.#totalSupply.sub(amount)
-    this.#decreaseBalance(to, amount)
+    this.#decreaseBalance(from, amount)
   }
 
   #beforeTransfer(from, to, amount) {

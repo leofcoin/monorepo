@@ -106,12 +106,11 @@ export default class Machine {
    * @params {ContractMessage} - contractMessage
    */
   async addContract(contractMessage) {
-    if (!await contractStore.has(contractMessage.hash)) {
-      await contractStore.put(contractMessage.hash, contractMessage.encoded)
-      await this.#runContract(contractMessage)
-      return contractMessage.hash
-    }
-    throw new Error('duplicate contract')
+    if (await contractStore.has(await contractMessage.hash)) throw new Error('duplicate contract')
+
+    await contractStore.put(await contractMessage.hash, contractMessage.encoded)
+    await this.#runContract(contractMessage)
+    return contractMessage.hash
   }
 
   async execute(contract, method, parameters) {
