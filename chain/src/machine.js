@@ -3,7 +3,6 @@ import { formatBytes } from './../../utils/src/utils'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
-
 // import State from './state'
 
 export default class Machine {
@@ -117,6 +116,7 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString('hex')
       const message = message => {
+        pubsub.unsubscribe(id, message)
         if (message?.error) reject(message.error)
         else resolve(message)
       }

@@ -4,7 +4,6 @@ export default class Roles {
    * Object => Array
    */
   #roles = {
-    'IMPLEMENTATION_MANAGER': [],
     'OWNER': [],
     'MINT': [],
     'BURN': []

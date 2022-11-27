@@ -54,49 +54,10 @@ export default class Factory {
    * @param {Address} address contract address to register
    */
   async registerContract(address) {
-    let isAllowed = false
-    isAllowed = await msg.staticCall(address, 'hasRole', [msg.sender, 'IMPLEMENTATION_MANAGER'])
-    if (!isAllowed) throw new Error('only the implementation manager can update') 
+    await msg.staticCall(address, 'hasRole', [msg.sender, 'OWNER'])
     if (this.#implementations[address]) throw new Error('already registered')
 
     this.#totalContracts += 1
-    this.#implementations[address] = []
-    this.#implementations[address].push(address)
     this.#contracts.push(address)
-  }
-
-  /**
-   * updates the current implementation to a new address
-   * 
-   * @param {Address} address the current contract address
-   * @param {Address} newAddress the new contract address
-   */
-  async updateImplementation(address, newAddress) {
-    let isAllowed = false
-    isAllowed = await msg.staticCall(address, 'hasRole', [msg.sender, 'IMPLEMENTATION_MANAGER'])
-    if (!isAllowed) throw new Error('only the implementation manager can update')
-    if (!this.#implementations[address]) throw new Error(`register ${address} before updating to ${newAddress}`)
-
-    this.#implementations[address].push(newAddress)
-  }
-
-  /**
-   * 
-   * @param {Address} address the original contract address
-   * @returns {Address} all implementations of the original contract
-   */
-   getImplementations(address) {
-    return this.#implementations[address]
-  }
-
-  /**
-   * 
-   * @param {Address} address the original contract address
-   * @param {Number} index the index of the implmentation item or undefined (returns the latest implementation when undefined)
-   * @returns {Address} the latest/selected implementation of the original contract
-   */
-  getImplementation(address, index) {
-    index = index || this.#implementations[address].length - 1
-    return this.#implementations[address][index]
   }
 }
