@@ -1,7 +1,6 @@
 import { BlockMessage, ContractMessage } from './../../messages/src/messages'
 import { formatBytes, BigNumber } from './../../utils/src/utils'
 import bytecodes  from './../../lib/src/bytecodes.json'
-import { join } from 'path'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'
 const worker = new EasyWorker()
@@ -30,21 +29,20 @@ const get = (contract, method, params) => {
   return result
 }
 
-const runContract = async (contractMessage) => {
-  const params = contractMessage.decoded.constructorParameters
+const runContract = async ({decoded, hash, encoded}) => {
+  const params = decoded.constructorParameters
   try {
 
-    const func = new Function(contractMessage.decoded.contract)
+    const func = new Function(decoded.contract)
     const Contract = func()
 
-    globalThis.msg = createMessage(contractMessage.decoded.creator)
-    // globalThis.msg = {sender: contractMessage.decoded.creator}
-    contracts[await contractMessage.hash] = await new Contract(...params)
+    globalThis.msg = createMessage(decoded.creator)
+    contracts[hash] = await new Contract(...params)
     worker.postMessage({
       type: 'debug',
       messages: [
-        `loaded contract: ${await contractMessage.hash}`,
-        `size: ${formatBytes(contractMessage.encoded.length)}`
+        `loaded contract: ${hash}`,
+        `size: ${formatBytes(encoded.length)}`
       ]
     })
   } catch (e) {
@@ -108,7 +106,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
 
   contracts = await Promise.all(contracts.map(async contract => {
     contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-    await runContract(contract)
+    await runContract({decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash})
     return contract
   }))
 
@@ -162,6 +160,22 @@ const tasks = async (e) => {
       } catch (e) {
         worker.postMessage({
           type: 'initError',
+          message: e.message,
+          id          
+        })
+      }
+    }
+    if (e.type === 'run') {
+      try {
+        const value = await runContract(e.input)
+        worker.postMessage({
+          type: 'response',
+          id,
+          value
+        })
+      } catch (e) {
+        worker.postMessage({
+          type: 'fetchError',
           message: e.message,
           id          
         })

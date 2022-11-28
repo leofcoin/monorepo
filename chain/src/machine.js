@@ -86,22 +86,26 @@ export default class Machine {
   }
 
   async #runContract(contractMessage) {
-    const parameters = contractMessage.decoded.constructorParameters
-    try {
-
-      const function_ = new Function(contractMessage.decoded.contract)
-      const Contract = function_()
-
-      globalThis.msg = this.#createMessage(contractMessage.decoded.creator)
-      // globalThis.msg = {sender: contractMessage.decoded.creator}
-      this.#contracts[await contractMessage.hash] = await new Contract(...parameters)
-      debug(`loaded contract: ${await contractMessage.hash}`);
-      debug(`size: ${formatBytes(contractMessage.encoded.length)}`);
-    } catch (error) {
-      console.log(error);
-      console.warn(`removing contract ${await contractMessage.hash}`);
-      await contractStore.delete(await contractMessage.hash, contractMessage.encoded)
-    }
+    const hash = await contractMessage.hash
+    return new Promise((resolve, reject) => {
+      const id = randomBytes(20).toString('hex')
+      const onmessage = message => {        
+        pubsub.unsubscribe(id, onmessage)
+        if (message?.error) reject(message.error)
+        else resolve(message)
+      }
+      pubsub.subscribe(id, onmessage)
+      this.worker.postMessage({
+        type: 'run',
+        id,
+        input: {
+          decoded: contractMessage.decoded,
+          encoded: contractMessage.encoded,
+          hash 
+        }
+      })
+    })
+    
   }
   /**
    * @params {ContractMessage} - contractMessage
