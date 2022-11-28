@@ -3,6 +3,7 @@ import { formatBytes } from './../../utils/src/utils'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
+import { ContractMessage } from '../../messages/src/messages.js'
 // import State from './state'
 
 export default class Machine {
@@ -107,18 +108,28 @@ export default class Machine {
     })
     
   }
-  /**
-   * @params {ContractMessage} - contractMessage
-   */
-  async addContract(contractMessage) {
-    if (await contractStore.has(await contractMessage.hash)) throw new Error('duplicate contract')
-
-    await contractStore.put(await contractMessage.hash, contractMessage.encoded)
-    await this.#runContract(contractMessage)
-    return contractMessage.hash
-  }
 
   async execute(contract, method, parameters) {
+    /**  */
+    try {
+      if (contract === contractFactory && method === 'registerContract') {
+        if (this.#contracts[parameters[0]]) throw new Error(`duplicate contract @${parameters[0]}`)
+        let message;
+        if (!contractStore.has(parameters[0])) {
+          message = await peernet.get(parameters[0], 'contract')
+          message = new ContractMessage(message)
+          await contractStore.put(await message.hash, message.encoded)
+        }
+        if (!message) {
+          message = await contractStore.get(parameters[0])
+          message = new ContractMessage(message)
+        }
+        
+        if (!this.#contracts[await message.hash]) await this.#runContract(message)
+      }
+    } catch (error) {
+      throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
+    }
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString('hex')
       const onmessage = message => {        

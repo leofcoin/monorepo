@@ -755,7 +755,7 @@ async #signTransaction (transaction, wallet) {
   }
 
   async createContractMessage(creator, contract, constructorParameters = []) {
-    return createContractMessage(creator, contract, constructorParameters = [])
+    return createContractMessage(creator, contract, constructorParameters)
   }
 
   async createContractAddress(creator, contract, constructorParameters = []) {
@@ -769,10 +769,10 @@ async #signTransaction (transaction, wallet) {
    * @param {Array} parameters 
    * @returns 
    */
-  async deployContract(contract, parameters = []) {
-    const message = await createContractMessage(peernet.selectedAccount, contract, parameters)
+  async deployContract(contract, constructorParameters = []) {
+    const message = await createContractMessage(peernet.selectedAccount, contract, constructorParameters)
     try {
-      await this.#machine.addContract(message)  
+      await contractStore.put(await message.hash, message.encoded)
     } catch (error) {
       throw error
     }
