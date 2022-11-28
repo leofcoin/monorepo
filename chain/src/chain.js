@@ -146,11 +146,11 @@ export default class Chain {
     }
     
     if (latest.hash && latest.hash !== '0x0') {
-      let latestBlock = await peernet.get(latest.hash, block)
-      latestBlock = await new BlockMessage(latestBlock)
+      latest = await peernet.get(latest.hash, block)
+      latest = await new BlockMessage(latest)
     }
 
-    return latestBlock
+    return latest
   }
 
   async #init() {
@@ -832,15 +832,6 @@ async #signTransaction (transaction, wallet) {
 
   get contracts() {
     return this.staticCall(addresses.contractFactory, 'contracts')
-  }
-  /**
-   * 
-   * @param {Address} address old contract address
-   * @param {Address} newAddress new contract address
-   * @returns 
-   */
-  async updateImplementation(address, newAddress) {
-    return this.call(addresses.contractFactory, 'updateImplementation', [address, newAddress])
   }
 
   deleteAll() {
