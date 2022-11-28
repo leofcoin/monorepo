@@ -55,9 +55,11 @@ export default class Machine {
 
   async #init(blocks) {
     return new Promise(async (resolve) => {
-      pubsub.subscribe('machine.ready', ()  => {
+      const machineReady = () => {
+        pubsub.unsubscribe('machine.ready', machineReady)
         resolve(this)
-      })
+      }
+      pubsub.subscribe('machine.ready', machineReady)
 
       this.worker = await new EasyWorker(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
@@ -115,12 +117,12 @@ export default class Machine {
   async execute(contract, method, parameters) {
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString('hex')
-      const message = message => {
-        pubsub.unsubscribe(id, message)
+      const onmessage = message => {        
+        pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)
       }
-      pubsub.subscribe(id, message)
+      pubsub.subscribe(id, onmessage)
       this.worker.postMessage({
         type: 'execute',
         id,
@@ -145,10 +147,11 @@ export default class Machine {
   get(contract, method, parameters) {
     return new Promise((resolve, reject) => {
       const id = randomBytes(20).toString()
-      const message = message => {
+      const onmessage = message => {
+        pubsub.unsubscribe(id, onmessage)
         resolve(message)
       }
-      pubsub.subscribe(id, message)
+      pubsub.subscribe(id, onmessage)
       this.worker.postMessage({
         type: 'get',
         id,
