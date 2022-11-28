@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <style>
+    html, body, .app-wrapper {
+      display: flex;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      margin: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+    body {
+      flex-direction: column;
+      position: relative;
+    }
+    .app-wrapper {
+      position: relative;
+    }
+
+    section {
+      /* background: #eee; */
+      padding: 6px 12px;
+      box-sizing: border-box;
+      
+      margin-bottom: 24px;
+      width: 100%;
+    }
+
+    main {
+      position: relative;
+      height: 100%;
+    width: 100%;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    }
+
+    .viewer, .marked {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-110%);
+    }
+
+    main [selected] {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    aside [selected] {
+      background: #555;
+      color: #f7f7f7;
+    }
+
+    code {
+      display: block;
+      padding: 6px 12px;
+      box-sizing: border-box;
+      margin-top: 0;
+      margin-bottom: 24px;
+      padding: 12px;
+      font-size: 1em;
+      background: #f7f7f7;
+      border-radius: 2px;
+      overflow-x: auto;
+    }
+
+    .wrapper {
+      max-width: 960px;
+      width: 100%;
+      position: relative;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    aside {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 256px;
+      box-shadow: 1px 1px 8px 0px #5555557a;
+    }
+
+    a {
+      text-decoration: none;
+      display: flex;
+      padding: 12px 24px;
+      box-sizing: border-box;
+      height: 48px;
+      width: 100%;
+      align-items: center;
+    }
+
+    .toolbar {
+      display: flex;
+      height: 54px;
+      width: 100%;
+      box-shadow: 1px 1px 8px 0px #5555557a;
+    }
+  </style>
+  <span class="toolbar">
+
+    <a class="branding">DocIt</a>
+  </span>
+  <span class="app-wrapper">
+    <aside>
+      <a href="#!/home">home</a>
+    </aside>
+    
+    <main>
+      <div class="wrapper">
+        <div class="viewer">
+          <h2 class="title"></h2>
+          <span class="classes">
+            <h2>class</h2>
+          </span>
+          <span class="properties">
+            <h2>properties</h2>
+          </span>
+      
+          <span class="methods">
+            <h2>methods</h2>
+          </span>
+        </div>
+        <div class="marked"></div>
+      </div>
+    </main>
+    
+  </span>
+  
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+  <script type="module">
+
+    const pages = [
+	"testClass.js"
+]
+    const readme ="# doc-it\r\n> simple js comment parser\r\n## usage\r\n```js\r\nimport docIt from '@vandeurenglenn/doc-it'\r\n\r\ndocIt({input: './testClass.js', output: 'docs'})\r\n```\r\n### input\r\n```js\r\nexport default class SomeClass {\r\n  /** \r\n   * @param {Number}\r\n   */\r\n  #token = 0\r\n\r\n  /**\r\n   * @example `someClass.someFunction('someString')`\r\n   * @param {string} someParam description \r\n   * @link [my-link](https://somelink.link)\r\n   * @return {string} someString description\r\n   * \r\n   */\r\n  someFunction(someParam) {\r\n    return someString\r\n  }\r\n}\r\n  \r\n```\r\n\r\n### output\r\n```js\r\nexport default [\r\n\t{\r\n\t\t\"start\": 2,\r\n\t\t\"end\": 4,\r\n\t\t\"value\": \"/**\\n* @param {Number}\\n*/\",\r\n\t\t\"code\": {\r\n\t\t\t\"value\": \"#token = 0\"\r\n\t\t},\r\n\t\t\"params\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"value\": \"{Number}\",\r\n\t\t\t\t\"type\": \"Number\",\r\n\t\t\t\t\"description\": \"\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"examples\": [],\r\n\t\t\"links\": [],\r\n\t\t\"properties\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"#token\",\r\n\t\t\t\t\"value\": \"0\",\r\n\t\t\t\t\"isPrivate\": true\r\n\t\t\t}\r\n\t\t]\r\n\t},\r\n\t{\r\n\t\t\"start\": 7,\r\n\t\t\"end\": 13,\r\n\t\t\"value\": \"/**\\n* @example `someClass.someFunction('someString')`\\n* @param {string} someParam description\\n* @link [my-link](https://somelink.link)\\n* @return {string} someString description\\n*\\n*/\",\r\n\t\t\"code\": {\r\n\t\t\t\"value\": \"someFunction(someParam) {}\"\r\n\t\t},\r\n\t\t\"params\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"someParam\",\r\n\t\t\t\t\"value\": \"{string} someParam description\",\r\n\t\t\t\t\"type\": \"string\",\r\n\t\t\t\t\"description\": \"someParam description\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"examples\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"example\",\r\n\t\t\t\t\"value\": \"someClass.someFunction('someString')\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"links\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"my-link\",\r\n\t\t\t\t\"url\": \"https://somelink.link\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"properties\": [],\r\n\t\t\"type\": \"method\",\r\n\t\t\"name\": \"someFunction\",\r\n\t\t\"return\": {\r\n\t\t\t\"name\": \"someString\",\r\n\t\t\t\"value\": \"{string} someString description\",\r\n\t\t\t\"type\": \"string\",\r\n\t\t\t\"description\": \"description\"\r\n\t\t}\r\n\t}\r\n]\r\n```"
+    const aside = document.querySelector('aside')
+    for (const page of pages) {
+      const a = document.createElement('a')
+      a.href = `#!/${page}`
+      a.innerHTML = page.replace('.js', '')
+      aside.appendChild(a)
+    }
+
+    const load = async (page) => {
+      const importee = await import(`./${page}.js`)
+      const data = importee.default
+console.log(data);
+      title.innerHTML = page
+      for (const token of data) {
+        if (token.type === 'property') {
+          const property = document.createElement('section')
+          property.innerHTML = `
+          <h3>${token.name}</h3>
+          <code>
+          <p><strong>type</strong> ${token.params[0].type}</p>
+          ${token.description === token.value ? '' : `${token.description}`}
+          <p><strong>defaultValue</strong> ${token.value}</p>
+          </code>
+          `
+          properties.appendChild(property)
+        }
+        if (token.type === 'method') {
+          const property = document.createElement('section')
+          property.innerHTML = `          
+          <h3>${token.name}</h3>
+          <code>
+          ${token.params ? token.params.map(param => `
+            <p><strong>type</strong> ${param.type}</p>
+            <p><strong>param</strong> ${param.name}</p>
+            <p><strong>description</strong> ${param.description}</p>
+            `).join('') : []}
+          
+          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
+          ${token.return ? `<p><strong>returns</strong> ${token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name} ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>` : ''}
+          </code>
+          `
+          
+          methods.appendChild(property)
+        }
+
+        if (token.type === 'class') {
+          const property = document.createElement('section')
+          property.innerHTML = `<h3>${token.name}</h3>
+          <code>
+          
+          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
+          </code>
+          `
+          classes.appendChild(property)
+        }
+      }
+    }
+
+    const onhashchange = async () => {
+      let selected = location.hash
+      selected = selected.split('#!/')[1]
+
+      console.log(selected);
+      aside.querySelector('[selected]')?.removeAttribute('selected')
+      
+      aside.querySelector(`a[href="#!/${selected}"]`).setAttribute('selected', '')
+      marked.setOptions({
+        highlight: function(code, lang) {
+          return hljs.highlight(code, {language: lang}).value;
+        }
+      });
+      if (selected === 'home') {
+        document.querySelector('.viewer')?.removeAttribute('selected')
+        document.querySelector('.marked').setAttribute('selected', '')
+        document.querySelector('.marked').innerHTML = marked.parse(readme);
+      } else {
+        await load(selected)
+        document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
+        document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
+      }
+    }
+
+    globalThis.onhashchange = onhashchange
+
+    const properties = document.querySelector('.properties')
+    const methods = document.querySelector('.methods')
+    const classes = document.querySelector('.classes')
+    const title = document.querySelector('.title')
+
+    if (!location.hash) location.hash = '#!/home'
+    onhashchange()
+    // document.querySelector('.viewer').innerHTML = marked.parse(readme);
+  </script>
+</body>
+</html>
