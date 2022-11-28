@@ -12,24 +12,17 @@ export default class Factory {
    */
   #contracts = []
 
-  /** 
-   * Object => address => Array[addresses]
-   */
-  #implementations = {}
-
   constructor(state) {
     if (state) {
       this.#contracts = state.contracts
       this.#totalContracts = state.totalContracts
-      this.#implementations = state.implementations
     }
   }
 
   get state() {
     return {
       totalContracts: this.#totalContracts,
-      contracts: this.#contracts,
-      implementations: this.#implementations
+      contracts: this.#contracts
     }
   }
 
@@ -44,10 +37,6 @@ export default class Factory {
   get totalContracts() {
     return this.#totalContracts
   }
-  
-  get implementations() {
-    return {...this.#implementations}
-  }
 
   /**
    * 
@@ -55,7 +44,7 @@ export default class Factory {
    */
   async registerContract(address) {
     await msg.staticCall(address, 'hasRole', [msg.sender, 'OWNER'])
-    if (this.#implementations[address]) throw new Error('already registered')
+    if (this.#contracts.includes(address)) throw new Error('already registered')
 
     this.#totalContracts += 1
     this.#contracts.push(address)
