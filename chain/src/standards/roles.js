@@ -23,7 +23,6 @@ export default class Roles {
     } else {
       // no roles given so fallback to default to the msg sender
       this.#grantRole(msg.sender, 'OWNER')
-      this.#grantRole(msg.sender, 'IMPLEMENTATION_MANAGER')
     }
   }
 
