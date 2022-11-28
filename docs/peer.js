@@ -2,7 +2,7 @@ export default [
 	{
 		"start": 27,
 		"end": 30,
-		"value": "{}) {}",
+		"value": "/**\n* @params {Object} options\n* @params {string} options.channelName - this peerid : otherpeer id\n*/",
 		"code": {
 			"value": "constructor(options = {}) {}"
 		},
@@ -22,10 +22,10 @@ export default [
 		],
 		"examples": [],
 		"links": [],
-		"type": "property",
+		"type": "method",
+		"name": "constructor",
 		"private": false,
-		"name": "constructor(options",
-		"description": "{}) {}"
+		"description": "/**\n* "
 	},
 	{
 		"start": 0,

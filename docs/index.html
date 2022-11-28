@@ -114,6 +114,31 @@
       width: 100%;
       box-shadow: 1px 1px 8px 0px #5555557a;
     }
+
+    .block {
+      padding-bottom: 24px;
+      padding-left: 12px;
+      display: flex;
+      flex-direction: column;
+
+    }
+    .flex-row, .block.param {
+      display: flex;
+      width: 100%;
+      flex-direction: row;
+      padding-left: 0;
+      border: 1px solid #eee;
+    }
+    .flex-row, .block.param {
+      padding: 6px 12px;
+      box-sizing: border-box;
+    }
+    .flex-row strong, .block.param p {
+      width: calc(100% / 3);
+    }
+    :not(:last-child(.block.param)) {
+      border-bottom: 1px solid #eee;
+    }
   </style>
   <span class="toolbar">
 
@@ -208,10 +233,10 @@
 	"script.js",
 	"elevation.js",
 	"styles.js",
-	"html.js",
-	"utils.js",
 	"client.js",
 	"peer.js",
+	"html.js",
+	"utils.js",
 	"api.js",
 	"server.js",
 	"utils.js"
@@ -225,7 +250,76 @@
       aside.appendChild(a)
     }
 
-    const onhashchange = () => {
+    const load = async (page) => {
+      const importee = await import(`./${page}`)
+      const data = importee.default
+console.log(data);
+      title.innerHTML = page
+      for (const token of data) {
+        if (token.type === 'property') {
+          const property = document.createElement('section')
+          property.innerHTML = `
+          <h3>${token.name}</h3>
+          <span class="block">
+            
+            <p><strong>type</strong> ${token.params[0].type}</p>
+          
+            ${token.description === token.value ? '' : `${token.description}`}
+            <p><strong>defaultValue</strong> ${token.value}</p>
+          </span>
+          <code>
+            ${token.code.value}
+          </code>
+          `
+          properties.appendChild(property)
+        }
+        if (token.type === 'method') {
+          const property = document.createElement('section')
+          property.innerHTML = `          
+          <h3>${token.name}</h3>
+          <span class="block">
+            ${token.params ? `
+              <span class="flex-row">
+              <strong>name</strong>
+              <strong>type</strong>
+              <strong>description</strong>
+              </span>
+              ` : ''}
+          ${token.params ? token.params.map(param => `
+            <span class="block  param">
+            <p>${param.name}</p>
+            <p>${param.type}</p>
+            <p>${param.description}</p>
+            </span>
+            `).join('') : []}
+          
+          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
+          ${token.return ? `<p><strong>returns</strong> ${token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name} ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>` : ''}
+          </span>
+          <code>
+          ${token.code.value}
+          </code>
+          `
+          
+          methods.appendChild(property)
+        }
+
+        if (token.type === 'class') {
+          const property = document.createElement('section')
+          property.innerHTML = `<h3>${token.name}</h3>
+          <span class="block">
+          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
+          </span>
+          <code>          
+            ${token.code.value}
+          </code>
+          `
+          classes.appendChild(property)
+        }
+      }
+    }
+
+    const onhashchange = async () => {
       let selected = location.hash
       selected = selected.split('#!/')[1]
 
@@ -243,6 +337,7 @@
         document.querySelector('.marked').setAttribute('selected', '')
         document.querySelector('.marked').innerHTML = marked.parse(readme);
       } else {
+        await load(selected)
         document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
         document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
       }
@@ -257,55 +352,6 @@
 
     if (!location.hash) location.hash = '#!/home'
     onhashchange()
-    for (const page of pages) {
-      const importee = await import(`./${page}`)
-      const data = importee.default
-console.log(data);
-      title.innerHTML = page
-      for (const token of data) {
-        if (token.type === 'property') {
-          const property = document.createElement('section')
-          property.innerHTML = `
-          <h3>${token.name}</h3>
-          <code>
-          <p><strong>type</strong> ${token.params[0].type}</p>
-          ${token.description === token.value ? '' : `${token.description}`}
-          <p><strong>defaultValue</strong> ${token.value}</p>
-          </code>
-          `
-          properties.appendChild(property)
-        }
-        if (token.type === 'method') {
-          const property = document.createElement('section')
-          property.innerHTML = `          
-          <h3>${token.name}</h3>
-          <code>
-          ${token.params ? token.params.map(param => `
-            <p><strong>type</strong> ${param.type}</p>
-            <p><strong>param</strong> ${param.name}</p>
-            <p><strong>description</strong> ${param.description}</p>
-            `).join('') : []}
-          
-          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
-          ${token.return ? `<p><strong>returns</strong> ${token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name} ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>` : ''}
-          </code>
-          `
-          
-          methods.appendChild(property)
-        }
-
-        if (token.type === 'class') {
-          const property = document.createElement('section')
-          property.innerHTML = `<h3>${token.name}</h3>
-          <code>
-          
-          ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
-          </code>
-          `
-          classes.appendChild(property)
-        }
-      }
-    }
     // document.querySelector('.viewer').innerHTML = marked.parse(readme);
   </script>
 </body>

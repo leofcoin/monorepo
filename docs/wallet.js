@@ -2,7 +2,7 @@ export default [
 	{
 		"start": 9,
 		"end": 15,
-		"value": "{network: 'leofcoin', privateKey: undefined, mnemonic: undefined}) {}",
+		"value": "/**\n*\n* @param {Object} options {network, privateKey, mnemonic}\n* @param {String} options.network network name\n* @param {String} options.privateKey privateKey\n* @param {String} options.mnemonic mnemonic\n*/",
 		"code": {
 			"value": "constructor(options = {network: 'leofcoin', privateKey: undefined, mnemonic: undefined}) {}"
 		},
@@ -33,9 +33,9 @@ export default [
 		],
 		"examples": [],
 		"links": [],
-		"type": "property",
+		"type": "method",
+		"name": "constructor",
 		"private": false,
-		"name": "constructor(options",
-		"description": "{network: 'leofcoin', privateKey: undefined, mnemonic: undefined}) {}"
+		"description": "/**\n*\n* "
 	}
 ]

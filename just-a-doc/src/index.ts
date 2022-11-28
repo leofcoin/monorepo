@@ -114,7 +114,7 @@ const generate = async (file, output) => {
       if (token.code.value.includes(') => {')) {
         token.type = 'arrowFuction'
         token.name = token.code.value.split(/const|let|var|\(/g)[1] || ''
-      } else if (token.code.value.includes('=')) {
+      } else if (token.code.value.includes('=') && !token.code.value.includes(') {')) {
         token.type = 'property'      
         token.private = token.code.value.startsWith('#')
         token.name = token.code.value.split('=')[0].trim()

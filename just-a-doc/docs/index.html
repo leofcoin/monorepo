@@ -114,6 +114,31 @@
       width: 100%;
       box-shadow: 1px 1px 8px 0px #5555557a;
     }
+
+    .block {
+      padding-bottom: 24px;
+      padding-left: 12px;
+      display: flex;
+      flex-direction: column;
+
+    }
+    .flex-row, .block.param {
+      display: flex;
+      width: 100%;
+      flex-direction: row;
+      padding-left: 0;
+      border: 1px solid #eee;
+    }
+    .flex-row, .block.param {
+      padding: 6px 12px;
+      box-sizing: border-box;
+    }
+    .flex-row strong, .block.param p {
+      width: calc(100% / 3);
+    }
+    :not(:last-child(.block.param)) {
+      border-bottom: 1px solid #eee;
+    }
   </style>
   <span class="toolbar">
 
@@ -164,7 +189,7 @@
     }
 
     const load = async (page) => {
-      const importee = await import(`./${page}.js`)
+      const importee = await import(`./${page}`)
       const data = importee.default
 console.log(data);
       title.innerHTML = page
@@ -173,10 +198,15 @@ console.log(data);
           const property = document.createElement('section')
           property.innerHTML = `
           <h3>${token.name}</h3>
+          <span class="block">
+            
+            <p><strong>type</strong> ${token.params[0].type}</p>
+          
+            ${token.description === token.value ? '' : `${token.description}`}
+            <p><strong>defaultValue</strong> ${token.value}</p>
+          </span>
           <code>
-          <p><strong>type</strong> ${token.params[0].type}</p>
-          ${token.description === token.value ? '' : `${token.description}`}
-          <p><strong>defaultValue</strong> ${token.value}</p>
+            ${token.code.value}
           </code>
           `
           properties.appendChild(property)
@@ -185,15 +215,27 @@ console.log(data);
           const property = document.createElement('section')
           property.innerHTML = `          
           <h3>${token.name}</h3>
-          <code>
+          <span class="block">
+            ${token.params ? `
+              <span class="flex-row">
+              <strong>name</strong>
+              <strong>type</strong>
+              <strong>description</strong>
+              </span>
+              ` : ''}
           ${token.params ? token.params.map(param => `
-            <p><strong>type</strong> ${param.type}</p>
-            <p><strong>param</strong> ${param.name}</p>
-            <p><strong>description</strong> ${param.description}</p>
+            <span class="block  param">
+            <p>${param.name}</p>
+            <p>${param.type}</p>
+            <p>${param.description}</p>
+            </span>
             `).join('') : []}
           
           ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
           ${token.return ? `<p><strong>returns</strong> ${token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name} ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>` : ''}
+          </span>
+          <code>
+          ${token.code.value}
           </code>
           `
           
@@ -203,9 +245,11 @@ console.log(data);
         if (token.type === 'class') {
           const property = document.createElement('section')
           property.innerHTML = `<h3>${token.name}</h3>
-          <code>
-          
+          <span class="block">
           ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
+          </span>
+          <code>          
+            ${token.code.value}
           </code>
           `
           classes.appendChild(property)

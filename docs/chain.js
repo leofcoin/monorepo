@@ -223,7 +223,7 @@ export default [
 	{
 		"start": 766,
 		"end": 771,
-		"value": "[]) {}",
+		"value": "/**\n*\n* @param {String} contract\n* @param {Array} parameters\n* @returns\n*/",
 		"code": {
 			"value": "async deployContract(contract, constructorParameters = []) {}"
 		},
@@ -241,10 +241,10 @@ export default [
 		],
 		"examples": [],
 		"links": [],
-		"type": "property",
+		"type": "method",
+		"name": "async deployContract",
 		"private": false,
-		"name": "async deployContract(contract, constructorParameters",
-		"description": "[]) {}",
+		"description": "/**\n*\n* ",
 		"return": {
 			"name": "s",
 			"value": "s",
