@@ -175,7 +175,7 @@ const tasks = async (e) => {
         })
       } catch (e) {
         worker.postMessage({
-          type: 'fetchError',
+          type: 'runError',
           message: e.message,
           id          
         })

@@ -58,7 +58,6 @@ export default class Chain {
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log(validators);
     if (!validators[peernet.selectedAccount]?.active) return
-
     const start = Date.now()
     try {
       await this.#createBlock()
@@ -647,7 +646,7 @@ async resolveBlock(hash) {
 
 /**
  * 
- * @param {Object} transaction {}
+ * @param {Transaction} transaction
  * @param {String} transaction.from address
  * @param {String} transaction.to address
  * @param {Object} transaction.params {}
@@ -662,8 +661,8 @@ async createTransactionHash(transaction) {
 }
 
 /**
- * @params {object} transaction -
- * @params {object} wallet - any wallet/signer that supports sign(RAWtransaction)
+ * @param {Transaction} transaction
+ * @param {object} wallet any wallet/signer that supports sign(RAWtransaction)
  */
 async #signTransaction (transaction, wallet) {
   return wallet.sign(await this.createTransactionHash(transaction))
@@ -682,14 +681,14 @@ async #signTransaction (transaction, wallet) {
 
   /**
    * 
-   * @param {Object} transaction
+   * @param {Transaction} transaction
    * @param {Address} transaction.from
    * @param {Address} transaction.to
    * @param {String} transaction.method
    * @param {Array} transaction.params
    * @param {Number} transaction.nonce
    * 
-   * @returns {Object} transaction
+   * @returns {RawTransaction} transaction
    */
   async createRawTransaction(transaction) {
     if (!transaction.from) transaction.from = peernet.selectedAccount
@@ -710,13 +709,14 @@ async #signTransaction (transaction, wallet) {
    * data is undefined when nothing is returned
    * error is thrown on error so undefined data doesn't mean there is an error...
    *
-   * @param {String} from - the sender address
-   * @param {String} to - the contract address for the contract to interact with
+   * @param {Address} from - the sender address
+   * @param {Address} to - the contract address for the contract to interact with
    * @param {String} method - the method/function to run
    * @param {Array} params - array of paramters to apply to the contract method
    * @param {Number} nonce - total transaction count [optional]
    */
   async createTransactionFrom(from, to, method, parameters, nonce) {
+    
     try {
       
       const rawTransaction = await this.createRawTransaction({from, to, nonce, method, params: parameters})    
@@ -746,6 +746,7 @@ async #signTransaction (transaction, wallet) {
       await transactionPoolStore.put(await message.hash, message.encoded)
       peernet.publish('add-transaction', message.encoded)
       this.#addTransaction(message.encoded)
+      debug('creating tx')
       return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait}
     } catch (error) {
       console.log(error)
@@ -754,10 +755,24 @@ async #signTransaction (transaction, wallet) {
     
   }
 
+  /**
+   * 
+   * @param {Address} creator 
+   * @param {String} contract 
+   * @param {Array} constructorParameters 
+   * @returns lib.createContractMessage
+   */
   async createContractMessage(creator, contract, constructorParameters = []) {
     return createContractMessage(creator, contract, constructorParameters)
   }
 
+  /**
+   * 
+   * @param {Address} creator 
+   * @param {String} contract 
+   * @param {Array} constructorParameters 
+   * @returns {Address}
+   */
   async createContractAddress(creator, contract, constructorParameters = []) {
     contract = await this.createContractMessage(creator, contract, constructorParameters)
     return contract.hash
@@ -779,6 +794,11 @@ async #signTransaction (transaction, wallet) {
     return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash])    
   }
 
+  /**
+   * 
+   * @param {Address} sender 
+   * @returns {globalMessage}
+   */
   #createMessage(sender = peernet.selectedAccount) {
     return {
       sender,
@@ -789,12 +809,27 @@ async #signTransaction (transaction, wallet) {
     }
   }
 
+  /**
+   * 
+   * @param {Address} sender 
+   * @param {Address} contract 
+   * @param {String} method 
+   * @param {Array} parameters 
+   * @returns 
+   */
   internalCall(sender, contract, method, parameters) {
     globalThis.msg = this.#createMessage(sender)
 
     return this.#machine.execute(contract, method, parameters)
   }
 
+  /**
+   * 
+   * @param {Address} contract 
+   * @param {String} method 
+   * @param {Array} parameters 
+   * @returns 
+   */
   call(contract, method, parameters) {
     globalThis.msg = this.#createMessage()
 
