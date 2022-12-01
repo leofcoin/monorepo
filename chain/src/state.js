@@ -15,7 +15,7 @@ export default class State {
   // }
 
   async put(key, value, isCompressed = true) {
-    value = isCompressed ? isCompressed : await pako.deflate(value)
+    value = isCompressed ? value : await pako.deflate(value)
     await stateStore.put(key, value)
   }
 
@@ -26,6 +26,6 @@ export default class State {
 
   updateState(block) {
     // block.decoded.index
-    this.#isUpdateNeeded()
+    // this.#isUpdateNeeded()
   }
 }

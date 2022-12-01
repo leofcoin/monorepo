@@ -1,23 +1,56 @@
 import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
 import Machine from './machine.js'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from './../../messages/src/messages'
-import addresses from './../../addresses/src/addresses'
-import { createContractMessage, contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from './../../lib/src/lib'
-import MultiWallet from '@leofcoin/multi-wallet'
-import {CodecHash} from '@leofcoin/codec-format-interface/dist/index'
-import bs32 from '@vandeurenglenn/base32'
+import addresses, { nativeToken } from './../../addresses/src/addresses'
+import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from './../../lib/src/lib'
 import { formatBytes } from '../../utils/src/utils.js'
+import State from './state.js'
+import Contract from './contract.js'
 
 globalThis.BigNumber = BigNumber
 
 // check if browser or local
-export default class Chain {
+export default class Chain  extends Contract {
+  /** {Address[]} */
   #validators = []
+  /** {Block[]} */
   #blocks = []
+
   #machine
+  /** {Boolean} */
   #runningEpoch = false
+
+  /** {Boolean} */
   #chainSyncing = false
+
+  /** 
+   * {Block} {index, hash, previousHash}
+   */
   #lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'}
+
+  /** 
+   * amount the native token has been iteracted with
+   */
+  #nativeCalls = 0
+
+  /** 
+   * amount of native token burned
+   * {Number}
+   */
+  #nativeBurns = 0
+
+  /** 
+   * amount of native tokens minted
+   * {Number}
+   */
+  #nativeMints = 0
+
+  /** 
+   * total amount of transactions
+   * {Number}
+   */
+   #totalTransactions = 0
+
   #participants = []
   #participating = false
   #jail = []
@@ -25,7 +58,7 @@ export default class Chain {
   constructor() {
     return this.#init()
   }
-
+  
   get lib() {
     return lib
   }
@@ -161,6 +194,8 @@ export default class Chain {
 
    
     this.utils = { BigNumber, formatUnits, parseUnits }
+
+    this.state = new State()
     
     try {
       let localBlock
@@ -244,16 +279,6 @@ export default class Chain {
 
  #epochTimeout
 
- async #addTransaction(transaction) {
-  try {
-    transaction = await new TransactionMessage(transaction)
-    const has = await transactionPoolStore.has(await transaction.hash)
-    if (!has) await transactionPoolStore.put(await transaction.hash, transaction.encoded)
-    if (this.#participating && !this.#runningEpoch) this.#runEpoch()
-  } catch {
-    throw new Error('invalid transaction')
-  }
-}
 
 async #lastBlockHandler() {
   return new peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
@@ -296,31 +321,14 @@ async resolveBlock(hash) {
         for (const transaction of block.transactions) {
           try {
             await this.#machine.execute(transaction.to, transaction.method, transaction.params)
-
+            if (transaction.to === nativeToken) this.#nativeCalls += 1
+            this.#totalTransactions += 1
           } catch (error) {
   console.log(error);
           }
         }
         this.#blocks[block.index].loaded = true
-        console.log(`loaded block: ${block.hash} @${block.index}`);
-        // let message = await peernet.get(block.hash, 'block')
-
-        // const compressed = pako.deflate(message);
-        // const result = pako.inflate(compressed);
-        // console.log(result.length, compressed.length);
-        //
-        // console.log(result.length - compressed.length);
-
-        // message = new BlockMessage(message)
-  //       for (const transaction of message.decoded.transactions) {
-  //         try {
-  //           await this.#machine.execute(transaction.to, transaction.method, transaction.params)
-  //
-  //         } catch (e) {
-  // // console.log(e);
-  //         }
-  //       }
-        // block.loaded = true
+        debug(`loaded block: ${block.hash} @${block.index}`);
       }
     }
   }
@@ -340,25 +348,9 @@ async resolveBlock(hash) {
   async #addBlock(block) {
     // console.log(block);
     const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
-    // if (!Buffer.isBuffer(block)) block = Buffer.from(block, 'hex')
-    // const transactionJob = async transaction => {
-    //   try {
-    //     transaction = await transactionPoolStore.get(transaction)
-    //   } catch (e) {
-    //     try {
-    //       transaction = await peernet.get(transaction, 'transaction')
-    //     } catch (e) {
-    //       console.warn(`couldn't resolve ${transaction}`);
-    //     }
-    //   }
-    //   transaction = new TransactionMessage(transaction)
-    //   return transaction
-    // }
-    const deletions = await Promise.all(blockMessage.decoded.transactions
+    await Promise.all(blockMessage.decoded.transactions
       .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
     const hash = await blockMessage.hash
-    // let transactions = blockMessage.decoded.transactions.map(tx => transactionJob(tx))
-    // transactions = await Promise.all(transactions)
     
     await blockStore.put(hash, blockMessage.encoded)
     
@@ -401,6 +393,7 @@ async resolveBlock(hash) {
   async #updateState(message) {
     const hash = await message.hash
     this.#lastBlock = { hash, ...message.decoded }
+    await this.state.#updateState(message)
     await chainStore.put('lastBlock', hash)
   }
 
@@ -429,25 +422,6 @@ async resolveBlock(hash) {
     // if (transaction.decoded.to === addresses.validators) return 0
     // fee per gb
     return (transaction.encoded.length / 1024) / 1e-6
-  }
-
-  async getTransactions (transactions) {
-    return new Promise(async (resolve, reject) => {
-      let size = 0
-      const _transactions = []
-      
-      
-      const promises = await Promise.all(transactions
-        .map(async tx => {
-          tx = await new TransactionMessage(tx)
-          size += tx.encoded.length
-          if (!formatBytes(size).includes('MB') || formatBytes(size).includes('MB') && Number(formatBytes(size).split(' MB')[0]) <= 0.75) _transactions.push({...tx.decoded, hash: await tx.hash})
-          else resolve(_transactions)
-        }))
-
-      return resolve(_transactions)
-    })
-    
   }
 
   // todo filter tx that need to wait on prev nonce
@@ -575,135 +549,19 @@ async resolveBlock(hash) {
     // transactionStore.put(message.hash, message.encoded)
   }
 
-  async promiseTransactions(transactions) {
-    transactions = await Promise.all(transactions.map(tx => new TransactionMessage(tx)))
-    return transactions
-  }
-
-  async promiseTransactionsContent(transactions) {
-    transactions = await Promise.all(transactions.map(tx => new Promise(async (resolve, reject) => {
-      resolve({ ...tx.decoded, hash: await tx.hash })
-    })))
-
-    return transactions
-  }
-
-  async #getNonceFallback(address) {
-    let transactions = await transactionPoolStore.values()
-    transactions = await this.promiseTransactions(transactions)
-    transactions = transactions.filter(tx => tx.decoded.from === address)
-    transactions = await this.promiseTransactionsContent(transactions)
-
-    if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !==  '0x0') {
-      
-      let block = await peernet.get(this.lastBlock.hash)
-      block = await new BlockMessage(block)
-
-      // for (let tx of block.decoded?.transactions) {
-      //   tx = await peernet.get(tx, 'transaction')
-      //   transactions.push(new TransactionMessage(tx))
-      // }
-      transactions = transactions.filter(tx => tx.from === address)
-      while (transactions.length === 0 && block.decoded.index !== 0 && block.decoded.previousHash !== '0x0') {
-        block = await blockStore.get(block.decoded.previousHash)
-        block = await new BlockMessage(block)
-        transactions = block.decoded.transactions.filter(tx => tx.from === address)
-      }
-
-    }
-    if (transactions.length === 0) return 0
-
-    transactions = transactions.sort((a, b) => a.timestamp - b.timestamp)
-    return transactions[transactions.length - 1].nonce
-  }
-
-  async getNonce(address) {
-    if (!await accountsStore.has(address)) {
-      const nonce = await this.#getNonceFallback(address)
-      await accountsStore.put(address, new TextEncoder().encode(String(nonce)))
-    }
-    let nonce = await accountsStore.get(address)
-    nonce = new TextDecoder().decode(nonce)
-    return Number(nonce)
-  }
-
-  /**
-   * whenever method = createContract params should hold the contract hash
-   *
-   * example: [hash]
-   * createTransaction('0x0', 'createContract', [hash])
-   *
-   * @param {String} to - the contract address for the contract to interact with
-   * @param {String} method - the method/function to run
-   * @param {Array} params - array of paramters to apply to the contract method
-   * @param {Number} nonce - total transaction count [optional]
-   */
-  async createTransaction(to, method, parameters, nonce, signature) {
-    return this.createTransactionFrom(peernet.selectedAccount, to, method, parameters, nonce)
-  }
-
   
 
-/**
- * 
- * @param {Transaction} transaction
- * @param {String} transaction.from address
- * @param {String} transaction.to address
- * @param {Object} transaction.params {}
- * @param {String} transaction.params.method get, call
- * @param {Buffer} transaction.params.data 
- * @returns 
- */
-async createTransactionHash(transaction) {
-  // todo: validate  
-  const peernetHash = await new CodecHash(transaction, {name: 'transaction-message'})
-  return peernetHash.digest
-}
-
-/**
- * @param {Transaction} transaction
- * @param {object} wallet any wallet/signer that supports sign(RAWtransaction)
- */
-async #signTransaction (transaction, wallet) {
-  return wallet.sign(await this.createTransactionHash(transaction))
-}
-
-  async signTransaction(transaction, signer) {
-    let identity = await walletStore.get('identity')
-    identity = JSON.parse(new TextDecoder().decode(identity))
-    const wallet = new MultiWallet(peernet.network)
-    wallet.recover(identity.mnemonic)
-    const account = wallet.account(0).external(0)
-    transaction.signature = await this.#signTransaction(transaction, account)
-    transaction.signature = bs32.encode(transaction.signature)
-    return transaction
-  }
-
-  /**
-   * 
-   * @param {Transaction} transaction
-   * @param {Address} transaction.from
-   * @param {Address} transaction.to
-   * @param {String} transaction.method
-   * @param {Array} transaction.params
-   * @param {Number} transaction.nonce
-   * 
-   * @returns {RawTransaction} transaction
-   */
-  async createRawTransaction(transaction) {
-    if (!transaction.from) transaction.from = peernet.selectedAccount
-    transaction.timestamp = Date.now()
-
-    if (transaction.nonce === undefined) {
-      transaction.nonce = await this.getNonce(transaction.from)
-    } else {
-      let nonce = await accountsStore.get(transaction.from)
-      nonce = new TextDecoder().decode(nonce)
-      if (transaction.nonce < nonce) throw new Error(`a transaction with a higher nonce already exists`)
-      if (transaction.nonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
+  async #addTransaction(transaction) {
+    try {
+      transaction = await new TransactionMessage(transaction)
+      const has = await transactionPoolStore.has(await transaction.hash)
+      if (!has) await transactionPoolStore.put(await transaction.hash, transaction.encoded)
+      if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+    } catch {
+      throw new Error('invalid transaction')
     }
-    return transaction
   }
+
   /**
    * every tx done is trough contracts so no need for amount
    * data is undefined when nothing is returned
@@ -715,83 +573,10 @@ async #signTransaction (transaction, wallet) {
    * @param {Array} params - array of paramters to apply to the contract method
    * @param {Number} nonce - total transaction count [optional]
    */
-  async createTransactionFrom(from, to, method, parameters, nonce) {
-    
-    try {
-      
-      const rawTransaction = await this.createRawTransaction({from, to, nonce, method, params: parameters})    
-      const transaction = await this.signTransaction(rawTransaction, from)
-      const message = await new TransactionMessage(transaction)
-
-      let data
-      // await transactionPoolStore.put(message.hash, new TextEncoder().encode(JSON.stringify({signature, message: message.encoded})))
-      const wait = () => new Promise(async (resolve, reject) => {
-        if (pubsub.subscribers[`transaction.completed.${await message.hash}`]) {
-          const result = pubsub.subscribers[`transaction.completed.${await message.hash}`].value
-          result.status === 'fulfilled' ? resolve(await result.hash) : reject({hash: await result.hash, error: result.error})
-        } else {
-          const completed = async result => {
-            result.status === 'fulfilled' ? resolve(await result.hash) : reject({hash: await result.hash, error: result.error})
-    
-            setTimeout(async () => {
-              pubsub.unsubscribe(`transaction.completed.${await message.hash}`, completed)
-            }, 10_000)
-          }
-          pubsub.subscribe(`transaction.completed.${await message.hash}`, completed)
-        }
-        
-        
-      })
-      
-      await transactionPoolStore.put(await message.hash, message.encoded)
-      peernet.publish('add-transaction', message.encoded)
-      this.#addTransaction(message.encoded)
-      debug('creating tx')
-      return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait}
-    } catch (error) {
-      console.log(error)
-      throw error
-    }
-    
-  }
-
-  /**
-   * 
-   * @param {Address} creator 
-   * @param {String} contract 
-   * @param {Array} constructorParameters 
-   * @returns lib.createContractMessage
-   */
-  async createContractMessage(creator, contract, constructorParameters = []) {
-    return createContractMessage(creator, contract, constructorParameters)
-  }
-
-  /**
-   * 
-   * @param {Address} creator 
-   * @param {String} contract 
-   * @param {Array} constructorParameters 
-   * @returns {Address}
-   */
-  async createContractAddress(creator, contract, constructorParameters = []) {
-    contract = await this.createContractMessage(creator, contract, constructorParameters)
-    return contract.hash
-  }
-
-  /**
-   * 
-   * @param {String} contract 
-   * @param {Array} parameters 
-   * @returns 
-   */
-  async deployContract(contract, constructorParameters = []) {
-    const message = await createContractMessage(peernet.selectedAccount, contract, constructorParameters)
-    try {
-      await contractStore.put(await message.hash, message.encoded)
-    } catch (error) {
-      throw error
-    }
-    return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash])    
+   async createTransactionFrom(from, to, method, parameters, nonce) {
+    const event = await super.createTransactionFrom(from, to, method, parameters, nonce)
+    this.#addTransaction(message.encoded)
+    return event    
   }
 
   /**
