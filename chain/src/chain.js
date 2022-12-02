@@ -84,6 +84,10 @@ export default class Chain  extends Contract {
     return this.#totalTransactions
   }
 
+  get nativeCalls() {
+    return this.#nativeCalls
+  }
+
   get totalSize() {
     return this.#totalSize
   }
