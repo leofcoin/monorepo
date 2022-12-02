@@ -1,6 +1,7 @@
 import json from '@rollup/plugin-json'
 import strip from '@rollup/plugin-strip';
 import { terser } from "rollup-plugin-terser";
+import modify from 'rollup-plugin-modify'
 
 import { execSync } from 'node:child_process'
 
@@ -12,49 +13,38 @@ try {
 }
 export default [{
   input: ['./src/chain.js'],
-  output: {
+  output: [{
     dir: './dist',
     format: 'cjs'
-  },
-  plugins: [
-    json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
-  ]
-}, {
-  input: ['./src/node.js'],
-  output: {
-    dir: 'dist',
-    format: 'cjs'
-  },
-  plugins: [
-    json(),
-    // terser({
-    //   keep_classnames: true
-    // }),
-    // cjs()
-  ]
-}, {
-  input: ['./src/chain.js'],
-  output: {
+  }, {
     dir: './dist/module',
     format: 'es'
-  },
+  }],
   plugins: [
     json(),
+    modify({
+      'node:path': 'path',
+      'node:crypto': 'crypto'
+    })
     // terser({
     //   keep_classnames: true
     // }),
   ]
 }, {
   input: ['./src/node.js'],
-  output: {
+  output: [{
+    dir: 'dist',
+    format: 'cjs'
+  }, {
     dir: 'dist/module',
     format: 'es'
-  },
+  }],
   plugins: [
     json(),
+    modify({
+      'node:path': 'path',
+      'node:crypto': 'crypto'
+    })
     // terser({
     //   keep_classnames: true
     // }),
