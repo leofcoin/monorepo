@@ -2,7 +2,9 @@ import Protocol from "./protocol"
 import MultiWallet from '@leofcoin/multi-wallet'
 import {CodecHash} from '@leofcoin/codec-format-interface/dist/index'
 import bs32 from '@vandeurenglenn/base32'
-
+import { TransactionMessage } from "../../messages/src/messages"
+import { calculateFee } from './../../lib/src/lib'
+import { formatBytes } from '../../utils/src/utils.js'
 export default class Transaction extends Protocol {
   constructor() {
     super()
@@ -222,7 +224,7 @@ export default class Transaction extends Protocol {
       })
       await transactionPoolStore.put(await message.hash, message.encoded)
       peernet.publish('add-transaction', message.encoded)
-      return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait}
+      return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
       console.log(error)
       throw error

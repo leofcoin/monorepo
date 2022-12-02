@@ -23,6 +23,9 @@ export default class Chain  extends Contract {
   /** {Boolean} */
   #chainSyncing = false
 
+  /** {Number} */
+  #totalSize = 0
+
   /** 
    * {Block} {index, hash, previousHash}
    */
@@ -32,6 +35,11 @@ export default class Chain  extends Contract {
    * amount the native token has been iteracted with
    */
   #nativeCalls = 0
+
+  /** 
+   * amount the native token has been iteracted with
+   */
+   #nativeTransfers = 0
 
   /** 
    * amount of native token burned
@@ -56,9 +64,30 @@ export default class Chain  extends Contract {
   #jail = []
 
   constructor() {
+    super()
     return this.#init()
   }
+
+  get nativeMints() {
+    return this.#nativeMints
+  }
+
+  get nativeBurns() {
+    return this.#nativeBurns
+  }
   
+  get nativeTransfers() {
+    return this.#nativeTransfers
+  }
+
+  get totalTransactions() {
+    return this.#totalTransactions
+  }
+
+  get totalSize() {
+    return this.#totalSize
+  }
+
   get lib() {
     return lib
   }
@@ -290,6 +319,7 @@ async resolveBlock(hash) {
   block = await new BlockMessage(block)
   if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
   const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
+  this.#totalSize += size
   block = {...block.decoded, hash}
   if (this.#blocks[block.index] && this.#blocks[block.index].hash !== block.hash) throw `invalid block ${hash} @${block.index}`
   this.#blocks[block.index] = block
@@ -315,13 +345,22 @@ async resolveBlock(hash) {
     }
   }
 
+  /**
+   * 
+   * @param {Block[]} blocks 
+   */
   async #loadBlocks(blocks) {
     for (const block of blocks) {
       if (block && !block.loaded) {
         for (const transaction of block.transactions) {
           try {
             await this.#machine.execute(transaction.to, transaction.method, transaction.params)
-            if (transaction.to === nativeToken) this.#nativeCalls += 1
+            if (transaction.to === nativeToken) {
+              this.#nativeCalls += 1
+              if (transaction.method === 'burn') this.#nativeBurns += 1
+              if (transaction.method === 'mint') this.#nativeMints += 1
+              if (transaction.method === 'transfer') this.#nativeTransfers += 1
+            }
             this.#totalTransactions += 1
           } catch (error) {
   console.log(error);
@@ -393,7 +432,7 @@ async resolveBlock(hash) {
   async #updateState(message) {
     const hash = await message.hash
     this.#lastBlock = { hash, ...message.decoded }
-    await this.state.#updateState(message)
+    await this.state.updateState(message)
     await chainStore.put('lastBlock', hash)
   }
 
@@ -409,12 +448,6 @@ async resolveBlock(hash) {
     this.#participating = true
     if (!await this.staticCall(addresses.validators, 'has', [address])) await this.createTransactionFrom(address, addresses.validators, 'addValidator', [address])
     if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
-    
-    // const runEpoch = () => setTimeout(async () => {
-    //   if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
-    //   runEpoch()
-    // }, 5000)
-    // runEpoch()
   }
 
   calculateFee(transaction) {
@@ -561,7 +594,20 @@ async resolveBlock(hash) {
       throw new Error('invalid transaction')
     }
   }
-
+  /**
+   * whenever method = createContract params should hold the contract hash
+   *
+   * example: [hash]
+   * createTransaction('0x0', 'createContract', [hash])
+   *
+   * @param {String} to - the contract address for the contract to interact with
+   * @param {String} method - the method/function to run
+   * @param {Array} params - array of paramters to apply to the contract method
+   * @param {Number} nonce - total transaction count [optional]
+   */
+   async createTransaction(to, method, parameters, nonce, signature) {
+    return this.createTransactionFrom(peernet.selectedAccount, to, method, parameters, nonce)
+  } 
   /**
    * every tx done is trough contracts so no need for amount
    * data is undefined when nothing is returned
@@ -575,7 +621,7 @@ async resolveBlock(hash) {
    */
    async createTransactionFrom(from, to, method, parameters, nonce) {
     const event = await super.createTransactionFrom(from, to, method, parameters, nonce)
-    this.#addTransaction(message.encoded)
+    this.#addTransaction(event.message.encoded)
     return event    
   }
 
