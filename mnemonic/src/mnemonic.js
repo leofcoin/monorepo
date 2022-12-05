@@ -1,6 +1,6 @@
 import wordlist from './wordlist.js'
 import randombytes from 'randombytes'
-import { createHash, pbkdf2Sync } from 'crypto'
+import { pbkdf2, createHash } from '@leofcoin/utils'
 
 export default class Mnemonic {
   constructor(options = {}) {
@@ -23,19 +23,17 @@ export default class Mnemonic {
     return bytes.map(byte => this.lpad(byte.toString(2), '0', 8)).join('');
   }
 
-  deriveChecksumBits(entropyBuffer) {
+  async deriveChecksumBits(entropyBuffer) {
     const entropy = entropyBuffer.length * 8;
     const cs = entropy / 32;
-    const hash = createHash('sha256')
-    hash.update(entropyBuffer)
-    return this.bytesToBinary(Array.from(hash.digest())).slice(0, cs);
+    const hash = await createHash(entropyBuffer, 'SHA-512')
+    return this.bytesToBinary(Array.from(hash)).slice(0, cs);
   }
 
-  mnemonicFromEntropy(entropy) {
+  async mnemonicFromEntropy(entropy) {
     if (!Buffer.isBuffer(entropy)) entropy = Buffer.from(entropy, 'hex')
-    let checksum = this.deriveChecksumBits(entropy)
+    let checksum = await this.deriveChecksumBits(entropy)
     entropy = this.bytesToBinary(Array.from(entropy))
-
     let bits = entropy + checksum
     bits = bits.match(/(.{1,11})/g)
     return bits.map(binary => {
@@ -44,6 +42,11 @@ export default class Mnemonic {
     }).join(' ')
   }
 
+  /**
+   * 
+   * @param {Number} strength 256 / 8 = 32 = 24 words
+   * @returns {String}
+   */
   generate(strength = 256) {
     return this.mnemonicFromEntropy(randombytes(strength / 8))
   }
@@ -52,9 +55,13 @@ export default class Mnemonic {
     return 'mnemonic' + this.normalize(password);
   }
 
-  seedFromMnemonic(mnemonic, password) {
-    const mnemonicBuffer = Buffer.from(this.normalize(mnemonic), 'utf8');
-    const saltBuffer = Buffer.from(this.salt(password), 'utf8');
-    return pbkdf2Sync(mnemonicBuffer, saltBuffer, 2048, 64, 'sha512')
+  seedFromMnemonic(mnemonic, password, strength = 256, iterations = 2048) {
+    const encoder =new TextEncoder()
+    return pbkdf2(
+      encoder.encode(this.salt(password)),
+      encoder.encode(this.normalize(mnemonic)),
+      iterations,
+      strength,
+      'SHA-512')
   }
 }

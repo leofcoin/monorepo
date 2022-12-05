@@ -1,18 +1,19 @@
-const test = require('tape')
-const Mnemonic = require('./')
+import test from 'tape'
+import Mnemonic from './src/mnemonic.js'
 
 const expectedLength = 24
 
 const mnemonicgenerator = new Mnemonic()
 let mnemonic
-test('can generate', tape => {
+test('can generate', async tape => {
   tape.plan(1)
-  mnemonic = mnemonicgenerator.generate()
+  mnemonic = await mnemonicgenerator.generate()
   tape.ok(mnemonic.split(' ').length === expectedLength)
 })
 
-test('can seed', tape => {
+test('can seed', async tape => {
   tape.plan(1)
-  const seed = mnemonicgenerator.seedFromMnemonic(mnemonic)
-  tape.ok(seed instanceof Buffer)
+  const seed = await mnemonicgenerator.seedFromMnemonic(mnemonic)
+  console.log(seed);
+  tape.ok(seed instanceof ArrayBuffer)
 })
