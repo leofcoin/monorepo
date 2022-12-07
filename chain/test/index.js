@@ -1,3 +1,1 @@
-// require('./contracts/token')
-// require('./create-genesis')
-require('./chain')
+import './chain.js'

@@ -1,8 +1,8 @@
-import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
+import { BigNumber, formatUnits, parseUnits } from '../../utils/src/utils.js'
 import Machine from './machine.js'
-import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from './../../messages/src/messages'
-import addresses, { nativeToken } from './../../addresses/src/addresses'
-import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from './../../lib/src/lib'
+import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '../../messages/src/messages.js'
+import addresses, { nativeToken } from '../../addresses/src/addresses.js'
+import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '../../lib/src/lib.js'
 import { formatBytes } from '../../utils/src/utils.js'
 import State from './state.js'
 import Contract from './contract.js'
@@ -454,13 +454,6 @@ async resolveBlock(hash) {
     if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
   }
 
-  calculateFee(transaction) {
-    // excluded from fees
-    // if (transaction.decoded.to === addresses.validators) return 0
-    // fee per gb
-    return (transaction.encoded.length / 1024) / 1e-6
-  }
-
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = 1800) {
     // vote for transactions
@@ -473,7 +466,7 @@ async resolveBlock(hash) {
     let block = {
       transactions: [],
       validators: [],
-      fees: 0
+      fees: BigNumber.from(0)
     }
 
     // exclude failing tx

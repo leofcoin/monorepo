@@ -6,7 +6,6 @@
   "directories": {
     "lib": "lib"
   },
-  "type": "module",
   "scripts": {
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",

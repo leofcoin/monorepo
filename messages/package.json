@@ -2,8 +2,8 @@
   "name": "@leofcoin/messages",
   "version": "1.2.0",
   "description": "",
-  "main": "dist/messages.js",
-  "module": "src/messages.js",
+  "main": "src/messages.js",
+  "type": "module",
   "scripts": {
     "build": "rollup -c && webpack",
     "test": "echo \"Error: no test specified\" && exit 1"

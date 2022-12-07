@@ -1,5 +1,5 @@
-import Transaction from "./transaction";
-import { createContractMessage } from './../../lib/src/lib'
+import Transaction from "./transaction.js";
+import { createContractMessage } from './../../lib/src/lib.js'
 
 /**
  * @extends {Transaction}

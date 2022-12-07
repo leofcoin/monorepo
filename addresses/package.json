@@ -2,8 +2,8 @@
   "name": "@leofcoin/addresses",
   "version": "1.0.1",
   "description": "",
-  "main": "dist/addresses.js",
-  "module": "src/addresses.js",
+  "main": "src/addresses.js",
+  "type": "module",
   "scripts": {
     "build": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"

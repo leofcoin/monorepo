@@ -2,6 +2,9 @@ import json from '@rollup/plugin-json'
 import strip from '@rollup/plugin-strip';
 import { terser } from "rollup-plugin-terser";
 import modify from 'rollup-plugin-modify'
+import commonjs from '@rollup/plugin-commonjs'
+import resolve from '@rollup/plugin-node-resolve'
+import typescript from '@rollup/plugin-typescript';
 
 import { execSync } from 'node:child_process'
 
@@ -25,7 +28,8 @@ export default [{
     modify({
       'node:path': 'path',
       'node:crypto': 'crypto'
-    })
+    }),
+    typescript()
     // terser({
     //   keep_classnames: true
     // }),
@@ -44,7 +48,8 @@ export default [{
     modify({
       'node:path': 'path',
       'node:crypto': 'crypto'
-    })
+    }),
+    typescript()
     // terser({
     //   keep_classnames: true
     // }),

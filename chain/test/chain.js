@@ -1,18 +1,18 @@
 
 (async () => {
   globalThis.DEBUG = true
-  const Chain = require('./../dist/chain');
-  const Node = require('./../dist/node');
+  const Chain = await import('./../src/chain.js');
+  const Node = await import('./../src/node.js');
   let imp = await import('../../networks/networks.js')
   const networks = imp.default
   console.log(networks.leofcoin.peach);
-  const node = await new Node({
+  const node = await new Node.default({
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
     stars: networks.leofcoin.peach.stars
   })
-  const chain = await new Chain()
+  const chain = await new Chain.default()
   let start
   //
   // await chain.deleteAll()

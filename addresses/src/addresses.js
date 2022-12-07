@@ -1,4 +1,4 @@
-import addresses from './addresses.json'
+import addresses from './addresses.json' assert { type: 'json' }
 
 export const contractFactory = addresses.contractFactory
 export const nameService = addresses.nameService

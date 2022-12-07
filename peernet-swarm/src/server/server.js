@@ -88,9 +88,9 @@ export default class Server {
           response.send(config.identity.publicKey)
         }
       })
-      pubsub.subscribe('signal', message => {
+      // pubsub.subscribe('signal', message => {
 
-      })
+      // })
 
 
 

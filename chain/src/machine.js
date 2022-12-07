@@ -1,10 +1,13 @@
 import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
-import { formatBytes } from './../../utils/src/utils'
-import { randomBytes } from 'node:crypto'
-import { join } from 'node:path'
+import randombytes from 'randombytes'
+import { join, dirname } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '../../messages/src/messages.js'
 // import State from './state'
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default class Machine {
   #contracts = {}
@@ -62,7 +65,7 @@ export default class Machine {
       }
       pubsub.subscribe('machine.ready', machineReady)
 
-      this.worker = await new EasyWorker(join(__dirname, './workers/machine-worker.js'), {serialization: 'advanced', type:'module'})
+      this.worker = await new EasyWorker('./workers/machine-worker.js', {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
 
       // const blocks = await blockStore.values()
@@ -89,7 +92,7 @@ export default class Machine {
   async #runContract(contractMessage) {
     const hash = await contractMessage.hash
     return new Promise((resolve, reject) => {
-      const id = randomBytes(20).toString('hex')
+      const id = randombytes(20).toString('hex')
       const onmessage = message => {        
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
@@ -136,7 +139,7 @@ export default class Machine {
       throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
     }
     return new Promise((resolve, reject) => {
-      const id = randomBytes(20).toString('hex')
+      const id = randombytes(20).toString('hex')
       const onmessage = message => {        
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
@@ -166,7 +169,7 @@ export default class Machine {
 
   get(contract, method, parameters) {
     return new Promise((resolve, reject) => {
-      const id = randomBytes(20).toString()
+      const id = randombytes(20).toString()
       const onmessage = message => {
         pubsub.unsubscribe(id, onmessage)
         resolve(message)
