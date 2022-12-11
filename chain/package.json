@@ -5,8 +5,8 @@
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
   "exports": {
-    "node": "./src/node.js",
-    "chain": "./src/chain.js"
+    "./node": "./src/node.js",
+    "./chain": "./src/chain.js"
   },
   "type": "module",
   "scripts": {
