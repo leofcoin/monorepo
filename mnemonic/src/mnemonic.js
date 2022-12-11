@@ -1,6 +1,6 @@
 import wordlist from './wordlist.js'
 import randombytes from 'randombytes'
-import { pbkdf2, createHash } from '@leofcoin/utils'
+import { pbkdf2, createHash } from '@leofcoin/crypto'
 
 export default class Mnemonic {
   constructor(options = {}) {

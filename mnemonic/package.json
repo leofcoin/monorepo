@@ -16,6 +16,6 @@
     "tape": "^5.5.3"
   },
   "dependencies": {
-    "@leofcoin/utils": "^1.1.0"
+    "@leofcoin/crypto": "^0.1.0"
   }
 }
