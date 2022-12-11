@@ -1,4 +1,4 @@
-import { TransactionMessage } from './../../messages/src/messages.js'
+import { TransactionMessage } from '@leofcoin/messages'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'
 
@@ -19,7 +19,7 @@ const tasks = async transactions => {
   transactions = await Promise.all(transactions.map(async message => {
     message = await new TransactionMessage(message)
     
-    return {...message.decoded, hash: await message.hash, size: message.encoded.length}
+    return {...message.decoded, hash: await message.hash(), size: message.encoded.length}
   }))
 
   worker.postMessage(transactions)

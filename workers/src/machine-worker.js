@@ -1,6 +1,6 @@
-import { BlockMessage, ContractMessage } from './../../messages/src/messages.js'
-import { formatBytes, BigNumber } from './../../utils/src/utils.js'
-import bytecodes  from './../../lib/src/bytecodes.json' assert {type: 'json'}
+import { BlockMessage, ContractMessage } from '@leofcoin/messages'
+import { formatBytes, BigNumber } from '@leofcoin/utils'
+import bytecodes  from '@leofcoin/lib/bytecodes.json' assert {type: 'json'}
 import EasyWorker from '@vandeurenglenn/easy-worker'
 const worker = new EasyWorker()
 
@@ -48,7 +48,7 @@ const runContract = async ({decoded, hash, encoded}) => {
     console.log(e);
     worker.postMessage({
       type: 'contractError',
-      hash: await contractMessage.hash
+      hash: await contractMessage.hash()
     })
   }
 }
@@ -105,7 +105,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
 
   contracts = await Promise.all(contracts.map(async contract => {
     contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-    await runContract({decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash})
+    await runContract({decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash()})
     return contract
   }))
 
@@ -137,7 +137,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
   
       lastBlock = {
         ...lastBlock.decoded,
-        hash: await lastBlock.hash
+        hash: await lastBlock.hash()
       };
     }
     globalThis.blocks = blocks

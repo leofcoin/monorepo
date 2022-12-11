@@ -1,5 +1,5 @@
-import { BlockMessage } from './../../messages/src/messages.js'
-import { formatBytes, BigNumber } from './../../utils/src/utils.js'
+import { BlockMessage } from '@leofcoin/messages'
+import { formatBytes, BigNumber } from '@leofcoin/utils'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'
 
@@ -17,7 +17,7 @@ const run = async (blocks) => {
   blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
     // todo: tx worker or nah?
     const size = block.encoded.length || block.encoded.byteLength
-    console.log(`loaded block: ${await block.hash} @${block.decoded.index} ${formatBytes(size)}`);
+    console.log(`loaded block: ${await block.hash()} @${block.decoded.index} ${formatBytes(size)}`);
     resolve(block)
   })))
   return blocks

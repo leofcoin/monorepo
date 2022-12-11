@@ -1,4 +1,4 @@
-import { TransactionMessage } from './../../messages/src/messages.js'
+import { TransactionMessage } from '@leofcoin/messages'
 
 globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
