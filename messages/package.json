@@ -3,6 +3,16 @@
   "version": "1.2.0",
   "description": "",
   "main": "src/messages.js",
+  "exports": {
+    ".": "./src/messages.js",
+    "./block": "./src/block.js",
+    "./bw-request": "./src/bw-request.js",
+    "./bw": "./src/bw.js",
+    "./contract": "./src/contract.js",
+    "./last-block-request": "./src/last-block-request.js",
+    "./last-block": "./src/last-block.js",
+    "./transaction": "./src/transaction.js"
+  },
   "type": "module",
   "scripts": {
     "build": "rollup -c && webpack",
