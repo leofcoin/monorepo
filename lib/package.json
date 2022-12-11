@@ -4,6 +4,11 @@
   "description": "",
   "main": "src/lib.js",
   "type": "module",
+  "exports": {
+    ".": "./src/lib.js",
+    "./node-config": "./src/node-config.js",
+    "./bytecodes": "./src/bytecodes.json"
+  },
   "scripts": {
     "build": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
