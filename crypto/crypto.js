@@ -25,7 +25,7 @@ export const pbkdf2 = async (password, salt, iterations = 4096, length = 64, has
   const bits = await subtle.deriveBits({
     name: 'PBKDF2',
     hash,
-    salt: salt,
+    salt,
     iterations,
   }, key, length);
   return bits;
