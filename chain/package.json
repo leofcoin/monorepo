@@ -1,9 +1,13 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.3.12",
+  "version": "1.4.1",
   "description": "Official javascript implementation",
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
+  "exports": {
+    "node": "./src/node.js",
+    "chain": "./src/chain.js"
+  },
   "type": "module",
   "scripts": {
     "np": "np",
