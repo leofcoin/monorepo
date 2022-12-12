@@ -1,6 +1,6 @@
 import { BlockMessage, ContractMessage } from '@leofcoin/messages'
 import { formatBytes, BigNumber } from '@leofcoin/utils'
-import bytecodes  from '@leofcoin/lib/bytecodes.json' assert {type: 'json'}
+import bytecodes  from '@leofcoin/lib/bytecodes' assert {type: 'json'}
 import EasyWorker from '@vandeurenglenn/easy-worker'
 const worker = new EasyWorker()
 
@@ -112,7 +112,7 @@ const _init = async ({ contracts, blocks, peerid })=> {
   let lastBlock = {hash: '0x0'}; 
 
   if (blocks?.length > 0) {
-    const _worker = await new EasyWorker('./workers/block-worker.js', {serialization: 'advanced', type: 'module' })
+    const _worker = await new EasyWorker('./block-worker.js', {serialization: 'advanced', type: 'module' })
     blocks = await _worker.once([blocks[blocks.length - 1]])
     
     // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
