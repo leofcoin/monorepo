@@ -1,5 +1,5 @@
 import SocketClient from 'socket-request-client'
-import Peer from './peer'
+import Peer from './peer.js'
 import '@vandeurenglenn/debug'
 
 export default class Client {
