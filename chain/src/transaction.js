@@ -2,9 +2,10 @@ import Protocol from "./protocol.js"
 import * as MultiWallet from '@leofcoin/multi-wallet'
 import {CodecHash} from '@leofcoin/codec-format-interface'
 import bs32 from '@vandeurenglenn/base32'
-import { TransactionMessage, BlockMessage } from "../../messages/src/messages.js"
-import { calculateFee } from './../../lib/src/lib.js'
-import { formatBytes } from '../../utils/src/utils.js'
+import { TransactionMessage, BlockMessage } from "@leofcoin/messages"
+import { calculateFee } from '@leofcoin/lib'
+import { formatBytes } from '@leofcoin/utils'
+
 export default class Transaction extends Protocol {
   constructor() {
     super()

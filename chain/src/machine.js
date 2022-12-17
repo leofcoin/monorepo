@@ -1,10 +1,10 @@
-import { contractFactory, nativeToken, validators, nameService } from './../../addresses/src/addresses.js'
+import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
 import randombytes from 'randombytes'
 import { join, dirname } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
-import { ContractMessage } from '../../messages/src/messages.js'
+import { ContractMessage } from '@leofcoin/messages'
 // import State from './state'
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,8 +29,8 @@ export default class Machine {
   async #onmessage(data) {
     switch (data.type) {
       case 'contractError': {
-        console.warn(`removing contract ${await data.hash}`);
-        await contractStore.delete(await data.hash)  
+        console.warn(`removing contract ${await data.hash()}`);
+        await contractStore.delete(await data.hash())  
       break
       }
 
@@ -65,7 +65,7 @@ export default class Machine {
       }
       pubsub.subscribe('machine.ready', machineReady)
 
-      this.worker = await new EasyWorker('./workers/machine-worker.js', {serialization: 'advanced', type:'module'})
+      this.worker = await new EasyWorker('node_modules/@leofcoin/workers/src/machine-worker.js', {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
 
       // const blocks = await blockStore.values()
@@ -90,7 +90,7 @@ export default class Machine {
   }
 
   async #runContract(contractMessage) {
-    const hash = await contractMessage.hash
+    const hash = await contractMessage.hash()
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString('hex')
       const onmessage = message => {        
@@ -127,13 +127,13 @@ export default class Machine {
         if (!await contractStore.has(parameters[0])) {
           message = await peernet.get(parameters[0], 'contract')
           message = await new ContractMessage(message)
-          await contractStore.put(await message.hash, message.encoded)
+          await contractStore.put(await message.hash(), message.encoded)
         }
         if (!message) {
           message = await contractStore.get(parameters[0])
           message = await new ContractMessage(message)
         }
-        if (!this.#contracts[await message.hash]) await this.#runContract(message)
+        if (!this.#contracts[await message.hash()]) await this.#runContract(message)
       }
     } catch (error) {
       throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)

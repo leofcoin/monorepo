@@ -1,9 +1,8 @@
-import { BigNumber, formatUnits, parseUnits } from '../../utils/src/utils.js'
+import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import Machine from './machine.js'
-import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '../../messages/src/messages.js'
-import addresses, { nativeToken } from '../../addresses/src/addresses.js'
-import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '../../lib/src/lib.js'
-import { formatBytes } from '../../utils/src/utils.js'
+import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
+import addresses, { nativeToken } from '@leofcoin/addresses'
+import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
 import State from './state.js'
 import Contract from './contract.js'
 
@@ -242,7 +241,7 @@ export default class Chain  extends Contract {
       if (localBlock && localBlock !== '0x0') {
         localBlock = await peernet.get(localBlock, 'block')
         localBlock = await new BlockMessage(localBlock)
-        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash}
+        this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash()}
       } else {
         const latestBlock = await this.#getLatestBlock()
         await this.#syncChain(latestBlock)
@@ -392,8 +391,8 @@ async resolveBlock(hash) {
     // console.log(block);
     const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
     await Promise.all(blockMessage.decoded.transactions
-      .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
-    const hash = await blockMessage.hash
+      .map(async transaction => transactionPoolStore.delete(await transaction.hash())))
+    const hash = await blockMessage.hash()
     
     await blockStore.put(hash, blockMessage.encoded)
     
@@ -434,7 +433,7 @@ async resolveBlock(hash) {
   }
 
   async #updateState(message) {
-    const hash = await message.hash
+    const hash = await message.hash()
     this.#lastBlock = { hash, ...message.decoded }
     await this.state.updateState(message)
     await chainStore.put('lastBlock', hash)
@@ -481,7 +480,7 @@ async resolveBlock(hash) {
         await accountsStore.put(transaction.from, new TextEncoder().encode(String(transaction.nonce)))
       } catch {
         transaction = await new TransactionMessage(transaction)
-        await transactionPoolStore.delete(await transaction.hash)
+        await transactionPoolStore.delete(await transaction.hash())
       }
     }
     // don't add empty block
@@ -558,11 +557,11 @@ async resolveBlock(hash) {
 
     try {
       await Promise.all(block.transactions
-        .map(async transaction => transactionPoolStore.delete(await transaction.hash)))
+        .map(async transaction => transactionPoolStore.delete(await transaction.hash())))
 
 
       let blockMessage = await new BlockMessage(block)
-      const hash = await blockMessage.hash
+      const hash = await blockMessage.hash()
       
       
       await peernet.put(hash, blockMessage.encoded, 'block')
@@ -583,9 +582,10 @@ async resolveBlock(hash) {
 
   async #addTransaction(transaction) {
     try {
+      const hash = await transaction.hash()
       transaction = await new TransactionMessage(transaction)
-      const has = await transactionPoolStore.has(await transaction.hash)
-      if (!has) await transactionPoolStore.put(await transaction.hash, transaction.encoded)
+      const has = await transactionPoolStore.has(hash)
+      if (!has) await transactionPoolStore.put(hash, transaction.encoded)
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
     } catch {
       throw new Error('invalid transaction')

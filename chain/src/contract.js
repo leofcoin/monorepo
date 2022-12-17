@@ -1,5 +1,5 @@
 import Transaction from "./transaction.js";
-import { createContractMessage } from './../../lib/src/lib.js'
+import { createContractMessage } from '@leofcoin/lib'
 
 /**
  * @extends {Transaction}

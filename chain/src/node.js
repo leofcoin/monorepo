@@ -1,7 +1,7 @@
 // import config from './config/config'
 import Peernet from '@leofcoin/peernet'
-import nodeConfig from '../../lib/src/node-config.js';
-import networks from '../../networks/networks.js';
+import nodeConfig from '@leofcoin/lib/node-config';
+import networks from '@leofcoin/networks';
 
 export default class Node {
   constructor() {
