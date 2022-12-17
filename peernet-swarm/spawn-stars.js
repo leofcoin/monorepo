@@ -1,4 +1,4 @@
-const {spawn} = require('child_process')
+const {spawn} = await import('child_process')
 
 const networks = [{
   network: 'leofcoin:peach',
@@ -8,5 +8,5 @@ const networks = [{
 
 
 for (const {port, network} of networks) {
-  spawn('node', ['./spawn-star.js', '--port', port, '--network', network], {cwd: __dirname})
+  spawn('node', ['./spawn-star.js', '--port', port, '--network', network])
 }

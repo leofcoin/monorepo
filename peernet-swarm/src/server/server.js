@@ -1,5 +1,5 @@
 import { broadcastPubSubMessage, sendPubSubMessage } from './utils.js'
-import SocketServer from './../../node_modules/socket-request-server/src/index'
+import SocketServer from 'socket-request-server'
 import { readFile, writeFile } from 'fs'
 import { promisify } from 'util'
 import generateAccount from '@leofcoin/generate-account'

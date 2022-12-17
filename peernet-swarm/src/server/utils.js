@@ -1,4 +1,4 @@
-import socketResponse from './../../node_modules/socket-request-server/src/socket-response'
+import socketResponse from 'socket-request-server/response'
 
 /**
  * @params {String} event - name of the pubsub.subscribtion (peer:left||peer:joined)

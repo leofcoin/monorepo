@@ -1,4 +1,4 @@
-const Server = require('./dist/commonjs/server')
+import Server from './src/server/server.js'
 const args = process.argv0
 
 let network

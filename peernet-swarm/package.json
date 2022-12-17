@@ -1,8 +1,12 @@
 {
   "name": "@leofcoin/peernet-swarm",
-  "version": "0.4.4",
-  "main": "dist/commonjs/client.js",
-  "module": "src/client/client.js",
+  "version": "0.5.0",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client/client.js",
+    "./server": "./src/server/server.js"
+  },
+  "type": "module",
   "license": "MIT",
   "private": false,
   "scripts": {
