@@ -4,8 +4,8 @@
   const {promisify} = require('util')
   const read = promisify(require('fs').readFile)
   const write = promisify(require('fs').writeFile)
-  const {parseUnits} = require('./../utils/dist/utils')
-  const {nodeConfig, createContractMessage} = require('./../lib/dist/lib')
+  const {parseUnits} = await import('./../utils/src/utils.js')
+  const {nodeConfig, createContractMessage} = await import('./../lib/src/lib.js')
   const {join} = require('path')
   
   const createMessage = async (src, params = []) => {
@@ -15,7 +15,7 @@
   }
   // const Chain = require('./../chain/dist/chain');
   
-  const Node = require('./../chain/dist/node');
+  const Node = (await import('./../chain/src/node.js')).default;
   const node = await new Node()
   await nodeConfig()
   console.log(peernet.selectedAccount);
@@ -23,34 +23,34 @@
   // console.log(chain);
   const factory = await createMessage('./chain/dist/contracts/factory.js')
 console.log(factory);
-  if (!await contractStore.has(await factory.hash)) {
-    await contractStore.put(await factory.hash, factory.encoded)
+  if (!await contractStore.has(await factory.hash())) {
+    await contractStore.put(await factory.hash(), factory.encoded)
   }
 
   const nativeToken = await createMessage('./chain/dist/contracts/native-token.js')
-  if (!await contractStore.has(await nativeToken.hash)) {
-    await contractStore.put(await nativeToken.hash, nativeToken.encoded)
+  if (!await contractStore.has(await nativeToken.hash())) {
+    await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
   }
 
 
-  const validators = await createMessage('./chain/dist/contracts/validators.js', [await nativeToken.hash])
+  const validators = await createMessage('./chain/dist/contracts/validators.js', [await nativeToken.hash()])
 
-  if (!await contractStore.has(await validators.hash)) {
-    await contractStore.put(await validators.hash, validators.encoded)
+  if (!await contractStore.has(await validators.hash())) {
+    await contractStore.put(await validators.hash(), validators.encoded)
   }
 
 
-  const nameService = await createMessage('./chain/dist/contracts/name-service.js', [await factory.hash, await nativeToken.hash, await validators.hash, parseUnits('1000').toString()])
+  const nameService = await createMessage('./chain/dist/contracts/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
 
-  if (!await contractStore.has(await nameService.hash)) {
-    await contractStore.put(await nameService.hash, nameService.encoded)
+  if (!await contractStore.has(await nameService.hash())) {
+    await contractStore.put(await nameService.hash(), nameService.encoded)
   }
 
   const addresses = {
-    contractFactory: await factory.hash,
-    nativeToken: await nativeToken.hash,
-    nameService: await nameService.hash,
-    validators: await validators.hash
+    contractFactory: await factory.hash(),
+    nativeToken: await nativeToken.hash(),
+    nameService: await nameService.hash(),
+    validators: await validators.hash()
   }
 
 console.log({addresses});
