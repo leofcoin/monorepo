@@ -205,7 +205,7 @@ export default class Chain  extends Contract {
     for (const value of promises) {      
       if (value.index > latest.index) {
         latest.index = value.index;
-        latest.hash = value.hash;
+        latest.hash = await value.hash();
       }
     }
     
@@ -391,7 +391,7 @@ async resolveBlock(hash) {
     // console.log(block);
     const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
     await Promise.all(blockMessage.decoded.transactions
-      .map(async transaction => transactionPoolStore.delete(await transaction.hash())))
+      .map(async transaction => transactionPoolStore.delete(transaction.hash)))
     const hash = await blockMessage.hash()
     
     await blockStore.put(hash, blockMessage.encoded)
@@ -557,7 +557,7 @@ async resolveBlock(hash) {
 
     try {
       await Promise.all(block.transactions
-        .map(async transaction => transactionPoolStore.delete(await transaction.hash())))
+        .map(async transaction => transactionPoolStore.delete(transaction.hash)))
 
 
       let blockMessage = await new BlockMessage(block)
@@ -581,9 +581,9 @@ async resolveBlock(hash) {
   
 
   async #addTransaction(transaction) {
-    try {
-      const hash = await transaction.hash()
+    try {      
       transaction = await new TransactionMessage(transaction)
+      const hash = await transaction.hash()
       const has = await transactionPoolStore.has(hash)
       if (!has) await transactionPoolStore.put(hash, transaction.encoded)
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()

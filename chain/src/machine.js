@@ -50,7 +50,7 @@ export default class Machine {
       break
       }
       case 'response': {
-        pubsub.publish(data.id, data.value)
+        pubsub.publish(data.id, data.value || true)
       break
       }
     }
@@ -140,7 +140,7 @@ export default class Machine {
     }
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString('hex')
-      const onmessage = message => {        
+      const onmessage = message => {
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)

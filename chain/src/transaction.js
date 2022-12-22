@@ -1,5 +1,5 @@
 import Protocol from "./protocol.js"
-import * as MultiWallet from '@leofcoin/multi-wallet'
+import MultiWallet from '@leofcoin/multi-wallet'
 import {CodecHash} from '@leofcoin/codec-format-interface'
 import bs32 from '@vandeurenglenn/base32'
 import { TransactionMessage, BlockMessage } from "@leofcoin/messages"
@@ -26,7 +26,7 @@ export default class Transaction extends Protocol {
         .map(async tx => {
           tx = await new TransactionMessage(tx)
           size += tx.encoded.length
-          if (!formatBytes(size).includes('MB') || formatBytes(size).includes('MB') && Number(formatBytes(size).split(' MB')[0]) <= 0.75) _transactions.push({...tx.decoded, hash: await tx.hash})
+          if (!formatBytes(size).includes('MB') || formatBytes(size).includes('MB') && Number(formatBytes(size).split(' MB')[0]) <= 0.75) _transactions.push({...tx.decoded, hash: await tx.hash()})
           else resolve(_transactions)
         }))
 
@@ -52,7 +52,7 @@ export default class Transaction extends Protocol {
    */
   async promiseTransactionsContent(transactions) {
     transactions = await Promise.all(transactions.map(tx => new Promise(async (resolve, reject) => {
-      resolve({ ...tx.decoded, hash: await tx.hash })
+      resolve({ ...tx.decoded, hash: await tx.hash() })
     })))
 
     return transactions
@@ -157,7 +157,7 @@ export default class Transaction extends Protocol {
     let identity = await walletStore.get('identity')
     identity = JSON.parse(new TextDecoder().decode(identity))
     const wallet = new MultiWallet(peernet.network)
-    wallet.recover(identity.mnemonic)
+    await wallet.recover(identity.mnemonic)
     const account = wallet.account(0).external(0)
     transaction.signature = await this.#signTransaction(transaction, account)
     transaction.signature = bs32.encode(transaction.signature)
@@ -209,23 +209,23 @@ export default class Transaction extends Protocol {
 
       let data
       const wait = () => new Promise(async (resolve, reject) => {
-        if (pubsub.subscribers[`transaction.completed.${await message.hash}`]) {
-          const result = pubsub.subscribers[`transaction.completed.${await message.hash}`].value
-          result.status === 'fulfilled' ? resolve(await result.hash) : reject({hash: await result.hash, error: result.error})
+        if (pubsub.subscribers[`transaction.completed.${await message.hash()}`]) {
+          const result = pubsub.subscribers[`transaction.completed.${await message.hash()}`].value
+          result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
         } else {
           const completed = async result => {
-            result.status === 'fulfilled' ? resolve(await result.hash) : reject({hash: await result.hash, error: result.error})
+            result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
     
             setTimeout(async () => {
-              pubsub.unsubscribe(`transaction.completed.${await message.hash}`, completed)
+              pubsub.unsubscribe(`transaction.completed.${await message.hash()}`, completed)
             }, 10_000)
           }
-          pubsub.subscribe(`transaction.completed.${await message.hash}`, completed)
+          pubsub.subscribe(`transaction.completed.${await message.hash()}`, completed)
         }
       })
-      await transactionPoolStore.put(await message.hash, message.encoded)
+      await transactionPoolStore.put(await message.hash(), message.encoded)
       peernet.publish('add-transaction', message.encoded)
-      return {hash: await message.hash, data, fee: await calculateFee(message.decoded), wait, message}
+      return {hash: await message.hash(), data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
       console.log(error)
       throw error

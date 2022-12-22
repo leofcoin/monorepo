@@ -67,7 +67,7 @@ const job = async () => {
 
     console.log(`${(new Date().getTime() - start) / 1000} s`);
 
-    balances = await chain.balances
+    let balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
 // return
