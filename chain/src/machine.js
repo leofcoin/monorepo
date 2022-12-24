@@ -133,7 +133,7 @@ export default class Machine {
           message = await contractStore.get(parameters[0])
           message = await new ContractMessage(message)
         }
-        if (!this.has(await message.hash())) await this.#runContract(message)
+        if (!await this.has(await message.hash())) await this.#runContract(message)
       }
     } catch (error) {
       throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
@@ -198,7 +198,7 @@ export default class Machine {
       })
     })
   }
-  
+
   async delete(hash) {
     return contractStore.delete(hash)
   }
