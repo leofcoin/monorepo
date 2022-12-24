@@ -122,7 +122,7 @@ export default class Machine {
   async execute(contract, method, parameters) {
     try {
       if (contract === contractFactory && method === 'registerContract') {
-        if (this.#contracts[parameters[0]]) throw new Error(`duplicate contract @${parameters[0]}`)
+        if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message;
         if (!await contractStore.has(parameters[0])) {
           message = await peernet.get(parameters[0], 'contract')
@@ -133,7 +133,7 @@ export default class Machine {
           message = await contractStore.get(parameters[0])
           message = await new ContractMessage(message)
         }
-        if (!this.#contracts[await message.hash()]) await this.#runContract(message)
+        if (!this.has(await message.hash())) await this.#runContract(message)
       }
     } catch (error) {
       throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
@@ -159,14 +159,6 @@ export default class Machine {
     
   }
 
-  addJob(contract, method, parameters, from, nonce) {
-    if (!this.#nonces[from]) this.#nonces[from] = nonce
-    if (nonce === this.#nonces[from] + 1) return this.#contracts[contract][method](...parameters)
-    // return setTimeout(() => {
-    //   return this.addJob(contract, method, params, from, nonce)
-    // }, 50)
-  }
-
   get(contract, method, parameters) {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()
@@ -187,6 +179,26 @@ export default class Machine {
     })
   }
 
+
+  async has(address) {
+    return new Promise((resolve, reject) => {
+      const id = randombytes(20).toString('hex')
+      const onmessage = message => {        
+        pubsub.unsubscribe(id, onmessage)
+        if (message?.error) reject(message.error)
+        else resolve(message)
+      }
+      pubsub.subscribe(id, onmessage)
+      this.worker.postMessage({
+        type: 'has',
+        id,
+        input: {
+          address 
+        }
+      })
+    })
+  }
+  
   async delete(hash) {
     return contractStore.delete(hash)
   }
