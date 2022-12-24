@@ -18,6 +18,10 @@ const unique = arr => arr.filter((el, pos, arr) => {
   return arr.indexOf(el) == pos;
 })
 
+const has = address => {
+  return contracts[address] ? true : false
+}
+
 const get = (contract, method, params) => {
   let result
   if (params?.length > 0) {
@@ -160,6 +164,22 @@ const tasks = async (e) => {
         worker.postMessage({
           type: 'initError',
           message: e.message,
+          id          
+        })
+      }
+    }
+    if (e.type === 'has') {
+      try {
+        const value = await has(e.input.address)
+        worker.postMessage({
+          type: 'response',
+          id,
+          value
+        })
+      } catch (error) {
+        worker.postMessage({
+          type: 'hasError',
+          message: error.message,
           id          
         })
       }
