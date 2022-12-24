@@ -11,13 +11,15 @@
     "./pool-worker": "./src/pool-worker.js"
   },
   "scripts": {
-    "build": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/messages": "^1.2.0"
+    "@leofcoin/lib": "^1.2.3",
+    "@leofcoin/messages": "^1.2.0",
+    "@leofcoin/utils": "^1.1.5",
+    "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }
