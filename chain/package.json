@@ -18,7 +18,7 @@
     "workers": "cp ./../workers/src/** ./workers",
     "build": "npm run c && webpack && cp ./dist/*browser.js ./demo && cp -r ./dist/browser/workers/ ./demo",
     "demo": "jsproject --serve ./demo --port 5478 --open demo",
-    "test": "node test --openssl-legacy-provider",
+    "test": "node --openssl-legacy-provider test",
     "pack": "webpack"
   },
   "np": {
