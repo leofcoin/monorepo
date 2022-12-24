@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "Official javascript implementation",
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
