@@ -1,5 +1,6 @@
 import Transaction from "./transaction.js";
 import { createContractMessage } from '@leofcoin/lib'
+import addresses from "@leofcoin/addresses"
 
 /**
  * @extends {Transaction}
@@ -41,11 +42,11 @@ export default class Contract extends Transaction {
   async deployContract(contract, constructorParameters = []) {
     const message = await createContractMessage(peernet.selectedAccount, contract, constructorParameters)
     try {
-      await contractStore.put(await message.hash, message.encoded)
+      await contractStore.put(await message.hash(), message.encoded)
     } catch (error) {
       throw error
     }
-    return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash])    
+    return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash()])    
   }
   
 }
