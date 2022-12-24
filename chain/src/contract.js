@@ -30,7 +30,7 @@ export default class Contract extends Transaction {
    */
   async createContractAddress(creator, contract, constructorParameters = []) {
     contract = await this.createContractMessage(creator, contract, constructorParameters)
-    return contract.hash
+    return contract.hash()
   }
 
   /**
