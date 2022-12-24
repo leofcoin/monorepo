@@ -50,7 +50,7 @@ export default class Machine {
       break
       }
       case 'response': {
-        pubsub.publish(data.id, data.value || true)
+        pubsub.publish(data.id, data.value || false)
       break
       }
     }
