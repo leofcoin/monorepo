@@ -1,13 +1,8 @@
 import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
 import randombytes from 'randombytes'
-import { join, dirname } from 'node:path'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 // import State from './state'
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export default class Machine {
   #contracts = {}
