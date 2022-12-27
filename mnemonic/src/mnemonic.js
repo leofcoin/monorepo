@@ -1,5 +1,4 @@
 import wordlist from './wordlist.js'
-import randombytes from 'randombytes'
 import { pbkdf2, createHash } from '@leofcoin/crypto'
 
 export default class Mnemonic {
@@ -48,7 +47,7 @@ export default class Mnemonic {
    * @returns {String}
    */
   generate(strength = 256) {
-    return this.mnemonicFromEntropy(randombytes(strength / 8))
+    return this.mnemonicFromEntropy(crypto.getRandomValues(strength / 8))
   }
 
   salt(password) {
