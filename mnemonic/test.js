@@ -14,6 +14,5 @@ test('can generate', async tape => {
 test('can seed', async tape => {
   tape.plan(1)
   const seed = await mnemonicgenerator.seedFromMnemonic(mnemonic)
-  console.log(seed);
   tape.ok(seed instanceof ArrayBuffer)
 })

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "bip39 mnemonic",
   "main": "src/mnemonic.js",
   "type": "module",
