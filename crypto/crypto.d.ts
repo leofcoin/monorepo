@@ -27,4 +27,15 @@ declare module '@leofcoin/crypto' {
    * @returns {uint8Array}
    */
   export function pbkdf2(password: Uint8Array, salt: Uint8Array, iterations: 4096, length: 64, algorithm: 'SHA-512'): Promise<Uint8Array>
+
+  /**
+   * ```js
+   * const { randombytes } = await import('@leofcoin/utils')
+   * 
+   * const bytes = randombytes(256)
+   * ```
+   * @param {number} strength length of the to generate Uint8array
+   * @returns Uint8Array
+   */
+  export function randombytes(strength: number):Uint8Array
 }
