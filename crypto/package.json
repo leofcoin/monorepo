@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "description": "",
   "exports": {
-    ".": "./crypto.js"
+    ".": "./crypto.js",
+    "./digest": "./lib/digest.js",
+    "./createHash": "./lib/create-hash.js",
+    "./randombytes": "./lib/randombytes.js",
+    "./algorithms/aes": "./lib/algorithms/aes.js",
+    "./algorithms/pbkdf2": "./lib/algorithms/pbkdf2.js"
   },
   "type": "module",
   "types": "./crypto.d.ts",
@@ -12,5 +17,5 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "MIT"
 }
