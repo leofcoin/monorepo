@@ -1,7 +1,7 @@
 {
   "name": "@leofcoin/crypto",
   "version": "0.2.0",
-  "description": "",
+  "description": "a simple nodejs/web crypto api",
   "exports": {
     ".": "./crypto.js",
     "./digest": "./lib/digest.js",
@@ -15,7 +15,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["crypto", "subtle", "randombytes", "createHash", "encrypt", "decrypt"],
   "author": "",
   "license": "MIT"
 }

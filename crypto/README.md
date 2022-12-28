@@ -1,5 +1,5 @@
 # @leofcoin/crypto
-
+> a simple nodejs/web crypto api
 ## install
 
 ## usage
