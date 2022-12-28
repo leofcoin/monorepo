@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "bip39 mnemonic",
   "main": "src/mnemonic.js",
   "type": "module",
@@ -16,6 +16,6 @@
     "tape": "^5.5.3"
   },
   "dependencies": {
-    "@leofcoin/crypto": "^0.1.0"
+    "@leofcoin/crypto": "^0.2.0"
   }
 }
