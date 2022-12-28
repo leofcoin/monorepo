@@ -4,22 +4,37 @@
 
 ## usage
 ```js
-import {} from '@leofcoin/crypto'
+import {
+  uint8ArrayToHex,
+  arrayBufferToHex,
+  hexToUint8Array,
+  randombytes,
+  createHash,
+  encrypt,
+  decrypt,
+  generateAesKey,
+  importAesKey,
+  exportAesKey,
+  encryptAes,
+  decryptAes,
+  generatePbkdf2,
+  pbkdf2
+} from '@leofcoin/crypto'
 ```
 
 ## checkout [breaking changes](./BREAKINGCHANGES.md)
 
 ## api
 
-randombytes(length)
-
-async createHash(data, algorithm)
-
 uint8ArrayToHex(uint8Array)
 
 arrayBufferToHex(arrayBuffer)
 
 hexToUint8Array(hex)
+
+randombytes(length)
+
+async createHash(data, algorithm)
 
 async encrypt(string)
 
