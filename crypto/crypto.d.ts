@@ -1,5 +1,9 @@
 import { webcrypto } from "crypto"
 
+declare type digestSupportedAlgorithm = 'SHA-1' | 'SHA-256' |'SHA-384' | 'SHA-512'
+declare type pkdf2SupportedAlgorithm = digestSupportedAlgorithm
+declare type TypedArray = Uint8Array | Uint16Array | Uint32Array | Int8Array | Int16Array | Int32Array | Float32Array | Uint8ClampedArray | BigUint64Array | BigInt64Array
+
 declare module '@leofcoin/crypto' {
   export function generatePbkdf2(password: Uint8Array): Promise<webcrypto.CryptoKey>
 
@@ -26,7 +30,7 @@ declare module '@leofcoin/crypto' {
    * @param {Number} length 
    * @returns {uint8Array}
    */
-  export function pbkdf2(password: Uint8Array, salt: Uint8Array, iterations: 4096, length: 64, algorithm: 'SHA-512'): Promise<Uint8Array>
+  export function pbkdf2(password: ArrayBuffer | TypedArray, salt: Uint8Array, iterations: number, length: number, algorithm: pkdf2SupportedAlgorithm): Promise<Uint8Array>
 
   /**
    * ```js
@@ -38,4 +42,7 @@ declare module '@leofcoin/crypto' {
    * @returns Uint8Array
    */
   export function randombytes(strength: number):Uint8Array
+
+  export function createHash (data: Uint8Array, algorithm: digestSupportedAlgorithm): Promise<Uint8Array>
+  export function createDoubleHash (data: Uint8Array, algorithm: digestSupportedAlgorithm): Promise<Uint8Array>
 }

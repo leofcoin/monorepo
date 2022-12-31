@@ -1,10 +1,11 @@
 import randombytes from './lib/randombytes.js'
 import createHash from './lib/create-hash.js'
+import createDoubleHash from './lib/create-double-hash.js'
 import { pbkdf2, generatePbkdf2 } from './lib/algorithms/pbkdf2.js'
 import { generateAesKey, importAesKey, exportAesKey, encryptAes, decryptAes } from './lib/algorithms/aes.js'
+import { generateHmacKey, exportHmacKey, importHmacKey, hmac } from './lib/algorithms/hmac.js'
 
-export { randombytes, createHash, pbkdf2, generatePbkdf2, generateAesKey, importAesKey, exportAesKey, encryptAes, decryptAes }
-
+export { randombytes, createHash, createDoubleHash, pbkdf2, generatePbkdf2, generateAesKey, importAesKey, exportAesKey, encryptAes, decryptAes, generateHmacKey, exportHmacKey, importHmacKey, hmac }
 export const uint8ArrayToHex = uint8Array =>
   [...uint8Array].map(x => x.toString(16).padStart(2, '0')).join('')
 
