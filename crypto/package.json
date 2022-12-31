@@ -1,11 +1,12 @@
 {
   "name": "@leofcoin/crypto",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "a simple nodejs/web crypto api",
   "exports": {
     ".": "./crypto.js",
     "./digest": "./lib/digest.js",
     "./createHash": "./lib/create-hash.js",
+    "./createDoubleHash": "./lib/create-double-hash.js",
     "./randombytes": "./lib/randombytes.js",
     "./algorithms/aes": "./lib/algorithms/aes.js",
     "./algorithms/pbkdf2": "./lib/algorithms/pbkdf2.js"
@@ -15,7 +16,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["crypto", "subtle", "randombytes", "createHash", "encrypt", "decrypt"],
+  "keywords": [
+    "crypto",
+    "subtle",
+    "randombytes",
+    "createHash",
+    "encrypt",
+    "decrypt"
+  ],
   "author": "",
   "license": "MIT"
 }
