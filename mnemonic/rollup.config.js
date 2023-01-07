@@ -1,10 +1,13 @@
+import typescript from '@rollup/plugin-typescript';
+import tsconfig from './tsconfig.json' assert { type: 'json'};
+
 export default [{
-  input: ['src/mnemonic.js'],
-  output: [{
+  input: ['./src/index.ts'],
+  output: {
     format: 'es',
-    file: 'dist/mnemonic.es.js'
-  }, {
-    format: 'cjs',
-    file: 'dist/mnemonic.js'
-  }]
+    dir: './'
+  },
+  plugins: [
+    typescript(tsconfig)
+  ]
 }]
