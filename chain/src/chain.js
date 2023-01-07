@@ -382,6 +382,7 @@ async resolveBlock(hash) {
       pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
       return result || 'no state change'
     } catch (error) {
+      console.log(error);
       pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
       throw error
     }
@@ -458,7 +459,7 @@ async resolveBlock(hash) {
     // vote for transactions
     if (await transactionPoolStore.size() === 0) return;
 
-    let transactions = await transactionPoolStore.values(limit)
+    let transactions = await transactionPoolStore.values(this.transactionLimit)
 
     if (Object.keys(transactions)?.length === 0 ) return
     
@@ -469,18 +470,18 @@ async resolveBlock(hash) {
     }
 
     // exclude failing tx
-    transactions = await this.getTransactions(transactions.slice(0, transactions.length < 1800 ? transactions.length : 1800))
+    transactions = await this.promiseTransactions(transactions)
 
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
     for (let transaction of transactions) { 
+      const hash = await transaction.hash()
       try {
-        await this.#executeTransaction(transaction)
-        block.transactions.push(transaction)
-        block.fees += Number(calculateFee(transaction))
-        await accountsStore.put(transaction.from, new TextEncoder().encode(String(transaction.nonce)))
+        await this.#executeTransaction({...transaction.decoded, hash})
+        block.transactions.push({hash, ...transaction.decoded})
+        block.fees += Number(calculateFee(transaction.decoded))
+        await accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
       } catch {
-        transaction = await new TransactionMessage(transaction)
-        await transactionPoolStore.delete(await transaction.hash())
+        await transactionPoolStore.delete(hash)
       }
     }
     // don't add empty block

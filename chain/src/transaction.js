@@ -64,7 +64,7 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async #getNonceFallback(address) {
-    let transactions = await transactionPoolStore.values()
+    let transactions = await transactionPoolStore.values(this.transactionLimit)
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.filter(tx => tx.decoded.from === address)
     transactions = await this.promiseTransactionsContent(transactions)
@@ -158,7 +158,7 @@ export default class Transaction extends Protocol {
     identity = JSON.parse(new TextDecoder().decode(identity))
     const wallet = new MultiWallet(peernet.network)
     await wallet.recover(identity.mnemonic)
-    const account = wallet.account(0).external(0)
+    const account = await wallet.account(0).external(0)
     transaction.signature = await this.#signTransaction(transaction, account)
     transaction.signature = bs32.encode(transaction.signature)
     return transaction
@@ -208,7 +208,7 @@ export default class Transaction extends Protocol {
       const message = await new TransactionMessage(transaction)
 
       let data
-      const wait = () => new Promise(async (resolve, reject) => {
+      const wait = new Promise(async (resolve, reject) => {
         if (pubsub.subscribers[`transaction.completed.${await message.hash()}`]) {
           const result = pubsub.subscribers[`transaction.completed.${await message.hash()}`].value
           result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})

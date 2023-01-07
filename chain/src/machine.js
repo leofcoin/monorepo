@@ -1,5 +1,5 @@
 import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
-import randombytes from 'randombytes'
+import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 // import State from './state'

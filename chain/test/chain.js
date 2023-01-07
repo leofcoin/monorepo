@@ -51,6 +51,9 @@ const job = async () => {
     // return
     let nonce = await chain.getNonce(peernet.selectedAccount)
     console.log({nonce});
+    let balances = await chain.balances
+    console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
+    console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
     // return
     let promises = []
     // nonce += 1
@@ -60,14 +63,11 @@ const job = async () => {
       promises.push(chain.createTransaction(chain.nativeToken, 'transfer', [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()], nonce))
     }
     promises = await Promise.allSettled(promises)
-    promises = await Promise.allSettled(promises.map(({value}) => value.wait()))
-    promises.forEach((item, i) => {
-      if (item.reason) console.log(item.reason);
-    });
+    promises = await Promise.allSettled(promises.map(({value}) => value.wait))
 
     console.log(`${(new Date().getTime() - start) / 1000} s`);
 
-    let balances = await chain.balances
+    balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
 // return
@@ -82,7 +82,7 @@ const job = async () => {
       promises.push(chain.createTransaction(chain.nativeToken, 'transfer', [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()], nonce))
     }
     promises = await Promise.allSettled(promises)
-    promises = await Promise.allSettled(promises.map(({value}) => value.wait()))
+    promises = await Promise.allSettled(promises.map(({value}) => value.wait))
     balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
@@ -90,14 +90,14 @@ const job = async () => {
     promises = []
 
     // nonce += 1
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
       // contract , method, from, to, amount, (optional) nonce
       
       nonce += 1
       promises.push(chain.createTransaction(chain.nativeToken, 'transfer', [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()], nonce))
     }
     promises = await Promise.allSettled(promises)
-    promises = await Promise.allSettled(promises.map(({value}) => value.wait()))
+    promises = await Promise.allSettled(promises.map(({value}) => value.wait))
     balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
