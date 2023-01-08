@@ -1,10 +1,10 @@
 {
   "name": "@leofcoin/peernet-swarm",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "exports": {
-    ".": "./src/index.js",
-    "./client": "./src/client/client.js",
-    "./server": "./src/server/server.js"
+    ".": "./exports/index.js",
+    "./client": "./exports/client/client.js",
+    "./server": "./exports/server/server.js"
   },
   "type": "module",
   "license": "MIT",
