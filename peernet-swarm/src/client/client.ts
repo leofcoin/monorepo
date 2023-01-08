@@ -3,9 +3,13 @@ import Peer from './peer.js'
 import '@vandeurenglenn/debug'
 
 export default class Client {
-  #peerConnection
+  #peerConnection: RTCPeerConnection
   #connections = {}
   #stars = {}
+  id: string
+  networkVersion: string
+  starsConfig: string[]
+  socketClient: SocketClient
 
   get connections() {
     return { ...this.#connections }
@@ -30,7 +34,7 @@ export default class Client {
     this.starsConfig = stars
     // reconnectJob()
 
-    if (!globalThis.RTCPeerConnection) globalThis.wrtc = await import(/* webpackChunkName: "wrtc" */ '@koush/wrtc')
+    if (!globalThis.RTCPeerConnection) globalThis.wrtc = await import('@koush/wrtc')
     else globalThis.wrtc = {
       RTCPeerConnection,
       RTCSessionDescription,
@@ -110,7 +114,7 @@ export default class Client {
         }
       }
     }
-    debug(`star ${id} left`);
+    globalThis.debug(`star ${id} left`);
   }
 
   peerLeft(peer) {
@@ -119,7 +123,7 @@ export default class Client {
       this.#connections[id].close()
       delete this.#connections[id]
     }
-    debug(`peer ${id} left`)
+    globalThis.debug(`peer ${id} left`)
   }
 
   async peerJoined(peer, signal) {
@@ -130,7 +134,7 @@ export default class Client {
     }
     // RTCPeerConnection
     this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
-    debug(`peer ${id} joined`)
+    globalThis.debug(`peer ${id} joined`)
   }
 
   removePeer(peer) {
@@ -139,7 +143,7 @@ export default class Client {
       this.#connections[id].connected && this.#connections[id].close()
       delete this.#connections[id]
     }
-    debug(`peer ${id} removed`)
+    globalThis.debug(`peer ${id} removed`)
   }
 
   async close() {

@@ -155,7 +155,7 @@ export default class Peer {
      try {
 
        if (!globalThis.pako) {
-         const importee = await import(/* webpackChunkName: "pako" */ 'pako')
+         const importee = await import('pako')
          globalThis.pako = importee.default
        }
 

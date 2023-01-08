@@ -8,7 +8,7 @@ const read = promisify(readFile)
 const write = promisify(writeFile)
 
 const peers = {}
-
+ 
 const cleanupJob = () => setTimeout(() => {
   // loop trough know connections and check if they still connected
   for (const [id, connection] of Object.entries(peers)) {
