@@ -3,8 +3,8 @@
   "version": "0.5.3",
   "exports": {
     ".": "./exports/index.js",
-    "./client": "./exports/client/client.js",
-    "./server": "./exports/server/server.js"
+    "./client": "./exports/client.js",
+    "./server": "./exports/server.js"
   },
   "type": "module",
   "license": "MIT",
