@@ -297,7 +297,7 @@ class Client {
         this.starsConfig = stars;
         // reconnectJob()
         if (!globalThis.RTCPeerConnection)
-            globalThis.wrtc = await import('@koush/wrtc');
+            globalThis.wrtc = (await import('@koush/wrtc')).default;
         else
             globalThis.wrtc = {
                 RTCPeerConnection,

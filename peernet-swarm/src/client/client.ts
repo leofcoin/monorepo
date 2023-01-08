@@ -34,7 +34,7 @@ export default class Client {
     this.starsConfig = stars
     // reconnectJob()
 
-    if (!globalThis.RTCPeerConnection) globalThis.wrtc = await import('@koush/wrtc')
+    if (!globalThis.RTCPeerConnection) globalThis.wrtc = (await import('@koush/wrtc')).default
     else globalThis.wrtc = {
       RTCPeerConnection,
       RTCSessionDescription,
