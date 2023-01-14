@@ -1,5 +1,0 @@
-export { default as ContractMessage } from './messages/contract.js'
-export { default as TransactionMessage } from './messages/transaction.js'
-export { default as BlockMessage } from './messages/block.js'
-export { default as BWMessage } from './messages/bw.js'
-export { default as BWRequestMessage } from './messages/bw-request.js'

@@ -1,12 +1,9 @@
-export default `
-
-message TransactionMessage {
-  required uint64 timestamp = 1;
-  required string from = 2;
-  required string to = 3;
-  required uint64 nonce = 4;
-  required string method = 5;
-  repeated string params = 6;
-  required string signature = 7;
+export default {
+  timestamp: Number(),
+  from: String(),
+  to: String(),
+  nonce: Number(),
+  method: String(),
+  params: Array(),
+  signature: new Uint8Array()
 }
-`

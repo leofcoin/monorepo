@@ -1,5 +1,2 @@
-export default `
-
-message LastBlockRequestMessage {
+export default {
 }
-`

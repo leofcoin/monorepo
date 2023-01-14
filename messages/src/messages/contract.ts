@@ -1,16 +1,12 @@
-import proto from './../protos/contract.proto.js'
+import proto from '../protos/contract.proto.js'
 import { FormatInterface } from '@leofcoin/codec-format-interface'
 
 export default class ContractMessage extends FormatInterface {
-  get keys() {
-    return ['creator', 'contract', 'constructorParameters']
-  }
-
   get messageName() {
     return 'ContractMessage'
   }
 
-  constructor(buffer) {
+  constructor(buffer: messageInput) {
     super(buffer, proto, {name: 'contract-message'})
   }
 }
