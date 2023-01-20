@@ -42,12 +42,15 @@ export const calculateTransactionFee = transaction => {
   return calculateFee(transaction)
 }
 
-export const calculateReward = (validators, fees) => {
-  validators = Object.keys(validators).reduce((set, key) => {
+export const calculateReward = (validators, fees): [] => {
+  validators = Object.keys(validators).reduce((set: object[], key) => {
     if (validators[key].active) set.push({
       address: key,
       reward: 0
     })
+    return set
 
   }, [])
+
+  return validators
 }

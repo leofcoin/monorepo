@@ -2,11 +2,11 @@
   "name": "@leofcoin/lib",
   "version": "1.2.8",
   "description": "",
-  "main": "src/lib.js",
+  "main": "exports/lib.js",
   "type": "module",
   "exports": {
-    ".": "./src/lib.js",
-    "./node-config": "./src/node-config.js",
+    ".": "./exports/lib.js",
+    "./node-config": "./exports/node-config.js",
     "./bytecodes": "./src/bytecodes.json"
   },
   "scripts": {
@@ -20,5 +20,11 @@
     "@leofcoin/addresses": "^1.0.0-beta.1",
     "@leofcoin/codec-format-interface": "^1.4.0",
     "@leofcoin/messages": "^1.1.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "rollup": "^3.10.1",
+    "tslib": "^2.4.1"
   }
 }
