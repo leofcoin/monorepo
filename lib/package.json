@@ -1,11 +1,11 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "",
-  "main": "exports/lib.js",
   "type": "module",
+  "typings": "./exports/typings/index.d.ts",
   "exports": {
-    ".": "./exports/lib.js",
+    ".": "./exports/index.js",
     "./node-config": "./exports/node-config.js",
     "./bytecodes": "./src/bytecodes.json"
   },

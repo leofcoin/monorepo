@@ -1,8 +1,7 @@
 import bytecodes from './bytecodes.json' assert {type: 'json'}
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { validators } from '@leofcoin/addresses'
-import _nodeConfig from './node-config.js'
-export const nodeConfig = _nodeConfig
+export { default as nodeConfig} from './node-config.js'
 
 export const contractFactoryMessage = bytecodes.contractFactory
 export const nativeTokenMessage = bytecodes.nativeToken
