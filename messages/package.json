@@ -27,7 +27,7 @@
     "tslib": "^2.4.1"
   },
   "dependencies": {
-    "@leofcoin/codec-format-interface": "^1.4.0",
+    "@leofcoin/codec-format-interface": "^1.6.5",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }
