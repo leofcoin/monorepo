@@ -10,8 +10,6 @@ const nameServiceMessage = bytecodes.nameService
 const validatorsMessage = bytecodes.validators
 
 globalThis.BigNumber = BigNumber
-
-globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
 
 const unique = arr => arr.filter((el, pos, arr) => {
@@ -36,7 +34,7 @@ const runContract = async ({decoded, hash, encoded}) => {
   const params = decoded.constructorParameters
   try {
 
-    const func = new Function(decoded.contract)
+    const func = new Function(new TextDecoder().decode(contract))
     const Contract = func()
 
     globalThis.msg = createMessage(decoded.creator)
@@ -83,21 +81,6 @@ const createMessage = (sender = globalThis.peerid) => {
 }
 
 const _init = async ({ contracts, blocks, peerid })=> {
-  
-  globalThis.peernet.codecs =  {
-    'contract-message': {
-      codec: parseInt('63636d', 16),
-      hashAlg: 'keccak-256'
-    },
-    'transaction-message': {
-      codec: parseInt('746d', 16),
-      hashAlg: 'keccak-256'
-    },
-    'block-message': {
-      codec: parseInt('626d', 16),
-      hashAlg: 'keccak-256'
-    }
-  }
 
   globalThis.peerid = peerid
   contracts = [

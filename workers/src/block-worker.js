@@ -6,8 +6,6 @@ import EasyWorker from '@vandeurenglenn/easy-worker'
 const worker = new EasyWorker()
 
 globalThis.BigNumber = BigNumber
-
-globalThis.peernet = globalThis.peernet || {}
 globalThis.contracts = {}
 
 const run = async (blocks) => {  
@@ -23,14 +21,7 @@ const run = async (blocks) => {
   return blocks
 }
 
-const tasks = async blocks => {
-  globalThis.peernet.codecs =  {
-    'block-message': {
-      codec: parseInt('626d', 16),
-      hashAlg: 'keccak-256'
-    }
-  }  
-  
+const tasks = async blocks => {  
   blocks = await run(blocks)
   worker.postMessage(blocks)
 }
