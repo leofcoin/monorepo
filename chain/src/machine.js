@@ -26,7 +26,12 @@ export default class Machine {
       case 'contractError': {
         console.warn(`removing contract ${await data.hash()}`);
         await contractStore.delete(await data.hash())  
-      break
+        break
+      }
+
+      case 'initError': {
+        console.error(`init error: ${data.message}`);       
+        break
       }
 
       case 'executionError': {
