@@ -121,7 +121,7 @@ export default class Chain  extends Contract {
     this.#runningEpoch = true
     console.log('epoch');
     const validators = await this.staticCall(addresses.validators, 'validators')
-    console.log(validators);
+    console.log({validators});
     if (!validators[peernet.selectedAccount]?.active) return
     const start = Date.now()
     try {
@@ -155,7 +155,8 @@ export default class Chain  extends Contract {
     }]
 
     await Promise.all(contracts.map(async ({address, message}) => {
-      message = await new ContractMessage(message)
+      // console.log({message});
+      message = await new ContractMessage(Uint8Array.from(message.split(',').map(string => Number(string))))
       await contractStore.put(address, message.encoded)
     }))
     console.log('handle native contracts');
@@ -460,7 +461,6 @@ async resolveBlock(hash) {
     if (await transactionPoolStore.size() === 0) return;
 
     let transactions = await transactionPoolStore.values(this.transactionLimit)
-
     if (Object.keys(transactions)?.length === 0 ) return
     
     let block = {
@@ -471,7 +471,6 @@ async resolveBlock(hash) {
 
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
-
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
     for (let transaction of transactions) { 
       const hash = await transaction.hash()
@@ -480,7 +479,7 @@ async resolveBlock(hash) {
         block.transactions.push({hash, ...transaction.decoded})
         block.fees += Number(calculateFee(transaction.decoded))
         await accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
-      } catch {
+      } catch (e) {
         await transactionPoolStore.delete(hash)
       }
     }
@@ -572,7 +571,6 @@ async resolveBlock(hash) {
       peernet.publish('add-block', blockMessage.encoded)
       pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
-      console.log(error);
       throw new Error(`invalid block ${block}`)
     }
     // data = await this.#machine.execute(to, method, params)
@@ -588,7 +586,8 @@ async resolveBlock(hash) {
       const has = await transactionPoolStore.has(hash)
       if (!has) await transactionPoolStore.put(hash, transaction.encoded)
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
-    } catch {
+    } catch (e) {
+      console.log(e);
       throw new Error('invalid transaction')
     }
   }
