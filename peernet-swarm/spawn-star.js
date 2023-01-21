@@ -1,4 +1,4 @@
-import Server from './src/server/server.js'
+import Server from './exports/server.js'
 const args = process.argv0
 
 let network
