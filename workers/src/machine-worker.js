@@ -34,7 +34,7 @@ const runContract = async ({decoded, hash, encoded}) => {
   const params = decoded.constructorParameters
   try {
 
-    const func = new Function(new TextDecoder().decode(contract))
+    const func = new Function(new TextDecoder().decode(decoded.contract))
     const Contract = func()
 
     globalThis.msg = createMessage(decoded.creator)
