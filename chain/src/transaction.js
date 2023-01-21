@@ -160,7 +160,6 @@ export default class Transaction extends Protocol {
     await wallet.recover(identity.mnemonic)
     const account = await wallet.account(0).external(0)
     transaction.signature = await this.#signTransaction(transaction, account)
-    transaction.signature = bs32.encode(transaction.signature)
     return transaction
   }
 
@@ -206,28 +205,29 @@ export default class Transaction extends Protocol {
       const rawTransaction = await this.ensureNonce({from, to, nonce, method, params: parameters})    
       const transaction = await this.signTransaction(rawTransaction, from)
       const message = await new TransactionMessage(transaction)
-
+      const hash = await message.hash()
+      
       let data
       const wait = new Promise(async (resolve, reject) => {
-        if (pubsub.subscribers[`transaction.completed.${await message.hash()}`]) {
-          const result = pubsub.subscribers[`transaction.completed.${await message.hash()}`].value
+        if (pubsub.subscribers[`transaction.completed.${hash}`]) {
+          const result = pubsub.subscribers[`transaction.completed.${hash}`].value
           result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
         } else {
           const completed = async result => {
             result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
     
             setTimeout(async () => {
-              pubsub.unsubscribe(`transaction.completed.${await message.hash()}`, completed)
+              pubsub.unsubscribe(`transaction.completed.${hash}`, completed)
             }, 10_000)
           }
-          pubsub.subscribe(`transaction.completed.${await message.hash()}`, completed)
+          pubsub.subscribe(`transaction.completed.${hash}`, completed)
         }
       })
-      await transactionPoolStore.put(await message.hash(), message.encoded)
+      await transactionPoolStore.put(hash, message.encoded)
+      debug(`Added ${hash} to the transaction pool`)
       peernet.publish('add-transaction', message.encoded)
-      return {hash: await message.hash(), data, fee: await calculateFee(message.decoded), wait, message}
+      return {hash: hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
-      console.log(error)
       throw error
     }
   }
