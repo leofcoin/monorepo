@@ -391,7 +391,7 @@ async resolveBlock(hash) {
 
   async #addBlock(block) {
     // console.log(block);
-    const blockMessage = await new BlockMessage(new Uint8Array(Object.values(block)))
+    const blockMessage = await new BlockMessage(block)
     await Promise.all(blockMessage.decoded.transactions
       .map(async transaction => transactionPoolStore.delete(transaction.hash)))
     const hash = await blockMessage.hash()
