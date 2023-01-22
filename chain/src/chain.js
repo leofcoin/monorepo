@@ -294,7 +294,7 @@ export default class Chain  extends Contract {
       debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const end = this.#blocks.length
-      const start = this.#blocks.length - blocksSynced
+      const start = (this.#blocks.length - blocksSynced) - 1
       await this.#loadBlocks(this.blocks.slice(start))
       await this.#updateState(this.#blocks[this.#blocks.length - 1])      
       this.#chainSyncing = false
