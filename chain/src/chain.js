@@ -282,7 +282,7 @@ export default class Chain  extends Contract {
   }
 
   async #syncChain(lastBlock) {
-    if (this.#chainSyncing) return
+    if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.hash) return
 
     if (!this.lastBlock || Number(this.lastBlock.index) < Number(lastBlock.index)) {
       this.#chainSyncing = true
