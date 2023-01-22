@@ -296,7 +296,7 @@ export default class Chain  extends Contract {
       const end = this.#blocks.length
       const start = (this.#blocks.length - blocksSynced) - 1
       await this.#loadBlocks(this.blocks.slice(start))
-      await this.#updateState(this.#blocks[this.#blocks.length - 1])      
+      await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
       this.#chainSyncing = false
     }
   }
