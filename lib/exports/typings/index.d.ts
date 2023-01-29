@@ -26,5 +26,5 @@ export declare const createContractMessage: (creator: any, contract: any, constr
 export declare const calculateFee: (transaction: any) => Promise<string | 0>;
 export declare const calculateTransactionFee: (transaction: any) => Promise<string | 0>;
 export declare const calculateReward: (validators: any, fees: any) => [];
-export declare const createTransactionHash: (transaction: any) => Promise<any>;
-export declare const signTransaction: (wallet: signable, transaction: transaction) => Promise<signedTransaction>;
+export declare const createTransactionHash: (transaction: transaction) => Promise<Uint8Array>;
+export declare const signTransaction: (transaction: transaction, wallet: signable) => Promise<signedTransaction>;

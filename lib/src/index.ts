@@ -77,11 +77,11 @@ export const calculateReward = (validators, fees): [] => {
   return validators
 }
 
-export const createTransactionHash = async (transaction) => 
+export const createTransactionHash = async (transaction: transaction): Promise<Uint8Array> => 
   (await new CodecHash(transaction, {name: 'transaction-message'})).digest
 
-export const signTransaction = async (wallet: signable, transaction: transaction): Promise<signedTransaction> => {
-  const signature = await wallet.sign(transaction)
+export const signTransaction = async (transaction: transaction, wallet: signable): Promise<signedTransaction> => {
+  const signature = await wallet.sign(await createTransactionHash(transaction))
   const signedTransaction = {...transaction, signature}
   return signedTransaction
 }
