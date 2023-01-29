@@ -1,7 +1,30 @@
 import bytecodes from './bytecodes.json' assert {type: 'json'}
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
+import { CodecHash } from '@leofcoin/codec-format-interface'
 import { validators } from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
+
+declare type address = string
+
+declare type transaction = {
+  from: address,
+  to: address,
+  method: string,
+  parameters: [],
+  timestamp: Number
+}
+
+declare type signedTransaction = {
+  from: address,
+  to: address,
+  method: string,
+  parameters: [],
+  timestamp: Number
+}
+
+declare type signable = {
+  sign: (transaction) => Uint8Array
+}
 
 export const contractFactoryMessage = bytecodes.contractFactory
 export const nativeTokenMessage = bytecodes.nativeToken
@@ -53,3 +76,13 @@ export const calculateReward = (validators, fees): [] => {
 
   return validators
 }
+
+export const createTransactionHash = async (transaction) => 
+  (await new CodecHash(transaction, {name: 'transaction-message'})).digest
+
+export const signTransaction = async (wallet: signable, transaction: transaction): Promise<signedTransaction> => {
+  const signature = await wallet.sign(transaction)
+  const signedTransaction = {...transaction, signature}
+  return signedTransaction
+}
+  
