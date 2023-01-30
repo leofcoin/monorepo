@@ -5,9 +5,10 @@
   "main": "./dist/node.js",
   "module": "./dist/chain.esm",
   "exports": {
-    "./node": "./src/node.js",
-    "./chain": "./src/chain.js"
+    "./node": "./exports/node.js",
+    "./chain": "./exports/chain.js"
   },
+  "types": "./exports/types/chain.d.ts",
   "type": "module",
   "scripts": {
     "np": "np",
@@ -16,7 +17,7 @@
     "w": "rollup -c -w",
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
     "workers": "cp ./../workers/src/** ./workers",
-    "build": "npm run c && webpack && cp ./dist/*browser.js ./demo && cp -r ./dist/browser/workers/ ./demo",
+    "build": "npm run c",
     "demo": "jsproject --serve ./demo --port 5478 --open demo",
     "test": "node --openssl-legacy-provider test",
     "pack": "webpack"
@@ -30,6 +31,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
     "@types/bs58check": "^2.1.0",
     "@types/pako": "^2.0.0",
     "@types/randombytes": "^2.0.0",
@@ -38,6 +41,7 @@
     "eslint": "^8.28.0",
     "eslint-plugin-unicorn": "^45.0.0",
     "open": "^8.4.0",
+    "rollup": "^3.12.0",
     "tape": "^5.5.2",
     "tslib": "^2.4.1"
   },

@@ -2,9 +2,11 @@ import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils
 import Machine from './machine.js'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses, { nativeToken } from '@leofcoin/addresses'
+import { signTransaction } from '@leofcoin/lib'
 import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
 import State from './state.js'
 import Contract from './contract.js'
+import { BigNumberish } from '@ethersproject/bignumber'
 
 globalThis.BigNumber = BigNumber
 
@@ -122,7 +124,7 @@ export default class Chain  extends Contract {
     console.log('epoch');
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log({validators});
-    if (!validators[peernet.selectedAccount]?.active) return
+    if (!validators[globalThis.peernet.selectedAccount]?.active) return
     const start = Date.now()
     try {
       await this.#createBlock()
@@ -451,7 +453,19 @@ async resolveBlock(hash) {
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
     this.#participating = true
-    if (!await this.staticCall(addresses.validators, 'has', [address])) await this.createTransactionFrom(address, addresses.validators, 'addValidator', [address])
+    if (!await this.staticCall(addresses.validators, 'has', [address])) {
+      const rawTransaction = {
+        from: address,
+        to: addresses.validators,
+        method: 'addValidator',
+        params: [address],
+        nonce: (await this.getNonce(address)) + 1,
+        timestamp: Date.now()        
+      }      
+      
+      const transaction = await signTransaction(rawTransaction, peernet.identity)
+      await this.sendTransaction(transaction)
+    }
     if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
   }
 
@@ -592,32 +606,12 @@ async resolveBlock(hash) {
     }
   }
   /**
-   * whenever method = createContract params should hold the contract hash
-   *
-   * example: [hash]
-   * createTransaction('0x0', 'createContract', [hash])
-   *
-   * @param {String} to - the contract address for the contract to interact with
-   * @param {String} method - the method/function to run
-   * @param {Array} params - array of paramters to apply to the contract method
-   * @param {Number} nonce - total transaction count [optional]
-   */
-   async createTransaction(to, method, parameters, nonce, signature) {
-    return this.createTransactionFrom(peernet.selectedAccount, to, method, parameters, nonce)
-  } 
-  /**
    * every tx done is trough contracts so no need for amount
    * data is undefined when nothing is returned
    * error is thrown on error so undefined data doesn't mean there is an error...
-   *
-   * @param {Address} from - the sender address
-   * @param {Address} to - the contract address for the contract to interact with
-   * @param {String} method - the method/function to run
-   * @param {Array} params - array of paramters to apply to the contract method
-   * @param {Number} nonce - total transaction count [optional]
-   */
-   async createTransactionFrom(from, to, method, parameters, nonce) {
-    const event = await super.createTransactionFrom(from, to, method, parameters, nonce)
+   **/
+   async sendTransaction(transaction) {
+    const event = await super.sendTransaction(transaction)
     this.#addTransaction(event.message.encoded)
     return event    
   }
@@ -664,7 +658,7 @@ async resolveBlock(hash) {
     return this.#machine.execute(contract, method, parameters)
   }
 
-  staticCall(contract, method, parameters) {
+  staticCall(contract, method, parameters?) {
     globalThis.msg = this.#createMessage()
     return this.#machine.get(contract, method, parameters)
   }
@@ -675,21 +669,21 @@ async resolveBlock(hash) {
     return this.#machine.execute(contract, method, parameters)
   }
 
-  staticDelegate(contract, method, parameters) {
+  staticDelegate(contract: Address, method: string, parameters: []): any {
     globalThis.msg = this.#createMessage()
 
     return this.#machine.get(contract, method, parameters)
   }
 
-  mint(to, amount) {
+  mint(to: string, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'mint', [to, amount])
   }
 
-  transfer(from, to, amount) {
+  transfer(from: string, to: string, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
-  get balances() {
+  get balances(): {address: BigNumberish} {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
 
@@ -710,7 +704,7 @@ async resolveBlock(hash) {
    *
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
-  lookup(name) {
+  lookup(name): {owner: string, address: string} {
     return this.call(addresses.nameService, 'lookup', [name])
   }
 }

@@ -1,7 +1,4 @@
 import Protocol from "./protocol.js"
-import MultiWallet from '@leofcoin/multi-wallet'
-import {CodecHash} from '@leofcoin/codec-format-interface'
-import bs32 from '@vandeurenglenn/base32'
 import { TransactionMessage, BlockMessage } from "@leofcoin/messages"
 import { calculateFee } from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
@@ -40,7 +37,7 @@ export default class Transaction extends Protocol {
    * @param {Transaction[]} transactions An array containing Transactions
    * @returns {TransactionMessage}
    */
-  async promiseTransactions(transactions) {
+  async promiseTransactions(transactions): Promise<TransactionMessage[]> {
     transactions = await Promise.all(transactions.map(tx => new TransactionMessage(tx)))
     return transactions
   }
@@ -64,7 +61,7 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async #getNonceFallback(address) {
-    let transactions = await transactionPoolStore.values(this.transactionLimit)
+    let transactions = await globalThis.transactionPoolStore.values()
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.filter(tx => tx.decoded.from === address)
     transactions = await this.promiseTransactionsContent(transactions)
@@ -80,7 +77,7 @@ export default class Transaction extends Protocol {
       // }
       transactions = transactions.filter(tx => tx.from === address)
       while (transactions.length === 0 && block.decoded.index !== 0 && block.decoded.previousHash !== '0x0') {
-        block = await blockStore.get(block.decoded.previousHash)
+        block = await globalThis.blockStore.get(block.decoded.previousHash)
         block = await new BlockMessage(block)
         transactions = block.decoded.transactions.filter(tx => tx.from === address)
       }
@@ -98,115 +95,65 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async getNonce(address) {
-    if (!await accountsStore.has(address)) {
+    if (!await globalThis.accountsStore.has(address)) {
       const nonce = await this.#getNonceFallback(address)
-      await accountsStore.put(address, new TextEncoder().encode(String(nonce)))
+      await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
     }
     // todo: are those in the pool in cluded also ? they need to be included!!!
-    let nonce = await accountsStore.get(address)
+    let nonce = await globalThis.accountsStore.get(address)
     nonce = new TextDecoder().decode(nonce)
+    
+    let transactions = await globalThis.transactionPoolStore.values()
+    transactions = await this.promiseTransactions(transactions)
+    transactions = transactions.filter(tx => tx.decoded.from === address)
+    transactions = await this.promiseTransactionsContent(transactions)
+    for (const transaction of transactions) {
+      if (transaction.nonce > nonce) nonce = transaction.nonce
+    }
     return Number(nonce)
   }
 
-  /**
-   * whenever method = createContract params should hold the contract hash
-   *
-   * example: [hash]
-   * createTransaction('0x0', 'createContract', [hash])
-   *
-   * @param {String} to - the contract address for the contract to interact with
-   * @param {String} method - the method/function to run
-   * @param {Array} params - array of paramters to apply to the contract method
-   * @param {Number} nonce - total transaction count [optional]
-   */
-  async createTransaction(to, method, parameters, nonce, signature) {
-    return this.createTransactionFrom(peernet.selectedAccount, to, method, parameters, nonce)
-  } 
-
-  /**
-   * 
-   * @param {Transaction} transaction
-   * @param {String} transaction.from address
-   * @param {String} transaction.to address
-   * @param {Object} transaction.params {}
-   * @param {String} transaction.params.method get, call
-   * @param {Buffer} transaction.params.data 
-   * @returns 
-   */
-  async createTransactionHash(transaction) {
-    // todo: validate  
-    const peernetHash = await new CodecHash(transaction, {name: 'transaction-message'})
-    return peernetHash.digest
-  }
-
-  /**
-   * @param {Transaction} transaction
-   * @param {object} wallet any wallet/signer that supports sign(RAWtransaction)
-   */
-  async #signTransaction (transaction, wallet) {
-    return wallet.sign(await this.createTransactionHash(transaction))
-  }
-
-  /**
-   * 
-   * @param {RawTransaction} transaction 
-   * @param {Signer} signer 
-   * @returns {Transaction} a signed transaction
-   */
-  async signTransaction(transaction, signer) {
-    let identity = await walletStore.get('identity')
-    identity = JSON.parse(new TextDecoder().decode(identity))
-    const wallet = new MultiWallet(peernet.network)
-    await wallet.recover(identity.mnemonic)
-    const account = await wallet.account(0).external(0)
-    transaction.signature = await this.#signTransaction(transaction, account)
-    return transaction
-  }
-
-  /**
-   * 
-   * @param {Transaction} transaction
-   * @param {Address} transaction.from
-   * @param {Address} transaction.to
-   * @param {String} transaction.method
-   * @param {Array} transaction.params
-   * @param {Number} transaction.nonce
-   * 
-   * @returns {RawTransaction} transaction
-   */
-  async ensureNonce(transaction) {
-    if (!transaction.from) transaction.from = peernet.selectedAccount
-    transaction.timestamp = Date.now()
-
-    if (transaction.nonce === undefined) {
-      transaction.nonce = await this.getNonce(transaction.from)
-    } else {
-      let nonce = await accountsStore.get(transaction.from)
-      nonce = new TextDecoder().decode(nonce)
-      if (transaction.nonce < nonce) throw new Error(`a transaction with a higher nonce already exists`)
-      if (transaction.nonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
+  async validateNonce(address, nonce) {    
+    let previousNonce = await globalThis.accountsStore.get(address)
+    previousNonce = Number(new TextDecoder().decode(previousNonce))
+    if (previousNonce > nonce) throw new Error(`a transaction with a higher nonce already exists`)
+    if (previousNonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
+    
+    let transactions = await globalThis.transactionPoolStore.values()
+    transactions = await this.promiseTransactions(transactions)
+    transactions = transactions.filter(tx => tx.decoded.from === address)
+    
+    for (const transaction of transactions) {
+      if (transaction.decoded.nonce > nonce) throw new Error(`a transaction with a higher nonce already exists`)
+      if (transaction.decoded.nonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
     }
-    return transaction
   }
 
-  /**
-   * every tx done is trough contracts so no need for amount
-   * data is undefined when nothing is returned
-   * error is thrown on error so undefined data doesn't mean there is an error...
-   *
-   * @param {Address} from - the sender address
-   * @param {Address} to - the contract address for the contract to interact with
-   * @param {String} method - the method/function to run
-   * @param {Array} params - array of paramters to apply to the contract method
-   * @param {Number} nonce - total transaction count [optional]
-   */
-  async createTransactionFrom(from, to, method, parameters, nonce) {
-    try {
-      const rawTransaction = await this.ensureNonce({from, to, nonce, method, params: parameters})    
-      const transaction = await this.signTransaction(rawTransaction, from)
-      const message = await new TransactionMessage(transaction)
+  isTransactionMessage(message) {
+    if (message instanceof TransactionMessage) return true
+    return false
+  }
+
+  async createTransaction(transaction) {
+    return {
+      from: transaction.from, 
+      to: transaction.to, 
+      method: transaction.method,
+      params: transaction.params,
+      timestamp: transaction.timestamp || Date.now(),
+      nonce: transaction.nonce || (await this.getNonce(transaction.from)) + 1
+    }
+  }
+
+  async sendTransaction(message) {
+    if (!this.isTransactionMessage(message)) message = new TransactionMessage(message)
+    if (!message.decoded.signature) throw new Error(`transaction not signed`)
+    if (message.decoded.nonce === undefined) throw new Error(`nonce required`)    
+    
+    try {      
+      await this.validateNonce(message.decoded.from, message.decoded.nonce)
+      // todo check if signature is valid
       const hash = await message.hash()
-      
       let data
       const wait = new Promise(async (resolve, reject) => {
         if (pubsub.subscribers[`transaction.completed.${hash}`]) {
@@ -223,12 +170,13 @@ export default class Transaction extends Protocol {
           pubsub.subscribe(`transaction.completed.${hash}`, completed)
         }
       })
-      await transactionPoolStore.put(hash, message.encoded)
+      await globalThis.transactionPoolStore.put(hash, message.encoded)
       debug(`Added ${hash} to the transaction pool`)
       peernet.publish('add-transaction', message.encoded)
       return {hash: hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
       throw error
     }
+    
   }
 }
