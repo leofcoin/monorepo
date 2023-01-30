@@ -10,7 +10,7 @@ declare type transaction = {
   from: address,
   to: address,
   method: string,
-  parameters: [],
+  params: [],
   timestamp: Number
 }
 
@@ -18,7 +18,7 @@ declare type signedTransaction = {
   from: address,
   to: address,
   method: string,
-  parameters: [],
+  params: [],
   timestamp: Number
 }
 
