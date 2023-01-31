@@ -133,8 +133,11 @@ const job = async () => {
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
       // }, 10000);
-
-// job()
+    const exported = await peernet.identity.export('password')
+    const exportedQR = await peernet.identity.exportQR('password')
+    console.log(exported); 
+    console.log(exportedQR);
+      // job()
   // }, 5000);
 }
 
