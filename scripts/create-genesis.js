@@ -1,22 +1,18 @@
-
-
+import { writeFile as write, readFile as read } from 'fs/promises'
+import { join } from 'path'
 (async () => {
-  const {promisify} = require('util')
-  const read = promisify(require('fs').readFile)
-  const write = promisify(require('fs').writeFile)
   const {parseUnits} = await import('./../utils/src/utils.js')
-  const {nodeConfig, createContractMessage} = await import('./../lib/src/lib.js')
-  const {join} = require('path')
+  const {nodeConfig, createContractMessage} = await import('./../lib/exports/index.js')
   
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
     const name = contract.toString().match(/export{([A-Z])\w+|export { ([A-Z])\w+/g)[0].replace(/export {|export{/, '')
-    return createContractMessage(peernet.selectedAccount, contract.toString().replace(/export{([A-Z])\w+ as default}/g, `return ${name}`).replace(/\r?\n|\r/g, ''), params)
+    return createContractMessage(peernet.selectedAccount, new TextEncoder().encode(contract.toString().replace(/export{([A-Z])\w+ as default}/g, `return ${name}`).replace(/\r?\n|\r/g, '')), params)
   }
   // const Chain = require('./../chain/dist/chain');
   
-  const Node = (await import('./../chain/src/node.js')).default;
-  const node = await new Node()
+  const Node = (await import('./../chain/exports/node.js')).default;
+  const node = await new Node({network: 'leofcoin:peach', networkVersion: 'peach'})
   await nodeConfig()
   console.log(peernet.selectedAccount);
   // const chain = await new Chain()
