@@ -2,14 +2,16 @@
   "name": "@leofcoin/chain",
   "version": "1.4.21",
   "description": "Official javascript implementation",
-  "main": "./dist/node.js",
-  "module": "./dist/chain.esm",
   "exports": {
     "./node": "./exports/node.js",
     "./chain": "./exports/chain.js"
   },
   "types": "./exports/types/chain.d.ts",
   "type": "module",
+  "files": [
+    "./exports",
+    "LICENSE.txt"
+  ],
   "scripts": {
     "np": "np",
     "lint": "eslint src --fix",
