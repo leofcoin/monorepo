@@ -7,7 +7,7 @@ import { join } from 'path'
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
     const name = contract.toString().match(/export{([A-Z])\w+|export { ([A-Z])\w+/g)[0].replace(/export {|export{/, '')
-    return createContractMessage(peernet.selectedAccount, new TextEncoder().encode(contract.toString().replace(/export{([A-Z])\w+ as default}/g, `return ${name}`).replace(/\r?\n|\r/g, '')), params)
+    return createContractMessage(peernet.selectedAccount, new TextEncoder().encode(contract.toString().replace(/export{([A-Z])\w+ as default}|export { ([A-Z])\w+ as default }/g, `return ${name}`).replace(/\r?\n|\r/g, '')), params)
   }
   // const Chain = require('./../chain/dist/chain');
   
