@@ -1,7 +1,7 @@
 import bytecodes from './bytecodes.json' assert {type: 'json'}
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { CodecHash } from '@leofcoin/codec-format-interface'
-import { validators } from '@leofcoin/addresses'
+import { validators, contractFactory} from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
 
 declare type address = string
@@ -10,7 +10,7 @@ declare type transaction = {
   from: address,
   to: address,
   method: string,
-  params: [],
+  params: any[],
   timestamp: Number
 }
 
@@ -18,7 +18,7 @@ declare type signedTransaction = {
   from: address,
   to: address,
   method: string,
-  params: [],
+  params: any[],
   timestamp: Number
 }
 
@@ -84,5 +84,34 @@ export const signTransaction = async (transaction: transaction, wallet: signable
   const signature = await wallet.sign(await createTransactionHash(transaction))
   const signedTransaction = {...transaction, signature}
   return signedTransaction
+}
+
+export const prepareContractTransaction = async (owner, contract, constructorParameters = []) => {
+  const message = await createContractMessage(owner, contract, constructorParameters)
+  const hash = await message.hash()
+
+  const transaction: transaction = {
+    from: owner,
+    to: contractFactory,
+    timestamp: new Date().getTime(),
+    method: 'registerContract',
+    params: [hash]
+  }
+
+  return transaction
+}
+
+
+/**
+ * 
+ * @param owner address
+ * @param contract contract code 
+ * @param constructorParameters ...
+ * @param wallet {sign}
+ * @returns 
+ */
+export const prepareContractTransactionAndSign = async (owner, contract, constructorParameters = [], wallet) => {
+  const transaction = await prepareContractTransaction(owner, contract, constructorParameters)
+  return signTransaction(transaction, wallet)
 }
   

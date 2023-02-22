@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@leofcoin/contracts": "^0.1.2",
     "semver": "^7.3.7"
   }
 }

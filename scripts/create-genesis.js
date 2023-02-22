@@ -17,26 +17,26 @@ import { join } from 'path'
   console.log(peernet.selectedAccount);
   // const chain = await new Chain()
   // console.log(chain);
-  const factory = await createMessage('./chain/dist/contracts/factory.js')
+  const factory = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/factory.js')
 console.log(factory);
   if (!await contractStore.has(await factory.hash())) {
     await contractStore.put(await factory.hash(), factory.encoded)
   }
 
-  const nativeToken = await createMessage('./chain/dist/contracts/native-token.js')
+  const nativeToken = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/native-token.js')
   if (!await contractStore.has(await nativeToken.hash())) {
     await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
   }
 
 
-  const validators = await createMessage('./chain/dist/contracts/validators.js', [await nativeToken.hash()])
+  const validators = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/validators.js', [await nativeToken.hash()])
 
   if (!await contractStore.has(await validators.hash())) {
     await contractStore.put(await validators.hash(), validators.encoded)
   }
 
 
-  const nameService = await createMessage('./chain/dist/contracts/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
+  const nameService = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
 
   if (!await contractStore.has(await nameService.hash())) {
     await contractStore.put(await nameService.hash(), nameService.encoded)

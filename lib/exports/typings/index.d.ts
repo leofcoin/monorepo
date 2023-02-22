@@ -5,14 +5,14 @@ declare type transaction = {
     from: address;
     to: address;
     method: string;
-    params: [];
+    params: any[];
     timestamp: Number;
 };
 declare type signedTransaction = {
     from: address;
     to: address;
     method: string;
-    params: [];
+    params: any[];
     timestamp: Number;
 };
 declare type signable = {
@@ -28,3 +28,13 @@ export declare const calculateTransactionFee: (transaction: any) => Promise<stri
 export declare const calculateReward: (validators: any, fees: any) => [];
 export declare const createTransactionHash: (transaction: transaction) => Promise<Uint8Array>;
 export declare const signTransaction: (transaction: transaction, wallet: signable) => Promise<signedTransaction>;
+export declare const prepareContractTransaction: (owner: any, contract: any, constructorParameters?: any[]) => Promise<transaction>;
+/**
+ *
+ * @param owner address
+ * @param contract contract code
+ * @param constructorParameters ...
+ * @param wallet {sign}
+ * @returns
+ */
+export declare const prepareContractTransactionAndSign: (owner: any, contract: any, constructorParameters: any[], wallet: any) => Promise<signedTransaction>;
