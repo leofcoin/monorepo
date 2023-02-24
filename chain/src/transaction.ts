@@ -171,7 +171,7 @@ export default class Transaction extends Protocol {
         }
       })
       await globalThis.transactionPoolStore.put(hash, message.encoded)
-      debug(`Added ${hash} to the transaction pool`)
+      // debug(`Added ${hash} to the transaction pool`)
       peernet.publish('add-transaction', message.encoded)
       return {hash: hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
