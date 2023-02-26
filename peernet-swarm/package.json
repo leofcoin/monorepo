@@ -12,12 +12,13 @@
   "scripts": {
     "c": "rollup -c",
     "w": "rollup -c -w",
-    "build": "rollup -c && webpack"
+    "build": "rollup -c"
   },
   "description": "Peernet peer searcher and connector",
   "repository": "https://github.com/vandeurenglenn/peernet-swarm",
   "author": "vandeurenglenn <vandeurenglenn@gmail.com>",
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.1",
     "@types/pako": "^2.0.0",
     "@vandeurenglenn/debug": "^1.0.0",
     "browserify": "^17.0.0",
