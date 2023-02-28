@@ -244,6 +244,8 @@ class Peer {
         }
         try {
             if (message.sdp) {
+                if (this.#connection?.signalingState === 'closed')
+                    throw new Error('connection closed');
                 if (message.sdp.type === 'offer') {
                     // debug(`incoming offer ${this.#channelName}`)
                     await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp));
@@ -258,7 +260,9 @@ class Peer {
             }
         }
         catch (e) {
+            pubsub.publish('connection closed', this);
             console.log(e);
+            this.close();
         }
     }
     close() {
@@ -321,6 +325,12 @@ class Client {
             if (id !== this.id && !this.#connections[id])
                 this.#connections[id] = await new Peer({ channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id });
         }
+        pubsub.subscribe('connection closed', (peer) => {
+            this.removePeer(peer.peerId);
+            setTimeout(() => {
+                this.peerJoined(peer.peerId);
+            }, 1000);
+        });
         this.setupListeners();
     }
     setupListeners() {

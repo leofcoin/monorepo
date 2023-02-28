@@ -55,6 +55,13 @@ export default class Client {
     for (const id of peers) {
       if (id !== this.id && !this.#connections[id]) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     }
+
+    pubsub.subscribe('connection closed', (peer) => {
+        this.removePeer(peer.peerId)
+        setTimeout(() => {
+          this.peerJoined(peer.peerId)
+        }, 1000)
+    })
     this.setupListeners()
   }
 
@@ -126,15 +133,18 @@ export default class Client {
     globalThis.debug(`peer ${id} left`)
   }
 
-  async peerJoined(peer, signal) {
+  async peerJoined(peer, signal?) {
     const id = peer.peerId || peer
     if (this.#connections[id]) {
       if (this.#connections[id].connected) this.#connections[id].close()
       delete this.#connections[id]
     }
     // RTCPeerConnection
-    this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
-    globalThis.debug(`peer ${id} joined`)
+    
+      this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
+     
+      globalThis.debug(`peer ${id} joined`)
+   
   }
 
   removePeer(peer) {

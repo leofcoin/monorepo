@@ -1,5 +1,4 @@
 import '@vandeurenglenn/debug'
-
 export default class Peer {
   #connection
   #connected = false
@@ -278,6 +277,7 @@ export default class Peer {
     }
     try {
       if (message.sdp) {
+        if (this.#connection?.signalingState === 'closed') throw new Error('connection closed')
         if (message.sdp.type === 'offer') {
           // debug(`incoming offer ${this.#channelName}`)
           await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp))
@@ -291,7 +291,9 @@ export default class Peer {
         }
      }
     } catch (e) {
+      pubsub.publish('connection closed', this)
       console.log(e);
+      this.close()
     }
  }
 
