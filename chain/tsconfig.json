@@ -1,15 +1,15 @@
 {
-  "compilerOptions": {
-    "module": "es2022",
-    "target": "es2022",
-    "outDir": "./exports",
-    "moduleResolution":"NodeNext",
-    "declaration": true,
-    "declarationDir": "./exports/typings",
-    "allowJs": true,
-    "allowSyntheticDefaultImports": true,    
-    "resolveJsonModule": true
-  },
+    "compilerOptions": {
+      "module": "esnext",
+      "target": "esnext",
+      "outDir": "./exports",
+      "moduleResolution":"nodenext",
+      "declaration": true,
+      "declarationDir": "./exports/typings",
+      "allowJs": true,
+      "allowSyntheticDefaultImports": true,    
+      "resolveJsonModule": true
+    },
   "include": [
     "./src/**/*"
   ],
