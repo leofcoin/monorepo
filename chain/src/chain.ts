@@ -13,11 +13,13 @@ globalThis.BigNumber = BigNumber
 // check if browser or local
 export default class Chain  extends Contract {
   /** {Address[]} */
-  #validators = []
+  #validators = [];
   /** {Block[]} */
-  #blocks = []
+  #blocks = [];
 
-  #machine
+  #blockHashMap = new Map();
+
+  #machine;
   /** {Boolean} */
   #runningEpoch = false
 
@@ -383,19 +385,23 @@ async getAndPutBlock(hash: string): BlockMessage {
 }
 
 async resolveBlock(hash) {
+  
   if (!hash)  throw new Error(`expected hash, got: ${hash}`)
+  const index = this.#blockHashMap.get(hash)
+  if (this.#blocks[index]) {
+    if (this.#blocks[index].previousHash !== '0x0') {
+      return this.resolveBlock(this.#blocks[index])
+    }
+    return
+  } 
   try {
     const block = await this.getAndPutBlock(hash)
     const { previousHash, index } = block.decoded
-  
-    if (!this.#blocks[index]?.loaded) {
-      const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
-      this.#totalSize += size
-      this.#blocks[index] = { hash, ...block.decoded }
-      console.log(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
-    } else {
-      console.log('runs resolveBlock for nothing');
-    }
+    const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
+    this.#totalSize += size
+    this.#blocks[index] = { hash, ...block.decoded }
+    this.#blockHashMap.set(hash, index)
+    console.log(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
 
     if (previousHash !== '0x0') {
       return this.resolveBlock(previousHash)
