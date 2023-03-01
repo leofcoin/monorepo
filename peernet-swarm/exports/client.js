@@ -231,7 +231,8 @@ class Peer {
             return;
         // if (data.videocall) return this._startStream(true, false); // start video and audio stream
         // if (data.call) return this._startStream(true, true); // start audio stream
-        if (this.#connection?.signalingState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null)
+        // if (this.#connection?.signalingState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
+        if (this.#connection?.signalingState === 'stable')
             return;
         if (message.candidate) {
             // debug(`incoming candidate ${this.#channelName}`)
@@ -262,7 +263,7 @@ class Peer {
         catch (e) {
             pubsub.publish('connection closed', this);
             console.log(e);
-            this.close();
+            // this.close()
         }
     }
     close() {
