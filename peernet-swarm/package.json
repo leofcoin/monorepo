@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/peernet-swarm",
-  "version": "0.5.15",
+  "version": "0.5.16",
   "exports": {
     ".": "./exports/index.js",
     "./client": "./exports/client.js",
