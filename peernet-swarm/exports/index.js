@@ -7,6 +7,7 @@ import 'util';
 import '@leofcoin/generate-account';
 import 'socket-request-client';
 import '@vandeurenglenn/debug';
+import '@vandeurenglenn/simple-peer';
 
 var index = {
     Server,

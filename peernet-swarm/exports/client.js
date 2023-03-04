@@ -1,5 +1,6 @@
 import SocketClient from 'socket-request-client';
 import '@vandeurenglenn/debug';
+import SimplePeer from '@vandeurenglenn/simple-peer';
 
 class Peer {
     #connection;
@@ -7,11 +8,15 @@ class Peer {
     #messageQue = [];
     #chunksQue = {};
     #channel;
+    id;
     #peerId;
     #channelName;
     #chunkSize = 16 * 1024; // 16384
     #queRunning = false;
     #MAX_BUFFERED_AMOUNT = 16 * 1024 * 1024;
+    initiator = false;
+    state;
+    #makingOffer = false;
     get connection() {
         return this.#connection;
     }
@@ -21,10 +26,13 @@ class Peer {
     get readyState() {
         return this.#channel?.readyState;
     }
+    get channelName() {
+        return this.#channelName;
+    }
     /**
      * @params {Object} options
      * @params {string} options.channelName - this peerid : otherpeer id
-     */
+    */
     constructor(options = {}) {
         this._in = this._in.bind(this);
         this.offerOptions = options.offerOptions;
@@ -75,26 +83,27 @@ class Peer {
         this.#queRunning = true;
         if (this.#messageQue.length > 0 && this.#channel?.bufferedAmount + this.#messageQue[0]?.length < this.#MAX_BUFFERED_AMOUNT) {
             const message = this.#messageQue.shift();
-            switch (this.#channel?.readyState) {
-                case 'open':
-                    await this.#channel.send(message);
-                    if (this.#messageQue.length > 0)
-                        return this.#runQue();
-                    else
-                        this.#queRunning = false;
-                    break;
-                case 'closed':
-                case 'closing':
-                    this.#messageQue = [];
-                    this.#queRunning = false;
-                    debug('channel already closed, this usually means a bad implementation, try checking the readyState or check if the peer is connected before sending');
-                    break;
-                case undefined:
-                    this.#messageQue = [];
-                    this.#queRunning = false;
-                    debug(`trying to send before a channel is created`);
-                    break;
-            }
+            await this.#connection.send(message);
+            if (this.#messageQue.length > 0)
+                return this.#runQue();
+            // switch (this.#channel?.readyState) {
+            //   case 'open':
+            //   await this.#channel.send(message);
+            //   if (this.#messageQue.length > 0) return this.#runQue()
+            //   else this.#queRunning = false
+            //   break;
+            //   case 'closed':
+            //   case 'closing':
+            //   this.#messageQue = []
+            //   this.#queRunning = false
+            //   debug('channel already closed, this usually means a bad implementation, try checking the readyState or check if the peer is connected before sending');
+            //   break;
+            //   case undefined:
+            //   this.#messageQue = []
+            //   this.#queRunning = false
+            //   debug(`trying to send before a channel is created`);
+            //   break;
+            // }
         }
         else {
             return setTimeout(() => this.#runQue(), 50);
@@ -151,53 +160,41 @@ class Peer {
                     username: "openrelayproject",
                     credential: "openrelayproject",
                 }];
-            this.#connection = new wrtc.RTCPeerConnection({ iceServers });
-            this.#connection.onicecandidate = ({ candidate }) => {
-                if (candidate) {
-                    this.address = candidate.address;
-                    this.port = candidate.port;
-                    this.protocol = candidate.protocol;
-                    this.ipFamily = this.address.includes('::') ? 'ipv6' : 'ipv4';
-                    this._sendMessage({ candidate });
+            this.#connection = new SimplePeer({
+                channelName: this.channelName,
+                initiator: this.initiator,
+                peerId: this.peerId,
+                wrtc: globalThis.wrtc,
+                config: {
+                    iceServers
                 }
-            };
-            // if (this.initiator) this.#connection.onnegotiationneeded = () => {
-            // console.log('create offer');
-            this.#connection.ondatachannel = (message) => {
-                message.channel.onopen = () => {
-                    this.#connected = true;
-                    //  debug(`peer:connected ${this}`)
-                    pubsub.publish('peer:connected', this);
-                };
-                message.channel.onclose = () => this.close.bind(this);
-                message.channel.onmessage = (message) => {
-                    this._handleMessage(this.id, message);
-                };
-                this.#channel = message.channel;
-            };
-            if (this.initiator) {
-                this.#channel = this.#connection.createDataChannel('messageChannel');
-                this.#channel.onopen = () => {
-                    this.#connected = true;
-                    pubsub.publish('peer:connected', this);
-                    // this.#channel.send('hi')
-                };
-                this.#channel.onclose = () => this.close.bind(this);
-                this.#channel.onmessage = (message) => {
-                    this._handleMessage(this.peerId, message);
-                };
-                const offer = await this.#connection.createOffer();
-                await this.#connection.setLocalDescription(offer);
-                this._sendMessage({ 'sdp': this.#connection.localDescription });
-            }
+            });
+            this.#connection.on('signal', signal => {
+                this._sendMessage({ signal });
+            });
+            this.#connection.on('connect', () => {
+                this.#connected = true;
+                pubsub.publish('peer:connected', this);
+            });
+            this.#connection.on('close', () => {
+                this.close();
+            });
+            this.#connection.on('data', data => {
+                this._handleMessage(data);
+            });
+            this.#connection.on('error', (e) => {
+                pubsub.publish('connection closed', this);
+                console.log(e);
+                this.close();
+            });
         }
         catch (e) {
             console.log(e);
         }
         return this;
     }
-    _handleMessage(peerId, message) {
-        //  debug(`incoming message from ${peerId}`)
+    _handleMessage(message) {
+        console.log({ message });
         message = JSON.parse(new TextDecoder().decode(message.data));
         // allow sharding (multiple peers share data)
         pubsub.publish('peernet:shard', message);
@@ -221,56 +218,19 @@ class Peer {
         this.socketClient.send({ url: 'signal', params: {
                 to: this.to,
                 from: this.id,
-                channelName: this.options.channelName,
+                channelName: this.channelName,
                 ...message
             } });
     }
     async _in(message, data) {
-        // message = JSON.parse(message);
-        if (!this.#connection || message.to !== this.id || message.from !== this.#peerId)
-            return;
-        // if (data.videocall) return this._startStream(true, false); // start video and audio stream
-        // if (data.call) return this._startStream(true, true); // start audio stream
-        // if (this.#connection?.signalingState === 'stable' && this.#connection?.remoteDescription !== null && this.#connection?.localDescription !== null) return
-        if (this.#connection?.signalingState === 'stable')
-            return;
-        if (message.candidate) {
-            // debug(`incoming candidate ${this.#channelName}`)
-            // debug(message.candidate.candidate)
-            this.remoteAddress = message.candidate.address;
-            this.remotePort = message.candidate.port;
-            this.remoteProtocol = message.candidate.protocol;
-            this.remoteIpFamily = this.remoteAddress?.includes('::') ? 'ipv6' : 'ipv4';
-            return this.#connection.addIceCandidate(new wrtc.RTCIceCandidate(message.candidate));
-        }
-        try {
-            if (message.sdp) {
-                if (this.#connection?.signalingState === 'closed')
-                    throw new Error('connection closed');
-                if (message.sdp.type === 'offer') {
-                    // debug(`incoming offer ${this.#channelName}`)
-                    await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp));
-                    const answer = await this.#connection.createAnswer();
-                    await this.#connection.setLocalDescription(answer);
-                    this._sendMessage({ 'sdp': this.#connection.localDescription });
-                }
-                if (message.sdp.type === 'answer') {
-                    // debug(`incoming answer ${this.#channelName}`)
-                    await this.#connection.setRemoteDescription(new wrtc.RTCSessionDescription(message.sdp));
-                }
-            }
-        }
-        catch (e) {
-            pubsub.publish('connection closed', this);
-            console.log(e);
-            // this.close()
-        }
+        if (message.signal)
+            return this.#connection.signal(message.signal);
     }
     close() {
         //  debug(`closing ${this.peerId}`)
         this.#connected = false;
-        this.#channel?.close();
-        this.#connection?.close();
+        // this.#channel?.close()
+        // this.#connection?.exit()
         this.socketClient.pubsub.unsubscribe('signal', this._in);
     }
 }
@@ -321,6 +281,7 @@ class Client {
                     throw new Error(`No star available to connect`);
             }
         }
+        this.setupListeners();
         const peers = await this.socketClient.peernet.join({ id: this.id });
         for (const id of peers) {
             if (id !== this.id && !this.#connections[id])
@@ -332,7 +293,6 @@ class Client {
                 this.peerJoined(peer.peerId);
             }, 1000);
         });
-        this.setupListeners();
     }
     setupListeners() {
         this.socketClient.subscribe('peer:joined', this.peerJoined);
@@ -369,15 +329,10 @@ class Client {
                     this.setupListeners();
                     for (const id of peers) {
                         if (id !== this.id) {
-                            // close connection
-                            if (this.#connections[id]) {
-                                if (this.#connections[id].connected)
-                                    await this.#connections[id].close();
-                                delete this.#connections[id];
+                            if (!this.#connections[id]) {
+                                if (id !== this.id)
+                                    this.#connections[id] = await new Peer({ channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id });
                             }
-                            // reconnect
-                            if (id !== this.id)
-                                this.#connections[id] = await new Peer({ channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id });
                         }
                     }
                 }

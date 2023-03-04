@@ -51,6 +51,9 @@ export default class Client {
         if (stars.indexOf(star) === stars.length -1 && !this.socketClient) throw new Error(`No star available to connect`);
       }
     }
+
+    this.setupListeners()
+    
     const peers = await this.socketClient.peernet.join({id: this.id})
     for (const id of peers) {
       if (id !== this.id && !this.#connections[id]) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
@@ -62,7 +65,6 @@ export default class Client {
           this.peerJoined(peer.peerId)
         }, 1000)
     })
-    this.setupListeners()
   }
 
   setupListeners() {
@@ -105,13 +107,9 @@ export default class Client {
           this.setupListeners()
           for (const id of peers) {
             if (id !== this.id) {
-              // close connection
-              if (this.#connections[id]) {
-                if (this.#connections[id].connected) await this.#connections[id].close()
-                delete this.#connections[id]
+              if (!this.#connections[id]) {
+                if (id !== this.id) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
               }
-              // reconnect
-              if (id !== this.id) this.#connections[id] = await new Peer({channelName: `${id}:${this.id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
             }
 
           }
@@ -140,10 +138,9 @@ export default class Client {
       delete this.#connections[id]
     }
     // RTCPeerConnection
+    this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
     
-      this.#connections[id] = await new Peer({initiator: true, channelName: `${this.id}:${id}`, socketClient: this.socketClient, id: this.id, to: id, peerId: id})
-     
-      globalThis.debug(`peer ${id} joined`)
+    globalThis.debug(`peer ${id} joined`)
    
   }
 
