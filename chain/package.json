@@ -45,6 +45,7 @@
     "eslint": "^8.28.0",
     "eslint-plugin-unicorn": "^45.0.0",
     "open": "^8.4.0",
+    "rimraf": "^4.4.0",
     "rollup": "^3.12.0",
     "tape": "^5.5.2",
     "tslib": "^2.4.1"
@@ -56,7 +57,7 @@
     "@leofcoin/messages": "^1.2.0",
     "@leofcoin/multi-wallet": "^2.1.1",
     "@leofcoin/networks": "^1.0.0",
-    "@leofcoin/peernet": "^1.1.2",
+    "@leofcoin/peernet": "^1.1.12",
     "@leofcoin/peernet-swarm": "^1.0.0",
     "@leofcoin/storage": "^3.0.6",
     "@leofcoin/utils": "^1.1.4",

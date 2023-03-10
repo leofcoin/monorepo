@@ -5,57 +5,54 @@ import { signTransaction } from '@leofcoin/lib'
   const Node = await import('./../exports/node.js');
   let imp = await import('../../networks/networks.js')
   const networks = imp.default
-  console.log(networks.leofcoin.peach);
+  
   const node = await new Node.default({
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
-    stars: networks.leofcoin.peach.stars
+    stars: networks.leofcoin.peach.stars,
+    autoStart: false
   })
+  
   const chain = await new Chain.default()
   let start
   // console.log(peernet.identity.sign());
+  
       await chain.participate(peernet.selectedAccount)
       console.log(peernet.selectedAccount);
 const job = async () => {
   
   let nonce = await chain.getNonce(peernet.selectedAccount)
   // // setTimeout(async () => {
-    let tx
-    // try {
-    //   const rawTransaction = await chain.createTransaction({
-    //     from: peernet.selectedAccount, 
-    //     to: chain.nativeToken, 
-    //     method: 'grantRole',
-    //     params: [peernet.selectedAccount, 'MINT']
-    //   })
-    //   const transaction = await signTransaction(rawTransaction, peernet.identity)
-    //   tx = await chain.sendTransaction(transaction)
-    //   console.log({tx});
-    //   await tx.wait
 
-    // } catch (e) {
-    //   console.log({e});
-    // }
-
-    // try {      
-    //   const rawTransaction = await chain.createTransaction({
-    //     from: peernet.selectedAccount, 
-    //     to: chain.nativeToken, 
-    //     method: 'mint',
-    //     params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
-    //   })
-    //   const transaction = await signTransaction(rawTransaction, peernet.identity)
-    //   tx = await chain.sendTransaction(transaction)
-    //   console.log({tx});
-    //   await tx.wait
-    // } catch (e) {
-    //   console.log({e});
-    // }
-    // return
-    console.log({nonce});
+  // let transactions = [
+  //   {
+  //     from: peernet.selectedAccount, 
+  //     to: chain.nativeToken, 
+  //     method: 'grantRole',
+  //     params: [peernet.selectedAccount, 'MINT']
+  //   },
+  //   {
+  //     from: peernet.selectedAccount, 
+  //     to: chain.nativeToken, 
+  //     method: 'mint',
+  //     params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
+  //   }
+  // ]
+  //   let tx
+  //   try {
+  //     transactions = await Promise.all(transactions.map(tx => chain.createTransaction(tx)))
+  //     transactions = await Promise.all(transactions.map(tx => signTransaction(tx, peernet.identity)))
+  //     transactions = await Promise.all(transactions.map(tx => chain.sendTransaction(tx)))
+  //     transactions = await Promise.all(transactions.map(tx => tx.wait))
+  //   } catch (e) {
+  //     console.log({e});
+  //   }
+  //   // return
+  //   console.log({nonce});
     let balances = await chain.balances
     console.log({balances});
+
     // return
     // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     // console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
@@ -71,7 +68,7 @@ const job = async () => {
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
@@ -97,7 +94,7 @@ const job = async () => {
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
@@ -117,7 +114,7 @@ const job = async () => {
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, '6zqut21djrRNJAniaTByovGhnBGs5h9wfkP35mzjZkEBZwnQVo', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       return chain.sendTransaction(transaction)
@@ -133,10 +130,10 @@ const job = async () => {
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
       // }, 10000);
-    const exported = await peernet.identity.export('password')
-    const exportedQR = await peernet.identity.exportQR('password')
-    console.log(exported); 
-    console.log(exportedQR);
+    // const exported = await peernet.identity.export('password')
+    // const exportedQR = await peernet.identity.exportQR('password')
+    // console.log(exported); 
+    // console.log(exportedQR);
       // job()
   // }, 5000);
 }

@@ -49,4 +49,9 @@ export default class Contract extends Transaction {
     return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash()])    
   }
   
+  async deployContractMessage(message) {
+
+  }
+
+ 
 }

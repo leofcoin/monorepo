@@ -3,7 +3,9 @@ import typescript from '@rollup/plugin-typescript'
 import nodeResolve from '@rollup/plugin-node-resolve'
 import tsConfig from './tsconfig.json' assert { type: 'json'}
 import commonjs from '@rollup/plugin-commonjs'
+import rimraf from 'rimraf'
 
+rimraf.sync('./exports')
 export default [{
   input: ['./src/chain.ts', './src/node.ts'],
   output: {

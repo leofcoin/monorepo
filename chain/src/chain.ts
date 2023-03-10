@@ -12,6 +12,9 @@ globalThis.BigNumber = BigNumber
 
 // check if browser or local
 export default class Chain  extends Contract {
+  #state;
+  id: string;
+  utils: {};
   /** {Address[]} */
   #validators = [];
   /** {Block[]} */
@@ -118,7 +121,7 @@ export default class Chain  extends Contract {
   }
 
   async hasTransactionToHandle() {
-    const size = await transactionPoolStore.size()
+    const size = await globalThis.transactionPoolStore.size()
     if (size > 0) return true
     return false
   }
@@ -128,7 +131,7 @@ export default class Chain  extends Contract {
     console.log('epoch');
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log({validators});
-    if (!validators[globalThis.peernet.selectedAccount]?.active) return
+    if (!validators[globalThis.globalThis.peernet.selectedAccount]?.active) return
     const start = Date.now()
     try {
       await this.#createBlock()
@@ -163,7 +166,7 @@ export default class Chain  extends Contract {
     await Promise.all(contracts.map(async ({address, message}) => {
       // console.log({message});
       message = await new ContractMessage(Uint8Array.from(message.split(',').map(string => Number(string))))
-      await contractStore.put(address, message.encoded)
+      await globalThis.contractStore.put(address, message.encoded)
     }))
     console.log('handle native contracts');
     // handle native contracts
@@ -173,7 +176,7 @@ export default class Chain  extends Contract {
     return new Promise(async (resolve, reject) => {
       const timeout = setTimeout(() => {
         resolve([{index: 0, hash: '0x0'}])
-        debug('sync timed out')
+        globalThis.debug('sync timed out')
       }, 10_000)
   
       promises = await Promise.allSettled(promises);
@@ -182,7 +185,7 @@ export default class Chain  extends Contract {
 
       if (promises.length > 0) {
         promises = promises.map(async ({value}) => {
-          const node = await new peernet.protos['peernet-response'](value.result)
+          const node = await new globalThis.peernet.protos['peernet-response'](value.result)
           return {value: node.decoded.response, peer: value.peer}
         })
         promises = await Promise.all(promises)
@@ -203,10 +206,10 @@ export default class Chain  extends Contract {
   async #getLatestBlock() {
     let promises = [];
     
-    let data = await new peernet.protos['peernet-request']({request: 'lastBlock'});
-    let node = await peernet.prepareMessage(data);
+    let data = await new globalThis.peernet.protos['peernet-request']({request: 'lastBlock'});
+    let node = await globalThis.peernet.prepareMessage(data);
 
-    for (const peer of peernet?.connections) {
+    for (const peer of globalThis.peernet?.connections) {
       if (peer.connected && peer.readyState === 'open' && peer.peerId !== this.id) {        
         promises.push(async () => {
           try {
@@ -233,18 +236,18 @@ export default class Chain  extends Contract {
     
     
     if (latest.hash && latest.hash !== '0x0') {
-      let message = await peernet.get(latest.hash, 'block')
+      let message = await globalThis.peernet.get(latest.hash, 'block')
       message = await new BlockMessage(message)
       const hash = await message.hash()
       if (hash !== latest.hash) throw new Error('invalid block @getLatestBlock')
       
-      let data = await new peernet.protos['peernet-request']({request: 'knownBlocks'});
-      let node = await peernet.prepareMessage(data);
+      let data = await new globalThis.peernet.protos['peernet-request']({request: 'knownBlocks'});
+      let node = await globalThis.peernet.prepareMessage(data);
       const peer = promises[0].peer
       latest = {...message.decoded, hash}
       if (peer.connected && peer.readyState === 'open' && peer.peerId !== this.id) {
         let message = await peer.request(node)
-        message = await new peernet.protos['peernet-response'](message)
+        message = await new globalThis.peernet.protos['peernet-response'](message)
         this.#knownBlocks = message.decoded.response
       }
     }
@@ -255,42 +258,47 @@ export default class Chain  extends Contract {
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
-    const initialized = await contractStore.has(addresses.contractFactory)
+    const initialized = await globalThis.contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
 
    
     this.utils = { BigNumber, formatUnits, parseUnits }
 
-    this.state = new State()
+    this.#state = new State()
     
 
-    await peernet.addRequestHandler('bw-request-message', () => {
+    await globalThis.peernet.addRequestHandler('bw-request-message', () => {
 
-      return new BWMessage(peernet.client.bw) || { up: 0, down: 0 }
+      return new BWMessage(globalThis.peernet.client.bw) || { up: 0, down: 0 }
     })
 
-    await peernet.addRequestHandler('lastBlock', this.#lastBlockHandler.bind(this))
-    await peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler.bind(this))
+    // await globalThis.peernet.addRequestHandler('peerId', () => {
+    //   let node = 
+    //   globalThis.peernet.protos['peernet-response']({response: node.encoded})
+    // })
 
-    peernet.subscribe('add-block', this.#addBlock.bind(this))
+    await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler.bind(this))
 
-    peernet.subscribe('add-transaction', this.#addTransaction.bind(this))
+    globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
 
-    peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
+    globalThis.peernet.subscribe('add-transaction', this.#addTransaction.bind(this))
 
-    pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
+    globalThis.peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
+
+    globalThis.pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
     // todo some functions rely on state
     try {
       let localBlock
       try {
-        localBlock = await chainStore.get('lastBlock')
+        localBlock = await globalThis.chainStore.get('lastBlock')
       } catch{
-        await chainStore.put('lastBlock', '0x0')
-        localBlock = await chainStore.get('lastBlock')
+        await globalThis.chainStore.put('lastBlock', '0x0')
+        localBlock = await globalThis.chainStore.get('lastBlock')
       }
       localBlock = new TextDecoder().decode(localBlock)
       if (localBlock && localBlock !== '0x0') {
-        localBlock = await peernet.get(localBlock, 'block')
+        localBlock = await globalThis.peernet.get(localBlock, 'block')
         localBlock = await new BlockMessage(localBlock)
         this.#lastBlock = {...localBlock.decoded, hash: await localBlock.hash()}
       } else {
@@ -308,13 +316,13 @@ export default class Chain  extends Contract {
     await this.resolveBlocks()
     this.#machine = await new Machine(this.#blocks)
     await this.#loadBlocks(this.#blocks)
-    globalThis.pubsub.publish('chain:ready', true)
+    globalThis.globalThis.pubsub.publish('chain:ready', true)
     return this
   }
 
   async #validatorTimeout(validatorInfo) {
     setTimeout(() => {
-      this.#jail.splice(this.jail.indexOf(validatorInfo.address), 1)
+      this.#jail.splice(this.#jail.indexOf(validatorInfo.address), 1)
     }, validatorInfo.timeout)
     this.#jail.push(validatorInfo.address)
   }
@@ -325,7 +333,7 @@ export default class Chain  extends Contract {
     if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
       let promises = []
       promises = await Promise.allSettled(this.#knownBlocks.map(async (address) => {
-        const has = await peernet.has(address, 'block')
+        const has = await globalThis.peernet.has(address, 'block')
         return {has, address}
       }))
       promises = promises.filter(({status, value}) => status === 'fulfilled' && !value.has)
@@ -340,7 +348,7 @@ export default class Chain  extends Contract {
       const index = lastBlock.index
       await this.resolveBlock(lastBlock.hash)
       let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index - localIndex) : index
-      debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+      globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const start = (this.#blocks.length - blocksSynced) - 1
       await this.#loadBlocks(this.blocks.slice(start))
@@ -350,16 +358,19 @@ export default class Chain  extends Contract {
   }
 
   async #peerConnected(peer) {
-    let node = await new peernet.protos['peernet-request']({request: 'lastBlock'})
-    node = await peernet.prepareMessage(node)
+    let node = await new globalThis.peernet.protos['peernet-request']({request: 'lastBlock'})
+    node = await globalThis.peernet.prepareMessage(node)
     let response = await peer.request(node.encoded)
-    response = await new globalThis.peernet.protos['peernet-response'](response)
+    
+    response = await new globalThis.globalThis.peernet.protos['peernet-response'](new Uint8Array(Object.values(response )))
+    
     let lastBlock = response.decoded.response
     // try catch known blocks
-    node = await new peernet.protos['peernet-request']({request: 'knownBlocks'})
-    node = await peernet.prepareMessage(node)
+    node = await new globalThis.peernet.protos['peernet-request']({request: 'knownBlocks'})
+    node = await globalThis.peernet.prepareMessage(node)
     response = await peer.request(node.encoded)
-    response = await new globalThis.peernet.protos['peernet-response'](response)
+    
+    response = await new globalThis.globalThis.peernet.protos['peernet-response'](new Uint8Array(Object.values(response )))
     this.#knownBlocks = response.decoded.response
     this.#syncChain(lastBlock)
  }
@@ -368,24 +379,23 @@ export default class Chain  extends Contract {
 
 
 async #lastBlockHandler() {
-  return new peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
+  return new globalThis.peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
 }
 
 async #knownBlocksHandler() {
-  return new peernet.protos['peernet-response']({response: {blocks: this.#blocks.map((block) => block.hash)}})
+  return new globalThis.peernet.protos['peernet-response']({response: {blocks: this.#blocks.map((block) => block.hash)}})
 }
 
 async getAndPutBlock(hash: string): BlockMessage {
-  let block = await peernet.get(hash, 'block')
+  let block = await globalThis.peernet.get(hash, 'block')
   block = await new BlockMessage(block)
   const { index } = block.decoded
   if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
-  if (!await peernet.has(hash, 'block')) await peernet.put(hash, block.encoded, 'block')
+  if (!await globalThis.peernet.has(hash, 'block')) await globalThis.peernet.put(hash, block.encoded, 'block')
   return block
 }
 
 async resolveBlock(hash) {
-  
   if (!hash)  throw new Error(`expected hash, got: ${hash}`)
   const index = this.#blockHashMap.get(hash)
   if (this.#blocks[index]) {
@@ -409,14 +419,11 @@ async resolveBlock(hash) {
   } catch (error) {
     console.error(error)
   }
-  
-  
- 
 }
 
   async resolveBlocks() {
     try {
-      const localBlock = await chainStore.get('lastBlock')
+      const localBlock = await globalThis.chainStore.get('lastBlock')
       const hash = new TextDecoder().decode(localBlock)
 
       if (hash && hash !== '0x0')
@@ -424,7 +431,7 @@ async resolveBlock(hash) {
         this.#lastBlock = this.#blocks[this.#blocks.length - 1]
         
     } catch {
-      await chainStore.put('lastBlock', new TextEncoder().encode('0x0'))
+      await globalThis.chainStore.put('lastBlock', new TextEncoder().encode('0x0'))
       return this.resolveBlocks()
 // console.log(e);
     }
@@ -452,7 +459,7 @@ async resolveBlock(hash) {
           }
         }
         this.#blocks[block.index].loaded = true
-        debug(`loaded block: ${block.hash} @${block.index}`);
+        globalThis.debug(`loaded block: ${block.hash} @${block.index}`);
       }
     }
   }
@@ -461,11 +468,11 @@ async resolveBlock(hash) {
     try {
       let result = await this.#machine.execute(to, method, params, from, nonce)
       // if (!result) result = this.#machine.state
-      pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
+      globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
       return result || 'no state change'
     } catch (error) {
       console.log(error);
-      pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
+      globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
       throw error
     }
   }
@@ -474,13 +481,13 @@ async resolveBlock(hash) {
     // console.log(block);
     const blockMessage = await new BlockMessage(block)
     await Promise.all(blockMessage.decoded.transactions
-      .map(async transaction => transactionPoolStore.delete(transaction.hash)))
+      .map(async transaction => globalThis.transactionPoolStore.delete(transaction.hash)))
     const hash = await blockMessage.hash()
     
-    await blockStore.put(hash, blockMessage.encoded)
+    await globalThis.blockStore.put(hash, blockMessage.encoded)
     
     if (this.lastBlock.index < blockMessage.decoded.index) await this.#updateState(blockMessage)
-    debug(`added block: ${hash}`)
+    globalThis.debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
     for (let transaction of blockMessage.decoded.transactions) {
@@ -494,9 +501,9 @@ async resolveBlock(hash) {
     try {
       promises = await Promise.allSettled(promises)
       for (let transaction of blockMessage.decoded.transactions) {
-        pubsub.publish('transaction-processed', transaction)
-        if (transaction.to === peernet.selectedAccount) pubsub.publish('account-transaction-processed', transaction)        
-        await accountsStore.put(transaction.from, String(transaction.nonce))
+        globalThis.pubsub.publish('transaction-processed', transaction)
+        if (transaction.to === globalThis.peernet.selectedAccount) globalThis.pubsub.publish('account-transaction-processed', transaction)        
+        await globalThis.accountsStore.put(transaction.from, String(transaction.nonce))
       }
       
       // todo finish state
@@ -507,7 +514,7 @@ async resolveBlock(hash) {
       // }
 
       
-      pubsub.publish('block-processed', blockMessage.decoded)
+      globalThis.pubsub.publish('block-processed', blockMessage.decoded)
       
     } catch (error) {
       console.log({e: error});
@@ -519,7 +526,7 @@ async resolveBlock(hash) {
     const hash = await message.hash()
     this.#lastBlock = { hash, ...message.decoded }
     // await this.state.updateState(message)
-    await chainStore.put('lastBlock', hash)
+    await globalThis.chainStore.put('lastBlock', hash)
   }
 
 
@@ -542,7 +549,7 @@ async resolveBlock(hash) {
         timestamp: Date.now()        
       }      
       
-      const transaction = await signTransaction(rawTransaction, peernet.identity)
+      const transaction = await signTransaction(rawTransaction, globalThis.peernet.identity)
       await this.sendTransaction(transaction)
     }
     if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
@@ -551,15 +558,19 @@ async resolveBlock(hash) {
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = 1800) {
     // vote for transactions
-    if (await transactionPoolStore.size() === 0) return;
+    if (await globalThis.transactionPoolStore.size() === 0) return;
 
-    let transactions = await transactionPoolStore.values(this.transactionLimit)
+    let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
     if (Object.keys(transactions)?.length === 0 ) return
     
     let block = {
       transactions: [],
       validators: [],
-      fees: BigNumber.from(0)
+      fees: BigNumber.from(0),
+      timestamp: Date.now(),
+      previousHash: '',
+      reward: 0,
+      index: 0
     }
 
     // exclude failing tx
@@ -571,9 +582,9 @@ async resolveBlock(hash) {
         await this.#executeTransaction({...transaction.decoded, hash})
         block.transactions.push({hash, ...transaction.decoded})
         block.fees += Number(calculateFee(transaction.decoded))
-        await accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
+        await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
       } catch (e) {
-        await transactionPoolStore.delete(hash)
+        await globalThis.transactionPoolStore.delete(hash)
       }
     }
     // don't add empty block
@@ -588,7 +599,7 @@ async resolveBlock(hash) {
     //   }
     // }, [])
     const peers = {}
-    for (const entry of peernet.peerEntries) {
+    for (const entry of globalThis.peernet.peerEntries) {
       peers[entry[0]] = entry[1]
     }
     for (const validator of Object.keys(validators)) {
@@ -596,7 +607,7 @@ async resolveBlock(hash) {
         const peer = peers[validator]
         if (peer && peer.connected) {
           let data = await new BWRequestMessage()
-          const node = await peernet.prepareMessage(validator, data.encoded)
+          const node = await globalThis.peernet.prepareMessage(validator, data.encoded)
           try {
             const bw = await peer.request(node.encoded)
             console.log({bw});
@@ -606,10 +617,10 @@ async resolveBlock(hash) {
             })
           } catch{}
 
-        } else if (peernet.selectedAccount === validator) {
+        } else if (globalThis.peernet.selectedAccount === validator) {
           block.validators.push({
-            address: peernet.selectedAccount,
-            bw: peernet.bw.up + peernet.bw.down
+            address: globalThis.peernet.selectedAccount,
+            bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
           })
 
           }
@@ -650,19 +661,19 @@ async resolveBlock(hash) {
 
     try {
       await Promise.all(block.transactions
-        .map(async transaction => transactionPoolStore.delete(transaction.hash)))
+        .map(async transaction => globalThis.transactionPoolStore.delete(transaction.hash)))
 
 
       let blockMessage = await new BlockMessage(block)
       const hash = await blockMessage.hash()
       
       
-      await peernet.put(hash, blockMessage.encoded, 'block')
+      await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
       await this.#updateState(blockMessage)
-      debug(`created block: ${hash}`)
+      globalThis.debug(`created block: ${hash}`)
 
-      peernet.publish('add-block', blockMessage.encoded)
-      pubsub.publish('add-block', blockMessage.decoded)
+      globalThis.peernet.publish('add-block', blockMessage.encoded)
+      globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
       throw new Error(`invalid block ${block}`)
     }
@@ -676,8 +687,8 @@ async resolveBlock(hash) {
     try {      
       transaction = await new TransactionMessage(transaction)
       const hash = await transaction.hash()
-      const has = await transactionPoolStore.has(hash)
-      if (!has) await transactionPoolStore.put(hash, transaction.encoded)
+      const has = await globalThis.transactionPoolStore.has(hash)
+      if (!has) await globalThis.transactionPoolStore.put(hash, transaction.encoded)
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
     } catch (e) {
       console.log(e);
@@ -710,7 +721,7 @@ async resolveBlock(hash) {
    * @param {Address} sender 
    * @returns {globalMessage}
    */
-  #createMessage(sender = globalThis.peernet.selectedAccount) {
+  #createMessage(sender = globalThis.globalThis.peernet.selectedAccount) {
     return {
       sender,
       call: this.call,

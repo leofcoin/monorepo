@@ -14,7 +14,8 @@ export default class Node {
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
-    stars: networks.leofcoin.peach.stars
+    stars: networks.leofcoin.peach.stars,
+    autoStart: false
   }, password: string): Promise<this> {
     this.#node = globalThis.Peernet ? await new globalThis.Peernet(config, password) : await new Peernet(config, password)
     await nodeConfig(config)
