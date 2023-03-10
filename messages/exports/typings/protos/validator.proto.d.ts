@@ -1,5 +1,5 @@
 declare namespace _default {
     const address: string;
-    const reward: number;
+    const reward: string;
 }
 export default _default;

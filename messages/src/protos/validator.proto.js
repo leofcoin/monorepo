@@ -1,4 +1,4 @@
 export default {
   address: String(),
-  reward: Number()
+  reward: String()
 }

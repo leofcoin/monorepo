@@ -14,10 +14,7 @@
       
       try {
         await new LeofcoinNode()
-        const chain = await new LeofcoinChain()
-        console.log(
-          {chain}
-        );
+        globalThis.chain = await new LeofcoinChain()
       } catch (e) {
         console.log(e);
       }

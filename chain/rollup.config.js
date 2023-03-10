@@ -4,7 +4,7 @@ import nodeResolve from '@rollup/plugin-node-resolve'
 import tsConfig from './tsconfig.json' assert { type: 'json'}
 import commonjs from '@rollup/plugin-commonjs'
 import rimraf from 'rimraf'
-
+import modify from 'rollup-plugin-modify'
 rimraf.sync('./exports')
 export default [{
   input: ['./src/chain.ts', './src/node.ts'],
@@ -28,6 +28,41 @@ export default [{
       mainFields: ['module', 'browser']
     }),
     commonjs({exclude: ['simple-peer', './simple-peer.js']}),
-    typescript({...tsConfig, compilerOptions: {'outDir': './exports/browser', 'declaration': false, 'declarationDir': './exports/browser'}})
+    typescript({...tsConfig, compilerOptions: {'outDir': './exports/browser', 'declaration': false, 'declarationDir': './exports/browser'}}),
+    modify({
+      'node_modules/@leofcoin/workers/src/machine-worker.js': './exports/browser/workers/machine-worker.js',
+      'node_modules/@leofcoin/workers/src/block-worker.js': './block-worker.js',
+    })
+  ]
+}, {
+  input: './node_modules/@leofcoin/workers/src/machine-worker.js',
+  output: {
+    file: './exports/browser/workers/machine-worker.js',
+    format: 'es'
+  },
+
+  plugins: [
+    json(),
+    nodeResolve({
+      mainFields: ['module', 'browser']
+    }),
+    commonjs({exclude: ['simple-peer', './simple-peer.js']}),
+    modify({
+      'node_modules/@leofcoin/workers/src/machine-worker.js': './exports/browser/workers/machine-worker.js',
+      'node_modules/@leofcoin/workers/src/block-worker.js': './block-worker.js',
+    })
+  ]
+}, {
+  input: './node_modules/@leofcoin/workers/src/block-worker.js',
+  output: {
+    file: './exports/browser/workers/block-worker.js',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    nodeResolve({
+      mainFields: ['module', 'browser']
+    }),
+    commonjs({exclude: ['simple-peer', './simple-peer.js']})
   ]
 }]

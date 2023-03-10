@@ -67,7 +67,6 @@ export default class Machine {
 
       this.worker = await new EasyWorker('node_modules/@leofcoin/workers/src/machine-worker.js', {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
-
       // const blocks = await blockStore.values()
       const contracts = await Promise.all([
         contractStore.get(contractFactory),

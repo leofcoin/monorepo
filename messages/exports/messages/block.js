@@ -1,3 +1,4 @@
+import '@leofcoin/utils';
 import { FormatInterface } from '@leofcoin/codec-format-interface';
 import TransactionMessage from './transaction.js';
 import ValidatorMessage from './validator.js';
@@ -8,8 +9,8 @@ var proto = {
   index: Number(),
   previousHash: String(),
   timestamp: Number(),
-  reward: Number(),
-  fees: Number(),
+  reward: String(),
+  fees: String(),
   transactions: new Uint8Array(),
   validators: new Uint8Array()
 };

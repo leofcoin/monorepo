@@ -315,6 +315,7 @@ export default class Chain  extends Contract {
     // load local blocks
     await this.resolveBlocks()
     this.#machine = await new Machine(this.#blocks)
+    
     await this.#loadBlocks(this.#blocks)
     globalThis.globalThis.pubsub.publish('chain:ready', true)
     return this
@@ -351,7 +352,7 @@ export default class Chain  extends Contract {
       globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
 
       const start = (this.#blocks.length - blocksSynced) - 1
-      await this.#loadBlocks(this.blocks.slice(start))
+      if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
       await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
     }
     this.#chainSyncing = false
@@ -397,13 +398,17 @@ async getAndPutBlock(hash: string): BlockMessage {
 
 async resolveBlock(hash) {
   if (!hash)  throw new Error(`expected hash, got: ${hash}`)
+  if (hash === '0x0') return
+
   const index = this.#blockHashMap.get(hash)
+  
   if (this.#blocks[index]) {
     if (this.#blocks[index].previousHash !== '0x0') {
-      return this.resolveBlock(this.#blocks[index])
+      return this.resolveBlock(this.#blocks[index].previousHash)
+    } else {
+      return
     }
-    return
-  } 
+  }
   try {
     const block = await this.getAndPutBlock(hash)
     const { previousHash, index } = block.decoded
@@ -478,7 +483,6 @@ async resolveBlock(hash) {
   }
 
   async #addBlock(block) {
-    // console.log(block);
     const blockMessage = await new BlockMessage(block)
     await Promise.all(blockMessage.decoded.transactions
       .map(async transaction => globalThis.transactionPoolStore.delete(transaction.hash)))
@@ -525,6 +529,7 @@ async resolveBlock(hash) {
   async #updateState(message) {
     const hash = await message.hash()
     this.#lastBlock = { hash, ...message.decoded }
+    
     // await this.state.updateState(message)
     await globalThis.chainStore.put('lastBlock', hash)
   }
@@ -569,7 +574,7 @@ async resolveBlock(hash) {
       fees: BigNumber.from(0),
       timestamp: Date.now(),
       previousHash: '',
-      reward: 0,
+      reward: parseUnits('150'),
       index: 0
     }
 
@@ -581,7 +586,8 @@ async resolveBlock(hash) {
       try {
         await this.#executeTransaction({...transaction.decoded, hash})
         block.transactions.push({hash, ...transaction.decoded})
-        block.fees += Number(calculateFee(transaction.decoded))
+        
+        block.fees = block.fees.add(await calculateFee(transaction.decoded))
         await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
       } catch (e) {
         await globalThis.transactionPoolStore.delete(hash)
@@ -628,14 +634,20 @@ async resolveBlock(hash) {
 
     }
 
+
     console.log({validators: block.validators});
 
-    block.reward = 150
     block.validators = block.validators.map(validator => {
-      validator.reward = String(Number(block.fees) + block.reward / block.validators.length)
+
+      validator.reward = block.fees
+      validator.reward = validator.reward.add(block.reward)
+      validator.reward = validator.reward.div(block.validators.length)
+      validator.reward = validator.reward.toString()
       delete validator.bw
       return validator
     })
+
+    console.log({validators: block.validators});
     // block.validators = calculateValidatorReward(block.validators, block.fees)
 
     block.index = this.lastBlock?.index
@@ -644,20 +656,8 @@ async resolveBlock(hash) {
 
     block.previousHash = this.lastBlock?.hash || '0x0'
     block.timestamp = Date.now()
-
-    const parts = String(block.fees).split('.')
-    let decimals = 0
-    if (parts[1]) {
-      const potentional = parts[1].split('e')
-      if (potentional[0] === parts[1]) {
-        decimals = parts[1].length
-      } else {
-        parts[1] = potentional[0]
-        decimals = Number(potentional[1]?.replace(/[+-]/g, '')) + Number(potentional[0].length)
-      }
-
-    }
-    block.fees = Number.parseFloat(String(block.fees)).toFixed(decimals)
+    block.reward = block.reward.toString()
+    block.fees = block.fees.toString()
 
     try {
       await Promise.all(block.transactions
@@ -665,11 +665,13 @@ async resolveBlock(hash) {
 
 
       let blockMessage = await new BlockMessage(block)
-      const hash = await blockMessage.hash()
       
+      blockMessage = await new BlockMessage(blockMessage.encoded)
+      const hash = await blockMessage.hash()
       
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
       await this.#updateState(blockMessage)
+      
       globalThis.debug(`created block: ${hash}`)
 
       globalThis.peernet.publish('add-block', blockMessage.encoded)

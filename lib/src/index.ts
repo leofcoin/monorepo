@@ -3,6 +3,7 @@ import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { CodecHash } from '@leofcoin/codec-format-interface'
 import { validators, contractFactory} from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
+import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
 
 declare type address = string
 
@@ -40,23 +41,17 @@ export const createContractMessage = async (creator, contract, constructorParame
   })
 }
 
-export const calculateFee = async transaction => {
+export const calculateFee = async (transaction, format = false) => {
   // excluded from fees
   if (transaction.to === validators) return 0
-  // fee per gb
   transaction = await new TransactionMessage(transaction)
-  let fee = transaction.encoded.length
-  fee = fee / 1024
-  fee = fee / 1000000
-  const parts = String(fee).split('.')
-  let decimals = 0
-  if (parts[1]) {
-    const potentional = parts[1].split('e')
-    parts[1] = potentional[0]
-    decimals = Number(potentional[1].replace(/\-|\+/g, '')) + Number(potentional[0].length)
-  }
-
-  return Number.parseFloat(fee.toString()).toFixed(decimals)
+  let fee = parseUnits(String(transaction.encoded.length))
+  
+  // fee per gb
+  fee = fee.div(1073741824)
+  // fee = fee.div(1000000)
+  
+  return format ? formatUnits(fee.toString()) : fee
 }
 
 export const calculateTransactionFee = transaction => {

@@ -48,7 +48,7 @@ const job = async () => {
   //   } catch (e) {
   //     console.log({e});
   //   }
-  //   // return
+  //   return
   //   console.log({nonce});
     let balances = await chain.balances
     console.log({balances});
@@ -60,7 +60,7 @@ const job = async () => {
     let promises = []
     // nonce += 
     nonce = await chain.getNonce(peernet.selectedAccount)
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 1; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({
@@ -81,7 +81,7 @@ const job = async () => {
     balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
-// return
+return
 //     // setTimeout(async () => {
     promises = []
     nonce = await chain.getNonce(peernet.selectedAccount)

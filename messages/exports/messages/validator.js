@@ -2,7 +2,7 @@ import { FormatInterface } from '@leofcoin/codec-format-interface';
 
 var proto = {
   address: String(),
-  reward: Number()
+  reward: String()
 };
 
 class ValidatorMessage extends FormatInterface {
