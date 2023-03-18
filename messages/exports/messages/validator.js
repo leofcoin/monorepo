@@ -1,8 +1,9 @@
+import { BigNumber } from '@leofcoin/utils';
 import { FormatInterface } from '@leofcoin/codec-format-interface';
 
 var proto = {
   address: String(),
-  reward: String()
+  reward: BigNumber.from(0)
 };
 
 class ValidatorMessage extends FormatInterface {

@@ -7,11 +7,11 @@ console.log(globalThis.peernet);
 // globalThis.peernet.codecs
 const validators = [{
   address: 'address',
-  reward: 0
+  reward: new BigNumber.from(0)
 }]
 
 const transactions = []
-for (let i = 0; i <= 1_235; i++) {
+for (let i = 0; i <= 1; i++) {
   transactions.push(
     {
       timestamp: new Date().getTime(),
@@ -39,25 +39,11 @@ const contractMessage = new ContractMessage({
   contract: new Uint8Array(),
   constructorParameters: []
 })
-console.log({contractMessage});
-const bw = new BWRequestMessage()
 
 const message = new BlockMessage(block)
-console.log({reward: message.decoded.reward});
 console.time('message encoded')
-console.log(await message.hash());
-await message.encode()
-console.log(await message.hash());
-console.log({reward: new BlockMessage(message.encoded).decoded.reward});
-console.log(await new BlockMessage(message.encoded).hash());
 console.timeEnd('message encoded')
 console.time('normal encoded')
-const normalEncoded = new TextEncoder().encode(JSON.stringify(block))
 console.timeEnd('normal encoded')
 
-console.log('# is smaller then normal encoded');
-console.info(`normal: ${normalEncoded.length}\nmessage: ${message.encoded.length}`);
-console.log(normalEncoded.length > message.encoded.length);
-
 const contract = new ContractMessage(contractMessage.encoded)
-console.log(contract);
