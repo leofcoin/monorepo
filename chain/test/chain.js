@@ -52,7 +52,7 @@ const job = async () => {
   //   console.log({nonce});
     let balances = await chain.balances
     console.log({balances});
-
+return
     // return
     // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     // console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);

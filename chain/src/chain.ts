@@ -483,7 +483,7 @@ async resolveBlock(hash) {
    * @param {Block[]} blocks 
    */
   async #loadBlocks(blocks) {
-    let poolTransactionKeys = await poolStore.keys()
+    let poolTransactionKeys = await transactionPoolStore.keys()
     for (const block of blocks) {
       if (block && !block.loaded) {
         for (const transaction of block.transactions) {
