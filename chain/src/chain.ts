@@ -13,6 +13,8 @@ globalThis.BigNumber = BigNumber
 // check if browser or local
 export default class Chain  extends Contract {
   #state;
+  #lastResolved: EpochTimeStamp;
+  #slotTime = 10000;
   id: string;
   utils: {};
   /** {Address[]} */
@@ -346,6 +348,19 @@ export default class Chain  extends Contract {
   }
 
   async #syncChain(lastBlock) {
+    const timeout = () => setTimeout(() => {
+      if (this.#chainSyncing) {
+        if (this.#lastResolved + 10000 > Date.now()) timeout()
+        else {
+          this.#chainSyncing = false
+          console.log('resyncing');
+          
+          this.#syncChain(lastBlock)
+        }
+      }
+    }, 10000)
+
+    timeout()
     if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.hash) return
     this.#chainSyncing = true
     if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
@@ -372,6 +387,7 @@ export default class Chain  extends Contract {
       if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
       await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
     }
+    clearTimeout(timeout)
     this.#chainSyncing = false
   }
 
@@ -453,6 +469,7 @@ async resolveBlock(hash) {
     this.#blocks[index] = { hash, ...block.decoded }
     this.#blockHashMap.set(hash, index)
     console.log(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
+    this.#lastResolved = Date.now()
 
     if (previousHash !== '0x0') {
       return this.resolveBlock(previousHash)
@@ -609,12 +626,13 @@ async resolveBlock(hash) {
     const keys = await globalThis.transactionPoolStore.keys()
 
     
+    const timestamp = Date.now()
 
     let block = {
       transactions: [],
       validators: [],
       fees: BigNumber.from(0),
-      timestamp: Date.now(),
+      timestamp,
       previousHash: '',
       reward: parseUnits('150'),
       index: 0
@@ -623,6 +641,8 @@ async resolveBlock(hash) {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
+
+
     for (let transaction of transactions) { 
       const hash = await transaction.hash()
       const doubleTransaction = this.#blocks.filter(({transaction}) => transaction.hash === hash)
@@ -631,22 +651,25 @@ async resolveBlock(hash) {
         await globalThis.transactionPoolStore.delete(hash)
         await globalThis.peernet.publish('invalid-transaction', hash)
       } else {
-        try {
-          const result = await this.#executeTransaction({...transaction.decoded, hash})
-          console.log({result});
-          
-          block.transactions.push({hash, ...transaction.decoded})
-          
-          block.fees = block.fees.add(await calculateFee(transaction.decoded))
-          await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
-        } catch (e) {
-          console.log(keys.includes(hash));
-          
-          console.log({e});
-          console.log(hash);
-          
-          await globalThis.transactionPoolStore.delete(hash)
+        if (timestamp + this.#slotTime > Date.now()) {
+          try {
+            const result = await this.#executeTransaction({...transaction.decoded, hash})
+            console.log({result});
+            
+            block.transactions.push({hash, ...transaction.decoded})
+            
+            block.fees = block.fees.add(await calculateFee(transaction.decoded))
+            await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
+          } catch (e) {
+            console.log(keys.includes(hash));
+            
+            console.log({e});
+            console.log(hash);
+            
+            await globalThis.transactionPoolStore.delete(hash)
+          }
         }
+        
       }
       
     }
@@ -743,14 +766,18 @@ async resolveBlock(hash) {
   
 
   async #addTransaction(transaction) {
-    try {      
-      transaction = await new TransactionMessage(transaction)
-      const hash = await transaction.hash()
+    transaction = await new TransactionMessage(transaction)
+    const hash = await transaction.hash()
+    try {
       const has = await globalThis.transactionPoolStore.has(hash)
-      if (!has) await globalThis.transactionPoolStore.put(hash, transaction.encoded)
-      if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+      if (!has) {
+        await globalThis.transactionPoolStore.put(hash, transaction.encoded)
+        if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+      }
+      else globalThis.peernet.pubsub('invalid-transaction', hash)
     } catch (e) {
       console.log(e);
+      globalThis.peernet.pubsub('invalid-transaction', hash)
       throw new Error('invalid transaction')
     }
   }
