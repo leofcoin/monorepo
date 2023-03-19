@@ -77,11 +77,11 @@ return
     promises = await Promise.allSettled(promises.map(({value}) => value.wait))
 
     console.log(`${(new Date().getTime() - start) / 1000} s`);
-
+console.log(promises);
     balances = await chain.balances
     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
-return
+// return
 //     // setTimeout(async () => {
     promises = []
     nonce = await chain.getNonce(peernet.selectedAccount)
@@ -114,7 +114,7 @@ return
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       return chain.sendTransaction(transaction)

@@ -12,6 +12,7 @@ globalThis.BigNumber = BigNumber
 
 // check if browser or local
 export default class Chain  extends Contract {
+  version: String;
   #state;
   #lastResolved: EpochTimeStamp;
   #slotTime = 10000;
@@ -212,7 +213,7 @@ export default class Chain  extends Contract {
     let node = await globalThis.peernet.prepareMessage(data);
 
     for (const peer of globalThis.peernet?.connections) {
-      if (peer.connected) {        
+      if (peer.connected && peer.version === this.version) {        
         promises.push(async () => {
           try {
             const result = await peer.request(node.encoded)
@@ -222,10 +223,6 @@ export default class Chain  extends Contract {
           }
 
         });
-      } else if (!peer.connected) {
-        globalThis.peernet.removePeer(peer)
-        // todo: remove peer
-        // reinitiate channel?
       }
     }
     promises = await this.promiseRequests(promises)
@@ -248,7 +245,7 @@ export default class Chain  extends Contract {
       let node = await globalThis.peernet.prepareMessage(data);
       const peer = promises[0].peer
       latest = {...message.decoded, hash}
-      if (peer.connected && peer.readyState === 'open' && peer.peerId !== this.id) {
+      if (peer.connected && peer.version === this.version) {
         let message = await peer.request(node)
         message = await new globalThis.peernet.protos['peernet-response'](message)
         this.#knownBlocks = message.decoded.response
@@ -262,6 +259,18 @@ export default class Chain  extends Contract {
   }
 
   async #init() {
+    try {
+      const version = await globalThis.chainStore.get('version')
+      this.version = version
+      // if (version)
+    } catch {
+      this.version = '1.0.0'
+      await globalThis.chainStore.clear()
+      await globalThis.blockStore.clear()
+      await globalThis.transactionPoolStore.clear()
+      await globalThis.chainStore.put('version', this.version)
+    }
+    
     await this.#clearPool()
     // this.node = await new Node()
     this.#participants = []
@@ -286,6 +295,7 @@ export default class Chain  extends Contract {
     // })
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
 
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler.bind(this))
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler.bind(this))
@@ -410,6 +420,7 @@ export default class Chain  extends Contract {
   }
 
   async #peerConnected(peer) {
+    if (!peer.version || peer.version !== this.version) return
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
     this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     let pool = await this.#makeRequest(peer, 'transactionPool')
@@ -435,6 +446,10 @@ export default class Chain  extends Contract {
 async #transactionPoolHandler() {
   const pool = await globalThis.transactionPoolStore.keys()
   return new globalThis.peernet.protos['peernet-response']({response: pool})
+}
+
+async #versionHandler() {
+  return new globalThis.peernet.protos['peernet-response']({response: {version: this.version}})
 }
 
 async #lastBlockHandler() {
@@ -709,7 +724,7 @@ async resolveBlock(hash) {
     for (const validator of Object.keys(validators)) {
       if (validators[validator].active) {
         const peer = peers[validator]
-        if (peer && peer.connected) {
+        if (peer && peer.connected && peer.version === this.version) {
           let data = await new BWRequestMessage()
           const node = await globalThis.peernet.prepareMessage(validator, data.encoded)
           try {
