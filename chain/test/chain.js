@@ -60,7 +60,7 @@ const job = async () => {
     let promises = []
     // nonce += 
     nonce = await chain.getNonce(peernet.selectedAccount)
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 100; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({
@@ -68,7 +68,7 @@ const job = async () => {
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
@@ -94,7 +94,7 @@ return
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', chain.utils.parseUnits('100').toString()]
+        params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))

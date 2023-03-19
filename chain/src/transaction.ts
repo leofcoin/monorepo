@@ -148,7 +148,7 @@ export default class Transaction extends Protocol {
   async sendTransaction(message) {
     if (!this.isTransactionMessage(message)) message = new TransactionMessage(message)
     if (!message.decoded.signature) throw new Error(`transaction not signed`)
-    if (message.decoded.nonce === undefined) throw new Error(`nonce required`)    
+    if (message.decoded.nonce === undefined) throw new Error(`nonce required`)
     
     try {      
       await this.validateNonce(message.decoded.from, message.decoded.nonce)
