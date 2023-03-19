@@ -257,7 +257,12 @@ export default class Chain  extends Contract {
     return latest
   }
 
+  async #clearPool() {
+    await globalThis.transactionPoolStore.clear()
+  }
+
   async #init() {
+    await this.#clearPool()
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
@@ -533,7 +538,7 @@ async resolveBlock(hash) {
       return result || 'no state change'
     } catch (error) {
       console.log({error});
-      globalThis.peernet.pubsub.publish('invalid-transaction', hash)
+      globalThis.peernet.publish('invalid-transaction', hash)
       globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
       throw {error, hash, from, to, params, nonce}
     }
@@ -646,9 +651,18 @@ async resolveBlock(hash) {
 
     for (let transaction of transactions) { 
       const hash = await transaction.hash()
-      const doubleTransaction = this.#blocks.filter(({transaction}) => transaction.hash === hash)
+      const doubleTransactions = []
+
+      for (const block of this.#blocks) {
+        for (const transaction of block.transactions) {
+          if (transaction.hash === hash) {
+            doubleTransactions.push(hash)
+          }
+        }
+      }
+      console.log();
       
-      if (doubleTransaction.length > 0) {
+      if (doubleTransactions.length > 0) {
         await globalThis.transactionPoolStore.delete(hash)
         await globalThis.peernet.publish('invalid-transaction', hash)
       } else {
