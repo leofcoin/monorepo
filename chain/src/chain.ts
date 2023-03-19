@@ -348,7 +348,8 @@ export default class Chain  extends Contract {
   }
 
   async #syncChain(lastBlock) {
-    const timeout = () => setTimeout(() => {
+    let current
+    const timeout = () => current = setTimeout(() => {
       if (this.#chainSyncing) {
         if (this.#lastResolved + 10000 > Date.now()) timeout()
         else {
@@ -387,7 +388,7 @@ export default class Chain  extends Contract {
       if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
       await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
     }
-    clearTimeout(timeout)
+    clearTimeout(current)
     this.#chainSyncing = false
   }
 
@@ -774,10 +775,10 @@ async resolveBlock(hash) {
         await globalThis.transactionPoolStore.put(hash, transaction.encoded)
         if (this.#participating && !this.#runningEpoch) this.#runEpoch()
       }
-      else globalThis.peernet.pubsub('invalid-transaction', hash)
+      else globalThis.peernet.publish('invalid-transaction', hash)
     } catch (e) {
       console.log(e);
-      globalThis.peernet.pubsub('invalid-transaction', hash)
+      globalThis.peernet.publish('invalid-transaction', hash)
       throw new Error('invalid transaction')
     }
   }
