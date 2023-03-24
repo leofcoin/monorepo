@@ -72,8 +72,11 @@ export const calculateReward = (validators, fees): [] => {
   return validators
 }
 
-export const createTransactionHash = async (transaction: transaction): Promise<Uint8Array> => 
-  (await new TransactionMessage(transaction)).peernetHash.digest
+export const createTransactionHash = async (transaction: transaction): Promise<Uint8Array> => {
+  transaction = await (await new TransactionMessage(transaction)).hash()
+  return transaction.peernetHash.digest
+}
+ 
 
 export const signTransaction = async (transaction: transaction, wallet: signable): Promise<signedTransaction> => {
   const signature = await wallet.sign(await createTransactionHash(transaction))
