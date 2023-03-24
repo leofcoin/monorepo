@@ -1,7 +1,7 @@
-import { ContractMessage } from '@leofcoin/messages';
+import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages';
 export { default as nodeConfig } from './node-config.js';
 declare type address = string;
-declare type transaction = {
+declare type rawTransaction = {
     from: address;
     to: address;
     method: string;
@@ -14,9 +14,10 @@ declare type signedTransaction = {
     method: string;
     params: any[];
     timestamp: Number;
+    signature: Uint8Array;
 };
 declare type signable = {
-    sign: (transaction: any) => Uint8Array;
+    sign: (transaction: rawTransaction) => Uint8Array;
 };
 export declare const contractFactoryMessage: string;
 export declare const nativeTokenMessage: string;
@@ -26,9 +27,9 @@ export declare const createContractMessage: (creator: any, contract: any, constr
 export declare const calculateFee: (transaction: any, format?: boolean) => Promise<any>;
 export declare const calculateTransactionFee: (transaction: any) => Promise<any>;
 export declare const calculateReward: (validators: any, fees: any) => [];
-export declare const createTransactionHash: (transaction: transaction) => Promise<Uint8Array>;
-export declare const signTransaction: (transaction: transaction, wallet: signable) => Promise<signedTransaction>;
-export declare const prepareContractTransaction: (owner: any, contract: any, constructorParameters?: any[]) => Promise<transaction>;
+export declare const createTransactionHash: (transaction: rawTransaction | TransactionMessage | RawTransactionMessage) => Promise<Uint8Array>;
+export declare const signTransaction: (transaction: rawTransaction, wallet: signable) => Promise<signedTransaction>;
+export declare const prepareContractTransaction: (owner: any, contract: any, constructorParameters?: any[]) => Promise<rawTransaction>;
 /**
  *
  * @param owner address

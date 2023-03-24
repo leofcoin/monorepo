@@ -1,13 +1,12 @@
 import bytecodes from './bytecodes.json' assert {type: 'json'}
-import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import { CodecHash } from '@leofcoin/codec-format-interface'
+import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages'
 import { validators, contractFactory} from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
 import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
 
 declare type address = string
 
-declare type transaction = {
+declare type rawTransaction = {
   from: address,
   to: address,
   method: string,
@@ -20,11 +19,12 @@ declare type signedTransaction = {
   to: address,
   method: string,
   params: any[],
-  timestamp: Number
+  timestamp: Number,
+  signature: Uint8Array
 }
 
 declare type signable = {
-  sign: (transaction) => Uint8Array
+  sign: (transaction: rawTransaction) => Uint8Array
 }
 
 export const contractFactoryMessage = bytecodes.contractFactory
@@ -72,13 +72,20 @@ export const calculateReward = (validators, fees): [] => {
   return validators
 }
 
-export const createTransactionHash = async (transaction: transaction): Promise<Uint8Array> => {
-  transaction = await (await new TransactionMessage(transaction)).hash()
-  return transaction.peernetHash.digest
-}
- 
+export const createTransactionHash = async (transaction: rawTransaction | TransactionMessage | RawTransactionMessage): Promise<Uint8Array> => {
+  const isRawTransactionMessage = transaction instanceof RawTransactionMessage
 
-export const signTransaction = async (transaction: transaction, wallet: signable): Promise<signedTransaction> => {
+  if (!isRawTransactionMessage) {
+    if (transaction.decoded && transaction instanceof TransactionMessage) transaction = await new RawTransactionMessage(transaction.decoded)
+    else transaction = await new RawTransactionMessage(transaction)
+  }
+  
+  return (await transaction.peernetHash).digest
+}
+  
+
+export const signTransaction = async (transaction: rawTransaction, wallet: signable): Promise<signedTransaction> => {
+  
   const signature = await wallet.sign(await createTransactionHash(transaction))
   const signedTransaction = {...transaction, signature}
   return signedTransaction
@@ -88,7 +95,7 @@ export const prepareContractTransaction = async (owner, contract, constructorPar
   const message = await createContractMessage(owner, contract, constructorParameters)
   const hash = await message.hash()
 
-  const transaction: transaction = {
+  const transaction: rawTransaction = {
     from: owner,
     to: contractFactory,
     timestamp: new Date().getTime(),
