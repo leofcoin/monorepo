@@ -155,12 +155,15 @@ export default class Transaction extends Protocol {
       // todo check if signature is valid
       const hash = await message.hash()
       let data
+      
       const wait = new Promise(async (resolve, reject) => {
+        
         if (pubsub.subscribers[`transaction.completed.${hash}`]) {
           const result = pubsub.subscribers[`transaction.completed.${hash}`].value
           result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
         } else {
           const completed = async result => {
+            
             result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
     
             setTimeout(async () => {
@@ -173,7 +176,7 @@ export default class Transaction extends Protocol {
       await globalThis.transactionPoolStore.put(hash, message.encoded)
       // debug(`Added ${hash} to the transaction pool`)
       peernet.publish('add-transaction', message.encoded)
-      return {hash: hash, data, fee: await calculateFee(message.decoded), wait, message}
+      return {hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
       throw error
     }
