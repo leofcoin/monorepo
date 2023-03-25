@@ -7,7 +7,6 @@ import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServ
 import State from './state.js'
 import Contract from './contract.js'
 import { BigNumberish } from '@ethersproject/bignumber'
-
 globalThis.BigNumber = BigNumber
 
 // check if browser or local
@@ -180,7 +179,7 @@ export default class Chain  extends Contract {
       const timeout = setTimeout(() => {
         resolve([{index: 0, hash: '0x0'}])
         globalThis.debug('sync timed out')
-      }, 10_000)
+      }, this.requestTimeout)
   
       promises = await Promise.allSettled(promises);
       promises = promises.filter(({status}) => status === 'fulfilled')
@@ -241,11 +240,14 @@ export default class Chain  extends Contract {
       const hash = await message.hash()
       if (hash !== latest.hash) throw new Error('invalid block @getLatestBlock')
       
-      let data = await new globalThis.peernet.protos['peernet-request']({request: 'knownBlocks'});
-      let node = await globalThis.peernet.prepareMessage(data);
-      const peer = promises[0].peer
       latest = {...message.decoded, hash}
+      
+      const peer = promises[0].peer
+
       if (peer.connected && peer.version === this.version) {
+        let data = await new globalThis.peernet.protos['peernet-request']({request: 'knownBlocks'});
+        let node = await globalThis.peernet.prepareMessage(data);
+      
         let message = await peer.request(node)
         message = await new globalThis.peernet.protos['peernet-response'](message)
         this.#knownBlocks = message.decoded.response
@@ -377,7 +379,7 @@ export default class Chain  extends Contract {
     let current
     const timeout = () => current = setTimeout(() => {
       if (this.#chainSyncing) {
-        if (this.#lastResolved + 10000 > Date.now()) timeout()
+        if (this.#lastResolved + this.syncTimeout > Date.now()) timeout()
         else {
           this.#chainSyncing = false
           console.log('resyncing');
@@ -385,7 +387,7 @@ export default class Chain  extends Contract {
           this.#syncChain(lastBlock)
         }
       }
-    }, 10000)
+    }, this.syncTimeout)
 
     timeout()
     if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.hash) return
@@ -435,8 +437,8 @@ export default class Chain  extends Contract {
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
 
-    if (!this.#lastBlock || lastBlock && lastBlock.index > this.#lastBlock.index && lastBlock.hash === this.#lastBlock?.hash) {
-      this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
+    if (!this.#lastBlock || lastBlock && lastBlock.index > this.#lastBlock.index && lastBlock.hash !== this.#lastBlock?.hash) {
+      // this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
 
       let pool = await this.#makeRequest(peer, 'transactionPool')
       pool = await Promise.all(pool.map(async (hash) => {
@@ -483,11 +485,14 @@ async #knownBlocksHandler() {
 }
 
 async getAndPutBlock(hash: string): BlockMessage {
+  // todo peernet resolves undefined blocks....
   let block = await globalThis.peernet.get(hash, 'block')
-  block = await new BlockMessage(block)
-  const { index } = block.decoded
-  if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
-  if (!await globalThis.peernet.has(hash, 'block')) await globalThis.peernet.put(hash, block.encoded, 'block')
+  if (block !== undefined) {
+    block = await new BlockMessage(block)
+    const { index } = block.decoded
+    if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
+    if (!await globalThis.peernet.has(hash, 'block')) await globalThis.peernet.put(hash, block.encoded, 'block')
+  }
   return block
 }
 
@@ -669,8 +674,6 @@ async resolveBlock(hash) {
 
     let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
     if (Object.keys(transactions)?.length === 0 ) return
-    const keys = await globalThis.transactionPoolStore.keys()
-
     
     const timestamp = Date.now()
 
