@@ -437,25 +437,37 @@ export default class Chain  extends Contract {
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
 
-    if (!this.#lastBlock || lastBlock && lastBlock.index > this.#lastBlock.index && lastBlock.hash !== this.#lastBlock?.hash) {
+    if (lastBlock.index > this.#lastBlock?.index) {
       // this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
 
-      let pool = await this.#makeRequest(peer, 'transactionPool')
-      pool = await Promise.all(pool.map(async (hash) => {
-        const has = await globalThis.peernet.has(hash)
-        return {has, hash}
-      }))
-  
-      pool = pool.filter(item => !item.has)
-      await Promise.all(pool.map(async ({hash}) => {
-        const result = await globalThis.peernet.get(hash)
-        // result could be undefined cause invalid/double transactions could be deleted already
-        if (!result) console.log(result);
-        if (result) {
-            const node = await new TransactionMessage(result);
-            await globalThis.transactionPoolStore.put(await node.hash(), node.encoded);
-        }
-      }))
+      try {
+        console.log('getting pool');
+        
+        let pool = await this.#makeRequest(peer, 'transactionPool')
+        console.log('got pool');
+        
+        pool = await Promise.all(pool.map(async (hash) => {
+          const has = await globalThis.peernet.has(hash)
+          return {has, hash}
+        }))
+    
+        pool = pool.filter(item => !item.has)
+        await Promise.all(pool.map(async ({hash}) => {
+          const result = await globalThis.peernet.get(hash)
+          // result could be undefined cause invalid/double transactions could be deleted already
+          if (!result) console.log(result);
+          if (result) {
+              const node = await new TransactionMessage(result);
+              await globalThis.transactionPoolStore.put(await node.hash(), node.encoded);
+          }
+        }))
+      } catch (error) {
+        console.log(error);
+        
+        console.log('error fetching transactionPool');
+        
+      }
+      console.log(lastBlock);
       
       if (lastBlock) await this.#syncChain(lastBlock)
   
@@ -547,7 +559,7 @@ async resolveBlock(hash) {
    * 
    * @param {Block[]} blocks 
    */
-  async #loadBlocks(blocks) {
+  async #loadBlocks(blocks): Promise<boolean> {
     let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
     for (const block of blocks) {
       if (block && !block.loaded) {
@@ -564,12 +576,14 @@ async resolveBlock(hash) {
             this.#totalTransactions += 1
           } catch (error) {
             console.log(error);
+            return false
           }
         }
         this.#blocks[block.index].loaded = true
         globalThis.debug(`loaded block: ${block.hash} @${block.index}`);
       }
     }
+    return true
   }
 
   async #executeTransaction({hash, from, to, method, params, nonce}) {
