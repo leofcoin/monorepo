@@ -12,6 +12,7 @@ globalThis.BigNumber = BigNumber
 // check if browser or local
 export default class Chain  extends Contract {
   version: String;
+  #resolveErrored
   #state;
   #lastResolved: EpochTimeStamp;
   #slotTime = 10000;
@@ -437,11 +438,12 @@ export default class Chain  extends Contract {
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
 
-    if (lastBlock && lastBlock.index > this.#lastBlock?.index) {
+    if (this.#resolveErrored || lastBlock && lastBlock.index > this.#lastBlock?.index) {
       // this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
 
       
       console.log(lastBlock);
+      this.#resolveErrored = false
       
       if (lastBlock) await this.#syncChain(lastBlock)
   
@@ -509,6 +511,7 @@ async resolveBlock(hash) {
       return this.resolveBlock(previousHash)
     }
   } catch (error) {
+    this.#resolveErrored = true
     console.error(error)
   }
 }
