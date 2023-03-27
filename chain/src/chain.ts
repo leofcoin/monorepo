@@ -447,7 +447,7 @@ export default class Chain  extends Contract {
       
       if (lastBlock) await this.#syncChain(lastBlock)
   
-      if (await this.hasTransactionToHandle()) this.#runEpoch()
+      if (await this.hasTransactionToHandle() && !this.#resolveErrored && this.#participating) this.#runEpoch()
     }
 
     
@@ -655,7 +655,7 @@ async resolveBlock(hash) {
       const transaction = await signTransaction(rawTransaction, globalThis.peernet.identity)
       await this.sendTransaction(transaction)
     }
-    if (await this.hasTransactionToHandle() && !this.#runningEpoch) await this.#runEpoch()
+    if (await this.hasTransactionToHandle() && !this.#runningEpoch && this.#participating) await this.#runEpoch()
   }
 
   // todo filter tx that need to wait on prev nonce
