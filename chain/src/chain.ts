@@ -9,8 +9,12 @@ import Contract from './contract.js'
 import { BigNumberish } from '@ethersproject/bignumber'
 globalThis.BigNumber = BigNumber
 
+declare type chainSyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
+
 // check if browser or local
 export default class Chain  extends Contract {
+  #lastBlockInQue: { index: 0, hash: '0x0'} | undefined;
+  #syncErrorCount = 0;
   version: String;
   #resolveErrored
   #state;
@@ -372,26 +376,52 @@ export default class Chain  extends Contract {
   async triggerSync() {
     if (this.#chainSyncing) return 'already syncing'
     const latest = await this.#getLatestBlock()
-    await this.#syncChain(latest)
+    await this.syncChain(latest)
+    return 'synced'
+  }
+
+  async syncChain(lastBlock): Promise<chainSyncState > {
+    if (!lastBlock) lastBlock = await this.#getLatestBlock()
+
+    if (this.#chainSyncing) {
+      if (!this.#lastBlockInQue || lastBlock.index > this.#lastBlockInQue.index) this.#lastBlockInQue = lastBlock
+      return 'syncing'
+    }
+
+    this.#chainSyncing = true
+
+    let tries = 0
+
+    const syncPromise = (lastBlock) => new Promise(async (resolve, reject) => {
+      setTimeout(() => {
+        reject('timedOut')
+      }, 10000)
+      try {
+        await this.#syncChain(lastBlock)
+        resolve(true)
+      } catch (error) {
+        reject(error)
+      }
+    })
+    
+    if (globalThis.peernet.connections.length === 0) return 'connectionless'
+
+    try {
+      await syncPromise(lastBlock)
+    } catch (error) {
+      console.log(error);
+      this.#syncErrorCount += 1
+      if (this.#syncErrorCount <= 3) return this.syncChain(this.#lastBlockInQue)
+      return 'errored'
+    }
+    this.#syncErrorCount = 0
+    if (this.#lastBlockInQue) return this.syncChain(this.#lastBlockInQue)
+    this.#chainSyncing = false
     return 'synced'
   }
 
   async #syncChain(lastBlock) {
-    let current
-    const timeout = () => current = setTimeout(() => {
-      if (this.#chainSyncing) {
-        if (this.#lastResolved + this.syncTimeout > Date.now()) timeout()
-        else {
-          this.#chainSyncing = false
-          console.log('resyncing');
-          
-          this.#syncChain(lastBlock)
-        }
-      }
-    }, this.syncTimeout)
-
-    timeout()
-    if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.hash) return
+    if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.index) return
     this.#chainSyncing = true
     if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
       let promises = []
@@ -445,7 +475,7 @@ export default class Chain  extends Contract {
       console.log(lastBlock);
       this.#resolveErrored = false
       
-      if (lastBlock) await this.#syncChain(lastBlock)
+      if (lastBlock) await this.syncChain(lastBlock)
   
       if (await this.hasTransactionToHandle() && !this.#resolveErrored && this.#participating) this.#runEpoch()
     }
