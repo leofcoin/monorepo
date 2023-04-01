@@ -384,22 +384,28 @@ export default class Chain  extends Contract {
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
     if (this.#chainSyncing) {
+      console.log('already syncing');
+      
       if (!this.#lastBlockInQue || lastBlock.index > this.#lastBlockInQue.index) this.#lastBlockInQue = lastBlock
       return 'syncing'
     }
 
+    console.log('starting sync');
+    
     this.#chainSyncing = true
 
-    let tries = 0
-
     const syncPromise = (lastBlock) => new Promise(async (resolve, reject) => {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
+        this.#chainSyncing = false
+        this.#syncErrorCount = 0
         reject('timedOut')
-      }, 10000)
+      }, 60000)
       try {
         await this.#syncChain(lastBlock)
+        clearTimeout(timeout)
         resolve(true)
       } catch (error) {
+        clearTimeout(timeout)
         reject(error)
       }
     })
@@ -408,10 +414,14 @@ export default class Chain  extends Contract {
 
     try {
       await syncPromise(lastBlock)
+      if (lastBlock.index === this.#lastBlockInQue?.index || lastBlock.index > this.#lastBlockInQue?.index) this.#lastBlockInQue = undefined
     } catch (error) {
       console.log(error);
       this.#syncErrorCount += 1
-      if (this.#syncErrorCount <= 3) return this.syncChain(this.#lastBlockInQue)
+      if (this.#syncErrorCount < 3) await syncPromise(lastBlock)
+
+      this.#chainSyncing = false
+      this.#syncErrorCount = 0
       return 'errored'
     }
     this.#syncErrorCount = 0
@@ -421,8 +431,6 @@ export default class Chain  extends Contract {
   }
 
   async #syncChain(lastBlock) {
-    if (this.#chainSyncing || !lastBlock || !lastBlock.hash || !lastBlock.index) return
-    this.#chainSyncing = true
     if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
       let promises = []
       promises = await Promise.allSettled(this.#knownBlocks.map(async (address) => {
@@ -447,8 +455,6 @@ export default class Chain  extends Contract {
       if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
       await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
     }
-    clearTimeout(current)
-    this.#chainSyncing = false
   }
 
   async #prepareRequest(request) {
