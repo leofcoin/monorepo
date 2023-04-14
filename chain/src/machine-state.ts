@@ -1,6 +1,6 @@
 import pako from 'pako'
 
-export default class State {
+export default class MachineState {
   constructor() {
     // return this.#init()
   }

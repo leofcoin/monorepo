@@ -10,6 +10,10 @@ export default class Contract extends Transaction {
     super()
   }
 
+  async init() {
+
+  }
+
   /**
    * 
    * @param {Address} creator 

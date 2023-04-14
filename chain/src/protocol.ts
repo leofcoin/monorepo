@@ -4,6 +4,8 @@ export const requestTimeout = 30_000
 export const syncTimeout = 30_000
 
 export class Protocol {
+  version: String;
+  
   get limit() {
     return limit
   }
