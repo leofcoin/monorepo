@@ -1,16 +1,12 @@
 import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
-import Machine from './machine.js'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses, { nativeToken } from '@leofcoin/addresses'
 import { signTransaction } from '@leofcoin/lib'
 import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
-import Contract from './contract.js'
 import { BigNumberish } from '@ethersproject/bignumber'
 import State from './state.js'
 
 globalThis.BigNumber = BigNumber
-
-declare type chainSyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
 // check if browser or local
 export default class Chain extends State {
@@ -25,33 +21,7 @@ export default class Chain extends State {
   /** {Boolean} */
   #runningEpoch = false
 
-  /** 
-   * amount the native token has been iteracted with
-   */
-  #nativeCalls = 0
 
-  /** 
-   * amount the native token has been iteracted with
-   */
-   #nativeTransfers = 0
-
-  /** 
-   * amount of native token burned
-   * {Number}
-   */
-  #nativeBurns = 0
-
-  /** 
-   * amount of native tokens minted
-   * {Number}
-   */
-  #nativeMints = 0
-
-  /** 
-   * total amount of transactions
-   * {Number}
-   */
-   #totalTransactions = 0
 
   #participants = []
   #participating = false
@@ -60,26 +30,6 @@ export default class Chain extends State {
   constructor() {
     super()
     return this.#init()
-  }
-
-  get nativeMints() {
-    return this.#nativeMints
-  }
-
-  get nativeBurns() {
-    return this.#nativeBurns
-  }
-  
-  get nativeTransfers() {
-    return this.#nativeTransfers
-  }
-
-  get totalTransactions() {
-    return this.#totalTransactions
-  }
-
-  get nativeCalls() {
-    return this.#nativeCalls
   }
 
   get nativeToken() {
@@ -141,10 +91,6 @@ export default class Chain extends State {
     console.log('handle native contracts');
     // handle native contracts
   }
-
-  
-
-  
 
   async #clearPool() {
     await globalThis.transactionPoolStore.clear()
@@ -231,11 +177,6 @@ export default class Chain extends State {
     this.#jail.push(validatorInfo.address)
   }
 
-  async triggerSync() {
-    const latest = await this.#getLatestBlock()
-    return this.syncChain(latest)
-  }
-
   
   async #prepareRequest(request) {
     let node = await new globalThis.peernet.protos['peernet-request']({request})
@@ -254,13 +195,12 @@ export default class Chain extends State {
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
     if (Object.keys(lastBlock).length > 0) {
-      if (this.#resolveErrored || !this.#lastBlock || lastBlock && lastBlock.index > this.#lastBlock?.index) {
+      if (!this.lastBlock || !this.blocks[this.blocks.length - 1].loaded || lastBlock && lastBlock.index > this.lastBlock?.index) {
         // this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
-        this.#resolveErrored = false
         
         await this.syncChain(lastBlock)
     
-        if (await this.hasTransactionToHandle() && !this.#resolveErrored && this.#participating) this.#runEpoch()
+        // if (await this.hasTransactionToHandle() && this.#participating) this.#runEpoch()
       }
     }
  }
@@ -278,9 +218,9 @@ async #versionHandler() {
 
 async #executeTransaction({hash, from, to, method, params, nonce}) {
   try {
-    let result = await this.#machine.execute(to, method, params, from, nonce)
+    let result = await this.machine.execute(to, method, params)
     
-    // if (!result) result = this.#machine.state
+    // if (!result) result = this.machine.state
     globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
     return result || 'no state change'
   } catch (error) {
@@ -301,7 +241,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     
     await globalThis.blockStore.put(hash, blockMessage.encoded)
     
-    if (this.lastBlock.index < blockMessage.decoded.index) await this.#updateState(blockMessage)
+    if (this.lastBlock.index < blockMessage.decoded.index) await this.updateState(blockMessage)
     globalThis.debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
@@ -323,7 +263,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       
       // todo finish state
       // for (const contract of contracts) {
-      //   const state = await this.#machine.get(contract, 'state')
+      //   const state = await this.machine.get(contract, 'state')
       //   // await stateStore.put(contract, state)
       //   console.log(state);
       // }
@@ -336,16 +276,6 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     }
 
   }
-
-  async #updateState(message) {
-    const hash = await message.hash()
-    this.#lastBlock = { hash, ...message.decoded }
-    
-    // await this.state.updateState(message)
-    await globalThis.chainStore.put('lastBlock', hash)
-  }
-
-
 
   async participate(address) {
     // TODO: validate participant
@@ -400,7 +330,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       const hash = await transaction.hash()
       const doubleTransactions = []
 
-      for (const block of this.#blocks) {
+      for (const block of this.blocks) {
         for (const transaction of block.transactions) {
           if (transaction.hash === hash) {
             doubleTransactions.push(hash)
@@ -504,7 +434,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       const hash = await blockMessage.hash()
       
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
-      await this.#updateState(blockMessage)
+      await this.updateState(blockMessage)
       
       globalThis.debug(`created block: ${hash}`)
 
@@ -515,7 +445,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       
       throw new Error(`invalid block ${block}`)
     }
-    // data = await this.#machine.execute(to, method, params)
+    // data = await this.machine.execute(to, method, params)
     // transactionStore.put(message.hash, message.encoded)
   }
 
@@ -588,7 +518,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   internalCall(sender, contract, method, parameters) {
     globalThis.msg = this.#createMessage(sender)
 
-    return this.#machine.execute(contract, method, parameters)
+    return this.machine.execute(contract, method, parameters)
   }
 
   /**
@@ -601,24 +531,24 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   call(contract, method, parameters) {
     globalThis.msg = this.#createMessage()
 
-    return this.#machine.execute(contract, method, parameters)
+    return this.machine.execute(contract, method, parameters)
   }
 
   staticCall(contract, method, parameters?) {
     globalThis.msg = this.#createMessage()
-    return this.#machine.get(contract, method, parameters)
+    return this.machine.get(contract, method, parameters)
   }
 
   delegate(contract, method, parameters) {
     globalThis.msg = this.#createMessage()
 
-    return this.#machine.execute(contract, method, parameters)
+    return this.machine.execute(contract, method, parameters)
   }
 
   staticDelegate(contract: Address, method: string, parameters: []): any {
     globalThis.msg = this.#createMessage()
 
-    return this.#machine.get(contract, method, parameters)
+    return this.machine.get(contract, method, parameters)
   }
 
   mint(to: string, amount: BigNumberish) {
@@ -629,7 +559,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
-  get balances(): {address: BigNumberish} {
+  get balances():Promise<{address: BigNumberish}[]> {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
 
@@ -638,7 +568,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   }
 
   deleteAll() {
-    return this.#machine.deleteAll()
+    return this.machine.deleteAll()
   }
 
   /**
@@ -650,7 +580,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    *
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
-  lookup(name): {owner: string, address: string} {
+  lookup(name): Promise<{owner: string, address: string}> {
     return this.call(addresses.nameService, 'lookup', [name])
   }
 }

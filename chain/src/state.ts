@@ -1,13 +1,19 @@
+import PQueue from 'p-queue';
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
 import Contract from './contract.js';
 import Machine from './machine.js';
+import { nativeToken } from '@leofcoin/addresses'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
+const queue = new PQueue({concurrency: 1, throwOnTimeout: true});
+
 export default class State extends Contract {
   #resolveErrored: boolean;
-  #lastResolved: EpochTimeStamp;
+  #lastResolvedTime: EpochTimeStamp;
+  #lastResolved: {index: 0, hash: '0x0', previousHash: '0x0'};
+  #resolveErrorCount: number = 0;
   #syncState: SyncState;
   #lastBlockInQue: { index: 0, hash: '0x0'} | undefined;
   #syncErrorCount = 0;
@@ -19,6 +25,54 @@ export default class State extends Contract {
   #totalSize: number = 0;
   #machine: Machine;
 
+  /** 
+   * amount the native token has been iteracted with
+   */
+  #nativeCalls = 0
+  /** 
+   * amount the native token has been iteracted with
+   */
+  #nativeTransfers = 0
+
+  /** 
+   * amount of native token burned
+   * {Number}
+   */
+  #nativeBurns = 0
+
+  /** 
+   * amount of native tokens minted
+   * {Number}
+   */
+  #nativeMints = 0
+
+  /** 
+   * total amount of transactions
+   * {Number}
+   */
+  #totalTransactions = 0
+
+
+  get nativeMints() {
+    return this.#nativeMints
+  }
+
+  get nativeBurns() {
+    return this.#nativeBurns
+  }
+  
+  get nativeTransfers() {
+    return this.#nativeTransfers
+  }
+
+  get totalTransactions() {
+    return this.#totalTransactions
+  }
+
+  get nativeCalls() {
+    return this.#nativeCalls
+  }
+
   get blocks() {
     return [...this.#blocks]
   }
@@ -29,6 +83,10 @@ export default class State extends Contract {
 
   get totalSize() {
     return this.#totalSize
+  }
+
+  get machine() {
+    return this.#machine
   }
   
   constructor() {
@@ -70,6 +128,14 @@ export default class State extends Contract {
     await this.#loadBlocks(this.#blocks)
   }
 
+  async updateState(message) {
+    const hash = await message.hash()
+    this.#lastBlock = { hash, ...message.decoded }
+    
+    // await this.state.updateState(message)
+    await globalThis.chainStore.put('lastBlock', hash)
+  }
+
   async #lastBlockHandler() {
     return new globalThis.peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
   }
@@ -96,11 +162,8 @@ export default class State extends Contract {
     return block
   }
 
-  async resolveBlock(hash) {
-    if (!hash)  throw new Error(`expected hash, got: ${hash}`)
-    if (hash === '0x0') return
-  
-    const index = this.#blockHashMap.get(hash)
+  async #resolveBlock(hash) {
+    let index = this.#blockHashMap.get(hash)
     
     if (this.#blocks[index]) {
       if (this.#blocks[index].previousHash !== '0x0') {
@@ -109,23 +172,30 @@ export default class State extends Contract {
         return
       }
     }
-    try {
-      const block = await this.getAndPutBlock(hash)
-      const { previousHash, index } = block.decoded
-      const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
-      this.#totalSize += size
-      this.#blocks[index] = { hash, ...block.decoded }
-      this.#blockHashMap.set(hash, index)
-      console.log(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
-      this.#lastResolved = Date.now()
-  
-      if (previousHash !== '0x0') {
-        return this.resolveBlock(previousHash)
-      }
-    } catch (error) {
-      this.#resolveErrored = true
-      console.error(error)
-    }
+    const block = await this.getAndPutBlock(hash)
+    index = block.decoded.index
+    const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
+    this.#totalSize += size
+    this.#blocks[index] = { hash, ...block.decoded }
+    this.#blockHashMap.set(hash, index)
+    globalThis.debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
+    this.#lastResolved = this.#blocks[index]
+    this.#lastResolvedTime = Date.now()
+    return
+  }
+
+  async resolveBlock(hash) {
+    if (!hash) throw new Error(`expected hash, got: ${hash}`)
+    if (hash === '0x0') return
+
+    await queue.add(() => this.#resolveBlock(hash))
+
+    
+    
+    
+    
+    if (!this.#blockHashMap.has(this.#lastResolved.previousHash) && this.#lastResolved.previousHash !== '0x0') return this.resolveBlock(this.#lastResolved.previousHash)
+    return
   }
   
     async resolveBlocks() {
@@ -134,55 +204,38 @@ export default class State extends Contract {
         const hash = new TextDecoder().decode(localBlock)
   
         if (hash && hash !== '0x0')
+        
           await this.resolveBlock(hash)
           this.#lastBlock = this.#blocks[this.#blocks.length - 1]
           
       } catch {
-        await globalThis.chainStore.put('lastBlock', new TextEncoder().encode('0x0'))
-        return this.resolveBlocks()
+        this.#resolveErrored = true
+        this.#resolveErrorCount += 1
   // console.log(e);
       }
     }
 
   async syncChain(lastBlock): Promise<SyncState > {
-    if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
-    if (this.#chainSyncing) {
-      console.log('already syncing');
-      
-      if (!this.#lastBlockInQue || lastBlock.index > this.#lastBlockInQue.index) this.#lastBlockInQue = lastBlock
-      return 'syncing'
+    if (!this.shouldSync) {
+      return
     }
-
-    console.log('starting sync');
     
+    await queue.clear()
     this.#chainSyncing = true
 
-    const syncPromise = (lastBlock) => new Promise(async (resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.#chainSyncing = false
-        this.#syncErrorCount = 0
-        reject('timedOut')
-      }, 60000)
-      try {
-        await this.#syncChain(lastBlock)
-        clearTimeout(timeout)
-        resolve(true)
-      } catch (error) {
-        clearTimeout(timeout)
-        reject(error)
-      }
-    })
+    if (!lastBlock) lastBlock = await this.#getLatestBlock()
+
+    console.log('starting sync');
     
     if (globalThis.peernet.connections.length === 0) return 'connectionless'
 
     try {
-      await syncPromise(lastBlock)
+      await this.#syncChain(lastBlock)
       
     } catch (error) {
-      console.log(error);
       this.#syncErrorCount += 1
-      if (this.#syncErrorCount < 3) await syncPromise(lastBlock)
+      if (this.#syncErrorCount < 3) await this.#syncChain(lastBlock)
       this.#chainSyncing = false
       this.#syncErrorCount = 0
       return 'errored'
@@ -196,29 +249,37 @@ export default class State extends Contract {
   }
 
   async #syncChain(lastBlock) {
-    if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
-      let promises = []
-      promises = await Promise.allSettled(this.#knownBlocks.map(async (address) => {
-        const has = await globalThis.peernet.has(address, 'block')
-        return {has, address}
-      }))
-      promises = promises.filter(({status, value}) => status === 'fulfilled' && !value.has)
+    try {
+      if (this.#knownBlocks?.length === Number(lastBlock.index) + 1) {
+        let promises = []
+        promises = await Promise.allSettled(this.#knownBlocks.map(async (address) => {
+          const has = await globalThis.peernet.has(address, 'block')
+          return {has, address}
+        }))
+        promises = promises.filter(({status, value}) => status === 'fulfilled' && !value.has)
+    
+        await Promise.allSettled(promises.map(({value}) => this.getAndPutBlock(value.address)))
+      }
   
-      await Promise.allSettled(promises.map(({value}) => this.getAndPutBlock(value.address)))
-    }
-
-    if (!this.#lastBlock || Number(this.#lastBlock.index) < Number(lastBlock.index)) {
+      if (!this.#lastBlock || Number(this.#lastBlock.index) < Number(lastBlock.index)) {
+        
+        // TODO: check if valid
+        const localIndex = this.#lastBlock ? this.lastBlock.index : 0
+        const index = lastBlock.index
+        await this.resolveBlock(lastBlock.hash)
+        console.log('ok');
+        
+        let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index - localIndex) : index
+        globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+        
+        const start = (this.#blocks.length - blocksSynced) - 1
+        if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
+        await this.updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
+      }
+    } catch (error) {
+      console.log(error);
       
-      // TODO: check if valid
-      const localIndex = this.#lastBlock ? this.lastBlock.index : 0
-      const index = lastBlock.index
-      await this.resolveBlock(lastBlock.hash)
-      let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index - localIndex) : index
-      globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
-
-      const start = (this.#blocks.length - blocksSynced) - 1
-      if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
-      await this.#updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
+      throw error
     }
   }
 
@@ -329,6 +390,28 @@ export default class State extends Contract {
       }
       
     })
+    
+  }
+
+  get canSync() {
+    if (this.#chainSyncing) return false
+    return true
+   }
+
+  get shouldSync() {
+    if (this.canSync ||
+        this.#resolveErrored ||
+        !this.canSync && this.#lastResolvedTime + this.resolveTimeout > new Date().getTime()
+       ) return true 
+    
+    return false
+  }
+
+
+  async triggerSync() {
+      const latest = await this.#getLatestBlock()
+      return this.syncChain(latest)
+    
     
   }
 }
