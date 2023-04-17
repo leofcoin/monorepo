@@ -195,8 +195,8 @@ export default class Chain extends State {
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
     if (Object.keys(lastBlock).length > 0) {
-      if (!this.lastBlock || !this.blocks[this.blocks.length - 1].loaded || lastBlock && lastBlock.index > this.lastBlock?.index) {
-        // this.#knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
+      if (!this.lastBlock || !this.blocks[this.blocks.length - 1]?.loaded || lastBlock && lastBlock.index > this.lastBlock?.index || !this.loaded && !this.resolving) {
+        this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
         
         await this.syncChain(lastBlock)
     
