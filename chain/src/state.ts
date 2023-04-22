@@ -133,11 +133,12 @@ export default class State extends Contract {
     } catch (error) {
       console.log({e: error});
     }
-    
+    globalThis.pubsub.publish('lastBlock', this.lastBlock)
     // load local blocks
     await this.resolveBlocks()
     
     this.#machine = await new Machine(this.#blocks)
+    
     await this.#loadBlocks(this.#blocks)
   }
 
@@ -193,6 +194,7 @@ export default class State extends Contract {
       this.#blocks[index] = { hash, ...block.decoded }
       this.#blockHashMap.set(hash, index)
       globalThis.debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
+      globalThis.pubsub.publish('block-resolved', {hash, index})
       this.#lastResolved = this.#blocks[index]
       this.#lastResolvedTime = Date.now()
     } catch (error) {
@@ -403,7 +405,9 @@ export default class State extends Contract {
           }
         }
         this.#blocks[block.index].loaded = true
+        
         globalThis.debug(`loaded block: ${block.hash} @${block.index}`);
+        globalThis.pubsub.publish('block-loaded', {...block})
       }
     }
     return true
