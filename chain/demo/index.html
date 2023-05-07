@@ -13,7 +13,11 @@
       import LeofcoinChain from './../exports/browser/chain.js'
       
       try {
-        await new LeofcoinNode()
+        await new LeofcoinNode({
+          network: 'leofcoin:peach',
+          networkName: 'leofcoin:peach',
+          networkVersion: 'peach'
+        }, 'test')
         globalThis.chain = await new LeofcoinChain()
       } catch (e) {
         console.log(e);
