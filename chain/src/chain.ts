@@ -8,6 +8,8 @@ import State from './state.js'
 
 globalThis.BigNumber = BigNumber
 
+
+
 // check if browser or local
 export default class Chain extends State {
   #state;
@@ -51,7 +53,7 @@ export default class Chain extends State {
     console.log('epoch');
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log({validators});
-    if (!validators[globalThis.globalThis.peernet.selectedAccount]?.active) return
+    if (!validators[peernet.selectedAccount]?.active) return
     const start = Date.now()
     try {
       await this.#createBlock()
@@ -155,6 +157,8 @@ export default class Chain extends State {
 
     globalThis.peernet.subscribe('send-transaction', this.#sendTransaction.bind(this))
 
+    globalThis.peernet.subscribe('add-transaction', this.#addTransaction.bind(this))
+
     globalThis.peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
 
     globalThis.pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
@@ -177,6 +181,11 @@ export default class Chain extends State {
     this.#jail.push(validatorInfo.address)
   }
 
+  #addTransaction(message) {
+    console.log(message);
+    
+  }
+
   
   async #prepareRequest(request) {
     let node = await new globalThis.peernet.protos['peernet-request']({request})
@@ -194,14 +203,31 @@ export default class Chain extends State {
     if (!peer.version || peer.version !== this.version) return
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
+
+    let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
+
+    const transactions = await globalThis.transactionPoolStore.keys()
+    console.log({transactionsInPool});
+    
+    const transactionsToGet = []
+    for (const key of transactionsInPool) {
+      if (!transactions.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key))))
+    
+    }
+    
+    
+    await Promise.all(transactionsToGet)
+    
+    console.log(await transactionPoolStore.values());
     if (Object.keys(lastBlock).length > 0) {
+      
       if (!this.lastBlock || !this.blocks[this.blocks.length - 1]?.loaded || lastBlock && lastBlock.index > this.lastBlock?.index || !this.loaded && !this.resolving) {
         this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
         
         await this.syncChain(lastBlock)
     
         // if (await this.hasTransactionToHandle() && this.#participating) this.#runEpoch()
-      }
+      } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
  }
 
