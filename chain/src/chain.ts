@@ -229,6 +229,8 @@ export default class Chain extends State {
         // if (await this.hasTransactionToHandle() && this.#participating) this.#runEpoch()
       } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
+
+    if (this.#participating) this.#runEpoch()
  }
 
  #epochTimeout
