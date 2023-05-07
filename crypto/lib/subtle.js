@@ -1,3 +1,3 @@
-const {subtle} = globalThis.crypto ? crypto : require('crypto')
+const {subtle} = crypto
 
 export default subtle
