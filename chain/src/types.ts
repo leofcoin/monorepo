@@ -1,6 +1,7 @@
 import { storage } from '@leofcoin/storage'
 
-declare var peernet;
+
+
 declare var transactionPoolStore: storage
 
 export type Address = string

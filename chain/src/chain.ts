@@ -8,8 +8,6 @@ import State from './state.js'
 
 globalThis.BigNumber = BigNumber
 
-
-
 // check if browser or local
 export default class Chain extends State {
   #state;
@@ -59,6 +57,8 @@ export default class Chain extends State {
       await this.#createBlock()
     } catch (error) {
       console.error(error);
+      console.log('ttttt');
+      
     }
     
     const end = Date.now()
@@ -165,7 +165,7 @@ export default class Chain extends State {
     // todo some functions rely on state
     await super.init()
     
-    globalThis.globalThis.pubsub.publish('chain:ready', true)
+    globalThis.pubsub.publish('chain:ready', true)
     return this
   }
 
@@ -218,7 +218,6 @@ export default class Chain extends State {
     
     await Promise.all(transactionsToGet)
     
-    console.log(await transactionPoolStore.values());
     if (Object.keys(lastBlock).length > 0) {
       
       if (!this.lastBlock || !this.blocks[this.blocks.length - 1]?.loaded || lastBlock && lastBlock.index > this.lastBlock?.index || !this.loaded && !this.resolving) {
@@ -252,7 +251,8 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
     return result || 'no state change'
   } catch (error) {
-    console.log({error});
+    
+    await transactionPoolStore.delete(hash)
     globalThis.peernet.publish('invalid-transaction', hash)
     globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
     throw {error, hash, from, to, params, nonce}
@@ -300,6 +300,11 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       globalThis.pubsub.publish('block-processed', blockMessage.decoded)
       
     } catch (error) {
+      console.log(error.hash);
+      console.log('errrrr');
+      
+      
+      await transactionPoolStore.delete(error.hash)
       console.log({e: error});
     }
 
@@ -373,17 +378,23 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
         // if (timestamp + this.#slotTime > Date.now()) {
           try {
             const result = await this.#executeTransaction({...transaction.decoded, hash})
+            console.log({result});
             
             block.transactions.push(transaction)
             
             block.fees = block.fees.add(await calculateFee(transaction.decoded))
             await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
           } catch (e) {
+            console.log('vvvvvv');
             
             console.log({e});
             console.log(hash);
+            peernet.publish('invalid-transaction', hash)
+            console.log(await globalThis.transactionPoolStore.has(e.hash));
             
-            await globalThis.transactionPoolStore.delete(hash)
+            await globalThis.transactionPoolStore.delete(e.hash)
+
+            console.log(await globalThis.transactionPoolStore.has(e.hash));
           }
         // }
         
@@ -470,6 +481,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
       console.log(error);
+      console.log('eeeee');
       
       throw new Error(`invalid block ${block}`)
     }
@@ -493,6 +505,8 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
     } catch (e) {
       console.log(e);
+      console.log('rrrrr');
+      
       globalThis.peernet.publish('invalid-transaction', hash)
       throw new Error('invalid transaction')
     }
@@ -525,7 +539,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    * @param {Address} sender 
    * @returns {globalMessage}
    */
-  #createMessage(sender = globalThis.globalThis.peernet.selectedAccount) {
+  #createMessage(sender = globalThis.peernet.selectedAccount) {
     return {
       sender,
       call: this.call,

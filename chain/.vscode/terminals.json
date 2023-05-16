@@ -1,0 +1,11 @@
+{
+  "autorun": true,
+  "autokill": true,
+  "terminals": [{
+    "name": "run chain",
+    "command": "node test"
+  }, {
+    "name": "demo chain",
+    "command": "npm run demo"
+  }]
+}

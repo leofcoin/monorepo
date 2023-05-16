@@ -8,6 +8,7 @@
       "declarationDir": "./exports/typings",
       "allowSyntheticDefaultImports": true,    
       "resolveJsonModule": true,
+      "allowJs": true,
       "types": [
         "node"
       ]

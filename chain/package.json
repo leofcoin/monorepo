@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.4.79",
+  "version": "1.4.80",
   "description": "Official javascript implementation",
   "exports": {
     "./node": "./exports/node.js",
@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "np": "np",
+    "watch": "rollup -c -w",
     "lint": "eslint src --fix",
     "c": "rollup -c",
     "w": "rollup -c -w",

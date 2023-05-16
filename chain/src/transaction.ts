@@ -68,7 +68,7 @@ export default class Transaction extends Protocol {
 
     if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !==  '0x0') {
       
-      let block = await peernet.get(this.lastBlock.hash)
+      let block = await peernet.get(this.lastBlock.hash, 'block')
       block = await new BlockMessage(block)
 
       // for (let tx of block.decoded?.transactions) {
@@ -150,20 +150,25 @@ export default class Transaction extends Protocol {
     if (!message.decoded.signature) throw new Error(`transaction not signed`)
     if (message.decoded.nonce === undefined) throw new Error(`nonce required`)
     
+    await this.validateNonce(message.decoded.from, message.decoded.nonce)
+    // todo check if signature is valid
+    const hash = await message.hash()
     try {      
-      await this.validateNonce(message.decoded.from, message.decoded.nonce)
-      // todo check if signature is valid
-      const hash = await message.hash()
       let data
       
       const wait = new Promise(async (resolve, reject) => {
         
         if (pubsub.subscribers[`transaction.completed.${hash}`]) {
           const result = pubsub.subscribers[`transaction.completed.${hash}`].value
+          if (result.status !== 'fulfilled') {
+            await transactionPoolStore.delete(hash)
+          }
           result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
         } else {
           const completed = async result => {
-            
+            if (result.status !== 'fulfilled') {
+              await transactionPoolStore.delete(hash)
+            }
             result.status === 'fulfilled' ? resolve(result.hash) : reject({hash: result.hash, error: result.error})
     
             setTimeout(async () => {
@@ -178,6 +183,9 @@ export default class Transaction extends Protocol {
       peernet.publish('add-transaction', message.encoded)
       return {hash, data, fee: await calculateFee(message.decoded), wait, message}
     } catch (error) {
+      console.log('remo');
+      
+        await transactionPoolStore.delete(hash)
       throw error
     }
     

@@ -132,9 +132,20 @@ export default class State extends Contract {
       }      
     } catch (error) {
       console.log({e: error});
+      
+      console.log({e: error});
     }
     globalThis.pubsub.publish('lastBlock', this.lastBlock)
     // load local blocks
+    try {
+      this.knownBlocks = await blockStore.keys()
+      console.log(this.knownBlocks);
+      
+    } catch (error) {
+      console.error(error);
+      throw error
+    }
+
     await this.resolveBlocks()
     
     this.#machine = await new Machine(this.#blocks)
@@ -400,6 +411,9 @@ export default class State extends Contract {
             }
             this.#totalTransactions += 1
           } catch (error) {
+            await globalThis.transactionPoolStore.delete(transaction.hash)
+            console.log('removing invalid transaction');
+            
             console.log(error);
             return false
           }
