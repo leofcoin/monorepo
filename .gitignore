@@ -43,3 +43,4 @@ lottery/www/**/**.js
 /chain/demo/**/*.js
 /chain/block-worker.js
 
+.DS_Store
