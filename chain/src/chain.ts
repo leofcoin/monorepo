@@ -8,6 +8,8 @@ import State from './state.js'
 
 globalThis.BigNumber = BigNumber
 
+const ignorelist = ['BA5XUACBBBAT653LT3GHP2Z5SUHVCA42BP6IBFBJACHOZIHHR4DUPG2XMB', 'BA5XUACK6K5XA5P4BHRZ4SZT6FCLO6GLGCLUAD62WBPVLFK73RHZZUFLEG']
+
 // check if browser or local
 export default class Chain extends State {
   #state;
@@ -94,7 +96,7 @@ export default class Chain extends State {
     // handle native contracts
   }
 
-  async #clearPool() {
+  async clearPool() {
     await globalThis.transactionPoolStore.clear()
   }
 
@@ -211,10 +213,10 @@ export default class Chain extends State {
     
     const transactionsToGet = []
     for (const key of transactionsInPool) {
-      if (!transactions.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key))))
-    
+      if (!transactions.includes(key) && !ignorelist.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key, 'transaction'))))
     }
     
+    console.log(await transactionPoolStore.keys());
     
     await Promise.all(transactionsToGet)
     
@@ -336,10 +338,16 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
 
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = 1800) {
+    
     // vote for transactions
     if (await globalThis.transactionPoolStore.size() === 0) return;
 
     let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
+    for (const hash of await globalThis.transactionPoolStore.keys()) {
+      if (ignorelist.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
+    }
+    
+    
     if (Object.keys(transactions)?.length === 0 ) return
     
     const timestamp = Date.now()
@@ -357,12 +365,15 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
-
+    console.log({transactions});
+    
 
     for (let transaction of transactions) { 
       const hash = await transaction.hash()
       const doubleTransactions = []
 
+      console.log(this.blocks);
+      
       for (const block of this.blocks) {
         for (const transaction of block.transactions) {
           if (transaction.hash === hash) {
@@ -374,29 +385,33 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       if (doubleTransactions.length > 0) {
         await globalThis.transactionPoolStore.delete(hash)
         await globalThis.peernet.publish('invalid-transaction', hash)
-      } else {
+        return
+      }
+      
+      
         // if (timestamp + this.#slotTime > Date.now()) {
-          try {
-            const result = await this.#executeTransaction({...transaction.decoded, hash})
-            console.log({result});
-            
-            block.transactions.push(transaction)
-            
-            block.fees = block.fees.add(await calculateFee(transaction.decoded))
-            await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
-          } catch (e) {
-            console.log('vvvvvv');
-            
-            console.log({e});
-            console.log(hash);
-            peernet.publish('invalid-transaction', hash)
-            console.log(await globalThis.transactionPoolStore.has(e.hash));
-            
-            await globalThis.transactionPoolStore.delete(e.hash)
+      try {
+        const result = await this.#executeTransaction({...transaction.decoded, hash})
+        console.log({result});
+        
+        block.transactions.push(transaction)
+        
+        block.fees = block.fees.add(await calculateFee(transaction.decoded))
+        await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
+      } catch (e) {
+        console.log('vvvvvv');
+        
+        console.log({e});
+        console.log(hash);
+        peernet.publish('invalid-transaction', hash)
 
-            console.log(await globalThis.transactionPoolStore.has(e.hash));
-          }
-        // }
+        console.log(await globalThis.transactionPoolStore.keys());
+        
+        console.log(await globalThis.transactionPoolStore.has(e.hash));
+        
+        await globalThis.transactionPoolStore.delete(e.hash)
+
+        console.log(await globalThis.transactionPoolStore.has(e.hash));
         
       }
       

@@ -139,7 +139,6 @@ export default class State extends Contract {
     // load local blocks
     try {
       this.knownBlocks = await blockStore.keys()
-      console.log(this.knownBlocks);
       
     } catch (error) {
       console.error(error);
@@ -181,7 +180,7 @@ export default class State extends Contract {
     if (block !== undefined) {
       block = await new BlockMessage(block)
       const { index } = block.decoded
-      if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
+      if (this.#blocks[index - 1] && this.#blocks[index - 1].hash !== block.hash) throw `invalid block ${hash} @${index}`
       if (!await globalThis.peernet.has(hash, 'block')) await globalThis.peernet.put(hash, block.encoded, 'block')
     }
     return block
@@ -190,9 +189,9 @@ export default class State extends Contract {
   async #resolveBlock(hash) {
     let index = this.#blockHashMap.get(hash)
     
-    if (this.#blocks[index]) {
-      if (this.#blocks[index].previousHash !== '0x0') {
-        return this.resolveBlock(this.#blocks[index].previousHash)
+    if (this.#blocks[index - 1]) {
+      if (this.#blocks[index - 1].previousHash !== '0x0') {
+        return this.resolveBlock(this.#blocks[index - 1].previousHash)
       } else {
         return
       }
@@ -202,11 +201,11 @@ export default class State extends Contract {
       index = block.decoded.index
       const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
       this.#totalSize += size
-      this.#blocks[index] = { hash, ...block.decoded }
+      this.#blocks[index - 1] = { hash, ...block.decoded }
       this.#blockHashMap.set(hash, index)
       globalThis.debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`);
       globalThis.pubsub.publish('block-resolved', {hash, index})
-      this.#lastResolved = this.#blocks[index]
+      this.#lastResolved = this.#blocks[index - 1]
       this.#lastResolvedTime = Date.now()
     } catch (error) {
       this.#resolving = false
@@ -320,14 +319,14 @@ export default class State extends Contract {
         
         // TODO: check if valid
         const localIndex = this.#lastBlock ? this.lastBlock.index : 0
-        const index = lastBlock.index
+        const index = lastBlock.index - 1
         await this.resolveBlock(lastBlock.hash)
         console.log('ok');
         
         let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index - localIndex) : index
         globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
         
-        const start = (this.#blocks.length - blocksSynced) - 1
+        const start = (this.#blocks.length - blocksSynced)
         if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
         await this.updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
       }
@@ -411,14 +410,14 @@ export default class State extends Contract {
             }
             this.#totalTransactions += 1
           } catch (error) {
-            await globalThis.transactionPoolStore.delete(transaction.hash)
+            await globalThis.transactionPoolStore.delete(transaction.hash ? transaction.hash : await (new TransactionMessage(transaction)).hash())
             console.log('removing invalid transaction');
             
             console.log(error);
             return false
           }
         }
-        this.#blocks[block.index].loaded = true
+        this.#blocks[block.index - 1].loaded = true
         
         globalThis.debug(`loaded block: ${block.hash} @${block.index}`);
         globalThis.pubsub.publish('block-loaded', {...block})

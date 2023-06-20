@@ -67,7 +67,13 @@ const execute = async (contract, method, params) => {
     // state.put(result)
     return result
   } catch (e) {
-    throw e
+    throw new Error(
+      `error: ${e.message}
+      contract: ${contract}
+      method: ${method}
+      params: ${JSON.stringify(params, null, '\t')}
+      `
+    )
   }
 }
 
