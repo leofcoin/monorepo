@@ -1,0 +1,1 @@
+{"fullyTracked":false,"platform":"darwin","arch":"arm64","nodeVersion":"v19.5.0","command":"rollup -c --silent error --cache true","extraArgs":[],"clean":true,"files":{},"output":[],"dependencies":{},"env":{}}
