@@ -1,0 +1,36 @@
+{
+  "name": "@leofcoin/lib",
+  "version": "1.2.24",
+  "description": "",
+  "type": "module",
+  "typings": "./exports/typings/index.d.ts",
+  "exports": {
+    ".": "./exports/index.js",
+    "./node-config": "./exports/node-config.js",
+    "./bytecodes": "./src/bytecodes.json"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "command": "rollup -c --silent error --cache true"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@leofcoin/addresses": "^1.0.6",
+    "@leofcoin/codec-format-interface": "^1.4.0",
+    "@leofcoin/messages": "^1.1.2",
+    "@leofcoin/utils": "^1.1.5"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "rollup": "^3.10.1",
+    "tslib": "^2.4.1"
+  }
+}

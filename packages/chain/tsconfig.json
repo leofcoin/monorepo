@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+      "module": "ESNext",
+      "target": "ESNext",
+      "outDir": "./exports",
+      "moduleResolution":"nodenext",
+      "declaration": true,
+      "declarationDir": "./exports/typings",
+      "allowSyntheticDefaultImports": true,    
+      "resolveJsonModule": true,
+      "allowJs": true,
+      "types": [
+        "node"
+      ]
+    },
+  "include": [
+    "./src/**/*"
+  ]
+}
