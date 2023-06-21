@@ -1,6 +1,6 @@
 import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
-import addresses, { nativeToken } from '@leofcoin/addresses'
+import addresses from '@leofcoin/addresses'
 import { signTransaction } from '@leofcoin/lib'
 import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
 import { BigNumberish } from '@ethersproject/bignumber'
@@ -15,8 +15,8 @@ export default class Chain extends State {
   #state;
   
   #slotTime = 10000;
-  id: string;
-  utils: {};
+  id;
+  utils = {};
   /** {Address[]} */
   #validators = [];
 
@@ -194,7 +194,7 @@ export default class Chain extends State {
     return globalThis.peernet.prepareMessage(node)
   }
 
-  async #makeRequest(peer, request: string) {
+  async #makeRequest(peer, request) {
     const node = await this.#prepareRequest(request)
     let response = await peer.request(node.encoded)
     response = await new globalThis.peernet.protos['peernet-response'](new Uint8Array(Object.values(response)))
@@ -591,7 +591,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     return this.machine.execute(contract, method, parameters)
   }
 
-  staticCall(contract, method, parameters?) {
+  staticCall(contract, method, parameters) {
     globalThis.msg = this.#createMessage()
     return this.machine.get(contract, method, parameters)
   }

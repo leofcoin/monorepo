@@ -12,8 +12,8 @@ export default [{
     format: 'es'
   },
   plugins: [
-    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports/types'}}),
     json(),
+    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports/types'}})
   ]
 }, {
   input: ['./src/chain.ts', './src/node-browser.ts', './node_modules/@leofcoin/storage/exports/browser-store.js'],

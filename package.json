@@ -27,6 +27,11 @@
     "@vandeurenglenn/doc-it": "^1.0.0"
   },
   "workspaces": [
-    "./packages/*"
-  ]
+    "./packages/addresses"
+  ],
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.1",
+    "rollup": "^3.0.0",
+    "typescript": "^5.1.3"
+  }
 }

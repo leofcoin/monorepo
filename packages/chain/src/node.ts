@@ -6,7 +6,7 @@ import networks from '@leofcoin/networks';
 export default class Node {
   #node;
 
-  constructor(config, password: string) {
+  constructor(config, password) {
     return this._init(config, password)
   }
 
@@ -16,7 +16,7 @@ export default class Node {
     networkVersion: 'peach',
     stars: networks.leofcoin.peach.stars,
     autoStart: false
-  }, password: string): Promise<this> {
+  }, password) {
     this.#node = globalThis.Peernet ? await new globalThis.Peernet(config, password) : await new Peernet(config, password)
     await nodeConfig(config)
     
