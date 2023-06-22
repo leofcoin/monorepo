@@ -16,31 +16,13 @@ node_modules/
 .mnemonic
 .privatekey
 
-/mine/www/*.js
-/mine/www/themes/*.js
-/mine/www/third-party/*.js
-/mine/www/*.zip
 www/www/**/*.js
 www/www/*.js
-/build/contracts
-node/testnet
-snapshots/**/tx
-snapshots/**/.cache
-snapshots/**/balances
-www/www/shell.js
-www/www/service-worker.js
-/exchange/www/themes/*
-/exchange/www/addresses/*
-/exchange/www/*.js
-www/www/service-worker.js
-www/www/shell.js
-lottery/www/**/**.js
-/stats/www/**/**.js
 **/dist/**/*
+**/exports/**/*
 
-/node/www/**/*.js
-/project-deploy/build
 /chain/demo/**/*.js
 /chain/block-worker.js
 
 .DS_Store
+.wireit

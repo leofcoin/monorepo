@@ -4,7 +4,7 @@ import { TransactionMessage } from '@leofcoin/messages';
   globalThis.DEBUG = true
   const Chain = await import('../exports/chain.js');
   const Node = await import('../exports/node.js');
-  let imp = await import('../../../networks/networks.js')
+  let imp = await import('@leofcoin/addresses')
   const networks = imp.default
   
   const node = await new Node.default({

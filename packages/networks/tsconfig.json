@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "module": "ES2022",
+    "target": "ES2022",
+    "outDir": "./exports",
+    "moduleResolution":"nodenext",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./exports",
+    "allowSyntheticDefaultImports": true,    
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "./src/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

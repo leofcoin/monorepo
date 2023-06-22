@@ -31,6 +31,7 @@ export default class Chain extends State {
 
   constructor() {
     super()
+    // @ts-ignore
     return this.#init()
   }
 
@@ -602,17 +603,17 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     return this.machine.execute(contract, method, parameters)
   }
 
-  staticDelegate(contract: Address, method: string, parameters: []): any {
+  staticDelegate(contract: Address, method, parameters: []): any {
     globalThis.msg = this.#createMessage()
 
     return this.machine.get(contract, method, parameters)
   }
 
-  mint(to: string, amount: BigNumberish) {
+  mint(to, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'mint', [to, amount])
   }
 
-  transfer(from: string, to: string, amount: BigNumberish) {
+  transfer(from, to, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
@@ -637,7 +638,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    *
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
-  lookup(name): Promise<{owner: string, address: string}> {
+  lookup(name): Promise<{owner, address}> {
     return this.call(addresses.nameService, 'lookup', [name])
   }
 }

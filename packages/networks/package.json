@@ -4,6 +4,14 @@
   "description": "",
   "main": "networks.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./exports/networks.js",
+      "types": "./exports/networks.d.ts"
+    },
+    "./networks.json": "./exports/networks.json"
+    
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "wireit"
