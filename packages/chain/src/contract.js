@@ -1,6 +1,6 @@
 import Transaction from "./transaction.js";
 import { createContractMessage } from '@leofcoin/lib'
-import addresses from "../../addresses/src/addresses.js"
+import addresses from "@leofcoin/addresses"
 
 /**
  * @extends {Transaction}

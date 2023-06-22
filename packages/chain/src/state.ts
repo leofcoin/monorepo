@@ -3,7 +3,7 @@ import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequest
 import { formatBytes } from '@leofcoin/utils'
 import Contract from './contract.js';
 import Machine from './machine.js';
-import { nativeToken } from '../../addresses/src/addresses.js'
+import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'

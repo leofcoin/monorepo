@@ -1,19 +1,22 @@
-import { contractFactory, nativeToken, validators, nameService } from '../../addresses/src/addresses.js'
+import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
 import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 // import State from './state'
 
 export default class Machine {
-  #contracts = {}
-  #nonces = {}
-  lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'}
+  worker: EasyWorker;
+  #contracts = {};
+  #nonces = {};
+  lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'};
 
   constructor(blocks) {
+    // @ts-ignore
     return this.#init(blocks)
   }
 
-  #createMessage(sender = peernet.selectedAccount) {
+  // @ts-ignore
+  #createMessage(sender = globalThis.peernet.selectedAccount) {
     return {
       sender,
       call: this.execute,
@@ -25,6 +28,8 @@ export default class Machine {
     switch (data.type) {
       case 'contractError': {
         console.warn(`removing contract ${await data.hash()}`);
+
+        // @ts-ignore
         await contractStore.delete(await data.hash())  
         break
       }
@@ -41,7 +46,7 @@ export default class Machine {
       }
 
       case 'debug': {
-        for (const message of data.messages) debug(message)
+        for (const message of data.messages) globalThis.debug(message)
       break
       }
       case 'machine-ready': {
@@ -69,10 +74,10 @@ export default class Machine {
       this.worker.onmessage(this.#onmessage.bind(this))
       // const blocks = await blockStore.values()
       const contracts = await Promise.all([
-        contractStore.get(contractFactory),
-        contractStore.get(nativeToken),
-        contractStore.get(validators),
-        contractStore.get(nameService)
+        globalThis.contractStore.get(contractFactory),
+        globalThis.contractStore.get(nativeToken),
+        globalThis.contractStore.get(validators),
+        globalThis.contractStore.get(nameService)
       ])
       
       const message = {
@@ -80,6 +85,7 @@ export default class Machine {
         input: {
           contracts,
           blocks,
+          // @ts-ignore
           peerid: peernet.peerId
         }
       }
@@ -91,6 +97,7 @@ export default class Machine {
   async #runContract(contractMessage) {
     const hash = await contractMessage.hash()
     return new Promise((resolve, reject) => {
+      // @ts-ignore
       const id = randombytes(20).toString('hex')
       const onmessage = message => {        
         pubsub.unsubscribe(id, onmessage)
@@ -123,13 +130,13 @@ export default class Machine {
       if (contract === contractFactory && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message;
-        if (!await contractStore.has(parameters[0])) {
+        if (!await globalThis.contractStore.has(parameters[0])) {
           message = await peernet.get(parameters[0], 'contract')
           message = await new ContractMessage(message)
-          await contractStore.put(await message.hash(), message.encoded)
+          await globalThis.contractStore.put(await message.hash(), message.encoded)
         }
         if (!message) {
-          message = await contractStore.get(parameters[0])
+          message = await globalThis.contractStore.get(parameters[0])
           message = await new ContractMessage(message)
         }
         if (!await this.has(await message.hash())) await this.#runContract(message)
@@ -138,6 +145,7 @@ export default class Machine {
       throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
     }
     return new Promise((resolve, reject) => {
+      // @ts-ignore
       const id = randombytes(20).toString('hex')
       const onmessage = message => {
         pubsub.unsubscribe(id, onmessage)
@@ -158,7 +166,7 @@ export default class Machine {
     
   }
 
-  get(contract, method, parameters) {
+  get(contract, method, parameters?) {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()
       const onmessage = message => {
@@ -181,6 +189,7 @@ export default class Machine {
 
   async has(address) {
     return new Promise((resolve, reject) => {
+      // @ts-ignore
       const id = randombytes(20).toString('hex')
       const onmessage = message => {        
         pubsub.unsubscribe(id, onmessage)
@@ -199,7 +208,7 @@ export default class Machine {
   }
 
   async delete(hash) {
-    return contractStore.delete(hash)
+    return globalThis.contractStore.delete(hash)
   }
 
   /**
@@ -207,7 +216,7 @@ export default class Machine {
    * @returns Promise
    */
   async deleteAll() {
-    let hashes = await contractStore.get()
+    let hashes = await globalThis.contractStore.get()
     hashes = Object.keys(hashes).map(hash => this.delete(hash))
     return Promise.all(hashes)
   }
