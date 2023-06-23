@@ -1,11 +1,11 @@
 import { signTransaction } from '@leofcoin/lib'
 import { TransactionMessage } from '@leofcoin/messages';
+import networks from '@leofcoin/networks';
+
 
   globalThis.DEBUG = true
   const Chain = await import('../exports/chain.js');
   const Node = await import('../exports/node.js');
-  let imp = await import('@leofcoin/addresses')
-  const networks = imp.default
   
   const node = await new Node.default({
     network: 'leofcoin:peach',
@@ -63,7 +63,7 @@ import { TransactionMessage } from '@leofcoin/messages';
     nonce = await chain.getNonce(peernet.selectedAccount)
     // await chain.clearPool()
     // return
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 1000; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({

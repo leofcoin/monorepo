@@ -4,6 +4,8 @@ import nodeResolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import rimraf from 'rimraf'
 import modify from 'rollup-plugin-modify'
+import builtins from 'rollup-plugin-node-builtins'
+import globals from 'rollup-plugin-node-globals'
 rimraf.sync('./exports')
 export default [{
   input: ['./src/chain.ts', './src/node.ts'],
@@ -13,7 +15,11 @@ export default [{
   },
   plugins: [
     json(),
-    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports/types'}, exclude: ['node_modules'], 'include': ['./src/**/*']})
+    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports/types'}, exclude: ['node_modules'], 'include': ['./src/**/*']}),
+    modify({
+      '@leofcoin/workers/machine-worker.js': 'workers/machine-worker.js',
+      '@leofcoin/workers/src/block-worker.js': 'block-worker.js',
+    })
   ]
 }, {
   input: ['./src/chain.ts', './src/node-browser.ts', './../../node_modules/@leofcoin/storage/exports/browser-store.js'],
@@ -28,18 +34,18 @@ export default [{
     }),
     commonjs({exclude: ['simple-peer', './simple-peer.js']}),
     typescript({compilerOptions: {'outDir': './exports/browser', 'declaration': false, 'declarationDir': './exports/browser'}, exclude: ['node_modules'], 'include': ['./src/**/*']}),
+   
     modify({
-      'node_modules/@leofcoin/workers/src/machine-worker.js': './exports/browser/workers/machine-worker.js',
-      'node_modules/@leofcoin/workers/src/block-worker.js': './block-worker.js',
+      '@leofcoin/workers/machine-worker.js': 'workers/machine-worker.js',
+      '@leofcoin/workers/block-worker.js': 'block-worker.js',
     })
   ]
 }, {
-  input: './../../node_modules/@leofcoin/workers/src/machine-worker.js',
+  input: './../workers/src/machine-worker.js',
   output: {
     file: './exports/browser/workers/machine-worker.js',
     format: 'es'
   },
-
   plugins: [
     json(),
     nodeResolve({
@@ -47,12 +53,27 @@ export default [{
     }),
     commonjs({exclude: ['simple-peer', './simple-peer.js']}),
     modify({
-      '../../node_modules/@leofcoin/workers/src/machine-worker.js': './exports/browser/workers/machine-worker.js',
-      '../../node_modules/@leofcoin/workers/src/block-worker.js': './block-worker.js',
+      '@leofcoin/workers/block-worker.js': './block-worker.js',
     })
   ]
 }, {
-  input: './../../node_modules/@leofcoin/workers/src/block-worker.js',
+  input: './../workers/src/machine-worker.js',
+  output: {
+    file: './exports/workers/machine-worker.js',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    nodeResolve({
+      mainFields: ['module', 'browser']
+    }),
+    commonjs({exclude: ['simple-peer', './simple-peer.js']}),
+    modify({
+      '@leofcoin/workers/block-worker.js': 'block-worker.js',
+    })
+  ]
+}, {
+  input: './../workers/src/block-worker.js',
   output: {
     file: './exports/browser/workers/block-worker.js',
     format: 'es'
@@ -62,6 +83,17 @@ export default [{
     nodeResolve({
       mainFields: ['module', 'browser']
     }),
+    commonjs({exclude: ['simple-peer', './simple-peer.js']})
+  ]
+}, {
+  input: './../workers/src/block-worker.js',
+  output: {
+    file: './exports/workers/block-worker.js',
+    format: 'es'
+  },
+  plugins: [
+    json(),
+    nodeResolve(),
     commonjs({exclude: ['simple-peer', './simple-peer.js']})
   ]
 }]

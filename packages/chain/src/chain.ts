@@ -59,8 +59,7 @@ export default class Chain extends State {
     try {
       await this.#createBlock()
     } catch (error) {
-      console.error(error);
-      console.log('ttttt');
+      console.error(error)
       
     }
     
@@ -185,7 +184,7 @@ export default class Chain extends State {
   }
 
   #addTransaction(message) {
-    console.log(message);
+    console.log({message});
     
   }
 
@@ -210,14 +209,11 @@ export default class Chain extends State {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
 
     const transactions = await globalThis.transactionPoolStore.keys()
-    console.log({transactionsInPool});
     
     const transactionsToGet = []
     for (const key of transactionsInPool) {
       if (!transactions.includes(key) && !ignorelist.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key, 'transaction'))))
     }
-    
-    console.log(await transactionPoolStore.keys());
     
     await Promise.all(transactionsToGet)
     
@@ -308,7 +304,6 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       
       
       await transactionPoolStore.delete(error.hash)
-      console.log({e: error});
     }
 
   }
@@ -366,14 +361,11 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
-    console.log({transactions});
     
 
     for (let transaction of transactions) { 
       const hash = await transaction.hash()
       const doubleTransactions = []
-
-      console.log(this.blocks);
       
       for (const block of this.blocks) {
         for (const transaction of block.transactions) {
@@ -393,7 +385,6 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
         // if (timestamp + this.#slotTime > Date.now()) {
       try {
         const result = await this.#executeTransaction({...transaction.decoded, hash})
-        console.log({result});
         
         block.transactions.push(transaction)
         

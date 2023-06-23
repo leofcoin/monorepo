@@ -70,7 +70,18 @@ export default class Machine {
       }
       pubsub.subscribe('machine.ready', machineReady)
 
-      this.worker = await new EasyWorker('node_modules/@leofcoin/workers/src/machine-worker.js', {serialization: 'advanced', type:'module'})
+      let pre: string
+      
+      try {
+        const importee = await import('url')
+        const url = importee.default
+        if (url) pre = url.fileURLToPath(new URL('.', import.meta.url));
+      } catch {
+        // browser env
+        pre = './'
+      }
+
+      this.worker = await new EasyWorker(pre + '@leofcoin/workers/machine-worker.js', {serialization: 'advanced', type:'module'})
       this.worker.onmessage(this.#onmessage.bind(this))
       // const blocks = await blockStore.values()
       const contracts = await Promise.all([
