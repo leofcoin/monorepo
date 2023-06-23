@@ -105,7 +105,18 @@ const _init = async ({ contracts, blocks, peerid })=> {
   let lastBlock = {hash: '0x0'}; 
 
   if (blocks?.length > 0) {
-    const _worker = await new EasyWorker('node_modules/@leofcoin/workers/src/block-worker.js', {serialization: 'advanced', type: 'module' })
+    let pre
+
+    try {
+      const importee = await import('url')
+      const url = importee.default
+      if (url) pre = url.fileURLToPath(new URL('.', import.meta.url));
+    } catch {
+      // browser env
+      pre = './'
+    }
+
+    const _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {serialization: 'advanced', type: 'module' })
     blocks = await _worker.once([blocks[blocks.length - 1]])
     
     // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
