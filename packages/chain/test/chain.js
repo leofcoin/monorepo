@@ -63,7 +63,7 @@ import networks from '@leofcoin/networks';
     nonce = await chain.getNonce(peernet.selectedAccount)
     // await chain.clearPool()
     // return
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 100; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({
@@ -76,8 +76,9 @@ import networks from '@leofcoin/networks';
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
     }
-    promises = await Promise.allSettled(promises)
     console.time('transactions handled')
+    promises = await Promise.allSettled(promises)
+    
     promises = await Promise.allSettled(promises.map(({value}) => value.wait))
     console.timeEnd('transactions handled')
     

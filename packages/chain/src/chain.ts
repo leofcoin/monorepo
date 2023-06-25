@@ -88,7 +88,6 @@ export default class Chain extends State {
     }]
 
     await Promise.all(contracts.map(async ({address, message}) => {
-      // console.log({message});
       message = await new ContractMessage(Uint8Array.from(message.split(',').map(string => Number(string))))
       await globalThis.contractStore.put(address, message.encoded)
     }))
@@ -211,7 +210,10 @@ export default class Chain extends State {
     const transactions = await globalThis.transactionPoolStore.keys()
     
     const transactionsToGet = []
+
+    
     for (const key of transactionsInPool) {
+
       if (!transactions.includes(key) && !ignorelist.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key, 'transaction'))))
     }
     
@@ -499,7 +501,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   
 
   async #sendTransaction(transaction) {
-    transaction = await new TransactionMessage(transaction.encoded)
+    transaction = await new TransactionMessage(transaction.encoded || transaction)
     const hash = await transaction.hash()
 
     try {
@@ -524,10 +526,11 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    * error is thrown on error so undefined data doesn't mean there is an error...
    **/
    async sendTransaction(transaction) {
-    const event = await super.sendTransaction(transaction)
+    const transactionMessage = await new TransactionMessage({...transaction})
+    const event = await super.sendTransaction(transactionMessage)
     
-    this.#sendTransaction(await new TransactionMessage(event.message.encoded))
-    globalThis.peernet.publish('send-transaction', event.message.encoded)
+    this.#sendTransaction(transactionMessage.encoded)
+    globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
     return event    
   }
 
