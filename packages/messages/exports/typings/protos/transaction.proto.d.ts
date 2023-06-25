@@ -5,6 +5,6 @@ declare namespace _default {
     let nonce: number;
     let method: string;
     let params: any[];
-    let signature: Uint8Array;
+    let signature: string;
 }
 export default _default;

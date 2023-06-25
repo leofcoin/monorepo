@@ -38,7 +38,7 @@ export default class Transaction extends Protocol {
    * @returns {TransactionMessage}
    */
   async promiseTransactions(transactions): Promise<TransactionMessage[]> {
-    transactions = await Promise.all(transactions.map(tx => new TransactionMessage(tx)))
+    transactions = await Promise.all(transactions.map(tx => new TransactionMessage(tx.encoded || tx)))
     return transactions
   }
 

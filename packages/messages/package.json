@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.3.10",
+  "version": "1.3.12",
   "description": "",
   "exports": {
     ".": "./exports/index.js",
@@ -12,6 +12,9 @@
     "./last-block": "./exports/last-block.js",
     "./transaction": "./exports/transaction.js"
   },
+  "files": [
+    "exports"
+  ],
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
   "scripts": {

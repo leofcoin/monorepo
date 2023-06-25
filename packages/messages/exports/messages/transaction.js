@@ -7,7 +7,7 @@ var proto = {
   nonce: Number(),
   method: String(),
   params: Array(),
-  signature: new Uint8Array()
+  signature: String()
 };
 
 class TransactionMessage extends FormatInterface {

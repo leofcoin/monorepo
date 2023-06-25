@@ -3,6 +3,8 @@ import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leo
 import { validators, contractFactory} from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
 import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
+import { toBase58 } from '@vandeurenglenn/typed-array-utils'
+import '@vandeurenglenn/base58'
 
 declare type address = string
 
@@ -20,7 +22,7 @@ declare type signedTransaction = {
   method: string,
   params: any[],
   timestamp: Number,
-  signature: Uint8Array
+  signature: base58String
 }
 
 declare type signable = {
@@ -86,7 +88,7 @@ export const createTransactionHash = async (transaction: rawTransaction | Transa
 
 export const signTransaction = async (transaction: rawTransaction, wallet: signable): Promise<signedTransaction> => {
   
-  const signature = await wallet.sign(await createTransactionHash(transaction))
+  const signature = toBase58(await wallet.sign(await createTransactionHash(transaction)))
   const signedTransaction = {...transaction, signature}
   return signedTransaction
 }
