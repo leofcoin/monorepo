@@ -62,27 +62,27 @@ import networks from '@leofcoin/networks';
     // return
     let promises = []
     // nonce += 
-    nonce = await chain.getNonce(peernet.selectedAccount)
-    // await chain.clearPool()
-    // return
-    for (let i = 0; i < 100; i++) {
-      // contract , method, from, to, amount, (optional) nonce
-      nonce += 1
-      const rawTransaction = await chain.createTransaction({
-        from: peernet.selectedAccount, 
-        to: chain.nativeToken, 
-        method: 'transfer',
-        nonce,
-        params: [peernet.selectedAccount, 'YTqx4M6m1tEfJCD9Xah3i1igJuR6eZCZdHoZ7wvKyAns1e2NqSFDx', chain.utils.parseUnits('100000').toString()]
-      })
-      const transaction = await signTransaction(rawTransaction, peernet.identity)
-      promises.push(chain.sendTransaction(transaction))
-    }
-    console.time('transactions handled')
-    promises = await Promise.allSettled(promises)
+    // nonce = await chain.getNonce(peernet.selectedAccount)
+    // // await chain.clearPool()
+    // // return
+    // for (let i = 0; i < 100; i++) {
+    //   // contract , method, from, to, amount, (optional) nonce
+    //   nonce += 1
+    //   const rawTransaction = await chain.createTransaction({
+    //     from: peernet.selectedAccount, 
+    //     to: chain.nativeToken, 
+    //     method: 'transfer',
+    //     nonce,
+    //     params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100000').toString()]
+    //   })
+    //   const transaction = await signTransaction(rawTransaction, peernet.identity)
+    //   promises.push(chain.sendTransaction(transaction))
+    // }
+    // console.time('transactions handled')
+    // promises = await Promise.allSettled(promises)
     
-    promises = await Promise.allSettled(promises.map(({value}) => value.wait))
-    console.timeEnd('transactions handled')
+    // promises = await Promise.allSettled(promises.map(({value}) => value.wait))
+    // console.timeEnd('transactions handled')
     
     // balances = await chain.balances
     // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);

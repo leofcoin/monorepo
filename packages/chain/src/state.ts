@@ -5,6 +5,7 @@ import Contract from './contract.js';
 import Machine from './machine.js';
 import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
+import { Address, BlockHash } from './types.js';
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
@@ -23,11 +24,15 @@ export default class State extends Contract {
   #chainSyncing: boolean = false;
   #lastBlock = {index: 0, hash: '0x0', previousHash: '0x0'};
   #blocks = [];
-  knownBlocks: Address[] = []
+  knownBlocks: BlockHash[] = []
   #totalSize: number = 0;
   #machine: Machine;
 
   #loaded: boolean = false
+
+  get blockHashMap() {
+    return this.#blockHashMap.entries()
+  }
 
   get loaded() {
     return this.#loaded
@@ -319,11 +324,11 @@ export default class State extends Contract {
         
         // TODO: check if valid
         const localIndex = this.#lastBlock ? this.lastBlock.index : 0
-        const index = lastBlock.index - 1
+        const index = lastBlock.index
         await this.resolveBlock(lastBlock.hash)
         console.log('ok');
         
-        let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index - localIndex) : index
+        let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index + - localIndex) : index
         globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
         
         const start = (this.#blocks.length - blocksSynced)
@@ -395,11 +400,14 @@ export default class State extends Contract {
    */
   async #loadBlocks(blocks): Promise<boolean> {
     let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
+    const blockTransactionKeys = this.#blocks.reduce((transactions, block) => [...transactions, ...block.transactions], [])
     for (const block of blocks) {
       if (block && !block.loaded) {
         if (block.index === 0) this.#loaded = true
         for (const transaction of block.transactions) {
-          if (poolTransactionKeys.includes(transaction.hash)) await globalThis.transactionPoolStore.delete(transaction.hash)
+          const transactionMessage = new TransactionMessage(transaction)
+          const hash = transactionMessage.hash()
+          if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
           try {
             await this.#machine.execute(transaction.to, transaction.method, transaction.params)
             if (transaction.to === nativeToken) {
