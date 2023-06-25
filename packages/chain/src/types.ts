@@ -8,6 +8,7 @@ export type Address = base58String
 
 export type BlockHash = base58String
 
+
 interface Transaction {
   to: Address,
   from: Address,
@@ -26,4 +27,15 @@ interface globalMessage {
   staticCall: Function,
   delegate: Function,
   staticDelegate: Function
+}
+
+export declare type BlockInMemory = {
+  index: number
+  transactions: RawTransaction[],
+  loaded?: Boolean
+}
+
+export declare type RawBlock = {
+  index: number
+  transactions: RawTransaction[]
 }

@@ -5,7 +5,7 @@ import Contract from './contract.js';
 import Machine from './machine.js';
 import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
-import { Address, BlockHash } from './types.js';
+import { Address, BlockHash, BlockInMemory, LoadedBlock, RawBlock } from './types.js';
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
@@ -394,31 +394,54 @@ export default class State extends Contract {
     return latest
   }
 
+  #loadBlockTransactions = (transactions): Promise<TransactionMessage[]> =>
+    Promise.all(transactions.map((transaction) => new TransactionMessage(transaction)))
+
+  #getLastTransactions = async () => {
+    let lastTransactions = (await Promise.all(this.#blocks.filter(block => block.loaded).slice(-128)
+      .map(block => this.#loadBlockTransactions(block.transactions))))
+      .reduce((all, transactions) => [...all, ...transactions], [])
+
+    return Promise.all(lastTransactions.map(transaction => transaction.hash()))
+  }
   /**
    * 
    * @param {Block[]} blocks 
    */
-  async #loadBlocks(blocks): Promise<boolean> {
+  async #loadBlocks(blocks: BlockInMemory[]): Promise<boolean> {
     let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
-    const blockTransactionKeys = this.#blocks.reduce((transactions, block) => [...transactions, ...block.transactions], [])
+
     for (const block of blocks) {
       if (block && !block.loaded) {
         if (block.index === 0) this.#loaded = true
-        for (const transaction of block.transactions) {
-          const transactionMessage = new TransactionMessage(transaction)
-          const hash = transactionMessage.hash()
+        
+        const transactions = await this.#loadBlockTransactions([...block.transactions] || [])
+
+        for (const transaction of transactions) {
+          const lastTransactions = await this.#getLastTransactions()
+          const hash = await transaction.hash()
+          
           if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
+          if (lastTransactions.includes(hash)) {
+            console.log('removing invalid block');
+            await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
+            blocks.splice(block.index - 1)
+            return this.#loadBlocks(blocks)
+          }
+          
           try {
-            await this.#machine.execute(transaction.to, transaction.method, transaction.params)
-            if (transaction.to === nativeToken) {
+            await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
+            if (transaction.decoded.to === nativeToken) {
               this.#nativeCalls += 1
-              if (transaction.method === 'burn') this.#nativeBurns += 1
-              if (transaction.method === 'mint') this.#nativeMints += 1
-              if (transaction.method === 'transfer') this.#nativeTransfers += 1
+              if (transaction.decoded.method === 'burn') this.#nativeBurns += 1
+              if (transaction.decoded.method === 'mint') this.#nativeMints += 1
+              if (transaction.decoded.method === 'transfer') this.#nativeTransfers += 1
             }
             this.#totalTransactions += 1
           } catch (error) {
-            await globalThis.transactionPoolStore.delete(transaction.hash ? transaction.hash : await (new TransactionMessage(transaction)).hash())
+            console.log(error);
+            
+            await globalThis.transactionPoolStore.delete(hash)
             console.log('removing invalid transaction');
             
             console.log(error);
@@ -448,7 +471,6 @@ export default class State extends Contract {
 
       if (promises.length > 0) {
         promises = promises.map(async ({value}) => {
-          console.log(value);
           
           const node = await new globalThis.peernet.protos['peernet-response'](value.result)
           return {value: node.decoded.response, peer: value.peer}
@@ -480,9 +502,7 @@ export default class State extends Contract {
 
 
   async triggerSync() {
-      const latest = await this.#getLatestBlock()
-      return this.syncChain(latest)
-    
-    
+    const latest = await this.#getLatestBlock()
+    return this.syncChain(latest)
   }
 }

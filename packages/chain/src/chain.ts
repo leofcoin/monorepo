@@ -471,8 +471,6 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // block.fees = block.fees.toString()
 
     try {
-      console.log(block.transactions);
-      
       block.transactions = await Promise.all(block.transactions
         .map(async transaction => {
           await globalThis.transactionPoolStore.delete(await transaction.hash())
