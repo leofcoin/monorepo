@@ -26,30 +26,32 @@ import networks from '@leofcoin/networks';
   let nonce = await chain.getNonce(peernet.selectedAccount)
   // // setTimeout(async () => {
 
-  let transactions = [
-    // {
-    //   from: peernet.selectedAccount, 
-    //   to: chain.nativeToken, 
-    //   method: 'grantRole',
-    //   params: [peernet.selectedAccount, 'MINT']
-    // },
-    {
-      // from: peernet.selectedAccount, 
-      // to: chain.nativeToken, 
-      // method: 'mint',
-      // params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
-    }
-  ]
-    let tx
-    try {
-      transactions = await Promise.all(transactions.map(tx => chain.createTransaction(tx)))
-      transactions = await Promise.all(transactions.map(tx => signTransaction(tx, peernet.identity)))
-      transactions = await Promise.all(transactions.map(tx => chain.sendTransaction(tx)))
-      transactions = await Promise.all(transactions.map(tx => tx.wait))
-    } catch (e) {
-      console.log({e});
-    }
-    // return
+  // let transactions = [
+  //   {
+  //     from: peernet.selectedAccount, 
+  //     to: chain.nativeToken, 
+  //     method: 'grantRole',
+  //     nonce: 1,
+  //     params: [peernet.selectedAccount, 'MINT']
+  //   },
+  //   {
+  //     from: peernet.selectedAccount, 
+  //     to: chain.nativeToken, 
+  //     nonce: 2,
+  //     method: 'mint',
+  //     params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
+  //   }
+  // ]
+  //   let tx
+  //   try {
+  //     transactions = await Promise.all(transactions.map(tx => chain.createTransaction(tx)))
+  //     transactions = await Promise.all(transactions.map(tx => signTransaction(tx, peernet.identity)))
+  //     transactions = await Promise.all(transactions.map(tx => chain.sendTransaction(tx)))
+  //     transactions = await Promise.all(transactions.map(tx => tx.wait))
+  //   } catch (e) {
+  //     console.log({e});
+  //   }
+    
   //   console.log({nonce});
     let balances = await chain.balances
     console.log({balances});

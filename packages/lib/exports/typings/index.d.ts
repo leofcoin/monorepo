@@ -1,5 +1,6 @@
 import { TransactionMessage, RawTransactionMessage } from '@leofcoin/messages';
 export { default as nodeConfig } from './node-config.js';
+import '@vandeurenglenn/base58';
 declare type address = string;
 declare type rawTransaction = {
     from: address;
@@ -14,7 +15,7 @@ declare type signedTransaction = {
     method: string;
     params: any[];
     timestamp: Number;
-    signature: Uint8Array;
+    signature: base58String;
 };
 declare type signable = {
     sign: (transaction: rawTransaction) => Uint8Array;

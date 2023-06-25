@@ -5,5 +5,5 @@ export default {
   nonce: Number(),
   method: String(),
   params: Array(),
-  signature: new Uint8Array()
+  signature: String()
 }

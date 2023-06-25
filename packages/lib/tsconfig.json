@@ -12,7 +12,8 @@
   
   },
   "include": [
-    "./src/**/*"
+    "./src/**/*",
+    "@vandeurenglenn/base32"
   ],
   "exclude": ["./node_modules"]
 }
