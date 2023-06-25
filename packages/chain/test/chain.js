@@ -26,31 +26,31 @@ import networks from '@leofcoin/networks';
   let nonce = await chain.getNonce(peernet.selectedAccount)
   // // setTimeout(async () => {
 
-  // let transactions = [
-  //   {
-  //     from: peernet.selectedAccount, 
-  //     to: chain.nativeToken, 
-  //     method: 'grantRole',
-  //     nonce: 1,
-  //     params: [peernet.selectedAccount, 'MINT']
-  //   },
-  //   {
-  //     from: peernet.selectedAccount, 
-  //     to: chain.nativeToken, 
-  //     nonce: 2,
-  //     method: 'mint',
-  //     params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
-  //   }
-  // ]
-  //   let tx
-  //   try {
-  //     transactions = await Promise.all(transactions.map(tx => chain.createTransaction(tx)))
-  //     transactions = await Promise.all(transactions.map(tx => signTransaction(tx, peernet.identity)))
-  //     transactions = await Promise.all(transactions.map(tx => chain.sendTransaction(tx)))
-  //     transactions = await Promise.all(transactions.map(tx => tx.wait))
-  //   } catch (e) {
-  //     console.log({e});
-  //   }
+  let transactions = [
+    // {
+    //   from: peernet.selectedAccount, 
+    //   to: chain.nativeToken, 
+    //   method: 'grantRole',
+    //   nonce: 1,
+    //   params: [peernet.selectedAccount, 'MINT']
+    // },
+    // {
+    //   from: peernet.selectedAccount, 
+    //   to: chain.nativeToken, 
+    //   nonce: 2,
+    //   method: 'mint',
+    //   params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
+    // }
+  ]
+    let tx
+    try {
+      transactions = await Promise.all(transactions.map(tx => chain.createTransaction(tx)))
+      transactions = await Promise.all(transactions.map(tx => signTransaction(tx, peernet.identity)))
+      transactions = await Promise.all(transactions.map(tx => chain.sendTransaction(tx)))
+      transactions = await Promise.all(transactions.map(tx => tx.wait))
+    } catch (e) {
+      console.log({e});
+    }
     
   //   console.log({nonce});
     let balances = await chain.balances
@@ -61,28 +61,28 @@ import networks from '@leofcoin/networks';
     // console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
     // return
     let promises = []
-    // nonce += 
-    // nonce = await chain.getNonce(peernet.selectedAccount)
-    // // await chain.clearPool()
-    // // return
-    // for (let i = 0; i < 100; i++) {
-    //   // contract , method, from, to, amount, (optional) nonce
-    //   nonce += 1
-    //   const rawTransaction = await chain.createTransaction({
-    //     from: peernet.selectedAccount, 
-    //     to: chain.nativeToken, 
-    //     method: 'transfer',
-    //     nonce,
-    //     params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100000').toString()]
-    //   })
-    //   const transaction = await signTransaction(rawTransaction, peernet.identity)
-    //   promises.push(chain.sendTransaction(transaction))
-    // }
-    // console.time('transactions handled')
-    // promises = await Promise.allSettled(promises)
+    nonce += 
+    nonce = await chain.getNonce(peernet.selectedAccount)
+    // await chain.clearPool()
+    // return
+    for (let i = 0; i < 100; i++) {
+      // contract , method, from, to, amount, (optional) nonce
+      nonce += 1
+      const rawTransaction = await chain.createTransaction({
+        from: peernet.selectedAccount, 
+        to: chain.nativeToken, 
+        method: 'transfer',
+        nonce,
+        params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100000').toString()]
+      })
+      const transaction = await signTransaction(rawTransaction, peernet.identity)
+      promises.push(chain.sendTransaction(transaction))
+    }
+    console.time('transactions handled')
+    promises = await Promise.allSettled(promises)
     
-    // promises = await Promise.allSettled(promises.map(({value}) => value.wait))
-    // console.timeEnd('transactions handled')
+    promises = await Promise.allSettled(promises.map(({value}) => value.wait))
+    console.timeEnd('transactions handled')
     
     // balances = await chain.balances
     // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
