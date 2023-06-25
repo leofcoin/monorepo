@@ -4,7 +4,9 @@ import { storage } from '@leofcoin/storage'
 
 declare var transactionPoolStore: storage
 
-export type Address = string
+export type Address = base58String
+
+export type BlockHash = base58String
 
 interface Transaction {
   to: Address,
