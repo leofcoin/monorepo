@@ -2,15 +2,12 @@
   "name": "@leofcoin/networks",
   "version": "1.0.0",
   "description": "",
-  "main": "networks.js",
   "type": "module",
   "exports": {
     ".": {
       "import": "./exports/networks.js",
       "types": "./exports/networks.d.ts"
-    },
-    "./networks.json": "./exports/networks.json"
-    
+    }
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -25,7 +22,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "rollup": "^3.3.0",
-    "rollup-plugin-default-to-json": "^1.0.0"
+    "rollup": "^3.3.0"
   }
 }
