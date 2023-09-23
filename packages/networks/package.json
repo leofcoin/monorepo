@@ -1,8 +1,11 @@
 {
   "name": "@leofcoin/networks",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "type": "module",
+  "files": [
+    "./exports"
+  ],
   "exports": {
     ".": {
       "import": "./exports/networks.js",
