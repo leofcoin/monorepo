@@ -22,12 +22,7 @@
     "demo": "jsproject --serve ./ --port 5478 --open demo",
     "test": "node --openssl-legacy-provider test",
     "pack": "webpack",
-    "build": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "rollup -c --silent error --cache true"
-    }
+    "build": "rollup -c"
   },
   "np": {
     "yarn": false,
