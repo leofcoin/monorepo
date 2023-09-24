@@ -21,6 +21,7 @@ export default class Node {
     await nodeConfig(config)
     
     globalThis.pubsub.subscribe('chain:ready', () => {
+      // when autostart is false the node will only be started after the chain is ready (this is here so we can just use node for communication)
       if (!this.#node.autoStart) this.#node.start()
     })
     return this
