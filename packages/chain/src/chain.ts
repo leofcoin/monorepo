@@ -335,7 +335,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   }
 
   // todo filter tx that need to wait on prev nonce
-  async #createBlock(limit = 1800) {
+  async #createBlock(limit = this.transactionLimit) {
     
     // vote for transactions
     if (await globalThis.transactionPoolStore.size() === 0) return;
