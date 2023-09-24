@@ -1,4 +1,3 @@
-import PQueue from 'p-queue';
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
 import Contract from './contract.js';
@@ -8,8 +7,6 @@ import Jobber from './jobs/jobber.js';
 import { Address, BlockHash, BlockInMemory, LoadedBlock, RawBlock } from './types.js';
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
-
-const queue = new PQueue({concurrency: 1, throwOnTimeout: true});
 
 export default class State extends Contract {
   #resolveErrored: boolean;
@@ -29,6 +26,7 @@ export default class State extends Contract {
   #machine: Machine;
 
   #loaded: boolean = false
+  jobber: Jobber
 
   get blockHashMap() {
     return this.#blockHashMap.entries()
@@ -241,13 +239,13 @@ export default class State extends Contract {
   
     async resolveBlocks() {
 
-     try {
-      if (this.jobber.busy && this.jobber.stop) {
-        await this.jobber.stop()
+      try {
+        if (this.jobber.busy && this.jobber.stop) {
+          await this.jobber.stop()
+        }
+      } catch (error) {
+        console.error(error)
       }
-     } catch (error) {
-      console.error(error)
-     }
 
       try {
         const localBlock = await globalThis.chainStore.get('lastBlock')
@@ -280,7 +278,6 @@ export default class State extends Contract {
      } catch (error) {
       console.error(error)
      }
-    // await queue.clear()
     this.#chainSyncing = true
 
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
@@ -416,9 +413,9 @@ export default class State extends Contract {
         if (block.index === 0) this.#loaded = true
         
         const transactions = await this.#loadBlockTransactions([...block.transactions] || [])
-
+        const lastTransactions = await this.#getLastTransactions()
+        
         for (const transaction of transactions) {
-          const lastTransactions = await this.#getLastTransactions()
           const hash = await transaction.hash()
           
           if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
