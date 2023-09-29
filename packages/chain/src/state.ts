@@ -5,7 +5,7 @@ import Machine from './machine.js';
 import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
 import { Address, BlockHash, BlockInMemory, LoadedBlock, RawBlock } from './types.js';
-
+import { ResolveError, isResolveError } from '@leofcoin/errors'
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
 export default class State extends Contract {
@@ -148,11 +148,21 @@ export default class State extends Contract {
       throw error
     }
 
-    await this.resolveBlocks()
+    try {
+      await this.resolveBlocks()
+      this.#machine = await new Machine(this.#blocks)
     
-    this.#machine = await new Machine(this.#blocks)
+      await this.#loadBlocks(this.#blocks)
+    } catch (error) {
+      if (isResolveError(error)) {
+        console.error(error);
+        
+      }
+      console.log(error);
+      
+    }
     
-    await this.#loadBlocks(this.#blocks)
+    
   }
 
   async updateState(message) {
@@ -213,13 +223,12 @@ export default class State extends Contract {
     } catch (error) {
       this.#resolving = false
       this.#chainSyncing = false
-      throw new Error('resolve error')
+      throw new ResolveError(`block: ${hash}@${index}`)
     }
     return
   }
 
   async resolveBlock(hash) {
-    if (this.#resolveErrorCount === 3) this.#resolveErrorCount = 0
     if (!hash) throw new Error(`expected hash, got: ${hash}`)
     if (hash === '0x0') return
     if (this.#resolving) return 'already resolving'
@@ -230,9 +239,12 @@ export default class State extends Contract {
     
       if (!this.#blockHashMap.has(this.#lastResolved.previousHash) && this.#lastResolved.previousHash !== '0x0') return this.resolveBlock(this.#lastResolved.previousHash)
     } catch (error) {
+  console.log({error});
+  
       this.#resolveErrorCount += 1
       if (this.#resolveErrorCount < 3) return this.resolveBlock(hash)
-      else throw new Error('resolve errored')
+      this.#resolveErrorCount = 0
+      throw new ResolveError(`block: ${hash}`, {cause: error})
       
     }
   }
@@ -258,10 +270,31 @@ export default class State extends Contract {
         }
         
           
-      } catch {
+      } catch (error) {
+        console.log(error);
         this.#resolveErrored = true
         this.#resolveErrorCount += 1
         this.#resolving = false
+        this.restoreChain()
+  // console.log(e);
+      }
+    }
+
+    async restoreChain() {
+      try {
+        const {hash} = await this.#getLatestBlock()
+        await globalThis.chainStore.put('lastBlock', hash)
+        if (hash && hash !== '0x0') {
+          
+          await this.resolveBlock(hash)
+          this.#lastBlock = this.#blocks[this.#blocks.length - 1]
+        }
+      } catch (error) {
+        console.log(error);
+        this.#resolveErrored = true
+        this.#resolveErrorCount += 1
+        this.#resolving = false
+        this.restoreChain()
   // console.log(e);
       }
     }
