@@ -22,10 +22,14 @@ export default class Jobber {
         resolve('stopped')
       }
 
-      const result = await fn()
-      clearTimeout(timeout)
-      this.busy = false
-      resolve(result)
+      try {
+        const result = await fn()
+        clearTimeout(timeout)
+        this.busy = false
+        resolve(result)
+      } catch (error) {
+        reject(error)
+      }
       
     })
   }
