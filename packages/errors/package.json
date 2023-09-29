@@ -1,0 +1,19 @@
+{
+  "name": "@leofcoin/errors",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./exports/errors.js",
+      "types": "./exports/errors.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
