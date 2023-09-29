@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/errors",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "type": "module",
   "exports": {
@@ -9,6 +9,9 @@
       "types": "./exports/errors.d.ts"
     }
   },
+  "files": [
+    "exports"
+  ],
   "scripts": {
     "build": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
