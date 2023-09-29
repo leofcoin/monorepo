@@ -10,6 +10,7 @@
       "allowSyntheticDefaultImports": true,    
       "resolveJsonModule": true,
       "allowJs": true,
+      "useDefineForClassFields": false,
       "types": [
         "node"
       ]
