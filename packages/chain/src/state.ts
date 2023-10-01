@@ -324,9 +324,9 @@ export default class State extends Contract {
       
     } catch (error) {
       this.#syncErrorCount += 1
-      if (this.#syncErrorCount < 3) await this.#syncChain(lastBlock)
-      this.#chainSyncing = false
+      if (this.#syncErrorCount < 3) return this.syncChain(lastBlock)
       this.#syncErrorCount = 0
+      this.#chainSyncing = false
       return 'errored'
     }
     if (lastBlock.index === this.#lastBlockInQue?.index ) this.#lastBlockInQue = undefined

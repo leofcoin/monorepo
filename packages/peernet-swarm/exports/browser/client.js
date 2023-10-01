@@ -28,15 +28,18 @@ class LittlePubSub {
         if (this.subscribers[event].handlers.length === 0)
             delete this.subscribers[event];
     }
-    publish(event, change) {
+    publish(event, value) {
+        // always set value even when having no subscribers
         if (!this.hasSubscribers(event))
-            return;
-        if (this.verbose || this.subscribers[event]?.value !== change) {
-            this.subscribers[event].value = change;
-            this.subscribers[event].handlers.forEach((handler) => {
-                handler(change, this.subscribers[event].value);
-            });
-        }
+            this.subscribers[event] = {
+                handlers: []
+            };
+        const oldValue = this.subscribers[event]?.value;
+        this.subscribers[event].value = value;
+        if (this.verbose || oldValue !== value)
+            for (const handler of this.subscribers[event].handlers) {
+                handler(value, oldValue);
+            }
     }
     once(event) {
         return new Promise((resolve) => {

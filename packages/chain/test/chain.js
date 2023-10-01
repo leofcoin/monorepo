@@ -65,7 +65,7 @@ import networks from '@leofcoin/networks';
     nonce = await chain.getNonce(peernet.selectedAccount)
     // await chain.clearPool()
     // return
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 0; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({
@@ -73,7 +73,7 @@ import networks from '@leofcoin/networks';
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqzu5jCU98Krtdaa9LADuBaicZ91UrJWMVaJNm5AKSoteca4DYXa', chain.utils.parseUnits('100000').toString()]
+        params: [peernet.selectedAccount, 'YTqyMcCdJSBkFBEM5Jvt2bA2M8cL8NE3Fcz4QxJs9y8bFLFurq5mM', chain.utils.parseUnits('10').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
@@ -83,7 +83,7 @@ import networks from '@leofcoin/networks';
     
     promises = await Promise.allSettled(promises.map(({value}) => value.wait))
     console.timeEnd('transactions handled')
-    
+
     // balances = await chain.balances
     // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
     // console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
@@ -141,10 +141,11 @@ import networks from '@leofcoin/networks';
 //     console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
 //     console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);
 //       // }, 10000);
-//     // const exported = await peernet.identity.export('password')
-//     // const exportedQR = await peernet.identity.exportQR('password')
-//     // console.log(exported); 
-//     // console.log(exportedQR);
+    const exported = await peernet.identity.export('password')
+    const exportedQR = await globalThis.peernet.identity.exportQR('password')
+console.log(peernet.identity);
+    console.log(exported); 
+    console.log(exportedQR);
 //       // job()
 //   // }, 5000);
 // // }
