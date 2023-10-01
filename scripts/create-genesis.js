@@ -1,8 +1,8 @@
 import { writeFile as write, readFile as read } from 'fs/promises'
 import { join } from 'path'
 (async () => {
-  const {parseUnits} = await import('./../utils/src/utils.js')
-  const {nodeConfig, createContractMessage} = await import('./../lib/exports/index.js')
+  const {parseUnits} = await import('@leofcoin/utils')
+  const {nodeConfig, createContractMessage} = await import('@leofcoin/lib')
   
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
@@ -11,32 +11,32 @@ import { join } from 'path'
   }
   // const Chain = require('./../chain/dist/chain');
   
-  const Node = (await import('./../chain/exports/node.js')).default;
+  const Node = (await import('../packages/chain/exports/node.js')).default;
   const node = await new Node({network: 'leofcoin:peach', networkVersion: 'peach'})
   await nodeConfig()
   console.log(peernet.selectedAccount);
   // const chain = await new Chain()
   // console.log(chain);
-  const factory = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/factory.js')
+  const factory = await createMessage('./node_modules/@leofcoin/contracts/exports/factory.js')
 console.log(factory);
   if (!await contractStore.has(await factory.hash())) {
     await contractStore.put(await factory.hash(), factory.encoded)
   }
 
-  const nativeToken = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/native-token.js')
+  const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js')
   if (!await contractStore.has(await nativeToken.hash())) {
     await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
   }
 
 
-  const validators = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/validators.js', [await nativeToken.hash()])
+  const validators = await createMessage('./node_modules/@leofcoin/contracts/exports/validators.js', [await nativeToken.hash()])
 
   if (!await contractStore.has(await validators.hash())) {
     await contractStore.put(await validators.hash(), validators.encoded)
   }
 
 
-  const nameService = await createMessage('./scripts/node_modules/@leofcoin/contracts/exports/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
+  const nameService = await createMessage('./node_modules/@leofcoin/contracts/exports/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
 
   if (!await contractStore.has(await nameService.hash())) {
     await contractStore.put(await nameService.hash(), nameService.encoded)
@@ -58,7 +58,7 @@ console.log({addresses});
     validators: await validators.toString()
   }
 console.log(await factory.toBs32());
-  await write(join(process.cwd(), './addresses/src/addresses.json'), JSON.stringify(addresses, null, '\t'))
-  await write(join(process.cwd(), './lib/src/bytecodes.json'), JSON.stringify(bytecodes, null, '\t'))
+  await write(join(process.cwd(), 'packages/addresses/src/addresses.json'), JSON.stringify(addresses, null, '\t'))
+  await write(join(process.cwd(), 'packages/lib/src/bytecodes.json'), JSON.stringify(bytecodes, null, '\t'))
   console.log('done');
 })()
