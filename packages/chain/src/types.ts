@@ -21,7 +21,7 @@ interface RawTransaction extends Transaction {
   timestamp: Number
 }
 
-interface globalMessage {
+export interface globalMessage {
   sender: Address,
   call: Function,
   staticCall: Function,

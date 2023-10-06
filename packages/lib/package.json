@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.27",
+  "version": "1.2.28",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",

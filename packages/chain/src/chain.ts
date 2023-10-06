@@ -247,7 +247,8 @@ async #versionHandler() {
 async #executeTransaction({hash, from, to, method, params, nonce}) {
   try {
     let result = await this.machine.execute(to, method, params)
-    
+    // await accountsStore.put(to, nonce)
+    await transactionPoolStore.delete(hash)
     // if (!result) result = this.machine.state
     globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
     return result || 'no state change'

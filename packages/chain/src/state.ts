@@ -461,6 +461,7 @@ export default class State extends Contract {
           
           try {
             await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
+            await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
             if (transaction.decoded.to === nativeToken) {
               this.#nativeCalls += 1
               if (transaction.decoded.method === 'burn') this.#nativeBurns += 1
