@@ -171,6 +171,7 @@ export default class State extends Contract {
     
     // await this.state.updateState(message)
     await globalThis.chainStore.put('lastBlock', hash)
+    globalThis.pubsub.publish('lastBlock', this.#lastBlock)
   }
 
   async #lastBlockHandler() {
