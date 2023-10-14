@@ -1,15 +1,28 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.28",
+  "version": "1.2.29",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
   "exports": {
-    ".": "./exports/index.js",
-    "./node-config": "./exports/node-config.js",
-    "./bytecodes": "./src/bytecodes.json",
-    "./node-config.js": "./exports/node-config.js",
-    "./bytecodes.json": "./src/bytecodes.json"
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    },
+    "./node-config": {
+      "import": "./exports/node-config.js",
+      "types": "./exports/node-config.d.ts"
+    },
+    "./node-config.js": {
+      "import": "./exports/node-config.js",
+      "types": "./exports/node-config.d.s"
+    },
+    "./bytecodes": {
+      "import": "./src/bytecodes.json"
+    },
+    "./bytecodes.json": {
+      "import": "./src/bytecodes.json"
+    }
   },
   "files": [
     "exports",
@@ -17,12 +30,7 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "rollup -c --silent error --cache true"
-    }
+    "build": "rollup -c"
   },
   "keywords": [],
   "author": "",

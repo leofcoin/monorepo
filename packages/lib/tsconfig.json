@@ -1,12 +1,10 @@
 {
   "compilerOptions": {
-    "module": "esnext",
+    "module": "NodeNext",
     "target": "es2022",
     "outDir": "./exports",
     "moduleResolution":"NodeNext",
     "declaration": true,
-    "declarationDir": "./exports/typings",
-    "allowJs": true,
     "allowSyntheticDefaultImports": true,    
     "resolveJsonModule": true
   

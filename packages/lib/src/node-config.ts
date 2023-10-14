@@ -1,9 +1,11 @@
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage, ValidatorMessage } from '@leofcoin/messages'
+import Storage from '@leofcoin/storage'
 
 declare global {
-  var transactionPoolStore: globalThis.LeofcoinStorage
+  var transactionPoolStore: Storage
+  var accountsStore: Storage
+  var contractStore: Storage
 }
-
 
 export default async (config = {
   network: 'leofcoin:peach',

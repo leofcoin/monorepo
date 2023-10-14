@@ -26,9 +26,8 @@ declare type signedTransaction = {
 }
 
 declare type signable = {
-  sign: (transaction: rawTransaction) => Uint8Array
+  sign: (transaction: Uint8Array) => Uint8Array
 }
-
 export const contractFactoryMessage = bytecodes.contractFactory
 export const nativeTokenMessage = bytecodes.nativeToken
 
@@ -76,21 +75,21 @@ export const calculateReward = (validators, fees): [] => {
 
 export const createTransactionHash = async (transaction: rawTransaction | TransactionMessage | RawTransactionMessage): Promise<Uint8Array> => {
   const isRawTransactionMessage = transaction instanceof RawTransactionMessage
+  let message: RawTransactionMessage
 
-  if (!isRawTransactionMessage) {
-    if (transaction.decoded && transaction instanceof TransactionMessage) transaction = await new RawTransactionMessage(transaction.decoded)
-    else transaction = await new RawTransactionMessage(transaction)
-  }
+  if (!isRawTransactionMessage) message = await new RawTransactionMessage(
+    transaction instanceof TransactionMessage ? transaction.decoded : transaction
+  )
+  else message = transaction
   
-  return (await transaction.peernetHash).digest
+  return (await message.peernetHash).digest
 }
   
 
 export const signTransaction = async (transaction: rawTransaction, wallet: signable): Promise<signedTransaction> => {
   
   const signature = toBase58(await wallet.sign(await createTransactionHash(transaction)))
-  const signedTransaction = {...transaction, signature}
-  return signedTransaction
+  return {...transaction, signature}
 }
 
 export const prepareContractTransaction = async (owner, contract, constructorParameters = []) => {
