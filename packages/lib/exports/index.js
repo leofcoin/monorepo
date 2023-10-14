@@ -55,18 +55,16 @@ const calculateReward = (validators, fees) => {
 };
 const createTransactionHash = async (transaction) => {
     const isRawTransactionMessage = transaction instanceof RawTransactionMessage;
-    if (!isRawTransactionMessage) {
-        if (transaction.decoded && transaction instanceof TransactionMessage)
-            transaction = await new RawTransactionMessage(transaction.decoded);
-        else
-            transaction = await new RawTransactionMessage(transaction);
-    }
-    return (await transaction.peernetHash).digest;
+    let message;
+    if (!isRawTransactionMessage)
+        message = await new RawTransactionMessage(transaction instanceof TransactionMessage ? transaction.decoded : transaction);
+    else
+        message = transaction;
+    return (await message.peernetHash).digest;
 };
 const signTransaction = async (transaction, wallet) => {
     const signature = toBase58(await wallet.sign(await createTransactionHash(transaction)));
-    const signedTransaction = { ...transaction, signature };
-    return signedTransaction;
+    return { ...transaction, signature };
 };
 const prepareContractTransaction = async (owner, contract, constructorParameters = []) => {
     const message = await createContractMessage(owner, contract, constructorParameters);

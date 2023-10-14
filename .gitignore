@@ -26,3 +26,5 @@ www/www/*.js
 
 .DS_Store
 .wireit
+
+packages/messages/exports
