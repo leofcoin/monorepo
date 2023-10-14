@@ -1,3 +1,5 @@
+import { Transaction } from '@leofcoin/types';
+
 export default {
   timestamp: Number(),
   from: String(),
@@ -6,4 +8,4 @@ export default {
   method: String(),
   params: Array(),
   signature: String()
-}
+} as Transaction

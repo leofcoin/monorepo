@@ -3,28 +3,46 @@
   "version": "1.3.12",
   "description": "",
   "exports": {
-    ".": "./exports/index.js",
-    "./block": "./exports/block.js",
-    "./bw-request": "./exports/bw-request.js",
-    "./bw": "./exports/bw.js",
-    "./contract": "./exports/contract.js",
-    "./last-block-request": "./exports/last-block-request.js",
-    "./last-block": "./exports/last-block.js",
-    "./transaction": "./exports/transaction.js"
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    },
+    "./block": {
+      "import": "./exports/block.js",
+      "types": "./exports/block.d.ts"
+    },
+    "./bw-request": {
+      "import": "./exports/bw-request.js",
+      "types": "./exports/bw-request.d.ts"
+    },
+    "./bw": {
+      "import": "./exports/bw.js",
+      "types": "./exports/bw.d.ts"
+    },
+    "./contract": {
+      "import": "./exports/contract.js",
+      "types": "./exports/contract.d.ts"
+    },
+    "./last-block-request": {
+      "import": "./exports/last-block-request.js",
+      "types": "./exports/last-block-request.d.ts"
+    },
+    "./last-block": {
+      "import": "./exports/last-block.js",
+      "types": "./exports/last-block.d.ts"
+    },
+    "./transaction": {
+      "import": "./exports/transaction.js",
+      "types": "./exports/transaction.d.ts"
+    }
   },
   "files": [
     "exports"
   ],
   "type": "module",
-  "typings": "./exports/typings/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "rollup -c --silent error --cache true"
-    }
+    "build": "rollup -c"
   },
   "keywords": [],
   "author": "",
@@ -32,10 +50,11 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.0.0",
     "rollup": "^3.10.0",
-    "tslib": "^2.4.1"
+    "tslib": "^2.4.1",
+    "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@leofcoin/codec-format-interface": "^1.6.5",
+    "@leofcoin/codec-format-interface": "^1.6.18",
     "@leofcoin/utils": "^1.1.5",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
