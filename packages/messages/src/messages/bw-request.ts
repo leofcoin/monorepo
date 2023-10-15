@@ -6,7 +6,7 @@ export default class BWRequestMessage extends FormatInterface {
     return 'BWRequestMessage'
   }
 
-  constructor(buffer: messageInput) {
+  constructor(buffer?: messageInput) {
     const name = 'bw-request-message'
     super(buffer, proto, {name})
   }
