@@ -4,18 +4,10 @@ import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
 import smartConcat from '@vandeurenglenn/typed-array-smart-concat'
 import smartDeconcat from '@vandeurenglenn/typed-array-smart-deconcat'
-import { BigNumber } from '@leofcoin/utils'
+import type { messageInput } from '../types.js'
 
 export default class BlockMessage extends FormatInterface {
-  declare decoded: {
-    index: Number,
-    previousHash: String,
-    timestamp: String, 
-    reward: BigNumber,
-    fees: BigNumber,
-    transactions: Uint8Array[] | Object[] | Uint8Array,
-    validators: Uint8Array[] | Object[] | Uint8Array
-  }
+  declare decoded: typeof proto
 
   get messageName() {
     return 'BlockMessage'
@@ -31,12 +23,12 @@ export default class BlockMessage extends FormatInterface {
     const validators: Uint8Array[] = []
     const transactions: Uint8Array[] = []
     
-    for (const validator of decoded.validators) {
+    for (const validator of decoded.validators as any) {
       if (validator instanceof ValidatorMessage) validators.push(validator.encoded)
       else validators.push(new ValidatorMessage(validator).encoded)
     }
 
-    for (const transaction of decoded.transactions) {
+    for (const transaction of decoded.transactions as any) {
       if (transaction instanceof TransactionMessage) transactions.push(transaction.encoded)
       else transactions.push(new TransactionMessage(transaction).encoded)
     }
@@ -49,9 +41,11 @@ export default class BlockMessage extends FormatInterface {
   }
 
   decode() {
-    super.decode()    
-    this.decoded.transactions = smartDeconcat(this.decoded.transactions as Uint8Array).map(transaction => new TransactionMessage(transaction).decoded)
-    this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(validator => new ValidatorMessage(validator).decoded)
+    super.decode()
+    // @ts-ignore
+    this.decoded.transactions = smartDeconcat(this.decoded.transactions as Uint8Array).map(transaction => new TransactionMessage(transaction).decoded) as TransactionMessage['decoded'][]
+    // @ts-ignore
+    this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(validator => new ValidatorMessage(validator).decoded) as ValidatorMessage['decoded'][]
     return this.decoded
   }
 }

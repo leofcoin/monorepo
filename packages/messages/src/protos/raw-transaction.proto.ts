@@ -1,3 +1,5 @@
+import { RawTransaction } from '@leofcoin/types';
+
 export default {
   timestamp: Number(),
   from: String(),
@@ -5,4 +7,4 @@ export default {
   nonce: Number(),
   method: String(),
   params: Array()
-}
+} as RawTransaction
