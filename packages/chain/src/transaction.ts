@@ -4,6 +4,7 @@ import { calculateFee } from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
 
 export default class Transaction extends Protocol {
+  
   constructor() {
     super()
   }
@@ -65,9 +66,9 @@ export default class Transaction extends Protocol {
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.filter(tx => tx.decoded.from === address)
     transactions = await this.promiseTransactionsContent(transactions)
-
+    // @ts-ignore
     if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !==  '0x0') {
-      
+      // @ts-ignore
       let block = await peernet.get(this.lastBlock.hash, 'block')
       block = await new BlockMessage(block)
 
@@ -132,6 +133,10 @@ export default class Transaction extends Protocol {
   isTransactionMessage(message) {
     if (message instanceof TransactionMessage) return true
     return false
+  }
+
+  async createTransactionMessage(transaction, signature) {
+    return new TransactionMessage({...transaction, signature})
   }
 
   async createTransaction(transaction) {

@@ -15,7 +15,7 @@ export default [{
   },
   plugins: [
     json(),
-    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports/types'}, exclude: ['node_modules'], 'include': ['./src/**/*']}),
+    typescript({compilerOptions: {'outDir': './exports', 'declaration': true, 'declarationDir': './exports'}, exclude: ['node_modules'], 'include': ['./src/**/*']}),
     modify({
       '@leofcoin/workers/machine-worker.js': 'workers/machine-worker.js',
       '@leofcoin/workers/src/block-worker.js': 'block-worker.js',

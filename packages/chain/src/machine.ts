@@ -2,6 +2,7 @@ import { contractFactory, nativeToken, validators, nameService } from '@leofcoin
 import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
+import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors';
 // import State from './state'
 
 export default class Machine {
@@ -15,8 +16,7 @@ export default class Machine {
     return this.#init(blocks)
   }
 
-  // @ts-ignore
-  #createMessage(sender = globalThis.peernet.selectedAccount) {
+  #createMessage(sender = peernet.selectedAccount) {
     return {
       sender,
       call: this.execute,
@@ -62,7 +62,7 @@ export default class Machine {
     
   }
 
-  async #init(blocks) {
+  async #init(blocks): Promise<Machine> {
     return new Promise(async (resolve) => {
       const machineReady = () => {
         pubsub.unsubscribe('machine.ready', machineReady)
@@ -136,7 +136,7 @@ export default class Machine {
    * @param {Array} parameters 
    * @returns Promise<message>
    */
-  async execute(contract, method, parameters) {
+  async execute(contract, method, parameters): Promise<any> {
     try {
       if (contract === contractFactory && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
@@ -153,14 +153,14 @@ export default class Machine {
         if (!await this.has(await message.hash())) await this.#runContract(message)
       }
     } catch (error) {
-      throw new Error(`contract deployment failed for ${parameters[0]}\n${error.message}`)
+      throw new ContractDeploymentError(`contract deployment failed for ${parameters[0]}\n${error.message}`)
     }
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
       const onmessage = message => {
         pubsub.unsubscribe(id, onmessage)
-        if (message?.error) reject(message.error)
+        if (message?.error) reject(new ExecutionError(message.error))
         else resolve(message)
       }
       pubsub.subscribe(id, onmessage)
@@ -177,7 +177,7 @@ export default class Machine {
     
   }
 
-  get(contract, method, parameters?) {
+  get(contract, method, parameters?): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()
       const onmessage = message => {
@@ -227,7 +227,7 @@ export default class Machine {
    * @returns Promise
    */
   async deleteAll() {
-    let hashes = await globalThis.contractStore.get()
+    let hashes = await globalThis.contractStore.keys()
     hashes = Object.keys(hashes).map(hash => this.delete(hash))
     return Promise.all(hashes)
   }

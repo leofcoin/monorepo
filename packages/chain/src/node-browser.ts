@@ -19,8 +19,11 @@ export default class Node {
     this.#node = globalThis.Peernet ? await new globalThis.Peernet(config, password) : await new Peernet(config, password)
     await nodeConfig(config)
 
-    globalThis.pubsub.subscribe('chain:ready', () => {
-      if (!this.#node.autoStart) this.#node.start()
+    globalThis.pubsub.subscribe('chain:ready', async () => {
+      if (!this.#node.autoStart) {
+        await this.#node.start()
+        pubsub.publish('node:ready', true)
+      }
     })
     return this
     // this.config = await config()

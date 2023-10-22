@@ -1,10 +1,24 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.5.10",
+  "version": "1.5.15",
   "description": "Official javascript implementation",
   "exports": {
-    "./node": "./exports/node.js",
-    "./chain": "./exports/chain.js",
+    "./node": {
+      "import": "./exports/node.js",
+      "types": "./exports/node.d.ts"
+    },
+    "./chain": {
+      "import": "./exports/chain.js",
+      "types": "./exports/chain.d.ts"
+    },
+    "./browser/node": {
+      "import": "./exports/browser/node.js",
+      "types": "./exports/node.d.ts"
+    },
+    "./browser/chain": {
+      "import": "./exports/browser/chain.js",
+      "types": "./exports/chain.d.ts"
+    },
     "./workers/machine-worker": "./exports/workers/machine-worker.js"
   },
   "type": "module",
@@ -52,6 +66,7 @@
     "rollup-plugin-node-globals": "^1.4.0",
     "tape": "^5.5.2",
     "tslib": "^2.5.3",
+    "typescript": "^5.2.2",
     "wireit": "^0.9.5"
   },
   "dependencies": {

@@ -5,10 +5,11 @@ import { signTransaction } from '@leofcoin/lib'
 import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
 import { BigNumberish } from '@ethersproject/bignumber'
 import State from './state.js'
+import { Address } from './types.js'
 
 globalThis.BigNumber = BigNumber
 
-const ignorelist = ['BA5XUACBBBAT653LT3GHP2Z5SUHVCA42BP6IBFBJACHOZIHHR4DUPG2XMB', 'BA5XUACK6K5XA5P4BHRZ4SZT6FCLO6GLGCLUAD62WBPVLFK73RHZZUFLEG']
+const ignorelist = []
 
 // check if browser or local
 export default class Chain extends State {
@@ -88,8 +89,10 @@ export default class Chain extends State {
     }]
 
     await Promise.all(contracts.map(async ({address, message}) => {
+      // @ts-ignore
       message = await new ContractMessage(Uint8Array.from(message.split(',').map(string => Number(string))))
-      await globalThis.contractStore.put(address, message.encoded)
+      // @ts-ignore
+      await globalThis.contractStore.put(address, message.encoded as ContractMessage['encoded'])
     }))
     console.log('handle native contracts');
     // handle native contracts
@@ -265,21 +268,25 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     const blockMessage = await new BlockMessage(block)
     
     await Promise.all(blockMessage.decoded.transactions
-      .map(async transaction => globalThis.transactionPoolStore.delete(transaction.hash)))
+      // @ts-ignore
+      .map(async transaction => transactionPoolStore.delete(transaction.hash)))
     
     const hash = await blockMessage.hash()
     
     await globalThis.blockStore.put(hash, blockMessage.encoded)
     
-    if (this.lastBlock.index < blockMessage.decoded.index) await this.updateState(blockMessage)
+    if (this.lastBlock.index < Number(blockMessage.decoded.index)) await this.updateState(blockMessage)
     globalThis.debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
     for (let transaction of blockMessage.decoded.transactions) {
       // await transactionStore.put(transaction.hash, transaction.encoded)
+      // @ts-ignore
       const index = contracts.indexOf(transaction.to)
+      // @ts-ignore
       if (index === -1) contracts.push(transaction.to)
-      // Todo: go trough all accounts      
+      // Todo: go trough all accounts
+      // @ts-ignore
       promises.push(this.#executeTransaction(transaction))
       
     }
@@ -432,7 +439,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
         const peer = peers[validator]
         if (peer && peer.connected && peer.version === this.version) {
           let data = await new BWRequestMessage()
-          const node = await globalThis.peernet.prepareMessage(validator, data.encoded)
+          const node = await globalThis.peernet.prepareMessage(data.encoded)
           try {
             const bw = await peer.request(node.encoded)
             block.validators.push({
@@ -554,9 +561,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     return {
       sender,
       call: this.call,
-      staticCall: this.staticCall,
-      delegate: this.delegate,
-      staticDelegate: this.staticDelegate
+      staticCall: this.staticCall
     }
   }
 
@@ -568,7 +573,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    * @param {Array} parameters 
    * @returns 
    */
-  internalCall(sender, contract, method, parameters) {
+  internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
     globalThis.msg = this.#createMessage(sender)
 
     return this.machine.execute(contract, method, parameters)
@@ -581,38 +586,26 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    * @param {Array} parameters 
    * @returns 
    */
-  call(contract, method, parameters) {
+  call(contract: Address, method: string, parameters?: any[]) {
     globalThis.msg = this.#createMessage()
 
     return this.machine.execute(contract, method, parameters)
   }
 
-  staticCall(contract, method, parameters) {
+  staticCall(contract: Address, method: string, parameters?: any[]) {
     globalThis.msg = this.#createMessage()
     return this.machine.get(contract, method, parameters)
   }
 
-  delegate(contract, method, parameters) {
-    globalThis.msg = this.#createMessage()
-
-    return this.machine.execute(contract, method, parameters)
-  }
-
-  staticDelegate(contract: Address, method, parameters: []): any {
-    globalThis.msg = this.#createMessage()
-
-    return this.machine.get(contract, method, parameters)
-  }
-
-  mint(to, amount: BigNumberish) {
+  mint(to: Address, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'mint', [to, amount])
   }
 
-  transfer(from, to, amount: BigNumberish) {
+  transfer(from: Address, to: Address, amount: BigNumberish) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
-  get balances():Promise<{address: BigNumberish}[]> {
+  get balances(): Promise<{[index: string]: BigNumberish}> {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
 

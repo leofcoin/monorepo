@@ -1,7 +1,8 @@
 import Transaction from "./transaction.js";
-import { createContractMessage } from '@leofcoin/lib'
+import { createContractMessage, signTransaction } from '@leofcoin/lib'
 import addresses from "@leofcoin/addresses"
-
+import type MultiWallet from '@leofcoin/multi-wallet'
+import { RawTransactionMessage } from '@leofcoin/messages'
 /**
  * @extends {Transaction}
  */
@@ -43,18 +44,25 @@ export default class Contract extends Transaction {
    * @param {Array} parameters 
    * @returns 
    */
-  async deployContract(contract, constructorParameters = []) {
-    const message = await createContractMessage(peernet.selectedAccount, contract, constructorParameters)
+  async deployContract(signer: MultiWallet, contract, constructorParameters = []) {
+    const message = await createContractMessage(await signer.address, contract, constructorParameters)
+    return this.deployContractMessage(signer, message)
+  }
+  
+  async deployContractMessage(signer, message) {
     try {
-      await contractStore.put(await message.hash(), message.encoded)
+      await globalThis.contractStore.put(await message.hash(), message.encoded)
     } catch (error) {
       throw error
     }
-    return this.createTransactionFrom(peernet.selectedAccount, addresses.contractFactory, 'registerContract', [await message.hash()])    
-  }
-  
-  async deployContractMessage(message) {
-
+    let transaction = {
+      from: await signer.address,
+      to: addresses.contractFactory,
+      method: 'registerContract',
+      params: [await message.hash()]
+    }
+    transaction = await signTransaction(await this.createTransaction(transaction), signer)
+    return this.sendTransaction(transaction)
   }
 
  

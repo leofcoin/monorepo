@@ -4,8 +4,8 @@ import Contract from './contract.js';
 import Machine from './machine.js';
 import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
-import { Address, BlockHash, BlockInMemory, LoadedBlock, RawBlock } from './types.js';
-import { ResolveError, isResolveError } from '@leofcoin/errors'
+import { BlockHash, BlockInMemory } from './types.js';
+import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 
 export default class State extends Contract {
@@ -184,18 +184,19 @@ export default class State extends Contract {
 
   
 
-  getLatestBlock(): Promise<BlockMessage.decoded> {
+  getLatestBlock(): Promise<BlockMessage['decoded']> {
+    // @ts-ignore
     return this.#getLatestBlock()
   }
 
-  async getAndPutBlock(hash: string): BlockMessage {
+  async getAndPutBlock(hash: string): Promise<BlockMessage> {
     // todo peernet resolves undefined blocks....
     let block = await globalThis.peernet.get(hash, 'block')
     if (block !== undefined) {
       block = await new BlockMessage(block)
       const { index } = block.decoded
       if (this.#blocks[index - 1] && this.#blocks[index - 1].hash !== block.hash) throw `invalid block ${hash} @${index}`
-      if (!await globalThis.peernet.has(hash, 'block')) await globalThis.peernet.put(hash, block.encoded, 'block')
+      if (!await globalThis.peernet.has(hash)) await globalThis.peernet.put(hash, block.encoded, 'block')
     }
     return block
   }
@@ -343,7 +344,7 @@ export default class State extends Contract {
       if (this.knownBlocks?.length === Number(lastBlock.index) + 1) {
         let promises = []
         promises = await Promise.allSettled(this.knownBlocks.map(async (address) => {
-          const has = await globalThis.peernet.has(address, 'block')
+          const has = await globalThis.peernet.has(address)
           return {has, address}
         }))
         promises = promises.filter(({status, value}) => status === 'fulfilled' && !value.has)
@@ -380,6 +381,7 @@ export default class State extends Contract {
     let node = await globalThis.peernet.prepareMessage(data);
 
     for (const peer of globalThis.peernet?.connections) {
+      // @ts-ignore
       if (peer.connected && peer.version === this.version) {       
         const task = async () => {
           try {
@@ -393,6 +395,7 @@ export default class State extends Contract {
         promises.push(task());
       }
     }
+    // @ts-ignore
     promises = await this.promiseRequests(promises)
     let latest = {index: 0, hash: '0x0', previousHash: '0x0'}
 
@@ -456,8 +459,9 @@ export default class State extends Contract {
           if (lastTransactions.includes(hash)) {
             console.log('removing invalid block');
             await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-            blocks.splice(block.index - 1)
+            blocks.splice(block.index - 1, 1)
             return this.#loadBlocks(blocks)
+            
           }
           
           try {
@@ -472,9 +476,18 @@ export default class State extends Contract {
             this.#totalTransactions += 1
           } catch (error) {
             console.log(error);
+            console.log(blocks, block.index);
             
             await globalThis.transactionPoolStore.delete(hash)
-            console.log('removing invalid transaction');
+              console.log('removing invalid transaction');
+            if (isExecutionError(error)) {
+              console.log('removing invalid block');
+              await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
+              blocks.splice(block.index - 1, 1)
+              return this.#loadBlocks(blocks)
+            }
+            
+            
             
             console.log(error);
             return false
@@ -482,6 +495,7 @@ export default class State extends Contract {
         }
         this.#blocks[block.index - 1].loaded = true
         
+        // @ts-ignore
         globalThis.debug(`loaded block: ${block.hash} @${block.index}`);
         globalThis.pubsub.publish('block-loaded', {...block})
       }
