@@ -81,7 +81,6 @@ export const createTransactionHash = async (transaction: rawTransaction | Transa
     transaction instanceof TransactionMessage ? transaction.decoded : transaction
   )
   else message = transaction
-  
   return (await message.peernetHash).digest
 }
   

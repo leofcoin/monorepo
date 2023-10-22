@@ -6,12 +6,14 @@
     "moduleResolution":"NodeNext",
     "declaration": true,
     "allowSyntheticDefaultImports": true,    
-    "resolveJsonModule": true
-  
+    "resolveJsonModule": true,
+    "types": [
+      "@leofcoin/peernet",
+      "@vandeurenglenn/base32"
+    ]
   },
   "include": [
-    "./src/**/*",
-    "@vandeurenglenn/base32"
+    "./src/**/*"
   ],
   "exclude": ["./node_modules"]
 }
