@@ -28,3 +28,5 @@ www/www/*.js
 .wireit
 
 packages/messages/exports
+
+.wireit
