@@ -9,12 +9,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "rollup -c --silent true --cache true"
-    }
+    "build": "rollup -c --silent error --cache true"
   },
   "keywords": [],
   "author": "",

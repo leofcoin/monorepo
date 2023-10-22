@@ -14,15 +14,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArteonToken/monorepo.git"
+    "url": "git+https://github.com/leofcoin/monorepo.git"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ArteonToken/monorepo/issues"
+    "url": "https://github.com/leofcoin/monorepo/issues"
   },
-  "homepage": "https://github.com/ArteonToken/monorepo#readme",
+  "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
     "@vandeurenglenn/doc-it": "^1.0.0"
   },

@@ -18,19 +18,13 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "rollup -c --silent error --cache true"
-    }
+    "build": "rollup -c"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-json": "^6.0.0",
-    "rollup": "^3.17.2",
-    "wireit": "^0.9.5"
+    "rollup": "^3.17.2"
   }
 }
