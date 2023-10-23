@@ -476,7 +476,6 @@ export default class State extends Contract {
             this.#totalTransactions += 1
           } catch (error) {
             console.log(error);
-            console.log(blocks, block.index);
             
             await globalThis.transactionPoolStore.delete(hash)
               console.log('removing invalid transaction');
