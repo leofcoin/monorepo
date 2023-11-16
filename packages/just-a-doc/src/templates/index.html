@@ -96,6 +96,7 @@
       height: 100%;
       width: 256px;
       box-shadow: 1px 1px 8px 0px #5555557a;
+      overflow-y: auto;
     }
 
     a {
@@ -139,6 +140,21 @@
     :not(:last-child(.block.param)) {
       border-bottom: 1px solid #eee;
     }
+
+    .menu-button {
+      opacity: 0;
+    }
+
+    @media (max-width: 1199px) {
+      .menu-button {
+        opacity: 1;
+      }
+
+      aside {
+        position: absolute;
+
+      }
+    }
   </style>
   <span class="toolbar">
 
@@ -157,7 +173,7 @@
             <h2>class</h2>
           </span>
           <span class="properties">
-            <h2>properties</h2>
+            
           </span>
       
           <span class="methods">
@@ -176,72 +192,8 @@
 <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
   <script type="module">
 
-    const pages = [
-	"addresses.js",
-	"chain.js",
-	"machine.js",
-	"node.js",
-	"state.js",
-	"typer.js",
-	"lib.js",
-	"node-config.js",
-	"messages.js",
-	"miniframe.js",
-	"mnemonic.js",
-	"wordlist.js",
-	"networks.js",
-	"index.js",
-	"utils.js",
-	"wallet.js",
-	"block-worker.js",
-	"machine-worker.js",
-	"pool-worker.js",
-	"transaction-worker.js",
-	"workers.js",
-	"config.js",
-	"main.js",
-	"protocol.js",
-	"factory.js",
-	"name-service.js",
-	"native-token.js",
-	"power-token.js",
-	"validators.js",
-	"config.js",
-	"initializer.js",
-	"roles.js",
-	"token.js",
-	"voting.js",
-	"transaction.js",
-	"validator.js",
-	"block.js",
-	"bw-request.js",
-	"bw.js",
-	"contract.js",
-	"last-block-request.js",
-	"last-block.js",
-	"transaction.js",
-	"block.proto.js",
-	"bw-request.proto.js",
-	"bw.proto.js",
-	"contract.proto.js",
-	"last-block-request.proto.js",
-	"last-block.proto.js",
-	"transaction.proto.js",
-	"base-class.js",
-	"helpers.js",
-	"load.js",
-	"script.js",
-	"elevation.js",
-	"styles.js",
-	"client.js",
-	"peer.js",
-	"html.js",
-	"utils.js",
-	"api.js",
-	"server.js",
-	"utils.js"
-]
-    const readme ="# monorepo\r\n"
+    const pages = []
+    const readme = ""
     const aside = document.querySelector('aside')
     for (const page of pages) {
       const a = document.createElement('a')
@@ -250,9 +202,17 @@
       aside.appendChild(a)
     }
 
+    const properties = document.querySelector('.properties')
+    const methods = document.querySelector('.methods')
+    const classes = document.querySelector('.classes')
+    const title = document.querySelector('.title')
+
     const load = async (page) => {
       const importee = await import(`./${page}`)
       const data = importee.default
+      methods.innerHTML = ''
+      classes.innerHTML = ''
+      properties.innerHTML = `<h2>properties</h2>`
 console.log(data);
       title.innerHTML = page
       for (const token of data) {
@@ -262,7 +222,7 @@ console.log(data);
           <h3>${token.name}</h3>
           <span class="block">
             
-            <p><strong>type</strong> ${token.params[0].type}</p>
+            <p><strong>type</strong> ${token.type}</p>
           
             ${token.description === token.value ? '' : `${token.description}`}
             <p><strong>defaultValue</strong> ${token.value}</p>
@@ -337,18 +297,13 @@ console.log(data);
         document.querySelector('.marked').setAttribute('selected', '')
         document.querySelector('.marked').innerHTML = marked.parse(readme);
       } else {
-        await load(selected)
+        await load(selected.includes('.ts') ? `${selected}.js` : selected)
         document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
         document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
       }
     }
 
     globalThis.onhashchange = onhashchange
-
-    const properties = document.querySelector('.properties')
-    const methods = document.querySelector('.methods')
-    const classes = document.querySelector('.classes')
-    const title = document.querySelector('.title')
 
     if (!location.hash) location.hash = '#!/home'
     onhashchange()

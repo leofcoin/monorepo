@@ -192,8 +192,69 @@
 <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
   <script type="module">
 
-    const pages = []
-    const readme = ""
+    const pages = [
+	"addresses.js",
+	"chain.ts",
+	"contract.ts",
+	"machine-state.ts",
+	"machine.ts",
+	"node-browser.ts",
+	"node.ts",
+	"protocol.ts",
+	"state.ts",
+	"sync-controller.ts",
+	"transaction.ts",
+	"typer.js",
+	"types.ts",
+	"constants.ts",
+	"errors.ts",
+	"globals.js",
+	"index.ts",
+	"index.ts",
+	"node-config.ts",
+	"machine.ts",
+	"index.ts",
+	"types.ts",
+	"index.ts",
+	"wordlist.js",
+	"networks.ts",
+	"utils.ts",
+	"block-worker.js",
+	"log-worker.ts",
+	"machine-worker.js",
+	"pool-worker.js",
+	"transaction-worker.js",
+	"workers.js",
+	"wallet.js",
+	"config.js",
+	"main.js",
+	"protocol.js",
+	"consensus.ts",
+	"config.js",
+	"jobber.ts",
+	"block.ts",
+	"bw-request.ts",
+	"bw.ts",
+	"contract.ts",
+	"last-block-request.ts",
+	"last-block.ts",
+	"publish.ts",
+	"raw-transaction.ts",
+	"transaction.ts",
+	"validator.ts",
+	"block.proto.ts",
+	"bw-request.proto.ts",
+	"bw.proto.ts",
+	"contract.proto.ts",
+	"last-block-request.proto.ts",
+	"last-block.proto.ts",
+	"publish.proto.ts",
+	"raw-transaction.proto.ts",
+	"transaction.proto.ts",
+	"validator.proto.ts",
+	"sort-transactions.ts"
+]
+    const readme ="# monorepo\r\n"
     const aside = document.querySelector('aside')
     for (const page of pages) {
       const a = document.createElement('a')
@@ -210,6 +271,8 @@
     const load = async (page) => {
       const importee = await import(`./${page}`)
       const data = importee.default
+      methods.innerHTML = ''
+      classes.innerHTML = ''
       properties.innerHTML = `<h2>properties</h2>`
 console.log(data);
       title.innerHTML = page
@@ -220,7 +283,7 @@ console.log(data);
           <h3>${token.name}</h3>
           <span class="block">
             
-            <p><strong>type</strong> ${token.params[0].type}</p>
+            <p><strong>type</strong> ${token.type}</p>
           
             ${token.description === token.value ? '' : `${token.description}`}
             <p><strong>defaultValue</strong> ${token.value}</p>
@@ -295,7 +358,7 @@ console.log(data);
         document.querySelector('.marked').setAttribute('selected', '')
         document.querySelector('.marked').innerHTML = marked.parse(readme);
       } else {
-        await load(selected)
+        await load(selected.includes('.ts') ? `${selected}.js` : selected)
         document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
         document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
       }

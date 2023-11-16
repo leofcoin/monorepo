@@ -1,10 +1,10 @@
 
 import * as events from 'node:events'
 import * as fs from 'node:fs'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, parse } from 'node:path'
 import * as readline from 'node:readline'
-import {globby} from 'globby'
+import {globby, GlobTask} from 'globby'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
@@ -188,7 +188,8 @@ const generate = async (file, output) => {
       delete token.code.lines
     }
     // try {
-      await writeFile(join(output, parse(file).base), `export default ${JSON.stringify(tokens, null, '\t')}`)
+      const base = parse(file).base
+      await writeFile(join(output, base.endsWith('.ts') ? `${base}.js` : base), `export default ${JSON.stringify(tokens, null, '\t')}`)
     // } catch(error) {
     //   if (error.code === 'ENOENT') await mkdir(output)
     //   await writeFile(join(output, parse(file).base), `export default ${JSON.stringify(tokens, null, '\t')}`)
@@ -202,10 +203,10 @@ const generate = async (file, output) => {
  * @param {object} options
  * @param {string} options.input
  */
-export default async ({ input, output, readme }: {output: string, input: string, readme: string}) => {
+export default async ({ input, output, readme }: {output: string, input: GlobTask['patterns'], readme: string}) => {
   const files = await globby(input)
   try {
-    await safeExec('rm', ['-r', output])
+    await rm(output, {recursive: true})
     await mkdir(output)    
   } catch(error) {
     await mkdir(output)
@@ -213,7 +214,6 @@ export default async ({ input, output, readme }: {output: string, input: string,
 
   const pages = new Array()
 
-  
   for (const file of files) {
     try {
       await generate(file, output)
@@ -228,6 +228,8 @@ export default async ({ input, output, readme }: {output: string, input: string,
 
   try {
    readmeString = (await readFile(readme)).toString()
+   console.log(readmeString);
+   
   } catch (error) {
     
   }

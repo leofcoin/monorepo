@@ -1,6 +1,5 @@
 import typescript from '@rollup/plugin-typescript';
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
+import copy from 'rollup-plugin-copy'
 
 export default {
   input: ['src/index.ts'],
@@ -8,5 +7,12 @@ export default {
     dir: 'dist',
     format: 'es'
   },
-  plugins: [typescript()]
+  plugins: [
+    typescript(),
+    copy({
+      targets: [{
+        src: 'src/templates', dest: 'dist'
+      }]
+    })
+  ]
 };
