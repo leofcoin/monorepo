@@ -1,4 +1,4 @@
-import bytecodes from './bytecodes.json' assert {type: 'json'}
+import bytecodes from './bytecodes.json'
 import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages'
 import { validators, contractFactory} from '@leofcoin/addresses'
 export { default as nodeConfig} from './node-config.js'
