@@ -5,9 +5,6 @@ export default [{
   output: [{
     file: './exports/addresses.js',
     format: 'es'
-  }, {
-    file: './exports/addresses.cjs',
-    format: 'cjs'
   }],
   plugins: [
     json()

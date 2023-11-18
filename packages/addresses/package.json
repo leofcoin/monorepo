@@ -5,7 +5,6 @@
   "exports": {
     ".": {
       "import": "./exports/addresses.js",
-      "require": "./exports/addresses.cjs",
       "types": "./addresses.d.ts"
     },
     "./addresses.json": {
