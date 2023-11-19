@@ -480,9 +480,11 @@ export default class State extends Contract {
             await globalThis.transactionPoolStore.delete(hash)
               console.log('removing invalid transaction');
             if (isExecutionError(error)) {
-              console.log('removing invalid block');
+              console.log(`removing invalid block ${block.index}`);
               await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-              blocks.splice(block.index - 1, 1)
+              const deletedBlock = blocks.splice(block.index, 1)
+              console.log(`removed block ${deletedBlock[0].index}`);
+              
               return this.#loadBlocks(blocks)
             }
             
