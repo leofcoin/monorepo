@@ -552,4 +552,10 @@ export default class State extends Contract {
     const latest = await this.#getLatestBlock()
     return this.syncChain(latest)
   }
+
+  async triggerLoad() {
+    if (this.#blocks.length > 0) {
+      this.#machine = await new Machine(this.#blocks)
+    }
+  }
 }
