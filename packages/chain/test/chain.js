@@ -64,7 +64,7 @@ import networks from '@leofcoin/networks';
     nonce = await chain.getNonce(peernet.selectedAccount)
 console.log(nonce);
 
-    for (let i = 0; i < 0; i++) {
+    for (let i = 0; i < 10; i++) {
       // contract , method, from, to, amount, (optional) nonce
       nonce += 1
       const rawTransaction = await chain.createTransaction({
@@ -72,7 +72,7 @@ console.log(nonce);
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqwN8m6C7JCZjEWhiUYyX7pMPNbKuwBhryv5DuHoVVGSsUh8qTi8', chain.utils.parseUnits('10').toString()]
+        params: [peernet.selectedAccount, 'YTqydXgzjDwDjrqowktoRv8R9qcaTEmK5XyckYwYJmNYogTwLPuLX', chain.utils.parseUnits('10').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))
