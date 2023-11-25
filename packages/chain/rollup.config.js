@@ -41,9 +41,9 @@ export default [{
     })
   ]
 }, {
-  input: './../workers/src/machine-worker.js',
+  input: ['./../workers/src/machine-worker.js', './../workers/src/block-worker.js'],
   output: {
-    file: './exports/browser/workers/machine-worker.js',
+    dir: './exports/browser/workers',
     format: 'es'
   },
   plugins: [
@@ -57,9 +57,9 @@ export default [{
     })
   ]
 }, {
-  input: './../workers/src/machine-worker.js',
+  input: ['./../workers/src/machine-worker.js', './../workers/src/block-worker.js'],
   output: {
-    file: './exports/workers/machine-worker.js',
+    dir: './exports/workers',
     format: 'es'
   },
   plugins: [
@@ -71,29 +71,5 @@ export default [{
     modify({
       '@leofcoin/workers/block-worker.js': 'block-worker.js',
     })
-  ]
-}, {
-  input: './../workers/src/block-worker.js',
-  output: {
-    file: './exports/browser/workers/block-worker.js',
-    format: 'es'
-  },
-  plugins: [
-    json(),
-    nodeResolve({
-      mainFields: ['module', 'browser']
-    }),
-    commonjs({exclude: ['simple-peer', './simple-peer.js']})
-  ]
-}, {
-  input: './../workers/src/block-worker.js',
-  output: {
-    file: './exports/workers/block-worker.js',
-    format: 'es'
-  },
-  plugins: [
-    json(),
-    nodeResolve(),
-    commonjs({exclude: ['simple-peer', './simple-peer.js']})
   ]
 }]
