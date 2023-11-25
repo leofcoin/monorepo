@@ -71,10 +71,9 @@
   },
   "dependencies": {
     "@leofcoin/addresses": "^1.0.4",
-    "@leofcoin/codec-format-interface": "^1.6.14",
     "@leofcoin/errors": "^1.0.0",
     "@leofcoin/lib": "^1.0.11",
-    "@leofcoin/messages": "^1.3.7",
+    "@leofcoin/messages": "^1.3.17",
     "@leofcoin/multi-wallet": "^2.1.1",
     "@leofcoin/networks": "^1.0.0",
     "@leofcoin/peernet": "^1.1.37",
