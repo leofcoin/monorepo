@@ -106,6 +106,7 @@ export default class Chain extends State {
    * drastic measurement, removes everything!
    */
   async #clearAll() {
+    await globalThis.accountsStore.clear()
     await globalThis.chainStore.clear()
     await globalThis.blockStore.clear()
     await globalThis.transactionPoolStore.clear()
@@ -117,12 +118,18 @@ export default class Chain extends State {
       
       this.version = new TextDecoder().decode(version)
       
+      /**
+       * protocol version control!
+       * note v1 and 1.1 delete everything because of big changes, this is not what we want in the future
+       * in the future we want newer nodes to handle the new changes and still confirm old version transactions
+       * unless there is a security issue!
+       */
       if (this.version !== '1.0.0') {
         this.version = '1.0.0'
         await this.#clearAll()
         await globalThis.chainStore.put('version', this.version)
-      } else if (this.version === '1.0.0') {
-        this.version = '1.1.0'
+      } else if (this.version !== '1.1.1') {
+        this.version = '1.1.1'
         await this.#clearAll()
         await globalThis.chainStore.put('version', this.version)
       }
