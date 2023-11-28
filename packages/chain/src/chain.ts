@@ -102,6 +102,15 @@ export default class Chain extends State {
     await globalThis.transactionPoolStore.clear()
   }
 
+  /**
+   * drastic measurement, removes everything!
+   */
+  async #clearAll() {
+    await globalThis.chainStore.clear()
+    await globalThis.blockStore.clear()
+    await globalThis.transactionPoolStore.clear()
+  }
+
   async #init() {
     try {
       const version = await globalThis.chainStore.get('version')
@@ -110,9 +119,11 @@ export default class Chain extends State {
       
       if (this.version !== '1.0.0') {
         this.version = '1.0.0'
-        await globalThis.chainStore.clear()
-        await globalThis.blockStore.clear()
-        await globalThis.transactionPoolStore.clear()
+        await this.#clearAll()
+        await globalThis.chainStore.put('version', this.version)
+      } else if (this.version === '1.0.0') {
+        this.version = '1.1.0'
+        await this.#clearAll()
         await globalThis.chainStore.put('version', this.version)
       }
       // if (version)
@@ -120,9 +131,8 @@ export default class Chain extends State {
       console.log(e);
       
       this.version = '1.0.0'
-      await globalThis.chainStore.clear()
-      await globalThis.blockStore.clear()
-      await globalThis.transactionPoolStore.clear()
+      
+      await this.#clearAll()
       await globalThis.chainStore.put('version', new TextEncoder().encode(this.version))
     }
     
@@ -204,6 +214,8 @@ export default class Chain extends State {
   }
 
   async #peerConnected(peer) {
+    // todo handle version changes
+    // for now just do nothing if version doesn't match
     if (!peer.version || peer.version !== this.version) return
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
