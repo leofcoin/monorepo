@@ -6,15 +6,18 @@ import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js';
 import { BlockHash, BlockInMemory } from './types.js';
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
+
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
+declare type ChainState = 'loading' | 'loaded'
 
 export default class State extends Contract {
   #resolveErrored: boolean;
-  #lastResolvedTime: EpochTimeStamp;
+  #lastResolvedTime: EpochTimeStamp = 0;
   #lastResolved: {index: 0, hash: '0x0', previousHash: '0x0'};
   #resolving: boolean = false;
   #resolveErrorCount: number = 0;
   #syncState: SyncState;
+  #chainState: ChainState = 'loading'
   #lastBlockInQue: { index: 0, hash: '0x0'} | undefined;
   #syncErrorCount = 0;
   #blockHashMap = new Map();
@@ -27,6 +30,13 @@ export default class State extends Contract {
 
   #loaded: boolean = false
   jobber: Jobber
+
+  get state() {
+    return {
+      sync: this.#syncState,
+      chain: this.#chainState
+    }
+  }
 
   get blockHashMap() {
     return this.#blockHashMap.entries()
@@ -122,11 +132,24 @@ export default class State extends Contract {
     await globalThis.transactionPoolStore.clear()
   }
 
+  #chainStateHandler = () => {
+    return new globalThis.peernet.protos['peernet-response']({response: this.#chainState})
+  }
+
+  #lastBlockHandler = async () => {
+    return new globalThis.peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
+  }
+  
+  #knownBlocksHandler = async () => {
+    return new globalThis.peernet.protos['peernet-response']({response: {blocks: this.#blocks.map((block) => block.hash)}})
+  }
+
   async init() {
-    this.jobber = new Jobber(30_000)
+    this.jobber = new Jobber(this.resolveTimeout)
     if (super.init) await super.init()
-    await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler.bind(this))
-    await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
+    await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
+    await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
 
     try {
       let localBlock
@@ -188,14 +211,6 @@ export default class State extends Contract {
     globalThis.pubsub.publish('lastBlock', this.#lastBlock)
   }
 
-  async #lastBlockHandler() {
-    return new globalThis.peernet.protos['peernet-response']({response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }})
-  }
-  
-  async #knownBlocksHandler() {
-    return new globalThis.peernet.protos['peernet-response']({response: {blocks: this.#blocks.map((block) => block.hash)}})
-  }
-
   
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {
@@ -237,8 +252,6 @@ export default class State extends Contract {
       this.#lastResolved = this.#blocks[index - 1]
       this.#lastResolvedTime = Date.now()
     } catch (error) {
-      this.#resolving = false
-      this.#chainSyncing = false
       throw new ResolveError(`block: ${hash}@${index}`)
     }
     return
@@ -259,7 +272,11 @@ export default class State extends Contract {
   console.log({error});
   
       this.#resolveErrorCount += 1
-      if (this.#resolveErrorCount < 3) return this.resolveBlock(hash)
+      this.#resolving = false
+
+      if (this.#resolveErrorCount < 3)
+        return this.resolveBlock(hash);
+      
       this.#resolveErrorCount = 0
       throw new ResolveError(`block: ${hash}`, {cause: error})
       
@@ -289,10 +306,11 @@ export default class State extends Contract {
           
       } catch (error) {
         console.log(error);
+        this.#chainSyncing = false
+        this.#syncState = 'errored'
+        
         this.#resolveErrored = true
-        this.#resolveErrorCount += 1
-        this.#resolving = false
-        this.restoreChain()
+        return this.restoreChain()
   // console.log(e);
       }
     }
@@ -311,7 +329,7 @@ export default class State extends Contract {
         this.#resolveErrored = true
         this.#resolveErrorCount += 1
         this.#resolving = false
-        this.restoreChain()
+        return this.restoreChain()
   // console.log(e);
       }
     }
@@ -332,7 +350,7 @@ export default class State extends Contract {
       }
     } catch (error) {
       console.error(error)
-    }   
+    }
 
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
@@ -463,6 +481,7 @@ export default class State extends Contract {
    * @param {Block[]} blocks 
    */
   async #loadBlocks(blocks: BlockInMemory[]): Promise<boolean> {
+    this.#chainState = 'loading'
     let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
 
     for (const block of blocks) {
@@ -521,6 +540,7 @@ export default class State extends Contract {
         globalThis.pubsub.publish('block-loaded', {...block})
       }
     }
+    this.#chainState = 'loaded'
     return true
   }
 
@@ -559,9 +579,11 @@ export default class State extends Contract {
    }
 
   get shouldSync() {
-    if (this.canSync ||
-        this.#resolveErrored ||
-        !this.canSync && this.#lastResolvedTime + this.resolveTimeout > new Date().getTime()
+    if (this.#chainSyncing) return false
+    if (this.#resolveErrored ||
+        this.#syncState === 'errored' ||
+        this.#syncState === 'connectionless' ||
+        !this.canSync && this.#lastResolvedTime + this.resolveTimeout > Date.now()
        ) return true 
     
     return false

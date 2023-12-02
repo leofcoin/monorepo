@@ -178,39 +178,47 @@ export default class Chain extends VersionControl {
     return response.decoded.response
   }
 
+  async getPeerTransactionPool(peer) {
+    const transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
+
+    // todo iterate vs getting all keys?
+    const transactions = await globalThis.transactionPoolStore.keys()
+    
+    const transactionsToGet = []
+    
+    for (const key of transactionsInPool) {
+      !transactions.includes(key) &&
+      !ignorelist.includes(key) &&
+      transactionsToGet.push(
+        transactionPoolStore.put(
+          key,
+          await peernet.get(key, 'transaction')
+        )
+      )
+    }
+    return Promise.all(transactionsToGet)
+  }
+
   async #peerConnected(peer) {
     // todo handle version changes
     // for now just do nothing if version doesn't match
     if (!peer.version || peer.version !== this.version) return
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
+    const higherThenCurrentLocal = lastBlock.index > this.lastBlock?.index
 
-    let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
-
-    const transactions = await globalThis.transactionPoolStore.keys()
-    
-    const transactionsToGet = []
-
-    
-    for (const key of transactionsInPool) {
-
-      if (!transactions.includes(key) && !ignorelist.includes(key)) transactionsToGet.push(transactionPoolStore.put(key, (await peernet.get(key, 'transaction'))))
-    }
-    
-    await Promise.all(transactionsToGet)
+    const peerTransactionPool = higherThenCurrentLocal && await this.getPeerTransactionPool(peer) || []
     
     if (Object.keys(lastBlock).length > 0) {
       
-      if (!this.lastBlock || !this.blocks[this.blocks.length - 1]?.loaded || lastBlock && lastBlock.index > this.lastBlock?.index || !this.loaded && !this.resolving) {
+      if (!this.lastBlock || higherThenCurrentLocal) {
         this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
         
         await this.syncChain(lastBlock)
-    
-        // if (await this.hasTransactionToHandle() && this.#participating) this.#runEpoch()
       } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
 
-    if (this.#participating) this.#runEpoch()
+    if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
  }
 
  #epochTimeout
