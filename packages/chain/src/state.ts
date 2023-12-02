@@ -108,6 +108,20 @@ export default class State extends Contract {
     super()
   }
 
+  async clearPool() {
+    await globalThis.transactionPoolStore.clear()
+  }
+
+  /**
+   * drastic measurement, removes everything!
+   */
+  async clearAll() {
+    await globalThis.accountsStore.clear()
+    await globalThis.chainStore.clear()
+    await globalThis.blockStore.clear()
+    await globalThis.transactionPoolStore.clear()
+  }
+
   async init() {
     this.jobber = new Jobber(30_000)
     if (super.init) await super.init()
@@ -235,6 +249,7 @@ export default class State extends Contract {
     if (hash === '0x0') return
     if (this.#resolving) return 'already resolving'
     this.#resolving = true
+    if (this.jobber.busy && this.jobber.destroy) await this.jobber.destroy()
     try {
       await this.jobber.add(() => this.#resolveBlock(hash))
       this.#resolving = false
@@ -254,8 +269,8 @@ export default class State extends Contract {
     async resolveBlocks() {
 
       try {
-        if (this.jobber.busy && this.jobber.stop) {
-          await this.jobber.stop()
+        if (this.jobber.busy && this.jobber.destroy) {
+          await this.jobber.destroy()
         }
       } catch (error) {
         console.error(error)
@@ -301,19 +316,23 @@ export default class State extends Contract {
       }
     }
 
-  async syncChain(lastBlock?): Promise<SyncState > {
+  destroyResolveJob() {
 
-    if (!this.shouldSync) {
-      return
-    }
-    try {
-      if (this.jobber.busy && this.jobber.stop) {
-        await this.jobber.stop()
-      }
-     } catch (error) {
-      console.error(error)
-     }
+  }
+
+  async syncChain(lastBlock?): Promise<SyncState > {
+    if (!this.shouldSync) return;
+    
+    this.#syncState
     this.#chainSyncing = true
+
+    try {
+      if (this.jobber.busy && this.jobber.destroy) {
+        await this.jobber.destroy()
+      }
+    } catch (error) {
+      console.error(error)
+    }   
 
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
@@ -329,14 +348,15 @@ export default class State extends Contract {
       if (this.#syncErrorCount < 3) return this.syncChain(lastBlock)
       this.#syncErrorCount = 0
       this.#chainSyncing = false
-      return 'errored'
+      this.#syncState = 'errored'
+      return this.#syncState
     }
     if (lastBlock.index === this.#lastBlockInQue?.index ) this.#lastBlockInQue = undefined
     this.#syncErrorCount = 0
     this.#chainSyncing = false
     if (this.#lastBlockInQue) return this.syncChain(this.#lastBlockInQue)
-    
-    return 'synced'
+    this.#syncState = 'synced'
+    return this.#syncState
   }
 
   async #syncChain(lastBlock) {

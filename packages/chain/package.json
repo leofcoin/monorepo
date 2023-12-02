@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.5.19",
+  "version": "1.5.24",
   "description": "Official javascript implementation",
   "exports": {
     "./node": {
@@ -34,7 +34,7 @@
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
     "workers": "cp ./../workers/src/** ./workers",
     "demo": "jsproject --serve ./ --port 5478 --open demo",
-    "test": "node --openssl-legacy-provider test",
+    "test": "node test",
     "pack": "webpack",
     "build": "rollup -c"
   },
@@ -54,6 +54,7 @@
     "@types/bs58check": "^2.1.0",
     "@types/pako": "^2.0.0",
     "@types/randombytes": "^2.0.0",
+    "@types/semver": "^7.5.6",
     "@types/varint": "^6.0.1",
     "@vandeurenglenn/debug": "^1.0.0",
     "eslint": "^8.28.0",
@@ -89,6 +90,7 @@
     "p-queue": "^7.3.4",
     "p2pt": "^1.5.1",
     "pako": "^2.0.4",
+    "semver": "^7.5.4",
     "simple-peer": "^9.11.1"
   },
   "eslintConfig": {

@@ -2,6 +2,13 @@ import { signTransaction } from '@leofcoin/lib'
 import { TransactionMessage } from '@leofcoin/messages';
 import networks from '@leofcoin/networks';
 
+import { readFile } from 'fs/promises'
+let password
+try {
+  password = (await readFile('./../../.password.txt')).toString()
+} catch (error) {
+  
+}
 
   globalThis.DEBUG = true
   const Chain = await import('../exports/chain.js');
@@ -12,10 +19,13 @@ import networks from '@leofcoin/networks';
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
     stars: networks.leofcoin.peach.stars,
-    autoStart: false
+    autoStart: false,
+    password
   })
   
-  const chain = await new Chain.default()
+  const chain = await new Chain.default({
+    password
+  })
   let start
   // console.log(peernet.identity.sign());
   
@@ -72,7 +82,7 @@ console.log(nonce);
         to: chain.nativeToken, 
         method: 'transfer',
         nonce,
-        params: [peernet.selectedAccount, 'YTqydXgzjDwDjrqowktoRv8R9qcaTEmK5XyckYwYJmNYogTwLPuLX', chain.utils.parseUnits('10').toString()]
+        params: [peernet.selectedAccount, 'YTqzaJXyrnuBEGTsWUdfuZ8Cdb4hwWKnNjZLQKuDpDd9EqfQV7Ynr', chain.utils.parseUnits('10').toString()]
       })
       const transaction = await signTransaction(rawTransaction, peernet.identity)
       promises.push(chain.sendTransaction(transaction))

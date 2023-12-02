@@ -6,13 +6,15 @@ import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServ
 import { BigNumberish } from '@ethersproject/bignumber'
 import State from './state.js'
 import { Address } from './types.js'
+import semver from 'semver'
+import { VersionControl } from './version-control.js'
 
 globalThis.BigNumber = BigNumber
 
 const ignorelist = []
 
 // check if browser or local
-export default class Chain extends State {
+export default class Chain extends VersionControl {
   #state;
   
   #slotTime = 10000;
@@ -98,50 +100,7 @@ export default class Chain extends State {
     // handle native contracts
   }
 
-  async clearPool() {
-    await globalThis.transactionPoolStore.clear()
-  }
-
-  /**
-   * drastic measurement, removes everything!
-   */
-  async #clearAll() {
-    await globalThis.accountsStore.clear()
-    await globalThis.chainStore.clear()
-    await globalThis.blockStore.clear()
-    await globalThis.transactionPoolStore.clear()
-  }
-
   async #init() {
-    try {
-      const version = await globalThis.chainStore.get('version')
-      
-      this.version = new TextDecoder().decode(version)
-      
-      /**
-       * protocol version control!
-       * note v1 and 1.1 delete everything because of big changes, this is not what we want in the future
-       * in the future we want newer nodes to handle the new changes and still confirm old version transactions
-       * unless there is a security issue!
-       */
-      if (this.version !== '1.0.0') {
-        this.version = '1.0.0'
-        await this.#clearAll()
-        await globalThis.chainStore.put('version', this.version)
-      } else if (this.version !== '1.1.1') {
-        this.version = '1.1.1'
-        await this.#clearAll()
-        await globalThis.chainStore.put('version', this.version)
-      }
-      // if (version)
-    } catch (e) {
-      console.log(e);
-      
-      this.version = '1.0.0'
-      
-      await this.#clearAll()
-      await globalThis.chainStore.put('version', new TextEncoder().encode(this.version))
-    }
     
     // this.node = await new Node()
     this.#participants = []
@@ -153,6 +112,9 @@ export default class Chain extends State {
     this.utils = { BigNumber, formatUnits, parseUnits }
 
     // this.#state = new State()
+    
+    // todo some functions rely on state
+    await super.init()
     
 
     await globalThis.peernet.addRequestHandler('bw-request-message', () => {
@@ -170,8 +132,6 @@ export default class Chain extends State {
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
 
-   
-
     globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
 
     globalThis.peernet.subscribe('invalid-transaction', this.#invalidTransaction.bind(this))
@@ -183,9 +143,7 @@ export default class Chain extends State {
     globalThis.peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
 
     globalThis.pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
-    // todo some functions rely on state
-    await super.init()
-    
+
     globalThis.pubsub.publish('chain:ready', true)
     return this
   }
