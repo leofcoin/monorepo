@@ -5,7 +5,7 @@ export const syncTimeout = 30_000
 
 export class Protocol {
   version: string;
-  resolveTimeout: EpochTimeStamp = 30_000;
+  resolveTimeout: EpochTimeStamp = 10_000;
 
   get limit() {
     return limit
