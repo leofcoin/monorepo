@@ -2,7 +2,8 @@ import proto from '../protos/publish.proto.js'
 import { FormatInterface } from '@leofcoin/codec-format-interface'
 import type { messageInput } from '../types.js'
 
-export default class BWRequestMessage extends FormatInterface {
+export default class publishMessage extends FormatInterface {
+  // @ts-ignore
   declare decoded: typeof proto
 
   get messageName() {
@@ -10,7 +11,8 @@ export default class BWRequestMessage extends FormatInterface {
   }
 
   constructor(buffer: messageInput) {
+    if (buffer instanceof publishMessage) return buffer
     const name = 'publish-message'
-    super(buffer, proto, {name})
+    super(buffer, proto, { name })
   }
 }

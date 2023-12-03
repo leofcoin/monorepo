@@ -10,18 +10,18 @@ await logStore.init()
 declare type messageType = 'put' | 'get'
 
 declare type message = {
-  type: messageType,
+  type: messageType
   input: string
 }
 
 declare type messageReturn = {
-  type: messageType,
-  result?: string,
-  message?: string,
+  type: messageType
+  result?: string
+  message?: string
   error?: Error
 }
 
-const handlePut = async message => {
+const handlePut = async (message) => {
   try {
     await fetch(`http://localhost:8844/log/put`, {
       method: 'put',
@@ -32,7 +32,7 @@ const handlePut = async message => {
   }
 }
 
-const handleGet = async message => {
+const handleGet = async (message) => {
   try {
     await fetch(`http://localhost:8844/log/get?`, {
       method: 'put',
@@ -48,4 +48,3 @@ worker.onmessage((message: message) => {
   if (message.type === 'put') handlePut(message.input)
   else handleGet(message.input)
 })
-

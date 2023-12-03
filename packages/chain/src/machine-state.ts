@@ -21,7 +21,7 @@ export default class MachineState {
 
   async get(key, isCompressed = true) {
     const value = await stateStore.get(key)
-    return isCompressed = true ? pako.inflate(value) : value
+    return (isCompressed = true ? pako.inflate(value) : value)
   }
 
   updateState(block) {

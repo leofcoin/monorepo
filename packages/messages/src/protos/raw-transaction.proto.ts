@@ -1,4 +1,4 @@
-import { RawTransaction } from '@leofcoin/types';
+import { RawTransaction } from '@leofcoin/types'
 
 export default {
   timestamp: Number(),

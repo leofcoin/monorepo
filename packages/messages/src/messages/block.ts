@@ -8,13 +8,14 @@ import { BigNumber } from '@leofcoin/utils'
 import { messageInput } from '../types.js'
 
 export default class BlockMessage extends FormatInterface {
+  // @ts-ignore
   declare decoded: {
-    index: Number,
-    previousHash: String,
-    timestamp: String, 
-    reward: BigNumber,
-    fees: BigNumber,
-    transactions: TransactionMessage['decoded'][],
+    index: Number
+    previousHash: String
+    timestamp: String
+    reward: BigNumber
+    fees: BigNumber
+    transactions: TransactionMessage['decoded'][]
     validators: ValidatorMessage['decoded'][]
   }
 
@@ -23,23 +24,24 @@ export default class BlockMessage extends FormatInterface {
   }
 
   constructor(buffer: messageInput) {
+    if (buffer instanceof BlockMessage) return buffer
     const name = 'block-message'
-    super(buffer, proto, {name})
+    super(buffer, proto, { name })
   }
 
-  encode(): Uint8Array {
-    const decoded = this.decoded
+  encode(decoded?): Uint8Array {
+    decoded = decoded || this.decoded
     const validators: Uint8Array[] = []
     const transactions: Uint8Array[] = []
-    
+
     for (const validator of decoded.validators) {
-      if (validator instanceof ValidatorMessage) validators.push(validator.encoded)
-      else validators.push(new ValidatorMessage(validator).encoded)
+      if (validator instanceof ValidatorMessage) validators.push(validator.encode())
+      else validators.push(new ValidatorMessage(validator).encode())
     }
 
     for (const transaction of decoded.transactions) {
-      if (transaction instanceof TransactionMessage) transactions.push(transaction.encoded)
-      else transactions.push(new TransactionMessage(transaction).encoded)
+      if (transaction instanceof TransactionMessage) transactions.push(transaction.encode())
+      else transactions.push(new TransactionMessage(transaction).encode())
     }
 
     return super.encode({
@@ -49,12 +51,17 @@ export default class BlockMessage extends FormatInterface {
     })
   }
 
-  decode() {
-    super.decode()
+  decode(encoded?) {
+    encoded = encoded || this.encoded
+    super.decode(encoded)
     // @ts-ignore
-    this.decoded.transactions = smartDeconcat(this.decoded.transactions as Uint8Array).map(transaction => new TransactionMessage(transaction).decoded)
+    this.decoded.transactions = smartDeconcat(this.decoded.transactions as Uint8Array).map(
+      (transaction) => new TransactionMessage(transaction).decoded
+    )
     // @ts-ignore
-    this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(validator => new ValidatorMessage(validator).decoded)
+    this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(
+      (validator) => new ValidatorMessage(validator).decoded
+    )
     return this.decoded
   }
 }

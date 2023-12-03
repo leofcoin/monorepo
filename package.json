@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "directories": {
     "lib": "lib"
   },
@@ -10,6 +11,8 @@
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",
     "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "prettier": "npm run prettier --workspaces --if-present",
     "build": "npm run build --workspaces --if-present"
   },
   "repository": {
@@ -24,13 +27,18 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
-    "@vandeurenglenn/doc-it": "^1.0.0"
+    "@leofcoin/contracts": "^0.1.4",
+    "@vandeurenglenn/doc-it": "^1.0.0",
+    "globby": "^13.2.2"
   },
   "workspaces": [
     "./packages/*"
   ],
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "rimraf": "^5.0.5",
     "rollup": "^3.0.0",
     "typescript": "^5.1.3"
   }

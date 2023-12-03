@@ -14,6 +14,7 @@
   "type": "module",
   "types": "./crypto.d.ts",
   "scripts": {
+    "prettier": "prettier lib --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

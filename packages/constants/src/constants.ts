@@ -1,5 +1,3 @@
-
-
 class LeofcoinError extends Error {
   #message: string
   constructor(message) {

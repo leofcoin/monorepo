@@ -2,7 +2,13 @@ import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses from '@leofcoin/addresses'
 import { signTransaction } from '@leofcoin/lib'
-import { contractFactoryMessage, nativeTokenMessage, validatorsMessage, nameServiceMessage, calculateFee } from '@leofcoin/lib'
+import {
+  contractFactoryMessage,
+  nativeTokenMessage,
+  validatorsMessage,
+  nameServiceMessage,
+  calculateFee
+} from '@leofcoin/lib'
 import { BigNumberish } from '@ethersproject/bignumber'
 import State from './state.js'
 import { Address } from './types.js'
@@ -15,18 +21,16 @@ const ignorelist = []
 
 // check if browser or local
 export default class Chain extends VersionControl {
-  #state;
-  
-  #slotTime = 10000;
-  id;
-  utils = {};
+  #state
+
+  #slotTime = 10000
+  id
+  utils = {}
   /** {Address[]} */
-  #validators = [];
+  #validators = []
 
   /** {Boolean} */
   #runningEpoch = false
-
-
 
   #participants = []
   #participating = false
@@ -54,80 +58,79 @@ export default class Chain extends VersionControl {
 
   async #runEpoch() {
     this.#runningEpoch = true
-    console.log('epoch');
+    console.log('epoch')
     const validators = await this.staticCall(addresses.validators, 'validators')
-    console.log({validators});
+    console.log({ validators })
     if (!validators[peernet.selectedAccount]?.active) return
     const start = Date.now()
     try {
       await this.#createBlock()
     } catch (error) {
       console.error(error)
-      
     }
-    
+
     const end = Date.now()
-    console.log(((end - start) / 1000) + ' s');
-    
+    console.log((end - start) / 1000 + ' s')
+
     if (await this.hasTransactionToHandle()) return this.#runEpoch()
     this.#runningEpoch = false
     // if (await this.hasTransactionToHandle() && !this.#runningEpoch) return this.#runEpoch()
   }
 
   async #setup() {
+    const contracts = [
+      {
+        address: addresses.contractFactory,
+        message: contractFactoryMessage
+      },
+      {
+        address: addresses.nativeToken,
+        message: nativeTokenMessage
+      },
+      {
+        address: addresses.validators,
+        message: validatorsMessage
+      },
+      {
+        address: addresses.nameService,
+        message: nameServiceMessage
+      }
+    ]
 
-    const contracts = [{
-      address: addresses.contractFactory,
-      message: contractFactoryMessage
-    }, {
-      address: addresses.nativeToken,
-      message: nativeTokenMessage
-    }, {
-      address: addresses.validators,
-      message: validatorsMessage
-    }, {
-      address: addresses.nameService,
-      message: nameServiceMessage
-    }]
-
-    await Promise.all(contracts.map(async ({address, message}) => {
-      // @ts-ignore
-      message = await new ContractMessage(Uint8Array.from(message.split(',').map(string => Number(string))))
-      // @ts-ignore
-      await globalThis.contractStore.put(address, message.encoded as ContractMessage['encoded'])
-    }))
-    console.log('handle native contracts');
+    await Promise.all(
+      contracts.map(async ({ address, message }) => {
+        // @ts-ignore
+        message = await new ContractMessage(Uint8Array.from(message.split(',').map((string) => Number(string))))
+        // @ts-ignore
+        await globalThis.contractStore.put(address, message.encoded as ContractMessage['encoded'])
+      })
+    )
+    console.log('handle native contracts')
     // handle native contracts
   }
 
   async #init() {
-    
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
     const initialized = await globalThis.contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
 
-   
     this.utils = { BigNumber, formatUnits, parseUnits }
 
     // this.#state = new State()
-    
+
     // todo some functions rely on state
     await super.init()
-    
 
     await globalThis.peernet.addRequestHandler('bw-request-message', () => {
-
       return new BWMessage(globalThis.peernet.client.bw) || { up: 0, down: 0 }
     })
 
     // await globalThis.peernet.addRequestHandler('peerId', () => {
-    //   let node = 
+    //   let node =
     //   globalThis.peernet.protos['peernet-response']({response: node.encoded})
     // })
-
-    
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
@@ -150,7 +153,7 @@ export default class Chain extends VersionControl {
 
   async #invalidTransaction(hash) {
     await globalThis.transactionPoolStore.delete(hash)
-    console.log(`removed invalid transaction: ${hash}`);
+    console.log(`removed invalid transaction: ${hash}`)
   }
 
   async #validatorTimeout(validatorInfo) {
@@ -161,13 +164,11 @@ export default class Chain extends VersionControl {
   }
 
   #addTransaction(message) {
-    console.log({message});
-    
+    console.log({ message })
   }
 
-  
   async #prepareRequest(request) {
-    let node = await new globalThis.peernet.protos['peernet-request']({request})
+    let node = await new globalThis.peernet.protos['peernet-request']({ request })
     return globalThis.peernet.prepareMessage(node)
   }
 
@@ -183,18 +184,13 @@ export default class Chain extends VersionControl {
 
     // todo iterate vs getting all keys?
     const transactions = await globalThis.transactionPoolStore.keys()
-    
+
     const transactionsToGet = []
-    
+
     for (const key of transactionsInPool) {
       !transactions.includes(key) &&
-      !ignorelist.includes(key) &&
-      transactionsToGet.push(
-        transactionPoolStore.put(
-          key,
-          await peernet.get(key, 'transaction')
-        )
-      )
+        !ignorelist.includes(key) &&
+        transactionsToGet.push(transactionPoolStore.put(key, await peernet.get(key, 'transaction')))
     }
     return Promise.all(transactionsToGet)
   }
@@ -207,59 +203,59 @@ export default class Chain extends VersionControl {
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
     const higherThenCurrentLocal = lastBlock.index > this.lastBlock?.index
 
-    const peerTransactionPool = higherThenCurrentLocal && await this.getPeerTransactionPool(peer) || []
-    
+    const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
+
     if (Object.keys(lastBlock).length > 0) {
-      
       if (!this.lastBlock || higherThenCurrentLocal) {
         this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
-        
+
         await this.syncChain(lastBlock)
       } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
 
     if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
- }
-
- #epochTimeout
-
-async #transactionPoolHandler() {
-  const pool = await globalThis.transactionPoolStore.keys()
-  return new globalThis.peernet.protos['peernet-response']({response: pool})
-}
-
-async #versionHandler() {
-  return new globalThis.peernet.protos['peernet-response']({response: {version: this.version}})
-}
-
-async #executeTransaction({hash, from, to, method, params, nonce}) {
-  try {
-    let result = await this.machine.execute(to, method, params)
-    // await accountsStore.put(to, nonce)
-    await transactionPoolStore.delete(hash)
-    // if (!result) result = this.machine.state
-    globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fulfilled', hash})
-    return result || 'no state change'
-  } catch (error) {
-    
-    await transactionPoolStore.delete(hash)
-    globalThis.peernet.publish('invalid-transaction', hash)
-    globalThis.pubsub.publish(`transaction.completed.${hash}`, {status: 'fail', hash, error: error})
-    throw {error, hash, from, to, params, nonce}
   }
-}
+
+  #epochTimeout
+
+  async #transactionPoolHandler() {
+    const pool = await globalThis.transactionPoolStore.keys()
+    return new globalThis.peernet.protos['peernet-response']({ response: pool })
+  }
+
+  async #versionHandler() {
+    return new globalThis.peernet.protos['peernet-response']({ response: { version: this.version } })
+  }
+
+  async #executeTransaction({ hash, from, to, method, params, nonce }) {
+    try {
+      let result = await this.machine.execute(to, method, params)
+      // await accountsStore.put(to, nonce)
+      await transactionPoolStore.delete(hash)
+      // if (!result) result = this.machine.state
+      globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
+      return result || 'no state change'
+    } catch (error) {
+      await transactionPoolStore.delete(hash)
+      globalThis.peernet.publish('invalid-transaction', hash)
+      globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fail', hash, error: error })
+      throw { error, hash, from, to, params, nonce }
+    }
+  }
 
   async #addBlock(block) {
     const blockMessage = await new BlockMessage(block)
-    
-    await Promise.all(blockMessage.decoded.transactions
-      // @ts-ignore
-      .map(async transaction => transactionPoolStore.delete(transaction.hash)))
-    
+
+    await Promise.all(
+      blockMessage.decoded.transactions
+        // @ts-ignore
+        .map(async (transaction) => transactionPoolStore.delete(transaction.hash))
+    )
+
     const hash = await blockMessage.hash()
-    
+
     await globalThis.blockStore.put(hash, blockMessage.encoded)
-    
+
     if (this.lastBlock.index < Number(blockMessage.decoded.index)) await this.updateState(blockMessage)
     globalThis.debug(`added block: ${hash}`)
     let promises = []
@@ -273,16 +269,16 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       // Todo: go trough all accounts
       // @ts-ignore
       promises.push(this.#executeTransaction(transaction))
-      
     }
     try {
       promises = await Promise.allSettled(promises)
       for (let transaction of blockMessage.decoded.transactions) {
         globalThis.pubsub.publish('transaction-processed', transaction)
-        if (transaction.to === globalThis.peernet.selectedAccount) globalThis.pubsub.publish('account-transaction-processed', transaction)        
+        if (transaction.to === globalThis.peernet.selectedAccount)
+          globalThis.pubsub.publish('account-transaction-processed', transaction)
         await globalThis.accountsStore.put(transaction.from, String(transaction.nonce))
       }
-      
+
       // todo finish state
       // for (const contract of contracts) {
       //   const state = await this.machine.get(contract, 'state')
@@ -290,17 +286,13 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
       //   console.log(state);
       // }
 
-      
       globalThis.pubsub.publish('block-processed', blockMessage.decoded)
-      
     } catch (error) {
-      console.log(error.hash);
-      console.log('errrrr');
-      
-      
+      console.log(error.hash)
+      console.log('errrrr')
+
       await transactionPoolStore.delete(error.hash)
     }
-
   }
 
   async participate(address) {
@@ -311,36 +303,34 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
     this.#participating = true
-    if (!await this.staticCall(addresses.validators, 'has', [address])) {
+    if (!(await this.staticCall(addresses.validators, 'has', [address]))) {
       const rawTransaction = {
         from: address,
         to: addresses.validators,
         method: 'addValidator',
         params: [address],
         nonce: (await this.getNonce(address)) + 1,
-        timestamp: Date.now()        
-      }      
-      
+        timestamp: Date.now()
+      }
+
       const transaction = await signTransaction(rawTransaction, globalThis.peernet.identity)
       await this.sendTransaction(transaction)
     }
-    if (await this.hasTransactionToHandle() && !this.#runningEpoch && this.#participating) await this.#runEpoch()
+    if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
   }
 
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
-    
     // vote for transactions
-    if (await globalThis.transactionPoolStore.size() === 0) return;
+    if ((await globalThis.transactionPoolStore.size()) === 0) return
 
     let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
     for (const hash of await globalThis.transactionPoolStore.keys()) {
       if (ignorelist.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
     }
-    
-    
-    if (Object.keys(transactions)?.length === 0 ) return
-    
+
+    if (Object.keys(transactions)?.length === 0) return
+
     const timestamp = Date.now()
 
     let block = {
@@ -356,12 +346,11 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.sort((a, b) => a.nonce - b.nonce)
-    
 
-    for (let transaction of transactions) { 
+    for (let transaction of transactions) {
       const hash = await transaction.hash()
       const doubleTransactions = []
-      
+
       for (const block of this.blocks) {
         for (const transaction of block.transactions) {
           if (transaction.hash === hash) {
@@ -369,41 +358,41 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
           }
         }
       }
-      
+
       if (doubleTransactions.length > 0) {
         await globalThis.transactionPoolStore.delete(hash)
         await globalThis.peernet.publish('invalid-transaction', hash)
         return
       }
-      
-      
-        // if (timestamp + this.#slotTime > Date.now()) {
+
+      // if (timestamp + this.#slotTime > Date.now()) {
       try {
-        const result = await this.#executeTransaction({...transaction.decoded, hash})
-        
+        const result = await this.#executeTransaction({ ...transaction.decoded, hash })
+
         block.transactions.push(transaction)
-        
+
         block.fees = block.fees.add(await calculateFee(transaction.decoded))
-        await globalThis.accountsStore.put(transaction.decoded.from, new TextEncoder().encode(String(transaction.decoded.nonce)))
+        await globalThis.accountsStore.put(
+          transaction.decoded.from,
+          new TextEncoder().encode(String(transaction.decoded.nonce))
+        )
       } catch (e) {
-        console.log('vvvvvv');
-        
-        console.log({e});
-        console.log(hash);
+        console.log('vvvvvv')
+
+        console.log({ e })
+        console.log(hash)
         peernet.publish('invalid-transaction', hash)
 
-        console.log(await globalThis.transactionPoolStore.keys());
-        
-        console.log(await globalThis.transactionPoolStore.has(e.hash));
-        
+        console.log(await globalThis.transactionPoolStore.keys())
+
+        console.log(await globalThis.transactionPoolStore.has(e.hash))
+
         await globalThis.transactionPoolStore.delete(e.hash)
 
-        console.log(await globalThis.transactionPoolStore.has(e.hash));
-        
+        console.log(await globalThis.transactionPoolStore.has(e.hash))
       }
-      
     }
-    
+
     // don't add empty block
     if (block.transactions.length === 0) return
 
@@ -431,21 +420,17 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
               address: validator,
               bw: bw.up + bw.down
             })
-          } catch{}
-
+          } catch {}
         } else if (globalThis.peernet.selectedAccount === validator) {
           block.validators.push({
             address: globalThis.peernet.selectedAccount,
             bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
           })
-
-          }
         }
-
+      }
     }
 
-    block.validators = block.validators.map(validator => {
-
+    block.validators = block.validators.map((validator) => {
       validator.reward = block.fees
       validator.reward = validator.reward.add(block.reward)
       validator.reward = validator.reward.div(block.validators.length)
@@ -464,34 +449,33 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     // block.fees = block.fees.toString()
 
     try {
-      block.transactions = await Promise.all(block.transactions
-        .map(async transaction => {
+      block.transactions = await Promise.all(
+        block.transactions.map(async (transaction) => {
           await globalThis.transactionPoolStore.delete(await transaction.hash())
           return transaction.decoded
-        }))
-      
+        })
+      )
+
       let blockMessage = await new BlockMessage(block)
-      
+
       const hash = await blockMessage.hash()
-      
+
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
       await this.updateState(blockMessage)
-      
+
       globalThis.debug(`created block: ${hash}`)
 
       globalThis.peernet.publish('add-block', blockMessage.encoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
-      console.log(error);
-      console.log('eeeee');
-      
+      console.log(error)
+      console.log('eeeee')
+
       throw new Error(`invalid block ${block}`)
     }
     // data = await this.machine.execute(to, method, params)
     // transactionStore.put(message.hash, message.encoded)
   }
-
-  
 
   async #sendTransaction(transaction) {
     transaction = await new TransactionMessage(transaction.encoded || transaction)
@@ -499,16 +483,15 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
 
     try {
       const has = await globalThis.transactionPoolStore.has(hash)
-      
+
       if (!has) {
         await globalThis.transactionPoolStore.put(hash, transaction.encoded)
-        
       }
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
     } catch (e) {
-      console.log(e);
-      console.log('rrrrr');
-      
+      console.log(e)
+      console.log('rrrrr')
+
       globalThis.peernet.publish('invalid-transaction', hash)
       throw new Error('invalid transaction')
     }
@@ -518,13 +501,13 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    * data is undefined when nothing is returned
    * error is thrown on error so undefined data doesn't mean there is an error...
    **/
-   async sendTransaction(transaction) {
-    const transactionMessage = await new TransactionMessage({...transaction})
+  async sendTransaction(transaction) {
+    const transactionMessage = await new TransactionMessage({ ...transaction })
     const event = await super.sendTransaction(transactionMessage)
-    
+
     this.#sendTransaction(transactionMessage.encoded)
     globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
-    return event    
+    return event
   }
 
   async addContract(transaction, contractMessage) {
@@ -538,8 +521,8 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   }
 
   /**
-   * 
-   * @param {Address} sender 
+   *
+   * @param {Address} sender
    * @returns {globalMessage}
    */
   #createMessage(sender = globalThis.peernet.selectedAccount) {
@@ -551,12 +534,12 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   }
 
   /**
-   * 
-   * @param {Address} sender 
-   * @param {Address} contract 
-   * @param {String} method 
-   * @param {Array} parameters 
-   * @returns 
+   *
+   * @param {Address} sender
+   * @param {Address} contract
+   * @param {String} method
+   * @param {Array} parameters
+   * @returns
    */
   internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
     globalThis.msg = this.#createMessage(sender)
@@ -565,11 +548,11 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
   }
 
   /**
-   * 
-   * @param {Address} contract 
-   * @param {String} method 
-   * @param {Array} parameters 
-   * @returns 
+   *
+   * @param {Address} contract
+   * @param {String} method
+   * @param {Array} parameters
+   * @returns
    */
   call(contract: Address, method: string, parameters?: any[]) {
     globalThis.msg = this.#createMessage()
@@ -590,7 +573,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
-  get balances(): Promise<{[index: string]: BigNumberish}> {
+  get balances(): Promise<{ [index: string]: BigNumberish }> {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
 
@@ -611,7 +594,7 @@ async #executeTransaction({hash, from, to, method, params, nonce}) {
    *
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
-  lookup(name): Promise<{owner, address}> {
+  lookup(name): Promise<{ owner; address }> {
     return this.call(addresses.nameService, 'lookup', [name])
   }
 }

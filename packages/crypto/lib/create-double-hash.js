@@ -6,8 +6,8 @@ import subtle from './subtle.js'
  * const {createDoubleHash} = await import('@leofcoin/crypto')
  * createDoubleHash(data, algorithm)
  * ```
- * @param {Uint8Array} data 
- * @param {string} algorithm 
+ * @param {Uint8Array} data
+ * @param {string} algorithm
  * @returns Uint8Array
  */
 const createDoubleHash = async (data, algorithm = 'SHA-512') =>

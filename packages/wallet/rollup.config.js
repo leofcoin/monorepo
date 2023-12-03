@@ -4,7 +4,7 @@ import nodeResolve from '@rollup/plugin-node-resolve'
 import { execSync } from 'child_process'
 
 try {
-  execSync(`rm -rf ./dist/**`)
+  execSync(`npx rimraf './dist'`)
 
 } catch (e) {
 

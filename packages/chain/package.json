@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.5.24",
+  "version": "1.5.25",
   "description": "Official javascript implementation",
   "exports": {
     "./node": {
@@ -30,6 +30,7 @@
     "np": "np",
     "watch": "rollup -c -w",
     "lint": "eslint src --fix",
+    "prettier": "prettier src --config ./../../.prettierrc --write",
     "w": "rollup -c -w",
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
     "workers": "cp ./../workers/src/** ./workers",

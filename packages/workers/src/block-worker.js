@@ -8,24 +8,29 @@ const worker = new EasyWorker()
 globalThis.BigNumber = BigNumber
 globalThis.contracts = {}
 
-const run = async (blocks) => {  
-  blocks = await Promise.all(blocks.map(block => new BlockMessage(block)))
+const run = async (blocks) => {
+  blocks = await Promise.all(blocks.map((block) => new BlockMessage(block)))
   blocks = blocks.sort((a, b) => a.decoded.timestamp - b.decoded.timestamp)
 
-  blocks = await Promise.all(blocks.map(block => new Promise(async (resolve, reject) => {
-    // todo: tx worker or nah?
-    const size = block.encoded.length || block.encoded.byteLength
-    console.log(`loaded block: ${await block.hash()} @${block.decoded.index} ${formatBytes(size)}`);
-    resolve(block)
-  })))
+  blocks = await Promise.all(
+    blocks.map(
+      (block) =>
+        new Promise(async (resolve, reject) => {
+          // todo: tx worker or nah?
+          await block.encode()
+          const size = block.encoded.length || block.encoded.byteLength
+          console.log(`loaded block: ${await block.hash()} @${block.decoded.index} ${formatBytes(size)}`)
+          // todo we don't want this, need shared state
+          resolve(block.decoded)
+        })
+    )
+  )
   return blocks
 }
 
-const tasks = async blocks => {  
+const tasks = async (blocks) => {
   blocks = await run(blocks)
   worker.postMessage(blocks)
 }
- 
 
-worker.onmessage(data => tasks(data))
-
+worker.onmessage((data) => tasks(data))

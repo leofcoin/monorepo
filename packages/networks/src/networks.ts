@@ -13,8 +13,8 @@ export default {
       // a short description identifying the version
       description: 'Main net current version',
       stars: ['wss://star.leofcoin.org'] // todo webrtc and bittorent stars
-    }, 
-    
+    },
+
     peach: {
       port: 44444,
       description: 'Main testnet: latest step before merging into main',

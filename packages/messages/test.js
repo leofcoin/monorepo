@@ -1,10 +1,7 @@
-import BlockMessage from "./exports/messages/block.js";
-import BWRequestMessage from "./exports/messages/bw-request.js";
+import BlockMessage from "./exports/block.js";
 import { ContractMessage } from "./exports/index.js";
 import { BigNumber } from "@leofcoin/utils";
 
-console.log(globalThis.peernet);
-// globalThis.peernet.codecs
 const validators = [{
   address: 'address',
   reward: new BigNumber.from(0)
@@ -39,11 +36,13 @@ const contractMessage = new ContractMessage({
   contract: new Uint8Array(),
   constructorParameters: []
 })
-
-const message = new BlockMessage(block)
 console.time('message encoded')
+const message = await new BlockMessage(block)
 console.timeEnd('message encoded')
 console.time('normal encoded')
+JSON.stringify(block)
 console.timeEnd('normal encoded')
-
-const contract = new ContractMessage(contractMessage.encoded)
+console.log(message.toHex());
+console.log(message.encoded);
+new BlockMessage(message.toBs58())
+const contract = new ContractMessage(contractMessage.encode())

@@ -3,6 +3,7 @@ import { FormatInterface } from '@leofcoin/codec-format-interface'
 import type { messageInput } from '../types.js'
 
 export default class ContractMessage extends FormatInterface {
+  // @ts-ignore
   declare decoded: typeof proto
 
   get messageName() {
@@ -10,6 +11,7 @@ export default class ContractMessage extends FormatInterface {
   }
 
   constructor(buffer: messageInput) {
-    super(buffer, proto, {name: 'contract-message'})
+    if (buffer instanceof ContractMessage) return buffer
+    super(buffer, proto, { name: 'contract-message' })
   }
 }

@@ -5,8 +5,8 @@ import subtle from './subtle.js'
  * const {createHash} = await import('@leofcoin/crypto')
  * createHash(data, algorithm)
  * ```
- * @param {Uint8Array} data 
- * @param {string} algorithm 
+ * @param {Uint8Array} data
+ * @param {string} algorithm
  * @returns Uint8Array
  */
 const createHash = (data, algorithm = 'SHA-512') => subtle.digest(algorithm, data)

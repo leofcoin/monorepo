@@ -1,4 +1,4 @@
-import { BigNumber } from "@leofcoin/utils"
+import { BigNumber } from '@leofcoin/utils'
 
 export default {
   address: String(),

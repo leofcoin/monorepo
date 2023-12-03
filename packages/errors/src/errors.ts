@@ -1,6 +1,6 @@
 export class LeofcoinError extends Error {
   #message: string
-  constructor(message: string, options?: {cause: Error | LeofcoinError}) {
+  constructor(message: string, options?: { cause: Error | LeofcoinError }) {
     super(message, options)
     this.#message = message
   }

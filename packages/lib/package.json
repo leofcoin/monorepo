@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.33",
+  "version": "1.2.34",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
@@ -29,6 +29,7 @@
     "src/bytecodes.json"
   ],
   "scripts": {
+    "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rollup -c"
   },

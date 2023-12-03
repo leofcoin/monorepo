@@ -1,0 +1,17 @@
+{
+  "autorun": true,
+  "autokill": true,
+  "terminals": [{
+    "name": "watch:chain",
+    "commands": [
+      "cd packages/chain",
+      "npm run watch"
+    ]
+  }, {
+    "name": "test:chain",
+    "commands": [
+      "cd packages/chain",
+      "npm run test"
+    ]
+  }]
+}

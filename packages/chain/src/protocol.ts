@@ -4,13 +4,13 @@ export const requestTimeout = 30_000
 export const syncTimeout = 30_000
 
 export class Protocol {
-  version: string;
-  resolveTimeout: EpochTimeStamp = 10_000;
+  version: string
+  resolveTimeout: EpochTimeStamp = 10_000
 
   get limit() {
     return limit
   }
-  
+
   get transactionLimit() {
     return transactionLimit
   }
@@ -18,7 +18,7 @@ export class Protocol {
   get requestTimeout() {
     return requestTimeout
   }
-  
+
   get syncTimeout() {
     return syncTimeout
   }

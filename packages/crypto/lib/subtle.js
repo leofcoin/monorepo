@@ -1,3 +1,3 @@
-const {subtle} = crypto
+const { subtle } = crypto
 
 export default subtle

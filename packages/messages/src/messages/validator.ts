@@ -3,6 +3,7 @@ import { FormatInterface } from '@leofcoin/codec-format-interface'
 import type { messageInput } from '../types.js'
 
 export default class ValidatorMessage extends FormatInterface {
+  // @ts-ignore
   declare decoded: typeof proto
 
   get messageName() {
@@ -10,7 +11,8 @@ export default class ValidatorMessage extends FormatInterface {
   }
 
   constructor(buffer: messageInput) {
+    if (buffer instanceof ValidatorMessage) return buffer
     const name = 'validator-message'
-    super(buffer, proto, {name})
+    super(buffer, proto, { name })
   }
 }

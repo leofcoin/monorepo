@@ -4,10 +4,10 @@ export { formatUnits, parseUnits } from '@ethersproject/units'
 
 export declare type ByteFormats = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
 
-export const byteFormats: ByteFormats = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+export const byteFormats: ByteFormats = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
 
 export const formatBytes = (bytes: number, decimals: number = 2) => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return '0 Bytes'
   if (decimals < 0) decimals = 0
 
   const k = 1024

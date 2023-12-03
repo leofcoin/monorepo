@@ -33,12 +33,8 @@ export default class SyncController {
     this.#fullyLoaded = false
   }
 
-
   /**
    * Resolves/rejects a promise or rejects on timeout
    */
-  resolve() {
-    
-  }
-
+  resolve() {}
 }

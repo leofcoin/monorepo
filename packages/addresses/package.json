@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/addresses",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "",
   "exports": {
     ".": {
@@ -17,6 +17,7 @@
   ],
   "type": "module",
   "scripts": {
+    "prettier": "prettier src --config ./../../.prettierrc --write",
     "build": "rollup -c"
   },
   "keywords": [],

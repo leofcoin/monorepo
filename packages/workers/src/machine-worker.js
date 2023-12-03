@@ -1,6 +1,6 @@
 import { BlockMessage, ContractMessage } from '@leofcoin/messages'
 import { formatBytes, BigNumber } from '@leofcoin/utils'
-import bytecodes  from '@leofcoin/lib/bytecodes' assert {type: 'json'}
+import bytecodes from '@leofcoin/lib/bytecodes' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
 const worker = new EasyWorker()
 
@@ -12,11 +12,12 @@ const validatorsMessage = bytecodes.validators
 globalThis.BigNumber = BigNumber
 globalThis.contracts = {}
 
-const unique = arr => arr.filter((el, pos, arr) => {
-  return arr.indexOf(el) == pos;
-})
+const unique = (arr) =>
+  arr.filter((el, pos, arr) => {
+    return arr.indexOf(el) == pos
+  })
 
-const has = address => {
+const has = (address) => {
   return contracts[address] ? true : false
 }
 
@@ -30,10 +31,9 @@ const get = (contract, method, params) => {
   return result
 }
 
-const runContract = async ({decoded, hash, encoded}) => {
+const runContract = async ({ decoded, hash, encoded }) => {
   const params = decoded.constructorParameters
   try {
-
     const func = new Function(new TextDecoder().decode(decoded.contract))
     const Contract = func()
 
@@ -41,13 +41,10 @@ const runContract = async ({decoded, hash, encoded}) => {
     contracts[hash] = await new Contract(...params)
     worker.postMessage({
       type: 'debug',
-      messages: [
-        `loaded contract: ${hash}`,
-        `size: ${formatBytes(encoded.length)}`
-      ]
+      messages: [`loaded contract: ${hash}`, `size: ${formatBytes(encoded.length)}`]
     })
   } catch (e) {
-    console.log(e);
+    console.log(e)
     worker.postMessage({
       type: 'contractError',
       hash: await contractMessage.hash()
@@ -77,7 +74,6 @@ const execute = async (contract, method, params) => {
   }
 }
 
-
 const createMessage = (sender = globalThis.peerid) => {
   return {
     sender,
@@ -86,23 +82,19 @@ const createMessage = (sender = globalThis.peerid) => {
   }
 }
 
-const _init = async ({ contracts, blocks, peerid })=> {
-
+const _init = async ({ contracts, blocks, peerid }) => {
   globalThis.peerid = peerid
-  contracts = [
-    contractFactoryMessage,
-    nativeTokenMessage,
-    nameServiceMessage,
-    validatorsMessage
-  ]
+  contracts = [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
 
-  contracts = await Promise.all(contracts.map(async contract => {
-    contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-    await runContract({decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash()})
-    return contract
-  }))
+  contracts = await Promise.all(
+    contracts.map(async (contract) => {
+      contract = await new ContractMessage(new Uint8Array(contract.split(',')))
+      await runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
+      return contract
+    })
+  )
 
-  let lastBlock = {hash: '0x0'}; 
+  let lastBlock = { hash: '0x0' }
 
   if (blocks?.length > 0) {
     let pre
@@ -110,15 +102,18 @@ const _init = async ({ contracts, blocks, peerid })=> {
     try {
       const importee = await import('url')
       const url = importee.default
-      if (url) pre = url.fileURLToPath(new URL('.', import.meta.url));
+      if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
     } catch {
       // browser env
       pre = './'
     }
 
-    const _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {serialization: 'advanced', type: 'module' })
+    const _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
+      serialization: 'advanced',
+      type: 'module'
+    })
     blocks = await _worker.once([blocks[blocks.length - 1]])
-    
+
     // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
     // for (let i = 0; i < blocks.length; i++) {
 
@@ -128,112 +123,108 @@ const _init = async ({ contracts, blocks, peerid })=> {
     //     if (!block.loaded) {
     //       const {from, to, method, params} = message;
     //       globalThis.msg = createMessage(from);
-        
+
     //       await execute(to, method, params);
     //       block.loaded = true
     //     }
     //   }));
     // }
-    
+
     if (blocks.length > 0) {
-      lastBlock = blocks[blocks.length - 1].decoded;    
-      lastBlock = await new BlockMessage(lastBlock);
-  
+      lastBlock = blocks[blocks.length - 1]
+      // todo blocks already loaded as blockmessage so use it!
+      lastBlock = await new BlockMessage(lastBlock)
+
       lastBlock = {
         ...lastBlock.decoded,
         hash: await lastBlock.hash()
-      };
+      }
     }
     globalThis.blocks = blocks
   }
 
-  
+  worker.postMessage({ type: 'machine-ready', lastBlock })
 
-  
-  worker.postMessage({type: 'machine-ready', lastBlock});
-  
   // worker.postMessage({blocks});
 }
 
 const tasks = async (e) => {
   const id = e.id
-    if (e.type === 'init') {
-      try {
-        await _init(e.input)
-      } catch (e) {
-        worker.postMessage({
-          type: 'initError',
-          message: e.message,
-          id          
-        })
-      }
-    }
-    if (e.type === 'has') {
-      try {
-        const value = await has(e.input.address)
-        worker.postMessage({
-          type: 'response',
-          id,
-          value
-        })
-      } catch (error) {
-        worker.postMessage({
-          type: 'hasError',
-          message: error.message,
-          id          
-        })
-      }
-    }
-    if (e.type === 'run') {
-      try {
-        const value = await runContract(e.input)
-        worker.postMessage({
-          type: 'response',
-          id,
-          value
-        })
-      } catch (e) {
-        worker.postMessage({
-          type: 'runError',
-          message: e.message,
-          id          
-        })
-      }
-    }
-    if (e.type === 'get') {
-      try {
-        const value = await get(e.input.contract, e.input.method, e.input.params)
-        worker.postMessage({
-          type: 'response',
-          id,
-          value
-        })
-      } catch (e) {
-        worker.postMessage({
-          type: 'fetchError',
-          message: e.message,
-          id          
-        })
-      }
-      
-    }
-    if (e.type === 'execute') {
-      try {
-        const value = await execute(e.input.contract, e.input.method, e.input.params)
-        worker.postMessage({
-          type: 'response',
-          id,
-          value
-        })
-      } catch(e) {
-        worker.postMessage({
-          type: 'executionError',
-          message: e.message,
-          id
-          
-        })
-      }
+  if (e.type === 'init') {
+    try {
+      await _init(e.input)
+    } catch (e) {
+      worker.postMessage({
+        type: 'initError',
+        message: e.message,
+        id
+      })
     }
   }
+  if (e.type === 'has') {
+    try {
+      const value = await has(e.input.address)
+      worker.postMessage({
+        type: 'response',
+        id,
+        value
+      })
+    } catch (error) {
+      worker.postMessage({
+        type: 'hasError',
+        message: error.message,
+        id
+      })
+    }
+  }
+  if (e.type === 'run') {
+    try {
+      const value = await runContract(e.input)
+      worker.postMessage({
+        type: 'response',
+        id,
+        value
+      })
+    } catch (e) {
+      worker.postMessage({
+        type: 'runError',
+        message: e.message,
+        id
+      })
+    }
+  }
+  if (e.type === 'get') {
+    try {
+      const value = await get(e.input.contract, e.input.method, e.input.params)
+      worker.postMessage({
+        type: 'response',
+        id,
+        value
+      })
+    } catch (e) {
+      worker.postMessage({
+        type: 'fetchError',
+        message: e.message,
+        id
+      })
+    }
+  }
+  if (e.type === 'execute') {
+    try {
+      const value = await execute(e.input.contract, e.input.method, e.input.params)
+      worker.postMessage({
+        type: 'response',
+        id,
+        value
+      })
+    } catch (e) {
+      worker.postMessage({
+        type: 'executionError',
+        message: e.message,
+        id
+      })
+    }
+  }
+}
 
-worker.onmessage(data => tasks(data))
+worker.onmessage((data) => tasks(data))

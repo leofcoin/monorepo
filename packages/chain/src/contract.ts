@@ -1,6 +1,6 @@
-import Transaction from "./transaction.js";
+import Transaction from './transaction.js'
 import { createContractMessage, signTransaction } from '@leofcoin/lib'
-import addresses from "@leofcoin/addresses"
+import addresses from '@leofcoin/addresses'
 import type MultiWallet from '@leofcoin/multi-wallet'
 import { RawTransactionMessage } from '@leofcoin/messages'
 /**
@@ -11,15 +11,13 @@ export default class Contract extends Transaction {
     super()
   }
 
-  async init() {
-
-  }
+  async init() {}
 
   /**
-   * 
-   * @param {Address} creator 
-   * @param {String} contract 
-   * @param {Array} constructorParameters 
+   *
+   * @param {Address} creator
+   * @param {String} contract
+   * @param {Array} constructorParameters
    * @returns lib.createContractMessage
    */
   async createContractMessage(creator, contract, constructorParameters = []) {
@@ -27,10 +25,10 @@ export default class Contract extends Transaction {
   }
 
   /**
-   * 
-   * @param {Address} creator 
-   * @param {String} contract 
-   * @param {Array} constructorParameters 
+   *
+   * @param {Address} creator
+   * @param {String} contract
+   * @param {Array} constructorParameters
    * @returns {Address}
    */
   async createContractAddress(creator, contract, constructorParameters = []) {
@@ -39,16 +37,16 @@ export default class Contract extends Transaction {
   }
 
   /**
-   * 
-   * @param {String} contract 
-   * @param {Array} parameters 
-   * @returns 
+   *
+   * @param {String} contract
+   * @param {Array} parameters
+   * @returns
    */
   async deployContract(signer: MultiWallet, contract, constructorParameters = []) {
     const message = await createContractMessage(await signer.address, contract, constructorParameters)
     return this.deployContractMessage(signer, message)
   }
-  
+
   async deployContractMessage(signer, message) {
     try {
       await globalThis.contractStore.put(await message.hash(), message.encoded)
@@ -64,6 +62,4 @@ export default class Contract extends Transaction {
     transaction = await signTransaction(await this.createTransaction(transaction), signer)
     return this.sendTransaction(transaction)
   }
-
- 
 }

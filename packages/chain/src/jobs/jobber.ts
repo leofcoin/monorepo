@@ -1,9 +1,9 @@
-import { Protocol } from "../protocol.js";
+import { Protocol } from '../protocol.js'
 
 export default class Jobber {
-  timeout: EpochTimeStamp;
-  busy: boolean = false;
-  destroy: Function;
+  timeout: EpochTimeStamp
+  busy: boolean = false
+  destroy: Function
 
   constructor(timeout) {
     this.timeout = timeout
@@ -31,8 +31,6 @@ export default class Jobber {
         clearTimeout(timeout)
         reject(error)
       }
-      
     })
   }
-
 }

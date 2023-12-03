@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "npx tsc",
+    "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
