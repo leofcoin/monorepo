@@ -4,10 +4,7 @@ export default {
   timestamp: Number(),
   from: String(),
   to: String(),
-  nonce: Number(),
   method: String(),
   params: Array(),
-  'nonce?': Number(),
-  'dependsOn?': Array(),
-  'priority?': Boolean()
+  'nonce?': Number()
 } as RawTransaction
