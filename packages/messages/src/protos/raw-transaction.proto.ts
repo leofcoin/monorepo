@@ -6,5 +6,8 @@ export default {
   to: String(),
   nonce: Number(),
   method: String(),
-  params: Array()
+  params: Array(),
+  'nonce?': Number(),
+  'dependsOn?': Array(),
+  'priority?': Boolean()
 } as RawTransaction

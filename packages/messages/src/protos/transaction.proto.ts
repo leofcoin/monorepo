@@ -4,8 +4,10 @@ export default {
   timestamp: Number(),
   from: String(),
   to: String(),
-  nonce: Number(),
   method: String(),
   params: Array(),
-  signature: String()
+  signature: String(),
+  'nonce?': Number(),
+  'dependsOn?': Array(),
+  'priority?': Boolean()
 } as Transaction
