@@ -1,4 +1,6 @@
 !just-a-doc/dist/templates/**
+.password.txt
+exports
 
 # Logs
 logs
