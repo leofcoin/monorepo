@@ -1,6 +1,7 @@
 !just-a-doc/dist/templates/**
 .password.txt
 exports
+.builder-cache
 
 # Logs
 logs
@@ -10,7 +11,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Dependency directories
-node_modules/
+node_modules
 
 # dotenv environment variables file
 .env
