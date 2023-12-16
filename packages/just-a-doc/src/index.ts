@@ -1,7 +1,7 @@
 import * as events from 'node:events'
 import * as fs from 'node:fs'
-import { mkdir, readdir, rm, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, parse } from 'node:path'
+import { mkdir, readdir, rm, readFile, writeFile, access } from 'node:fs/promises'
+import { dirname, join, parse, sep } from 'node:path'
 import * as readline from 'node:readline'
 import { globby, GlobTask } from 'globby'
 import { execFile } from 'node:child_process'
@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const safeExec = promisify(execFile)
+
+declare type Options = { output: string; input: GlobTask['patterns']; readme: string; monorepo?: boolean }
 
 interface param {
   name: string
@@ -94,6 +96,8 @@ const readLines = async (input: string): Promise<{ tokens: token[]; lines: token
 }
 
 const generate = async (file, output) => {
+  console.log(file)
+
   const { tokens, lines } = await readLines(file)
 
   for (let token of tokens) {
@@ -212,7 +216,7 @@ const generate = async (file, output) => {
  * @param {object} options
  * @param {string} options.input
  */
-export default async ({ input, output, readme }: { output: string; input: GlobTask['patterns']; readme: string }) => {
+export default async ({ input, output, readme, monorepo }: Options) => {
   const files = await globby(input)
   try {
     await rm(output, { recursive: true })
@@ -221,12 +225,31 @@ export default async ({ input, output, readme }: { output: string; input: GlobTa
     await mkdir(output)
   }
 
+  console.log(files)
+  const manifest = {}
   const pages = new Array()
 
   for (const file of files) {
+    let outputPath = output
     try {
-      await generate(file, output)
-      pages.push(parse(file).base)
+      if (monorepo) {
+        const parts = file.split('/' || '\\')
+        const dir = parts[0] === '.' ? parts[2] : parts[1]
+        console.log(dir)
+        outputPath = join(output, dir)
+
+        if (!manifest[dir]) manifest[dir] = []
+        manifest[dir].push(parse(file).base.replace('\\', '/'))
+        try {
+          await access(outputPath)
+        } catch (error) {
+          await mkdir(outputPath)
+        }
+      } else {
+        pages.push(parse(file).base.replace('\\', '/'))
+      }
+
+      await generate(file, outputPath)
     } catch (error) {
       console.warn(error)
     }
@@ -242,6 +265,7 @@ export default async ({ input, output, readme }: { output: string; input: GlobTa
   await writeFile(
     join(output, 'index.html'),
     index
+      .replace('const manifest = []', `const manifest = ${JSON.stringify(manifest, null, '\t')}`)
       .replace('const pages = []', `const pages = ${JSON.stringify(pages, null, '\t')}`)
       .replace('const readme = ""', 'const readme =' + JSON.stringify(readmeString, null, '\t'))
   )

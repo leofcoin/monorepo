@@ -1,285 +1,394 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-  <style>
-    html, body, .app-wrapper {
-      display: flex;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      margin: 0;
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <style>
+      html,
+      body,
+      .app-wrapper {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        margin: 0;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
 
-    body {
-      flex-direction: column;
-      position: relative;
-    }
-    .app-wrapper {
-      position: relative;
-    }
+      body {
+        flex-direction: column;
+        position: relative;
+      }
+      .app-wrapper {
+        position: relative;
+      }
 
-    section {
-      /* background: #eee; */
-      padding: 6px 12px;
-      box-sizing: border-box;
-      
-      margin-bottom: 24px;
-      width: 100%;
-    }
+      section {
+        /* background: #eee; */
+        padding: 6px 12px;
+        box-sizing: border-box;
 
-    main {
-      position: relative;
-      height: 100%;
-    width: 100%;
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    }
+        margin-bottom: 24px;
+        width: 100%;
+      }
 
-    .viewer, .marked {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-110%);
-    }
+      main {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+      }
 
-    main [selected] {
-      pointer-events: auto;
-      opacity: 1;
-      transform: translateY(0);
-    }
+      .viewer,
+      .marked {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-110%);
+      }
 
-    aside [selected] {
-      background: #555;
-      color: #f7f7f7;
-    }
-
-    code {
-      display: block;
-      padding: 6px 12px;
-      box-sizing: border-box;
-      margin-top: 0;
-      margin-bottom: 24px;
-      padding: 12px;
-      font-size: 1em;
-      background: #f7f7f7;
-      border-radius: 2px;
-      overflow-x: auto;
-    }
-
-    .wrapper {
-      max-width: 960px;
-      width: 100%;
-      position: relative;
-      overflow-y: auto;
-      height: 100%;
-    }
-
-    aside {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      width: 256px;
-      box-shadow: 1px 1px 8px 0px #5555557a;
-      overflow-y: auto;
-    }
-
-    a {
-      text-decoration: none;
-      display: flex;
-      padding: 12px 24px;
-      box-sizing: border-box;
-      height: 48px;
-      width: 100%;
-      align-items: center;
-    }
-
-    .toolbar {
-      display: flex;
-      height: 54px;
-      width: 100%;
-      box-shadow: 1px 1px 8px 0px #5555557a;
-    }
-
-    .block {
-      padding-bottom: 24px;
-      padding-left: 12px;
-      display: flex;
-      flex-direction: column;
-
-    }
-    .flex-row, .block.param {
-      display: flex;
-      width: 100%;
-      flex-direction: row;
-      padding-left: 0;
-      border: 1px solid #eee;
-    }
-    .flex-row, .block.param {
-      padding: 6px 12px;
-      box-sizing: border-box;
-    }
-    .flex-row strong, .block.param p {
-      width: calc(100% / 3);
-    }
-    :not(:last-child(.block.param)) {
-      border-bottom: 1px solid #eee;
-    }
-
-    .menu-button {
-      opacity: 0;
-    }
-
-    @media (max-width: 1199px) {
-      .menu-button {
+      main [selected] {
+        pointer-events: auto;
         opacity: 1;
+        transform: translateY(0);
+      }
+
+      aside [selected] {
+        background: #555;
+        color: #f7f7f7;
+      }
+
+      code {
+        display: block;
+        padding: 6px 12px;
+        box-sizing: border-box;
+        margin-top: 0;
+        margin-bottom: 24px;
+        padding: 12px;
+        font-size: 1em;
+        background: #f7f7f7;
+        border-radius: 2px;
+        overflow-x: auto;
+      }
+
+      .wrapper {
+        max-width: 960px;
+        width: 100%;
+        position: relative;
+        overflow-y: auto;
+        height: 100%;
       }
 
       aside {
-        position: absolute;
-
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 256px;
+        box-shadow: 1px 1px 8px 0px #5555557a;
+        overflow-y: auto;
       }
-    }
-  </style>
-  <span class="toolbar">
 
-    <a class="branding">DocIt</a>
-  </span>
-  <span class="app-wrapper">
-    <aside>
-      <a href="#!/home">home</a>
-    </aside>
-    
-    <main>
-      <div class="wrapper">
-        <div class="viewer">
-          <h2 class="title"></h2>
-          <span class="classes">
-            <h2>class</h2>
-          </span>
-          <span class="properties">
-            
-          </span>
-      
-          <span class="methods">
-            <h2>methods</h2>
-          </span>
+      a {
+        text-decoration: none;
+        display: flex;
+        padding: 12px 24px;
+        box-sizing: border-box;
+        height: 48px;
+        width: 100%;
+        align-items: center;
+      }
+
+      .toolbar {
+        display: flex;
+        height: 54px;
+        width: 100%;
+        box-shadow: 1px 1px 8px 0px #5555557a;
+      }
+
+      .block {
+        padding-bottom: 24px;
+        padding-left: 12px;
+        display: flex;
+        flex-direction: column;
+      }
+      .flex-row,
+      .block.param {
+        display: flex;
+        width: 100%;
+        flex-direction: row;
+        padding-left: 0;
+        border: 1px solid #eee;
+      }
+      .flex-row,
+      .block.param {
+        padding: 6px 12px;
+        box-sizing: border-box;
+      }
+      .flex-row strong,
+      .block.param p {
+        width: calc(100% / 3);
+      }
+      :not(:last-child(.block.param)) {
+        border-bottom: 1px solid #eee;
+      }
+
+      .menu-button {
+        opacity: 0;
+      }
+
+      @media (max-width: 1199px) {
+        .menu-button {
+          opacity: 1;
+        }
+
+        aside {
+          position: absolute;
+        }
+      }
+    </style>
+    <span class="toolbar">
+      <a class="branding">DocIt</a>
+    </span>
+    <span class="app-wrapper">
+      <aside>
+        <a href="#!/home">home</a>
+      </aside>
+
+      <main>
+        <div class="wrapper">
+          <div class="viewer">
+            <h2 class="title"></h2>
+            <span class="classes">
+              <h2>class</h2>
+            </span>
+            <span class="properties"> </span>
+
+            <span class="methods">
+              <h2>methods</h2>
+            </span>
+          </div>
+          <div class="marked"></div>
         </div>
-        <div class="marked"></div>
-      </div>
-    </main>
-    
-  </span>
-  
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet"
-      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
-<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-  <script type="module">
+      </main>
+    </span>
 
-    const pages = [
-	"addresses.js",
-	"chain.ts",
-	"contract.ts",
-	"machine-state.ts",
-	"machine.ts",
-	"node-browser.ts",
-	"node.ts",
-	"protocol.ts",
-	"state.ts",
-	"sync-controller.ts",
-	"transaction.ts",
-	"typer.js",
-	"types.ts",
-	"constants.ts",
-	"errors.ts",
-	"globals.js",
-	"index.ts",
-	"index.ts",
-	"node-config.ts",
-	"machine.ts",
-	"index.ts",
-	"types.ts",
-	"index.ts",
-	"wordlist.js",
-	"networks.ts",
-	"utils.ts",
-	"block-worker.js",
-	"log-worker.ts",
-	"machine-worker.js",
-	"pool-worker.js",
-	"transaction-worker.js",
-	"workers.js",
-	"wallet.js",
-	"config.js",
-	"main.js",
-	"protocol.js",
-	"consensus.ts",
-	"config.js",
-	"jobber.ts",
-	"block.ts",
-	"bw-request.ts",
-	"bw.ts",
-	"contract.ts",
-	"last-block-request.ts",
-	"last-block.ts",
-	"publish.ts",
-	"raw-transaction.ts",
-	"transaction.ts",
-	"validator.ts",
-	"block.proto.ts",
-	"bw-request.proto.ts",
-	"bw.proto.ts",
-	"contract.proto.ts",
-	"last-block-request.proto.ts",
-	"last-block.proto.ts",
-	"publish.proto.ts",
-	"raw-transaction.proto.ts",
-	"transaction.proto.ts",
-	"validator.proto.ts",
-	"sort-transactions.ts"
-]
-    const readme ="# monorepo\r\n"
-    const aside = document.querySelector('aside')
-    for (const page of pages) {
-      const a = document.createElement('a')
-      a.href = `#!/${page}`
-      a.innerHTML = page.replace('.js', '')
-      aside.appendChild(a)
-    }
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script type="module">
+      const manifest = {
+	"addresses": [
+		"addresses.js"
+	],
+	"chain": [
+		"chain.ts",
+		"contract.ts",
+		"machine-state.ts",
+		"machine.ts",
+		"node-browser.ts",
+		"node.ts",
+		"protocol.ts",
+		"state.ts",
+		"sync-controller.ts",
+		"transaction.ts",
+		"typer.js",
+		"types.ts",
+		"version-control.ts",
+		"config.js",
+		"main.js",
+		"protocol.js",
+		"consensus.ts",
+		"config.js",
+		"jobber.ts",
+		"sort-transactions.ts"
+	],
+	"constants": [
+		"constants.ts"
+	],
+	"errors": [
+		"errors.ts"
+	],
+	"globals": [
+		"globals.js"
+	],
+	"just-a-doc": [
+		"index.ts"
+	],
+	"lib": [
+		"index.ts",
+		"node-config.ts"
+	],
+	"machine": [
+		"machine.ts"
+	],
+	"messages": [
+		"index.ts",
+		"types.ts",
+		"block.ts",
+		"bw-request.ts",
+		"bw.ts",
+		"contract.ts",
+		"last-block-request.ts",
+		"last-block.ts",
+		"publish.ts",
+		"raw-transaction.ts",
+		"transaction.ts",
+		"validator.ts",
+		"block.proto.ts",
+		"bw-request.proto.ts",
+		"bw.proto.ts",
+		"contract.proto.ts",
+		"last-block-request.proto.ts",
+		"last-block.proto.ts",
+		"publish.proto.ts",
+		"raw-transaction.proto.ts",
+		"transaction.proto.ts",
+		"validator.proto.ts"
+	],
+	"mnemonic": [
+		"index.ts",
+		"wordlist.js"
+	],
+	"networks": [
+		"networks.ts"
+	],
+	"utils": [
+		"utils.ts"
+	],
+	"wallet": [
+		"wallet.js"
+	],
+	"workers": [
+		"block-worker.js",
+		"log-worker.ts",
+		"machine-worker.js",
+		"pool-worker.js",
+		"transaction-worker.js",
+		"workers.js"
+	]
+}
+      const pages = []
+      const readme = ''
 
-    const properties = document.querySelector('.properties')
-    const methods = document.querySelector('.methods')
-    const classes = document.querySelector('.classes')
-    const title = document.querySelector('.title')
+      class MenuItem extends HTMLElement {
+        items = []
+        set open(value) {
+          if (value) this.setAttribute('open', '')
+          else this.removeAttribute('open')
+        }
 
-    const load = async (page) => {
-      const importee = await import(`./${page}`)
-      const data = importee.default
-      methods.innerHTML = ''
-      classes.innerHTML = ''
-      properties.innerHTML = `<h2>properties</h2>`
-console.log(data);
-      title.innerHTML = page
-      for (const token of data) {
-        if (token.type === 'property') {
-          const property = document.createElement('section')
-          property.innerHTML = `
+        get open() {
+          return this.hasAttribute('open')
+        }
+
+        set dir(value) {
+          this._dir = value
+          this.render()
+        }
+
+        get dir() {
+          return this._dir
+        }
+
+        addSubItem(dir, item) {
+          const a = document.createElement('a')
+          a.href = `#!/${dir}/${item}`
+          a.innerHTML = item.replace('.js', '')
+          this.appendChild(a)
+        }
+
+        constructor() {
+          super()
+          this.attachShadow({ mode: 'open' })
+          this.addEventListener('click', () => {
+            this.open = !this.open
+          })
+        }
+
+        render() {
+          this.shadowRoot.innerHTML = `
+          <style>
+            :host {
+              min-height: 48px;
+              padding: 12px 24px;
+              box-sizing: border-box;
+            }
+            ::slotted(*) {
+              opacity: 0;
+              padding: 0 !important;
+              height: 0 !important;
+            }
+
+            :host([open]) ::slotted(*) {
+              height: 48px !important;
+              padding: 12px 24px !important;
+              opacity: 1 !important;
+              text-decoration: none;
+              display: flex;
+              box-sizing: border-box;
+              width: 100%;
+              align-items: center;
+            }
+
+          </style>
+          <span>${this.dir}</span>
+          <slot></slot>
+          `
+        }
+      }
+
+      customElements.define('menu-item', MenuItem)
+      const aside = document.querySelector('aside')
+      // handle manifest
+      // whenever we have manifest entries we treat them subbed
+      for (const dir of Object.keys(manifest)) {
+        const el = document.createElement('menu-item')
+        el.dir = dir
+        for (const item of manifest[dir]) {
+          el.addSubItem(dir, item)
+        }
+
+        aside.appendChild(el)
+      }
+      // handle pages
+      for (const page of pages) {
+        const a = document.createElement('a')
+        a.href = `#!/${page}`
+        a.innerHTML = page.replace('.js', '')
+        aside.appendChild(a)
+      }
+
+      const properties = document.querySelector('.properties')
+      const methods = document.querySelector('.methods')
+      const classes = document.querySelector('.classes')
+      const title = document.querySelector('.title')
+
+      const load = async (page) => {
+        const importee = await import(`./${page}`)
+        const data = importee.default
+        methods.innerHTML = ''
+        classes.innerHTML = ''
+        properties.innerHTML = `<h2>properties</h2>`
+        console.log(data)
+        title.innerHTML = page
+        for (const token of data) {
+          if (token.type === 'property') {
+            const property = document.createElement('section')
+            property.innerHTML = `
           <h3>${token.name}</h3>
           <span class="block">
             
@@ -292,42 +401,60 @@ console.log(data);
             ${token.code.value}
           </code>
           `
-          properties.appendChild(property)
-        }
-        if (token.type === 'method') {
-          const property = document.createElement('section')
-          property.innerHTML = `          
+            properties.appendChild(property)
+          }
+          if (token.type === 'method') {
+            const property = document.createElement('section')
+            property.innerHTML = `          
           <h3>${token.name}</h3>
           <span class="block">
-            ${token.params ? `
+            ${
+              token.params
+                ? `
               <span class="flex-row">
               <strong>name</strong>
               <strong>type</strong>
               <strong>description</strong>
               </span>
-              ` : ''}
-          ${token.params ? token.params.map(param => `
+              `
+                : ''
+            }
+          ${
+            token.params
+              ? token.params
+                  .map(
+                    (param) => `
             <span class="block  param">
             <p>${param.name}</p>
             <p>${param.type}</p>
             <p>${param.description}</p>
             </span>
-            `).join('') : []}
+            `
+                  )
+                  .join('')
+              : []
+          }
           
           ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
-          ${token.return ? `<p><strong>returns</strong> ${token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name} ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>` : ''}
+          ${
+            token.return
+              ? `<p><strong>returns</strong> ${
+                  token.return.type ? `${token.return.name}: ${token.return.type}` : token.return.name
+                } ${token.return.value ? `&lt;${token.return.description}&gt;` : ''}</p>`
+              : ''
+          }
           </span>
           <code>
           ${token.code.value}
           </code>
           `
-          
-          methods.appendChild(property)
-        }
 
-        if (token.type === 'class') {
-          const property = document.createElement('section')
-          property.innerHTML = `<h3>${token.name}</h3>
+            methods.appendChild(property)
+          }
+
+          if (token.type === 'class') {
+            const property = document.createElement('section')
+            property.innerHTML = `<h3>${token.name}</h3>
           <span class="block">
           ${token.description === token.value ? '' : token.description.startsWith('/**') ? '' : token.description}  
           </span>
@@ -335,40 +462,40 @@ console.log(data);
             ${token.code.value}
           </code>
           `
-          classes.appendChild(property)
+            classes.appendChild(property)
+          }
         }
       }
-    }
 
-    const onhashchange = async () => {
-      let selected = location.hash
-      selected = selected.split('#!/')[1]
+      const onhashchange = async () => {
+        let selected = location.hash
+        selected = selected.split('#!/')[1]
 
-      console.log(selected);
-      aside.querySelector('[selected]')?.removeAttribute('selected')
-      
-      aside.querySelector(`a[href="#!/${selected}"]`).setAttribute('selected', '')
-      marked.setOptions({
-        highlight: function(code, lang) {
-          return hljs.highlight(code, {language: lang}).value;
+        console.log(selected)
+        aside.querySelector('[selected]')?.removeAttribute('selected')
+
+        aside.querySelector(`a[href="#!/${selected}"]`).setAttribute('selected', '')
+        marked.setOptions({
+          highlight: function (code, lang) {
+            return hljs.highlight(code, { language: lang }).value
+          }
+        })
+        if (selected === 'home') {
+          document.querySelector('.viewer')?.removeAttribute('selected')
+          document.querySelector('.marked').setAttribute('selected', '')
+          document.querySelector('.marked').innerHTML = marked.parse(readme)
+        } else {
+          await load(selected.includes('.ts') ? `${selected}.js` : selected)
+          document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
+          document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
         }
-      });
-      if (selected === 'home') {
-        document.querySelector('.viewer')?.removeAttribute('selected')
-        document.querySelector('.marked').setAttribute('selected', '')
-        document.querySelector('.marked').innerHTML = marked.parse(readme);
-      } else {
-        await load(selected.includes('.ts') ? `${selected}.js` : selected)
-        document.querySelector('main').querySelector('.marked')?.removeAttribute('selected')
-        document.querySelector('main').querySelector('.viewer').setAttribute('selected', '')
       }
-    }
 
-    globalThis.onhashchange = onhashchange
+      globalThis.onhashchange = onhashchange
 
-    if (!location.hash) location.hash = '#!/home'
-    onhashchange()
-    // document.querySelector('.viewer').innerHTML = marked.parse(readme);
-  </script>
-</body>
+      if (!location.hash) location.hash = '#!/home'
+      onhashchange()
+      // document.querySelector('.viewer').innerHTML = marked.parse(readme);
+    </script>
+  </body>
 </html>

@@ -1,9 +1,8 @@
 import docIt from '@vandeurenglenn/doc-it'
 
 docIt({
-  input: [
-    './packages/*/src/**/*.{ts,js}'
-  ],
+  input: ['./packages/*/src/**/*.{ts,js}'],
   output: 'docs',
-  readme: './readme.md'
+  readme: './readme.md',
+  monorepo: true
 })

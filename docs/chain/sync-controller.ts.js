@@ -1,7 +1,7 @@
 export default [
 	{
-		"start": 37,
-		"end": 39,
+		"start": 36,
+		"end": 38,
 		"value": "/**\n* Resolves/rejects a promise or rejects on timeout\n*/",
 		"code": {
 			"value": "resolve() {}"

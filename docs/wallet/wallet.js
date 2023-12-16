@@ -1,10 +1,10 @@
 export default [
 	{
-		"start": 9,
-		"end": 15,
+		"start": 8,
+		"end": 14,
 		"value": "/**\n*\n* @param {Object} options {network, privateKey, mnemonic}\n* @param {String} options.network network name\n* @param {String} options.privateKey privateKey\n* @param {String} options.mnemonic mnemonic\n*/",
 		"code": {
-			"value": "constructor(options = {network: 'leofcoin', privateKey: undefined, mnemonic: undefined}) {}"
+			"value": "constructor(options = { network: 'leofcoin', privateKey: undefined, mnemonic: undefined }) {}"
 		},
 		"params": [
 			{
