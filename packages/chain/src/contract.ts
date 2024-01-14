@@ -7,8 +7,8 @@ import { RawTransactionMessage } from '@leofcoin/messages'
  * @extends {Transaction}
  */
 export default class Contract extends Transaction {
-  constructor() {
-    super()
+  constructor(config) {
+    super(config)
   }
 
   async init() {}

@@ -15,4 +15,12 @@ export default class TransactionMessage extends FormatInterface {
     const name = 'transaction-message'
     super(buffer, proto, { name })
   }
+
+  beforeHashing(decoded: { [index: string]: any }) {
+    decoded = super.beforeHashing(decoded)
+    delete decoded.signature
+    delete decoded.priority
+    delete decoded.dependsOn
+    return decoded
+  }
 }

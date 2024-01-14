@@ -1,6 +1,7 @@
-import { storage } from '@leofcoin/storage'
+import { Storage } from '@leofcoin/storage'
+import { base58String } from '@vandeurenglenn/base58'
 
-declare var transactionPoolStore: storage
+declare var transactionPoolStore: Storage
 
 export type Address = base58String
 
@@ -35,4 +36,8 @@ export declare type BlockInMemory = {
 export declare type RawBlock = {
   index: number
   transactions: RawTransaction[]
+}
+
+export declare type ChainConfig = {
+  resolveTimeout?: number
 }

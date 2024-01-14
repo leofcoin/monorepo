@@ -1,7 +1,8 @@
-import { BlockMessage, ContractMessage } from '@leofcoin/messages'
+import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { formatBytes, BigNumber } from '@leofcoin/utils'
 import bytecodes from '@leofcoin/lib/bytecodes' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
+import { nativeToken } from '@leofcoin/addresses'
 const worker = new EasyWorker()
 
 const contractFactoryMessage = bytecodes.contractFactory
@@ -9,8 +10,25 @@ const nativeTokenMessage = bytecodes.nativeToken
 const nameServiceMessage = bytecodes.nameService
 const validatorsMessage = bytecodes.validators
 
+const latestTransactions = []
+
+let nativeCalls = 0
+let nativeBurns = 0
+let nativeMints = 0
+let nativeTransfers = 0
+let totalTransactions = 0
+
+let totalBurnAmount = 0
+let totalMintAmount = 0
+let totalTransferAmount = 0
+
+let blocks = []
+let contracts = {}
+const _ = {}
+
 globalThis.BigNumber = BigNumber
-globalThis.contracts = {}
+
+let lastBlock = { index: -1, hash: '0x0', previousHash: '0x0' }
 
 const unique = (arr) =>
   arr.filter((el, pos, arr) => {
@@ -21,7 +39,7 @@ const has = (address) => {
   return contracts[address] ? true : false
 }
 
-const get = (contract, method, params) => {
+const get = ({ contract, method, params }) => {
   let result
   if (params?.length > 0) {
     result = contracts[contract][method](...params)
@@ -31,7 +49,7 @@ const get = (contract, method, params) => {
   return result
 }
 
-const runContract = async ({ decoded, hash, encoded }) => {
+_.runContract = async ({ decoded, hash, encoded }) => {
   const params = decoded.constructorParameters
   try {
     const func = new Function(new TextDecoder().decode(decoded.contract))
@@ -41,18 +59,19 @@ const runContract = async ({ decoded, hash, encoded }) => {
     contracts[hash] = await new Contract(...params)
     worker.postMessage({
       type: 'debug',
-      messages: [`loaded contract: ${hash}`, `size: ${formatBytes(encoded.length)}`]
+      message: `loaded contract: ${hash} size: ${formatBytes(encoded.length)}`
     })
   } catch (e) {
     console.log(e)
     worker.postMessage({
       type: 'contractError',
-      hash: await contractMessage.hash()
+      message: e.message,
+      hash
     })
   }
 }
 
-const execute = async (contract, method, params) => {
+_.execute = async ({ contract, method, params }) => {
   try {
     let result
     // don't execute the method on a proxy
@@ -77,26 +96,54 @@ const execute = async (contract, method, params) => {
 const createMessage = (sender = globalThis.peerid) => {
   return {
     sender,
-    call: execute,
+    call: _.execute,
     staticCall: get
   }
 }
 
-const _init = async ({ contracts, blocks, peerid }) => {
+const _executeTransaction = async (transaction) => {
+  const hash = await new TransactionMessage(transaction).hash()
+  if (latestTransactions.includes(hash)) {
+    throw new Error(`double transaction found: ${hash} in block ${block.index}`)
+  } else {
+    latestTransactions.push(hash)
+    const { from, to, method, params, nonce } = transaction
+    globalThis.msg = createMessage(from)
+
+    await _.execute({ contract: to, method, params })
+    if (to === nativeToken) {
+      nativeCalls += 1
+      if (method === 'burn') nativeBurns += 1
+      if (method === 'mint') nativeMints += 1
+      if (method === 'transfer') nativeTransfers += 1
+    }
+    totalTransactions += 1
+
+    worker.postMessage({
+      type: 'transactionLoaded',
+      result: {
+        hash,
+        from,
+        nonce: String(nonce)
+      }
+    })
+  }
+}
+
+_.init = async (message) => {
+  let { contracts, peerid } = message
   globalThis.peerid = peerid
   contracts = [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
 
   contracts = await Promise.all(
     contracts.map(async (contract) => {
       contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-      await runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
+      await _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
       return contract
     })
   )
 
-  let lastBlock = { hash: '0x0' }
-
-  if (blocks?.length > 0) {
+  if (message.blocks?.length > 0) {
     let pre
 
     try {
@@ -108,37 +155,51 @@ const _init = async ({ contracts, blocks, peerid }) => {
       pre = './'
     }
 
-    const _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
+    let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
       serialization: 'advanced',
       type: 'module'
     })
-    blocks = await _worker.once([blocks[blocks.length - 1]])
-
+    blocks = await _worker.once(message.blocks)
+    _worker = null
     // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
     // for (let i = 0; i < blocks.length; i++) {
 
     // }
-    // for (const block of blocks) {
-    //   await Promise.all(block.decoded.transactions.map(async message => {
-    //     if (!block.loaded) {
-    //       const {from, to, method, params} = message;
-    //       globalThis.msg = createMessage(from);
+    for (const block of blocks) {
+      // we only revalidate the latest 24 blocks
+      // every 24 blocks a snapshot is taken and stored in state
+      // this means contracts will be restored from this state
+      // this also means devs NEED to make sure the state can be restored
+      // on contract deploy an error will be thrown if state wasn't recoverable
+      if (block.index > 24) {
+        const transactionCount = blocks[block.index - 1].transactions.length
+        latestTransactions.splice(-(transactionCount - 1), latestTransactions.length)
+      }
 
-    //       await execute(to, method, params);
-    //       block.loaded = true
-    //     }
-    //   }));
-    // }
+      if (!block.loaded) {
+        const priority = block.transactions.filter((transaction) => transaction.priority)
+        if (priority.length > 0)
+          await Promise.all(
+            priority.sort((a, b) => a.nonce - b.nonce).map((transaction) => _executeTransaction(transaction))
+          )
+
+        await Promise.all(
+          block.transactions
+            .filter((transaction) => !transaction.priority)
+            .map(async (transaction) => _executeTransaction(transaction))
+        )
+      }
+      block.loaded = true
+      worker.postMessage({
+        type: 'debug',
+        message: `loaded transactions for block: ${block.blockInfo.hash} @${block.blockInfo.index} ${formatBytes(
+          block.blockInfo.size
+        )}`
+      })
+    }
 
     if (blocks.length > 0) {
       lastBlock = blocks[blocks.length - 1]
-      // todo blocks already loaded as blockmessage so use it!
-      lastBlock = await new BlockMessage(lastBlock)
-
-      lastBlock = {
-        ...lastBlock.decoded,
-        hash: await lastBlock.hash()
-      }
     }
     globalThis.blocks = blocks
   }
@@ -148,83 +209,94 @@ const _init = async ({ contracts, blocks, peerid }) => {
   // worker.postMessage({blocks});
 }
 
-const tasks = async (e) => {
-  const id = e.id
-  if (e.type === 'init') {
-    try {
-      await _init(e.input)
-    } catch (e) {
-      worker.postMessage({
-        type: 'initError',
-        message: e.message,
-        id
-      })
-    }
-  }
-  if (e.type === 'has') {
-    try {
-      const value = await has(e.input.address)
-      worker.postMessage({
-        type: 'response',
-        id,
-        value
-      })
-    } catch (error) {
-      worker.postMessage({
-        type: 'hasError',
-        message: error.message,
-        id
-      })
-    }
-  }
-  if (e.type === 'run') {
-    try {
-      const value = await runContract(e.input)
-      worker.postMessage({
-        type: 'response',
-        id,
-        value
-      })
-    } catch (e) {
-      worker.postMessage({
-        type: 'runError',
-        message: e.message,
-        id
-      })
-    }
-  }
-  if (e.type === 'get') {
-    try {
-      const value = await get(e.input.contract, e.input.method, e.input.params)
-      worker.postMessage({
-        type: 'response',
-        id,
-        value
-      })
-    } catch (e) {
-      worker.postMessage({
-        type: 'fetchError',
-        message: e.message,
-        id
-      })
-    }
-  }
-  if (e.type === 'execute') {
-    try {
-      const value = await execute(e.input.contract, e.input.method, e.input.params)
-      worker.postMessage({
-        type: 'response',
-        id,
-        value
-      })
-    } catch (e) {
-      worker.postMessage({
-        type: 'executionError',
-        message: e.message,
-        id
-      })
-    }
+_.addLoadedBlock = (block) => {
+  blocks[block.index - 1] = block
+  return true
+}
+
+_.loadBlock = (block) => {
+  // todo validate here and deprecate addLoadedBlock
+}
+
+const respond = (id, value) => {
+  worker.postMessage({
+    type: 'response',
+    value,
+    id
+  })
+}
+
+const runTask = async (id, taskName, input) => {
+  try {
+    const result = await _[taskName](input)
+    respond(id, result)
+  } catch (e) {
+    worker.postMessage({
+      type: `${taskName}Error`,
+      message: e.message,
+      id
+    })
   }
 }
 
-worker.onmessage((data) => tasks(data))
+worker.onmessage(({ id, type, input }) => {
+  switch (type) {
+    case 'init':
+      runTask(id, 'init', input)
+      break
+    case 'run':
+      runTask(id, 'runContract', input)
+      break
+    case 'execute':
+      runTask(id, 'execute', input)
+      break
+    case 'addLoadedBlock':
+      runTask(id, 'addLoadedBlock', input)
+      break
+    case 'nativeCalls':
+      respond(id, nativeCalls)
+      break
+    case 'contracts':
+      respond(id, contracts)
+      break
+    case 'nativeMints':
+      respond(id, nativeMints)
+      break
+    case 'nativeBurns':
+      respond(id, nativeBurns)
+      break
+    case 'nativeTransfers':
+      respond(id, nativeTransfers)
+      break
+    case 'totalTransfers':
+      respond(id, totalTransfers)
+      break
+    case 'totalBlocks':
+      respond(id, blocks.length)
+      break
+    case 'blocks':
+      respond(id, input ? blocks.slice(input.from, input.to) : blocks)
+      break
+    case 'block':
+      respond(id, blocks[input - 1])
+      break
+    case 'lastBlock':
+      respond(id, blocks[blocks.length - 1] || lastBlock)
+      break
+    case 'latestTransactions':
+      respond(id, latestTransactions)
+      break
+    case 'totalTransactions':
+      respond(id, totalTransactions)
+      break
+    case 'has':
+      respond(id, has(input.address))
+      break
+    case 'get':
+      respond(id, get(input))
+      break
+    default:
+      console.log(`machine-worker: unsupported taskType: ${type}`)
+      break
+  }
+})

@@ -4,8 +4,8 @@ import { calculateFee } from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
 
 export default class Transaction extends Protocol {
-  constructor() {
-    super()
+  constructor(config) {
+    super(config)
   }
 
   /**
@@ -191,7 +191,8 @@ export default class Transaction extends Protocol {
       await globalThis.transactionPoolStore.put(hash, message.encoded)
       // debug(`Added ${hash} to the transaction pool`)
       peernet.publish('add-transaction', message.encoded)
-      return { hash, data, fee: await calculateFee(message.decoded), wait, message }
+      const fee = await calculateFee(message.decoded)
+      return { hash, data, fee, wait, message }
     } catch (error) {
       console.log('remo')
 

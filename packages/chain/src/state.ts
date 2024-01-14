@@ -10,6 +10,8 @@ import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
 
+const debug = globalThis.createDebugger('leofcoin/state')
+
 export default class State extends Contract {
   #resolveErrored: boolean
   #lastResolvedTime: EpochTimeStamp = 0
@@ -22,7 +24,6 @@ export default class State extends Contract {
   #syncErrorCount = 0
   #blockHashMap = new Map()
   #chainSyncing: boolean = false
-  #lastBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
   #blocks = []
   knownBlocks: BlockHash[] = []
   #totalSize: number = 0
@@ -50,59 +51,40 @@ export default class State extends Contract {
     return this.#resolving
   }
 
-  /**
-   * amount the native token has been iteracted with
-   */
-  #nativeCalls = 0
-  /**
-   * amount the native token has been iteracted with
-   */
-  #nativeTransfers = 0
-
-  /**
-   * amount of native token burned
-   * {Number}
-   */
-  #nativeBurns = 0
-
-  /**
-   * amount of native tokens minted
-   * {Number}
-   */
-  #nativeMints = 0
-
-  /**
-   * total amount of transactions
-   * {Number}
-   */
-  #totalTransactions = 0
-
   get nativeMints() {
-    return this.#nativeMints
+    return this.#machine.nativeMints
   }
 
   get nativeBurns() {
-    return this.#nativeBurns
+    return this.#machine.nativeBurns
   }
 
   get nativeTransfers() {
-    return this.#nativeTransfers
+    return this.#machine.nativeTransfers
   }
 
   get totalTransactions() {
-    return this.#totalTransactions
+    return this.#machine.totalTransactions
   }
 
   get nativeCalls() {
-    return this.#nativeCalls
+    return this.#machine.nativeCalls
   }
 
   get blocks() {
-    return [...this.#blocks]
+    return this.getBlocks()
   }
 
   get lastBlock() {
-    return this.#lastBlock
+    return this.#machine ? this.#machine.lastBlock : { index: 0, hash: '0x0', previousHash: '0x0' }
+  }
+
+  getBlock(index) {
+    return this.#machine.getBlock(index)
+  }
+
+  getBlocks(from?, to?) {
+    return this.#machine.getBlocks(from, to)
   }
 
   get totalSize() {
@@ -113,8 +95,8 @@ export default class State extends Contract {
     return this.#machine
   }
 
-  constructor() {
-    super()
+  constructor(config) {
+    super(config)
   }
 
   async clearPool() {
@@ -139,7 +121,7 @@ export default class State extends Contract {
 
   #lastBlockHandler = async () => {
     return new globalThis.peernet.protos['peernet-response']({
-      response: { hash: this.#lastBlock?.hash, index: this.#lastBlock?.index }
+      response: await this.lastBlock
     })
   }
 
@@ -157,33 +139,11 @@ export default class State extends Contract {
     await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
 
     try {
-      let localBlock
-      try {
-        localBlock = await globalThis.chainStore.get('lastBlock')
-      } catch {
-        await globalThis.chainStore.put('lastBlock', '0x0')
-        localBlock = await globalThis.chainStore.get('lastBlock')
-      }
-      localBlock = new TextDecoder().decode(localBlock)
-      if (localBlock && localBlock !== '0x0') {
-        localBlock = await globalThis.peernet.get(localBlock, 'block')
-        localBlock = await new BlockMessage(localBlock)
-        this.#lastBlock = {
-          ...localBlock.decoded,
-          hash: await localBlock.hash()
-        }
-      } else {
-        if (globalThis.peernet?.connections.length > 0) {
-          const latestBlock = await this.#getLatestBlock()
-          await this.#syncChain(latestBlock)
-        }
-      }
-    } catch (error) {
-      console.log({ e: error })
-
-      console.log({ e: error })
+      await globalThis.chainStore.has('lastBlock')
+    } catch {
+      await globalThis.chainStore.put('lastBlock', '0x0')
     }
-    globalThis.pubsub.publish('lastBlock', this.lastBlock)
+    globalThis.pubsub.publish('lastBlock', await this.lastBlock)
     // load local blocks
     try {
       this.knownBlocks = await blockStore.keys()
@@ -194,9 +154,13 @@ export default class State extends Contract {
 
     try {
       await this.resolveBlocks()
+
       this.#machine = await new Machine(this.#blocks)
 
-      await this.#loadBlocks(this.#blocks)
+      const lastBlock = await this.#machine.lastBlock
+      this.updateState(new BlockMessage(lastBlock))
+      this.#loaded = true
+      // await this.#loadBlocks(this.#blocks)
     } catch (error) {
       if (isResolveError(error)) {
         console.error(error)
@@ -206,12 +170,15 @@ export default class State extends Contract {
   }
 
   async updateState(message) {
-    const hash = await message.hash()
-    this.#lastBlock = { hash, ...message.decoded }
+    try {
+      const hash = await message.hash()
 
-    // await this.state.updateState(message)
-    await globalThis.chainStore.put('lastBlock', hash)
-    globalThis.pubsub.publish('lastBlock', this.#lastBlock)
+      // await this.state.updateState(message)
+      await globalThis.chainStore.put('lastBlock', hash)
+      globalThis.pubsub.publish('lastBlock', message.encoded)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {
@@ -249,7 +216,7 @@ export default class State extends Contract {
       this.#totalSize += size
       this.#blocks[index - 1] = { hash, ...block.decoded }
       this.#blockHashMap.set(hash, index)
-      globalThis.debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
+      debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
       globalThis.pubsub.publish('block-resolved', { hash, index })
       this.#lastResolved = this.#blocks[index - 1]
       this.#lastResolvedTime = Date.now()
@@ -295,11 +262,11 @@ export default class State extends Contract {
 
     try {
       const localBlock = await globalThis.chainStore.get('lastBlock')
+
       const hash = new TextDecoder().decode(localBlock)
 
       if (hash && hash !== '0x0') {
         await this.resolveBlock(hash)
-        this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       }
     } catch (error) {
       console.log(error)
@@ -318,7 +285,6 @@ export default class State extends Contract {
       await globalThis.chainStore.put('lastBlock', hash)
       if (hash && hash !== '0x0') {
         await this.resolveBlock(hash)
-        this.#lastBlock = this.#blocks[this.#blocks.length - 1]
       }
     } catch (error) {
       console.log(error)
@@ -330,12 +296,12 @@ export default class State extends Contract {
     }
   }
 
-  destroyResolveJob() {}
-
   async syncChain(lastBlock?): Promise<SyncState> {
-    if (!this.shouldSync) return
+    console.log('check if can sync')
 
-    this.#syncState
+    if (!this.shouldSync) return
+    console.log('starting sync')
+    this.#syncState = 'syncing'
     this.#chainSyncing = true
 
     try {
@@ -350,7 +316,7 @@ export default class State extends Contract {
 
     console.log('starting sync')
 
-    if (globalThis.peernet.connections.length === 0) return 'connectionless'
+    if (globalThis.peernet.peers.length === 0) return 'connectionless'
 
     try {
       await this.#syncChain(lastBlock)
@@ -385,19 +351,24 @@ export default class State extends Contract {
         await Promise.allSettled(promises.map(({ value }) => this.getAndPutBlock(value.address)))
       }
 
-      if (!this.#lastBlock || Number(this.#lastBlock.index) < Number(lastBlock.index)) {
+      const localBlock = await this.lastBlock
+
+      if (!localBlock || Number(localBlock.index) < Number(lastBlock.index)) {
         // TODO: check if valid
-        const localIndex = this.#lastBlock ? this.lastBlock.index : 0
+        const localIndex = localBlock ? localBlock.index : 0
         const index = lastBlock.index
         await this.resolveBlock(lastBlock.hash)
         console.log('ok')
 
         let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index + -localIndex) : index
-        globalThis.debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+        debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+        const blocks = this.#blocks
 
-        const start = this.#blocks.length - blocksSynced
-        if (this.#machine) await this.#loadBlocks(this.blocks.slice(start))
-        await this.updateState(new BlockMessage(this.#blocks[this.#blocks.length - 1]))
+        const start = blocks.length - blocksSynced
+        if (this.#machine) {
+          await this.#loadBlocks(blocks.slice(start))
+        }
+        await this.updateState(new BlockMessage(blocks[blocks.length - 1]))
       }
     } catch (error) {
       console.log(error)
@@ -414,12 +385,13 @@ export default class State extends Contract {
     })
     let node = await globalThis.peernet.prepareMessage(data)
 
-    for (const peer of globalThis.peernet?.connections) {
+    for (const id in globalThis.peernet.connections) {
       // @ts-ignore
+      const peer = globalThis.peernet.connections[id]
       if (peer.connected && peer.version === this.version) {
         const task = async () => {
           try {
-            const result = await peer.request(node.encoded)
+            const result = await peer.request(node.encode())
             return { result: Uint8Array.from(Object.values(result)), peer }
           } catch (error) {
             throw error
@@ -466,14 +438,47 @@ export default class State extends Contract {
   #getLastTransactions = async () => {
     let lastTransactions = (
       await Promise.all(
-        this.#blocks
+        (await this.blocks)
           .filter((block) => block.loaded)
-          .slice(-128)
+          .slice(-24)
           .map((block) => this.#loadBlockTransactions(block.transactions))
       )
     ).reduce((all, transactions) => [...all, ...transactions], [])
 
     return Promise.all(lastTransactions.map((transaction) => transaction.hash()))
+  }
+
+  // todo throw error
+  async #_executeTransaction(transaction) {
+    try {
+      await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
+      // await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
+      // if (transaction.decoded.to === nativeToken) {
+      //   this.#nativeCalls += 1
+      //   if (transaction.decoded.method === 'burn') this.#nativeBurns += 1
+      //   if (transaction.decoded.method === 'mint') this.#nativeMints += 1
+      //   if (transaction.decoded.method === 'transfer') this.#nativeTransfers += 1
+      // }
+      // this.#totalTransactions += 1
+    } catch (error) {
+      console.log(error)
+
+      await globalThis.transactionPoolStore.delete(await transaction.hash())
+      console.log('removing invalid transaction')
+      if (isExecutionError(error)) {
+        console.log(error)
+
+        // console.log(`removing invalid block ${block.index}`)
+        // await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
+        // const deletedBlock = blocks.splice(block.index, 1)
+        // console.log(`removed block ${deletedBlock[0].index}`)
+
+        // return this.#loadBlocks(blocks)
+      }
+
+      console.log(error)
+      return false
+    }
   }
   /**
    *
@@ -487,52 +492,35 @@ export default class State extends Contract {
       if (block && !block.loaded) {
         if (block.index === 0) this.#loaded = true
 
-        const transactions = await this.#loadBlockTransactions([...block.transactions] || [])
+        let transactions = await this.#loadBlockTransactions([...block.transactions] || [])
         const lastTransactions = await this.#getLastTransactions()
 
+        let priority = []
         for (const transaction of transactions) {
           const hash = await transaction.hash()
-
-          if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
           if (lastTransactions.includes(hash)) {
             console.log('removing invalid block')
             await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
             blocks.splice(block.index - 1, 1)
             return this.#loadBlocks(blocks)
           }
+          if (transaction.decoded.priority) priority.push(transaction)
+          if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
+        }
 
-          try {
-            await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
-            await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
-            if (transaction.decoded.to === nativeToken) {
-              this.#nativeCalls += 1
-              if (transaction.decoded.method === 'burn') this.#nativeBurns += 1
-              if (transaction.decoded.method === 'mint') this.#nativeMints += 1
-              if (transaction.decoded.method === 'transfer') this.#nativeTransfers += 1
-            }
-            this.#totalTransactions += 1
-          } catch (error) {
-            console.log(error)
-
-            await globalThis.transactionPoolStore.delete(hash)
-            console.log('removing invalid transaction')
-            if (isExecutionError(error)) {
-              console.log(`removing invalid block ${block.index}`)
-              await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-              const deletedBlock = blocks.splice(block.index, 1)
-              console.log(`removed block ${deletedBlock[0].index}`)
-
-              return this.#loadBlocks(blocks)
-            }
-
-            console.log(error)
-            return false
+        // prority blocks execution from the rest so result in higher fees.
+        if (priority.length > 0) {
+          priority = priority.sort((a, b) => a.nonce - b.nonce)
+          for (const transaction of priority) {
+            await this.#_executeTransaction(transaction)
           }
         }
+        transactions = transactions.filter((transaction) => !transaction.decoded.priority)
+        await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
         this.#blocks[block.index - 1].loaded = true
-
+        await this.#machine.addLoadedBlock(block)
         // @ts-ignore
-        globalThis.debug(`loaded block: ${block.hash} @${block.index}`)
+        debug(`loaded block: ${block.hash} @${block.index}`)
         globalThis.pubsub.publish('block-loaded', { ...block })
       }
     }
@@ -544,7 +532,7 @@ export default class State extends Contract {
     return new Promise(async (resolve, reject) => {
       const timeout = setTimeout(() => {
         resolve([{ index: 0, hash: '0x0' }])
-        globalThis.debug('sync timed out')
+        debug('sync timed out')
       }, this.requestTimeout)
 
       promises = await Promise.allSettled(promises)
@@ -573,10 +561,11 @@ export default class State extends Contract {
   get shouldSync() {
     if (this.#chainSyncing) return false
     if (
+      !this.#chainSyncing ||
       this.#resolveErrored ||
       this.#syncState === 'errored' ||
       this.#syncState === 'connectionless' ||
-      (!this.canSync && this.#lastResolvedTime + this.resolveTimeout > Date.now())
+      this.#lastResolvedTime + this.resolveTimeout > Date.now()
     )
       return true
 

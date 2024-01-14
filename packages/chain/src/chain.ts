@@ -1,3 +1,4 @@
+import '@vandeurenglenn/debug'
 import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses from '@leofcoin/addresses'
@@ -17,7 +18,7 @@ import { VersionControl } from './version-control.js'
 
 globalThis.BigNumber = BigNumber
 
-const ignorelist = []
+const debug = globalThis.createDebugger('leofcoin/chain')
 
 // check if browser or local
 export default class Chain extends VersionControl {
@@ -36,8 +37,8 @@ export default class Chain extends VersionControl {
   #participating = false
   #jail = []
 
-  constructor() {
-    super()
+  constructor(config) {
+    super(config)
     // @ts-ignore
     return this.#init()
   }
@@ -163,8 +164,11 @@ export default class Chain extends VersionControl {
     this.#jail.push(validatorInfo.address)
   }
 
-  #addTransaction(message) {
-    console.log({ message })
+  #addTransaction = async (message) => {
+    const transaction = new TransactionMessage(message)
+    const hash = await transaction.hash()
+    // if (await transactionPoolStore.has(hash)) await transactionPoolStore.delete(hash)
+    debug(`added ${transaction}`)
   }
 
   async #prepareRequest(request) {
@@ -189,19 +193,27 @@ export default class Chain extends VersionControl {
 
     for (const key of transactionsInPool) {
       !transactions.includes(key) &&
-        !ignorelist.includes(key) &&
         transactionsToGet.push(transactionPoolStore.put(key, await peernet.get(key, 'transaction')))
     }
     return Promise.all(transactionsToGet)
   }
 
-  async #peerConnected(peer) {
+  async #peerConnected(peerId) {
+    const peer = peernet.getConnection(peerId)
+
     // todo handle version changes
     // for now just do nothing if version doesn't match
+    debug(`peer connected with version ${peer.version}`)
+    if (peer.version !== this.version) {
+      debug(`versions don't match`)
+    }
+
     if (!peer.version || peer.version !== this.version) return
 
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
-    const higherThenCurrentLocal = lastBlock.index > this.lastBlock?.index
+
+    const localBlock = await this.lastBlock
+    const higherThenCurrentLocal = !localBlock.index ? true : lastBlock.index > localBlock.index
 
     const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
 
@@ -246,28 +258,37 @@ export default class Chain extends VersionControl {
   async #addBlock(block) {
     const blockMessage = await new BlockMessage(block)
 
+    const hash = await blockMessage.hash()
+
     await Promise.all(
       blockMessage.decoded.transactions
         // @ts-ignore
-        .map(async (transaction) => transactionPoolStore.delete(transaction.hash))
-    )
+        .map(async (transaction) => {
+          let hash = transaction.hash
+          if (!hash) {
+            hash = await new TransactionMessage(transaction).hash()
+            transaction.hash = hash
+          }
 
-    const hash = await blockMessage.hash()
+          ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
+          return transaction
+        })
+    )
 
     await globalThis.blockStore.put(hash, blockMessage.encoded)
 
-    if (this.lastBlock.index < Number(blockMessage.decoded.index)) await this.updateState(blockMessage)
-    globalThis.debug(`added block: ${hash}`)
+    if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) await this.updateState(blockMessage)
+    debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
     for (let transaction of blockMessage.decoded.transactions) {
       // await transactionStore.put(transaction.hash, transaction.encoded)
-      // @ts-ignore
-      const index = contracts.indexOf(transaction.to)
-      // @ts-ignore
-      if (index === -1) contracts.push(transaction.to)
+
+      if (!contracts.includes(transaction.to)) {
+        contracts.push(transaction.to)
+      }
       // Todo: go trough all accounts
-      // @ts-ignore
+      //@ts-ignore
       promises.push(this.#executeTransaction(transaction))
     }
     try {
@@ -286,6 +307,7 @@ export default class Chain extends VersionControl {
       //   console.log(state);
       // }
 
+      // await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
       globalThis.pubsub.publish('block-processed', blockMessage.decoded)
     } catch (error) {
       console.log(error.hash)
@@ -319,15 +341,54 @@ export default class Chain extends VersionControl {
     if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
   }
 
+  async #handleTransaction(transaction, latestTransactions, block) {
+    const hash = await transaction.hash()
+    const doubleTransactions = []
+
+    if (latestTransactions.includes(hash)) {
+      doubleTransactions.push(hash)
+    }
+
+    if (doubleTransactions.length > 0) {
+      await globalThis.transactionPoolStore.delete(hash)
+      await globalThis.peernet.publish('invalid-transaction', hash)
+      return
+    }
+
+    // if (timestamp + this.#slotTime > Date.now()) {
+    try {
+      const result = await this.#executeTransaction({ ...transaction.decoded, hash })
+
+      block.transactions.push(transaction)
+
+      block.fees = block.fees.add(await calculateFee(transaction.decoded))
+      await globalThis.accountsStore.put(
+        transaction.decoded.from,
+        new TextEncoder().encode(String(transaction.decoded.nonce))
+      )
+    } catch (e) {
+      console.log('vvvvvv')
+
+      console.log({ e })
+      console.log(hash)
+      peernet.publish('invalid-transaction', hash)
+
+      console.log(await globalThis.transactionPoolStore.keys())
+
+      console.log(await globalThis.transactionPoolStore.has(e.hash))
+
+      await globalThis.transactionPoolStore.delete(e.hash)
+
+      console.log(await globalThis.transactionPoolStore.has(e.hash))
+    }
+  }
+
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
     // vote for transactions
     if ((await globalThis.transactionPoolStore.size()) === 0) return
 
     let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
-    for (const hash of await globalThis.transactionPoolStore.keys()) {
-      if (ignorelist.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
-    }
 
     if (Object.keys(transactions)?.length === 0) return
 
@@ -343,56 +404,21 @@ export default class Chain extends VersionControl {
       index: 0
     }
 
+    const latestTransactions = await this.machine.latestTransactions()
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
-    transactions = transactions.sort((a, b) => a.nonce - b.nonce)
+    const priority = transactions.filter((transaction) => transaction.priority)
+    await Promise.all(
+      priority
+        .sort((a, b) => a.nonce - b.nonce)
+        .map((transaction) => this.#handleTransaction(transaction, latestTransactions, block))
+    )
 
-    for (let transaction of transactions) {
-      const hash = await transaction.hash()
-      const doubleTransactions = []
-
-      for (const block of this.blocks) {
-        for (const transaction of block.transactions) {
-          if (transaction.hash === hash) {
-            doubleTransactions.push(hash)
-          }
-        }
-      }
-
-      if (doubleTransactions.length > 0) {
-        await globalThis.transactionPoolStore.delete(hash)
-        await globalThis.peernet.publish('invalid-transaction', hash)
-        return
-      }
-
-      // if (timestamp + this.#slotTime > Date.now()) {
-      try {
-        const result = await this.#executeTransaction({ ...transaction.decoded, hash })
-
-        block.transactions.push(transaction)
-
-        block.fees = block.fees.add(await calculateFee(transaction.decoded))
-        await globalThis.accountsStore.put(
-          transaction.decoded.from,
-          new TextEncoder().encode(String(transaction.decoded.nonce))
-        )
-      } catch (e) {
-        console.log('vvvvvv')
-
-        console.log({ e })
-        console.log(hash)
-        peernet.publish('invalid-transaction', hash)
-
-        console.log(await globalThis.transactionPoolStore.keys())
-
-        console.log(await globalThis.transactionPoolStore.has(e.hash))
-
-        await globalThis.transactionPoolStore.delete(e.hash)
-
-        console.log(await globalThis.transactionPoolStore.has(e.hash))
-      }
-    }
-
+    await Promise.all(
+      transactions
+        .filter((transaction) => !transaction.priority)
+        .map((transaction) => this.#handleTransaction(transaction, latestTransactions, block))
+    )
     // don't add empty block
     if (block.transactions.length === 0) return
 
@@ -405,7 +431,7 @@ export default class Chain extends VersionControl {
     //   }
     // }, [])
     const peers = {}
-    for (const entry of globalThis.peernet.peerEntries) {
+    for (const entry of globalThis.peernet.peers) {
       peers[entry[0]] = entry[1]
     }
     for (const validator of Object.keys(validators)) {
@@ -439,11 +465,12 @@ export default class Chain extends VersionControl {
     })
     // block.validators = calculateValidatorReward(block.validators, block.fees)
 
-    block.index = this.lastBlock?.index
+    const localBlock = await this.lastBlock
+    block.index = localBlock.index
     if (block.index === undefined) block.index = 0
     else block.index += 1
 
-    block.previousHash = this.lastBlock?.hash || '0x0'
+    block.previousHash = localBlock.hash || '0x0'
     // block.timestamp = Date.now()
     // block.reward = block.reward.toString()
     // block.fees = block.fees.toString()
@@ -462,8 +489,9 @@ export default class Chain extends VersionControl {
 
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
       await this.updateState(blockMessage)
+      await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
 
-      globalThis.debug(`created block: ${hash}`)
+      debug(`created block: ${hash} @${block.index}`)
 
       globalThis.peernet.publish('add-block', blockMessage.encoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)

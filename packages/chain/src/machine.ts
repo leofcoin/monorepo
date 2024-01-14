@@ -4,12 +4,11 @@ import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
 // import State from './state'
-
+const debug = globalThis.createDebugger('leofcoin/machine')
 export default class Machine {
   worker: EasyWorker
   #contracts = {}
   #nonces = {}
-  lastBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
 
   constructor(blocks) {
     // @ts-ignore
@@ -26,11 +25,19 @@ export default class Machine {
 
   async #onmessage(data) {
     switch (data.type) {
+      case 'transactionLoaded': {
+        const { from, nonce, hash } = data.result
+        ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
+        await accountsStore.put(from, nonce)
+        break
+      }
       case 'contractError': {
-        console.warn(`removing contract ${await data.hash()}`)
+        console.warn(data.error)
+
+        console.warn(`contract error: ${data.hash}`)
 
         // @ts-ignore
-        await contractStore.delete(await data.hash())
+        await contractStore.delete(data.hash)
         break
       }
 
@@ -46,11 +53,14 @@ export default class Machine {
       }
 
       case 'debug': {
-        for (const message of data.messages) globalThis.debug(message)
+        debug(data.message)
+        break
+      }
+      case 'error': {
+        console.error(data.message)
         break
       }
       case 'machine-ready': {
-        this.lastBlock = data.lastBlock
         pubsub.publish('machine.ready', true)
         break
       }
@@ -214,6 +224,73 @@ export default class Machine {
         }
       })
     })
+  }
+
+  #askWorker(type, input?): Promise<any> {
+    return new Promise((resolve, reject) => {
+      // @ts-ignore
+      const id = randombytes(20).toString('hex')
+      const onmessage = (message) => {
+        pubsub.unsubscribe(id, onmessage)
+        if (message?.error) reject(message.error)
+        else resolve(message)
+      }
+      pubsub.subscribe(id, onmessage)
+      this.worker.postMessage({
+        type,
+        id,
+        input
+      })
+    })
+  }
+
+  get nativeCalls() {
+    return this.#askWorker('nativeCalls')
+  }
+
+  get nativeMints() {
+    return this.#askWorker('nativeMints')
+  }
+
+  get nativeBurns() {
+    return this.#askWorker('nativeBurns')
+  }
+
+  get nativeTransfers() {
+    return this.#askWorker('nativeTransfers')
+  }
+
+  get totalTransactions() {
+    return this.#askWorker('totalTransactions')
+  }
+
+  get blocks() {
+    return this.getBlocks()
+  }
+
+  get lastBlock() {
+    return this.#askWorker('lastBlock')
+  }
+
+  get totalBlocks() {
+    return this.#askWorker('totalBlocks')
+  }
+
+  getBlocks(from?, to?): Promise<[]> {
+    return this.#askWorker('blocks', { from, to })
+  }
+
+  getBlock(index) {
+    return this.#askWorker('block', index)
+  }
+
+  async addLoadedBlock(block) {
+    if (block.decoded) block = { ...block.decoded, hahs: await block.hash() }
+    return this.#askWorker('addLoadedBlock', block)
+  }
+
+  async latestTransactions() {
+    return this.#askWorker('latestTransactions')
   }
 
   async delete(hash) {

@@ -2,6 +2,7 @@
 import Peernet from '@leofcoin/peernet'
 import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
+import { DEFAULT_NODE_OPTIONS } from './constants.js'
 
 export default class Node {
   #node
@@ -16,11 +17,13 @@ export default class Node {
       network: 'leofcoin:peach',
       networkName: 'leofcoin:peach',
       networkVersion: 'peach',
+      version: '1.2.0',
       stars: networks.leofcoin.peach.stars,
       autoStart: false
     },
     password
   ) {
+    config = { ...DEFAULT_NODE_OPTIONS, ...config }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)

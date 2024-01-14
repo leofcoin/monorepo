@@ -1,3 +1,5 @@
+import type { ChainConfig } from './types.js'
+
 export const limit = 1800
 export const transactionLimit = 1800
 export const requestTimeout = 30_000
@@ -7,6 +9,9 @@ export class Protocol {
   version: string
   resolveTimeout: EpochTimeStamp = 10_000
 
+  constructor(config: ChainConfig) {
+    if (config?.resolveTimeout) this.resolveTimeout = config.resolveTimeout
+  }
   get limit() {
     return limit
   }

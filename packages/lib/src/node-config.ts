@@ -17,7 +17,6 @@ declare global {
 export default async (
   config = {
     network: 'leofcoin:peach',
-    networkName: 'leofcoin:peach',
     networkVersion: 'v1.0.0'
   }
 ) => {
@@ -34,4 +33,6 @@ export default async (
   await peernet.addStore('contract', 'lfc', name, false)
   await peernet.addStore('accounts', 'lfc', name, false)
   await peernet.addStore('transactionPool', 'lfc', name, false)
+  // private stores
+  await peernet.addStore('wallet', 'lfc', name, true)
 }

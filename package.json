@@ -13,7 +13,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "prettier": "npm run prettier --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "node builder",
+    "clean": "node scripts/clean.js"
   },
   "repository": {
     "type": "git",
@@ -38,6 +39,7 @@
     "@rollup/plugin-typescript": "^11.1.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.0.1",
+    "inquirer": "^9.2.12",
     "rimraf": "^5.0.5",
     "rollup": "^3.0.0",
     "typescript": "^5.1.3"

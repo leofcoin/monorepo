@@ -19,9 +19,9 @@ const run = async (blocks) => {
           // todo: tx worker or nah?
           await block.encode()
           const size = block.encoded.length || block.encoded.byteLength
-          console.log(`loaded block: ${await block.hash()} @${block.decoded.index} ${formatBytes(size)}`)
-          // todo we don't want this, need shared state
-          resolve(block.decoded)
+          const hash = await block.hash()
+          const index = block.decoded.index
+          resolve({ ...block.decoded, hash, blockInfo: { hash, size, index } })
         })
     )
   )
