@@ -10,16 +10,7 @@ export default [
       dir: './exports',
       format: 'es'
     },
-    plugins: [
-      json(),
-      typescript(),
-      resolve({
-        preferBuiltins: true
-      }),
-      commonjs({
-        include: ['node_modules/bn.js/lib/bn.js', '../../node_modules/bn.js/lib/bn.js']
-      })
-    ]
+    plugins: [json(), typescript()]
   },
   {
     input: ['./src/utils.ts'],
