@@ -1,11 +1,16 @@
 {
   "name": "@leofcoin/utils",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "description": "",
   "type": "module",
+  "browser": "./exports/browser/utils.js",
   "exports": {
     ".": {
       "import": "./exports/utils.js",
+      "types": "./exports/utils.d.ts"
+    },
+    "./browser": {
+      "import": "./exports/browser/utils.js",
       "types": "./exports/utils.d.ts"
     }
   },
@@ -13,7 +18,7 @@
     "./exports"
   ],
   "scripts": {
-    "build": "npx tsc",
+    "build": "rollup -c",
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -26,6 +31,8 @@
     "bn.js": "^5.2.1"
   },
   "devDependencies": {
+    "esbuild": "^0.19.11",
+    "rollup-plugin-esbuild": "^6.1.0",
     "typescript": "^5.2.2"
   }
 }
