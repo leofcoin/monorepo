@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "",
   "exports": {
     ".": {
@@ -34,6 +34,10 @@
     "./transaction": {
       "import": "./exports/transaction.js",
       "types": "./exports/transaction.d.ts"
+    },
+    "./state": {
+      "import": "./exports/state.js",
+      "types": "./exports/state.d.ts"
     }
   },
   "files": [
