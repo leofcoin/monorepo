@@ -4,12 +4,14 @@ import {
   BlockMessage,
   BWMessage,
   BWRequestMessage,
-  ValidatorMessage
+  ValidatorMessage,
+  StateMessage
 } from '@leofcoin/messages'
 import Storage from '@leofcoin/storage'
 
 declare global {
   var transactionPoolStore: Storage
+  var stateStore: Storage
   var accountsStore: Storage
   var contractStore: Storage
 }
@@ -26,6 +28,7 @@ export default async (
   await peernet.addProto('bw-message', BWMessage)
   await peernet.addProto('bw-request-message', BWRequestMessage)
   await peernet.addProto('validator-message', ValidatorMessage)
+  await peernet.addProto('state-message', StateMessage)
 
   let name = `.${config.network}`
   const parts = config.network.split(':')
@@ -33,6 +36,7 @@ export default async (
   await peernet.addStore('contract', 'lfc', name, false)
   await peernet.addStore('accounts', 'lfc', name, false)
   await peernet.addStore('transactionPool', 'lfc', name, false)
+  await peernet.addStore('state', 'lfc', name, false)
   // private stores
   await peernet.addStore('wallet', 'lfc', name, true)
 }
