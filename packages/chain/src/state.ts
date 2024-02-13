@@ -4,7 +4,7 @@ import Contract from './contract.js'
 import Machine from './machine.js'
 import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js'
-import { BlockHash, BlockInMemory } from './types.js'
+import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
@@ -179,6 +179,8 @@ export default class State extends Contract {
     } catch (error) {
       console.error(error)
     }
+
+    await this.#machine.updateState()
   }
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {
@@ -439,8 +441,10 @@ export default class State extends Contract {
     let lastTransactions = (
       await Promise.all(
         (await this.blocks)
+          // @ts-ignore
           .filter((block) => block.loaded)
           .slice(-24)
+          // @ts-ignore
           .map((block) => this.#loadBlockTransactions(block.transactions))
       )
     ).reduce((all, transactions) => [...all, ...transactions], [])

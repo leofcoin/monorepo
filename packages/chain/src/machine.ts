@@ -3,12 +3,22 @@ import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
+import { formatBytes } from '@leofcoin/utils'
+import { RawBlock } from './types.js'
 // import State from './state'
 const debug = globalThis.createDebugger('leofcoin/machine')
 export default class Machine {
   worker: EasyWorker
   #contracts = {}
   #nonces = {}
+
+  states = {
+    states: {},
+    lastBlock: {
+      index: 0,
+      hash: ''
+    }
+  }
 
   constructor(blocks) {
     // @ts-ignore
@@ -79,10 +89,39 @@ export default class Machine {
     }
   }
 
+  async updateState() {
+    try {
+      if ((await this.lastBlock).index > this.states.lastBlock.index) {
+        // todo only get state for changed contracts
+        const blocks = (await this.blocks).slice(this.states.lastBlock.index)
+        const contractsToGet = blocks.reduce((set, current: RawBlock) => {
+          for (const transaction of current.transactions) {
+            const contract = transaction.to
+            if (!set.includes(contract)) set.push(contract)
+          }
+
+          return set
+        }, [])
+        const state = {}
+        await Promise.all(
+          contractsToGet.map(async (contract) => {
+            const value = await this.#askWorker('get', { contract, method: 'state', params: [] })
+            state[contract] = value
+          })
+        )
+        await stateStore.put('lastblock', JSON.stringify(await this.lastBlock))
+        await stateStore.put('states', JSON.stringify(state))
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   async #init(blocks): Promise<Machine> {
     return new Promise(async (resolve) => {
-      const machineReady = () => {
+      const machineReady = async () => {
         pubsub.unsubscribe('machine.ready', machineReady)
+        await this.updateState()
         resolve(this)
       }
       pubsub.subscribe('machine.ready', machineReady)
@@ -103,8 +142,47 @@ export default class Machine {
         type: 'module'
       })
       this.worker.onmessage(this.#onmessage.bind(this))
+
+      let contracts = []
+      if (await stateStore.has('lastBlock')) {
+        this.states.lastBlock = JSON.parse(new TextDecoder().decode(await stateStore.get('lastBlock')))
+        this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
+        const entries = Object.entries(this.states.states)
+        if (entries.length > 0) {
+          console.log(this.states.lastBlock)
+
+          const promises = []
+          for (const [address, value] of entries) {
+            const setState = async (address, value) => {
+              const contractBytes = await globalThis.contractStore.get(address)
+              const contract = await new ContractMessage(contractBytes)
+              const params = contract.decoded.constructorParameters
+              const hash = await contract.hash()
+              try {
+                const func = new Function(new TextDecoder().decode(contract.decoded.contract))
+                const Contract = func()
+                params.push(value)
+                globalThis.msg = this.#createMessage(contract.decoded.creator)
+                contracts[hash] = await new Contract(...params)
+                debug(`loaded contract: ${hash} size: ${formatBytes(contract.encoded.length)}`)
+              } catch (e) {
+                console.log(e)
+                this.#onmessage({
+                  type: 'contractError',
+                  message: e.message,
+                  hash
+                })
+              }
+            }
+            promises.push(setState(address, value))
+          }
+          await Promise.all(promises)
+        }
+      }
+      console.log({ contracts })
+
       // const blocks = await blockStore.values()
-      const contracts = await Promise.all([
+      contracts = await Promise.all([
         globalThis.contractStore.get(contractFactory),
         globalThis.contractStore.get(nativeToken),
         globalThis.contractStore.get(validators),
