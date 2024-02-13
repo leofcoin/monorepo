@@ -28,7 +28,12 @@ export default class Machine {
       case 'transactionLoaded': {
         const { from, nonce, hash } = data.result
         ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
-        await accountsStore.put(from, nonce)
+        try {
+          const _nonce = await accountsStore.get(from)
+          if (nonce > _nonce) await accountsStore.put(from, nonce)
+        } catch (error) {
+          await accountsStore.put(from, nonce)
+        }
         break
       }
       case 'contractError': {
@@ -54,6 +59,9 @@ export default class Machine {
 
       case 'debug': {
         debug(data.message)
+        if (data.message.includes('loaded transactions for block:')) {
+          pubsub.publish('block-loaded', data.message.replace('loaded transactions for block: ', '').split(' @')[0])
+        }
         break
       }
       case 'error': {

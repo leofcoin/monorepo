@@ -31,10 +31,11 @@ const node = await new Node.default(
   },
   password
 )
-
+console.time('load chain')
 const chain = await new Chain.default({
   password
 })
+console.timeEnd('load chain')
 let start
 // console.log(peernet.identity.sign());
 
