@@ -9,3 +9,4 @@ export { default as LastBlockRequestMessage } from './messages/last-block-reques
 export { default as TransactionMessage } from './messages/transaction.js'
 export { default as RawTransactionMessage } from './messages/raw-transaction.js'
 export { default as ValidatorMessage } from './messages/validator.js'
+export { default as StateMessage } from './messages/state.js'
