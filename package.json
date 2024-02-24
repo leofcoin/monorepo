@@ -15,7 +15,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "node builder",
-    "clean": "node scripts/clean.js"
+    "clean": "node scripts/clean.js",
+    "release": "npm run build && npx changeset publish"
   },
   "repository": {
     "type": "git",
