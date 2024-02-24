@@ -4,6 +4,7 @@
   "description": "",
   "type": "module",
   "browser": "./exports/browser/utils.js",
+  "private": false,
   "exports": {
     ".": {
       "import": "./exports/utils.js",

@@ -2,6 +2,7 @@
   "name": "@leofcoin/crypto",
   "version": "0.2.7",
   "description": "a simple nodejs/web crypto api",
+  "private": false,
   "exports": {
     ".": "./crypto.js",
     "./digest": "./lib/digest.js",

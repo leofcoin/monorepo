@@ -2,6 +2,7 @@
   "name": "@leofcoin/messages",
   "version": "1.4.8",
   "description": "",
+  "private": false,
   "exports": {
     ".": {
       "import": "./exports/index.js",

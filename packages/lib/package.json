@@ -1,9 +1,10 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.37",
+  "version": "1.2.38",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
+  "private": false,
   "exports": {
     ".": {
       "import": "./exports/index.js",
@@ -37,7 +38,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.6",
+    "@leofcoin/addresses": "^1.0.18",
     "@leofcoin/codec-format-interface": "^1.4.0",
     "@leofcoin/messages": "^1.1.2",
     "@leofcoin/utils": "^1.1.5"

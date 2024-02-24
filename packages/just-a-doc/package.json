@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "type": "module",
+  "private": false,
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "serve:docs": "jsproject --serve ./docs",

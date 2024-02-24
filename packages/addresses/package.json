@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/addresses",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "",
   "exports": {
     ".": {
@@ -11,6 +11,7 @@
       "import": "./src/addresses.json"
     }
   },
+  "private": false,
   "files": [
     "exports",
     "./src/addresses.json"

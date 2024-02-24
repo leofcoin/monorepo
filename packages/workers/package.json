@@ -1,8 +1,9 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.4.12",
+  "version": "1.4.13",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
+  "private": false,
   "exports": {
     ".": "./src/workers.js",
     "./machine-worker": "./src/machine-worker.js",
@@ -18,8 +19,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.17",
-    "@leofcoin/lib": "^1.2.3",
+    "@leofcoin/addresses": "^1.0.18",
+    "@leofcoin/lib": "^1.2.38",
     "@leofcoin/messages": "^1.2.0",
     "@leofcoin/storage": "^3.3.2",
     "@leofcoin/utils": "^1.1.5",

@@ -1,7 +1,19 @@
 # changelog
-------
+
+## 1.5.68
+
+### Patch Changes
+
+- c24054d: State it
+- Updated dependencies [c24054d]
+  - @leofcoin/addresses@1.0.18
+  - @leofcoin/workers@1.4.13
+  - @leofcoin/lib@1.2.38
+
+---
 
 ## v1.1.0
+
 - validators produce blocks
 - syncs blocks with other nodes
 - double contracts throw and are not added (no cost)

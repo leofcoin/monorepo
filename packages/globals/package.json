@@ -4,6 +4,7 @@
   "description": "",
   "main": "src/globals.js",
   "type": "module",
+  "private": false,
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1"
