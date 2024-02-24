@@ -16,7 +16,7 @@
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "node builder",
     "clean": "node scripts/clean.js",
-    "release": "npm run build && npx changeset publish"
+    "release": "npm run build && npx changeset publish && git push --all"
   },
   "repository": {
     "type": "git",
