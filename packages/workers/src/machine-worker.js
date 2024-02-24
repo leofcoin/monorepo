@@ -1,8 +1,12 @@
 import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { formatBytes, BigNumber } from '@leofcoin/utils'
+import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
+import { randomUUID } from 'crypto'
+import LittlePubSub from '@vandeurenglenn/little-pubsub'
+const pubsub = new LittlePubSub()
 const worker = new EasyWorker()
 
 const contractFactoryMessage = bytecodes.contractFactory
@@ -11,7 +15,6 @@ const nameServiceMessage = bytecodes.nameService
 const validatorsMessage = bytecodes.validators
 
 const latestTransactions = []
-
 let nativeCalls = 0
 let nativeBurns = 0
 let nativeMints = 0
@@ -29,6 +32,13 @@ const _ = {}
 globalThis.BigNumber = BigNumber
 
 let lastBlock = { index: -1, hash: '0x0', previousHash: '0x0' }
+
+const debug = (message) => {
+  worker.postMessage({
+    type: 'debug',
+    message
+  })
+}
 
 const unique = (arr) =>
   arr.filter((el, pos, arr) => {
@@ -49,18 +59,28 @@ const get = ({ contract, method, params }) => {
   return result
 }
 
-_.runContract = async ({ decoded, hash, encoded }) => {
+const resolveContract = (address) => askFor('contract', address)
+
+const respond = (id, value) => {
+  worker.postMessage({
+    type: 'response',
+    value,
+    id
+  })
+}
+
+_.runContract = async ({ decoded, hash, encoded }, state) => {
   const params = decoded.constructorParameters
   try {
     const func = new Function(new TextDecoder().decode(decoded.contract))
     const Contract = func()
 
+    if (state) params.push(state)
+
     globalThis.msg = createMessage(decoded.creator)
     contracts[hash] = await new Contract(...params)
-    worker.postMessage({
-      type: 'debug',
-      message: `loaded contract: ${hash} size: ${formatBytes(encoded.length)}`
-    })
+
+    debug(`loaded contract: ${hash} size: ${formatBytes(encoded.length)}`)
   } catch (e) {
     console.log(e)
     worker.postMessage({
@@ -131,77 +151,109 @@ const _executeTransaction = async (transaction) => {
 }
 
 _.init = async (message) => {
-  let { contracts, peerid } = message
+  let { peerid, fromState, state } = message
   globalThis.peerid = peerid
-  contracts = [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
+  if (fromState) {
+    lastBlock = message.lastBlock
+    const setState = async (address, state) => {
+      const contractBytes = await resolveContract(address)
+      const contract = await new ContractMessage(contractBytes)
 
-  contracts = await Promise.all(
-    contracts.map(async (contract) => {
-      contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-      await _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
-      return contract
-    })
-  )
-
-  if (message.blocks?.length > 0) {
-    let pre
-
-    try {
-      const importee = await import('url')
-      const url = importee.default
-      if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
-    } catch {
-      // browser env
-      pre = './'
+      await _.runContract({ hash: address, decoded: contract.decoded, encoded: contract.encoded }, state)
     }
 
-    let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
-      serialization: 'advanced',
-      type: 'module'
-    })
-    blocks = await _worker.once(message.blocks)
-    _worker = null
-    // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
-    // for (let i = 0; i < blocks.length; i++) {
-
-    // }
-    for (const block of blocks) {
-      // we only revalidate the latest 24 blocks
-      // every 24 blocks a snapshot is taken and stored in state
-      // this means contracts will be restored from this state
-      // this also means devs NEED to make sure the state can be restored
-      // on contract deploy an error will be thrown if state wasn't recoverable
-      if (block.index > 24) {
-        const transactionCount = blocks[block.index - 1].transactions.length
-        latestTransactions.splice(-(transactionCount - 1), latestTransactions.length)
+    const entries = Object.entries(state)
+    if (entries.length > 0) {
+      const promises = []
+      for (const [address, value] of entries) {
+        promises.push(setState(address, value))
       }
+      await Promise.all(promises)
+    }
 
-      if (!block.loaded) {
-        const priority = block.transactions.filter((transaction) => transaction.priority)
-        if (priority.length > 0)
-          await Promise.all(
-            priority.sort((a, b) => a.nonce - b.nonce).map((transaction) => _executeTransaction(transaction))
-          )
+    const promises = []
+    if (!contracts[addresses.contractFactory]) promises.push(setState(addresses.contractFactory))
+    if (!contracts[addresses.nameService]) promises.push(setState(addresses.nameService))
+    if (!contracts[addresses.validators]) promises.push(setState(addresses.validators))
+    if (!contracts[addresses.nativeToken]) promises.push(setState(addresses.nativeToken))
+    // contracts = await Promise.all(
+    //   contracts.map(async (contract) => {
+    //     contract = await new ContractMessage(new Uint8Array(contract.split(',')))
+    //     await _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
+    //     return contract
+    //   })
+    // )
+    await Promise.all(promises)
+  } else {
+    contracts = [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
 
-        await Promise.all(
-          block.transactions
-            .filter((transaction) => !transaction.priority)
-            .map(async (transaction) => _executeTransaction(transaction))
-        )
-      }
-      block.loaded = true
-      worker.postMessage({
-        type: 'debug',
-        message: `loaded transactions for block: ${block.blockInfo.hash} @${block.blockInfo.index} ${formatBytes(
-          block.blockInfo.size
-        )}`
+    contracts = await Promise.all(
+      contracts.map(async (contract) => {
+        contract = await new ContractMessage(new Uint8Array(contract.split(',')))
+        await _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
+        return contract
       })
-    }
+    )
+    if (message.blocks?.length > 0) {
+      let pre
 
-    if (blocks.length > 0) {
-      lastBlock = blocks[blocks.length - 1]
+      try {
+        const importee = await import('url')
+        const url = importee.default
+        if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
+      } catch {
+        // browser env
+        pre = './'
+      }
+
+      let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
+        serialization: 'advanced',
+        type: 'module'
+      })
+      blocks = await _worker.once(message.blocks)
+      _worker = null
+      // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
+      // for (let i = 0; i < blocks.length; i++) {
+
+      // }
+      for (const block of blocks) {
+        // we only revalidate the latest 24 blocks
+        // every 24 blocks a snapshot is taken and stored in state
+        // this means contracts will be restored from this state
+        // this also means devs NEED to make sure the state can be restored
+        // on contract deploy an error will be thrown if state wasn't recoverable
+        if (block.index > 24) {
+          const transactionCount = blocks[block.index - 1].transactions.length
+          latestTransactions.splice(-(transactionCount - 1), latestTransactions.length)
+        }
+
+        if (!block.loaded && !fromState) {
+          const priority = block.transactions.filter((transaction) => transaction.priority)
+          if (priority.length > 0)
+            await Promise.all(
+              priority.sort((a, b) => a.nonce - b.nonce).map((transaction) => _executeTransaction(transaction))
+            )
+
+          await Promise.all(
+            block.transactions
+              .filter((transaction) => !transaction.priority)
+              .map(async (transaction) => _executeTransaction(transaction))
+          )
+        }
+        block.loaded = true
+        worker.postMessage({
+          type: 'debug',
+          message: `loaded transactions for block: ${block.blockInfo.hash} @${block.blockInfo.index} ${formatBytes(
+            block.blockInfo.size
+          )}`
+        })
+      }
+
+      if (blocks.length > 0) {
+        lastBlock = blocks[blocks.length - 1]
+      }
+      globalThis.blocks = blocks
     }
-    globalThis.blocks = blocks
   }
 
   worker.postMessage({ type: 'machine-ready', lastBlock })
@@ -211,6 +263,7 @@ _.init = async (message) => {
 
 _.addLoadedBlock = (block) => {
   blocks[block.index - 1] = block
+  lastBlock = blocks[blocks.length - 1]
   return true
 }
 
@@ -218,13 +271,17 @@ _.loadBlock = (block) => {
   // todo validate here and deprecate addLoadedBlock
 }
 
-const respond = (id, value) => {
-  worker.postMessage({
-    type: 'response',
-    value,
-    id
+const askFor = (question, input) =>
+  new Promise((resolve) => {
+    const id = randomUUID()
+    pubsub.subscribe(id, resolve)
+    worker.postMessage({
+      type: 'ask',
+      question,
+      input,
+      id
+    })
   })
-}
 
 const runTask = async (id, taskName, input) => {
   try {
@@ -240,6 +297,10 @@ const runTask = async (id, taskName, input) => {
 }
 
 worker.onmessage(({ id, type, input }) => {
+  if (pubsub.hasSubscribers(id)) {
+    pubsub.publish(id, input)
+    return
+  }
   switch (type) {
     case 'init':
       runTask(id, 'init', input)
@@ -281,7 +342,7 @@ worker.onmessage(({ id, type, input }) => {
       respond(id, blocks[input - 1])
       break
     case 'lastBlock':
-      respond(id, blocks[blocks.length - 1] || lastBlock)
+      respond(id, lastBlock)
       break
     case 'latestTransactions':
       respond(id, latestTransactions)

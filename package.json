@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
+    "@changesets/cli": "^2.27.1",
     "@leofcoin/contracts": "^0.1.4",
     "@vandeurenglenn/doc-it": "^1.0.0",
     "globby": "^13.2.2"

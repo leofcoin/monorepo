@@ -153,7 +153,16 @@ export default class State extends Contract {
     }
 
     try {
-      await this.resolveBlocks()
+      const localBlock = await globalThis.chainStore.get('lastBlock')
+      console.log({ localBlock })
+      const localBlockHash = new TextDecoder().decode(localBlock)
+      if (localBlockHash !== '0x0') {
+        const blockMessage = new BlockMessage(await peernet.get(localBlockHash, 'block'))
+        const states = { lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock'))) }
+        if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
+      } else {
+        await this.resolveBlocks()
+      }
 
       this.#machine = await new Machine(this.#blocks)
 
