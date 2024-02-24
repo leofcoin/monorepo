@@ -185,13 +185,10 @@ _.init = async (message) => {
     // )
     await Promise.all(promises)
   } else {
-    contracts = [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
-
-    contracts = await Promise.all(
-      contracts.map(async (contract) => {
+    await Promise.all(
+      [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage].map(async (contract) => {
         contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-        await _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
-        return contract
+        return _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
       })
     )
     if (message.blocks?.length > 0) {
