@@ -1,5 +1,4 @@
 import BlockMessage from './exports/block.js'
-import ProtoBlockMessage from './exports/proto-block.js'
 import { ContractMessage } from './exports/index.js'
 import { BigNumber } from '@leofcoin/utils'
 
@@ -42,10 +41,6 @@ console.time('message encoded')
 const message = await new BlockMessage(block)
 message.decode()
 console.timeEnd('message encoded')
-console.time('proto message encoded')
-const protomessage = await new ProtoBlockMessage(block)
-protomessage.decode(protomessage.encoded)
-console.timeEnd('proto message encoded')
 console.time('normal encoded')
 JSON.stringify(block)
 console.timeEnd('normal encoded')
