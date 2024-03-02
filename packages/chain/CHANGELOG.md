@@ -1,5 +1,21 @@
 # changelog
 
+## 1.5.69
+
+### Patch Changes
+
+- d239d6b: Bump
+- d239d6b: set to public
+- Updated dependencies [d239d6b]
+- Updated dependencies [d239d6b]
+  - @leofcoin/addresses@1.0.19
+  - @leofcoin/workers@1.4.14
+  - @leofcoin/lib@1.2.39
+  - @leofcoin/messages@1.4.9
+  - @leofcoin/networks@1.1.2
+  - @leofcoin/errors@1.0.3
+  - @leofcoin/utils@1.1.14
+
 ## 1.5.68
 
 ### Patch Changes

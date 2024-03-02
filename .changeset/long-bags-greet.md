@@ -4,7 +4,7 @@
 "@leofcoin/messages": patch
 "@leofcoin/mnemonic": patch
 "@leofcoin/networks": patch
-"globals": patch
+"@leofcoin/globals": patch
 "@leofcoin/workers": patch
 "@leofcoin/crypto": patch
 "@leofcoin/errors": patch
@@ -15,4 +15,4 @@
 "@leofcoin/lib": patch
 ---
 
-set to public
+Bump
