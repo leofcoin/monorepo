@@ -1,11 +1,12 @@
 import BlockMessage from './exports/block.js'
+import ProtoBlockMessage from './exports/proto-block.js'
 import { ContractMessage } from './exports/index.js'
 import { BigNumber } from '@leofcoin/utils'
 
 const validators = [
   {
     address: 'address',
-    reward: new BigNumber.from(0)
+    reward: new BigNumber.from(0).toString()
   }
 ]
 
@@ -15,7 +16,7 @@ for (let i = 0; i <= 1; i++) {
     timestamp: new Date().getTime(),
     from: 'fromAddress',
     to: 'toAddress',
-    nonce: 0,
+    nonce: '0',
     method: 'getAddress',
     params: [],
     signature: new Uint8Array(32)
@@ -26,8 +27,8 @@ const block = {
   index: 0,
   previousHash: 'hash',
   timestamp: new Date().getTime(),
-  reward: new BigNumber.from('0'),
-  fees: new BigNumber.from('0'),
+  reward: new BigNumber.from('0').toString(),
+  fees: new BigNumber.from('0').toString(),
   transactions,
   validators
 }
@@ -39,7 +40,12 @@ const contractMessage = new ContractMessage({
 })
 console.time('message encoded')
 const message = await new BlockMessage(block)
+message.decode()
 console.timeEnd('message encoded')
+console.time('proto message encoded')
+const protomessage = await new ProtoBlockMessage(block)
+protomessage.decode(protomessage.encoded)
+console.timeEnd('proto message encoded')
 console.time('normal encoded')
 JSON.stringify(block)
 console.timeEnd('normal encoded')

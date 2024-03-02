@@ -1,7 +1,7 @@
 import type { ChainConfig } from './types.js'
 
 export const limit = 1800
-export const transactionLimit = 1800
+export const transactionLimit = 1000
 export const requestTimeout = 30_000
 export const syncTimeout = 30_000
 

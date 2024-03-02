@@ -1,44 +1,65 @@
 import { writeFile as write, readFile as read } from 'fs/promises'
 import { join } from 'path'
-(async () => {
-  const {parseUnits} = await import('@leofcoin/utils')
-  const {nodeConfig, createContractMessage} = await import('@leofcoin/lib')
-  
+;(async () => {
+  const { parseUnits } = await import('@leofcoin/utils')
+  const { nodeConfig, createContractMessage } = await import('@leofcoin/lib')
+
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
-    const name = contract.toString().match(/export{([A-Z])\w+|export { ([A-Z])\w+/g)[0].replace(/export {|export{/, '')
-    return createContractMessage(peernet.selectedAccount, new TextEncoder().encode(contract.toString().replace(/export{([A-Z])\w+ as default}|export { ([A-Z])\w+ as default }/g, `return ${name}`).replace(/\r?\n|\r/g, '')), params)
+    const name = contract
+      .toString()
+      .match(/export{([A-Z])\w+|export { ([A-Z])\w+/g)[0]
+      .replace(/export {|export{/, '')
+    return createContractMessage(
+      peernet.selectedAccount,
+      new TextEncoder().encode(
+        contract
+          .toString()
+          .replace(/export{([A-Z])\w+ as default}|export { ([A-Z])\w+ as default }/g, `return ${name}`)
+          .replace(/\r?\n|\r/g, '')
+      ),
+      params
+    )
   }
   // const Chain = require('./../chain/dist/chain');
-  
-  const Node = (await import('../packages/chain/exports/node.js')).default;
-  const node = await new Node({network: 'leofcoin:peach', networkVersion: 'peach'})
+
+  const Node = (await import('../packages/chain/exports/node.js')).default
+  const node = await new Node({ network: 'leofcoin:peach', networkVersion: 'peach' })
   await nodeConfig()
-  console.log(peernet.selectedAccount);
+  console.log(peernet.selectedAccount)
   // const chain = await new Chain()
   // console.log(chain);
-  const factory = await createMessage('./node_modules/@leofcoin/contracts/exports/factory.js')
-console.log(factory);
-  if (!await contractStore.has(await factory.hash())) {
-    await contractStore.put(await factory.hash(), factory.encoded)
-  }
 
   const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js')
-  if (!await contractStore.has(await nativeToken.hash())) {
+  if (!(await contractStore.has(await nativeToken.hash()))) {
     await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
   }
 
+  const factory = await createMessage('./node_modules/@leofcoin/contracts/exports/factory.js', [
+    await nativeToken.hash(),
+    parseUnits('1000').toString()
+  ])
 
-  const validators = await createMessage('./node_modules/@leofcoin/contracts/exports/validators.js', [await nativeToken.hash()])
+  if (!(await contractStore.has(await factory.hash()))) {
+    await contractStore.put(await factory.hash(), factory.encoded)
+  }
 
-  if (!await contractStore.has(await validators.hash())) {
+  const validators = await createMessage('./node_modules/@leofcoin/contracts/exports/validators.js', [
+    await nativeToken.hash()
+  ])
+
+  if (!(await contractStore.has(await validators.hash()))) {
     await contractStore.put(await validators.hash(), validators.encoded)
   }
 
+  const nameService = await createMessage('./node_modules/@leofcoin/contracts/exports/name-service.js', [
+    await factory.hash(),
+    await nativeToken.hash(),
+    await validators.hash(),
+    parseUnits('1000').toString()
+  ])
 
-  const nameService = await createMessage('./node_modules/@leofcoin/contracts/exports/name-service.js', [await factory.hash(), await nativeToken.hash(), await validators.hash(), parseUnits('1000').toString()])
-
-  if (!await contractStore.has(await nameService.hash())) {
+  if (!(await contractStore.has(await nameService.hash()))) {
     await contractStore.put(await nameService.hash(), nameService.encoded)
   }
 
@@ -49,7 +70,7 @@ console.log(factory);
     validators: await validators.hash()
   }
 
-console.log({addresses});
+  console.log({ addresses })
 
   const bytecodes = {
     contractFactory: await factory.toString(),
@@ -57,8 +78,8 @@ console.log({addresses});
     nameService: await nameService.toString(),
     validators: await validators.toString()
   }
-console.log(await factory.toBs32());
+  console.log(await factory.toBs32())
   await write(join(process.cwd(), 'packages/addresses/src/addresses.json'), JSON.stringify(addresses, null, '\t'))
   await write(join(process.cwd(), 'packages/lib/src/bytecodes.json'), JSON.stringify(bytecodes, null, '\t'))
-  console.log('done');
+  console.log('done')
 })()

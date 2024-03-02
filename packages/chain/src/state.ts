@@ -153,13 +153,23 @@ export default class State extends Contract {
     }
 
     try {
-      const localBlock = await globalThis.chainStore.get('lastBlock')
-      console.log({ localBlock })
-      const localBlockHash = new TextDecoder().decode(localBlock)
-      if (localBlockHash !== '0x0') {
+      let localBlockHash
+      try {
+        const localBlock = await globalThis.chainStore.get('lastBlock')
+        localBlockHash = new TextDecoder().decode(localBlock)
+      } catch (error) {}
+
+      if (localBlockHash && localBlockHash !== '0x0') {
         const blockMessage = new BlockMessage(await peernet.get(localBlockHash, 'block'))
-        const states = { lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock'))) }
-        if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
+        try {
+          const states = {
+            lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
+          }
+          if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
+        } catch (error) {
+          // no states found, try resolving blocks
+          await this.resolveBlocks()
+        }
       } else {
         await this.resolveBlocks()
       }
@@ -167,10 +177,17 @@ export default class State extends Contract {
       this.#machine = await new Machine(this.#blocks)
 
       const lastBlock = await this.#machine.lastBlock
-      this.updateState(new BlockMessage(lastBlock))
+      console.log({ lastBlock })
+
+      if (lastBlock.hash !== '0x0') {
+        this.updateState(new BlockMessage(lastBlock))
+      }
+
       this.#loaded = true
       // await this.#loadBlocks(this.#blocks)
     } catch (error) {
+      console.log('e')
+
       if (isResolveError(error)) {
         console.error(error)
       }
@@ -213,9 +230,9 @@ export default class State extends Contract {
   async #resolveBlock(hash) {
     let index = this.#blockHashMap.get(hash)
 
-    if (this.#blocks[index - 1]) {
-      if (this.#blocks[index - 1].previousHash !== '0x0') {
-        return this.resolveBlock(this.#blocks[index - 1].previousHash)
+    if (this.#blocks[index]) {
+      if (this.#blocks[index].previousHash !== '0x0') {
+        return this.resolveBlock(this.#blocks[index].previousHash)
       } else {
         return
       }
@@ -225,11 +242,11 @@ export default class State extends Contract {
       index = block.decoded.index
       const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
       this.#totalSize += size
-      this.#blocks[index - 1] = { hash, ...block.decoded }
+      this.#blocks[index] = { hash, ...block.decoded }
       this.#blockHashMap.set(hash, index)
       debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
       globalThis.pubsub.publish('block-resolved', { hash, index })
-      this.#lastResolved = this.#blocks[index - 1]
+      this.#lastResolved = this.#blocks[index]
       this.#lastResolvedTime = Date.now()
     } catch (error) {
       throw new ResolveError(`block: ${hash}@${index}`)

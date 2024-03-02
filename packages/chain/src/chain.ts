@@ -15,6 +15,7 @@ import State from './state.js'
 import { Address } from './types.js'
 import semver from 'semver'
 import { VersionControl } from './version-control.js'
+import Validators from '@leofcoin/contracts/validators'
 
 globalThis.BigNumber = BigNumber
 
@@ -62,7 +63,8 @@ export default class Chain extends VersionControl {
     console.log('epoch')
     const validators = await this.staticCall(addresses.validators, 'validators')
     console.log({ validators })
-    if (!validators[peernet.selectedAccount]?.active) return
+
+    if (!validators.includes(peernet.selectedAccount)) return
     const start = Date.now()
     try {
       await this.#createBlock()
@@ -343,6 +345,7 @@ export default class Chain extends VersionControl {
 
   async #handleTransaction(transaction, latestTransactions, block) {
     const hash = await transaction.hash()
+
     const doubleTransactions = []
 
     if (latestTransactions.includes(hash)) {
@@ -385,6 +388,8 @@ export default class Chain extends VersionControl {
 
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
+    console.log(await globalThis.transactionPoolStore.size())
+
     // vote for transactions
     if ((await globalThis.transactionPoolStore.size()) === 0) return
 
@@ -405,24 +410,28 @@ export default class Chain extends VersionControl {
     }
 
     const latestTransactions = await this.machine.latestTransactions()
+    console.log({ latestTransactions })
+
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
-    const priority = transactions.filter((transaction) => transaction.priority)
-    await Promise.all(
-      priority
-        .sort((a, b) => a.nonce - b.nonce)
-        .map((transaction) => this.#handleTransaction(transaction, latestTransactions, block))
-    )
+
+    const priority = transactions
+      .filter((transaction: TransactionMessage) => transaction.decoded.priority)
+      .sort((a, b) => a.decoded.nonce - b.decoded.nonce)
+    for (const transaction of priority) {
+      await this.#handleTransaction(transaction, latestTransactions, block)
+    }
 
     await Promise.all(
       transactions
-        .filter((transaction) => !transaction.priority)
-        .map((transaction) => this.#handleTransaction(transaction, latestTransactions, block))
+        .filter((transaction: TransactionMessage) => !transaction.decoded.priority)
+        .map((transaction: TransactionMessage) => this.#handleTransaction(transaction, latestTransactions, block))
     )
+
     // don't add empty block
     if (block.transactions.length === 0) return
 
-    const validators = await this.staticCall(addresses.validators, 'validators')
+    const validators = (await this.staticCall(addresses.validators, 'validators')) as Validators['validators']
     // block.validators = Object.keys(block.validators).reduce((set, key) => {
     //   if (block.validators[key].active) {
     //     push({
@@ -434,25 +443,24 @@ export default class Chain extends VersionControl {
     for (const entry of globalThis.peernet.peers) {
       peers[entry[0]] = entry[1]
     }
-    for (const validator of Object.keys(validators)) {
-      if (validators[validator].active) {
-        const peer = peers[validator]
-        if (peer && peer.connected && peer.version === this.version) {
-          let data = await new BWRequestMessage()
-          const node = await globalThis.peernet.prepareMessage(data.encoded)
-          try {
-            const bw = await peer.request(node.encoded)
-            block.validators.push({
-              address: validator,
-              bw: bw.up + bw.down
-            })
-          } catch {}
-        } else if (globalThis.peernet.selectedAccount === validator) {
+
+    for (const validator of validators) {
+      const peer = peers[validator]
+      if (peer && peer.connected && peer.version === this.version) {
+        let data = await new BWRequestMessage()
+        const node = await globalThis.peernet.prepareMessage(data.encoded)
+        try {
+          const bw = await peer.request(node.encoded)
           block.validators.push({
-            address: globalThis.peernet.selectedAccount,
-            bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
+            address: validator,
+            bw: bw.up + bw.down
           })
-        }
+        } catch {}
+      } else if (globalThis.peernet.selectedAccount === validator) {
+        block.validators.push({
+          address: globalThis.peernet.selectedAccount,
+          bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
+        })
       }
     }
 
@@ -553,8 +561,9 @@ export default class Chain extends VersionControl {
    * @param {Address} sender
    * @returns {globalMessage}
    */
-  #createMessage(sender = globalThis.peernet.selectedAccount) {
+  #createMessage(sender = globalThis.peernet.selectedAccount, contract) {
     return {
+      contract,
       sender,
       call: this.call,
       staticCall: this.staticCall
@@ -570,7 +579,7 @@ export default class Chain extends VersionControl {
    * @returns
    */
   internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage(sender)
+    globalThis.msg = this.#createMessage(sender, contract)
 
     return this.machine.execute(contract, method, parameters)
   }
@@ -583,13 +592,13 @@ export default class Chain extends VersionControl {
    * @returns
    */
   call(contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage()
+    globalThis.msg = this.#createMessage(peernet.selectedAccount, contract)
 
     return this.machine.execute(contract, method, parameters)
   }
 
   staticCall(contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage()
+    globalThis.msg = this.#createMessage(peernet.selectedAccount, contract)
     return this.machine.get(contract, method, parameters)
   }
 

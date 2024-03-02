@@ -77,7 +77,7 @@ _.runContract = async ({ decoded, hash, encoded }, state) => {
 
     if (state) params.push(state)
 
-    globalThis.msg = createMessage(decoded.creator)
+    globalThis.msg = createMessage(decoded.creator, hash)
     contracts[hash] = await new Contract(...params)
 
     debug(`loaded contract: ${hash} size: ${formatBytes(encoded.length)}`)
@@ -94,6 +94,7 @@ _.runContract = async ({ decoded, hash, encoded }, state) => {
 _.execute = async ({ contract, method, params }) => {
   try {
     let result
+
     // don't execute the method on a proxy
     if (contracts[contract].fallback) {
       result = await contracts[contract].fallback(method, params)
@@ -103,6 +104,7 @@ _.execute = async ({ contract, method, params }) => {
     // state.put(result)
     return result
   } catch (e) {
+    console.log({ e })
     throw new Error(
       `error: ${e.message}
       contract: ${contract}
@@ -113,8 +115,9 @@ _.execute = async ({ contract, method, params }) => {
   }
 }
 
-const createMessage = (sender = globalThis.peerid) => {
+const createMessage = (sender = globalThis.peerid, contract) => {
   return {
+    contract,
     sender,
     call: _.execute,
     staticCall: get
@@ -153,6 +156,7 @@ const _executeTransaction = async (transaction) => {
 _.init = async (message) => {
   let { peerid, fromState, state } = message
   globalThis.peerid = peerid
+  console.log({ fromState })
   if (fromState) {
     lastBlock = message.lastBlock
     const setState = async (address, state) => {
@@ -191,6 +195,7 @@ _.init = async (message) => {
         return _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
       })
     )
+    console.log({ blocks: message.blocks })
     if (message.blocks?.length > 0) {
       let pre
 

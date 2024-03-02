@@ -50,18 +50,18 @@ let transactions = [
   // {
   //   from: peernet.selectedAccount,
   //   to: chain.nativeToken,
-  //   method: 'grantRole',
-  //   nonce: 1,
-  //   priority: true,
-  //   params: [peernet.selectedAccount, 'MINT']
-  // },
-  // {
-  //   from: peernet.selectedAccount,
-  //   to: chain.nativeToken,
   //   nonce: 2,
   //   priority: true,
   //   method: 'mint',
   //   params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
+  // },
+  // {
+  //   from: peernet.selectedAccount,
+  //   to: chain.nativeToken,
+  //   method: 'grantRole',
+  //   nonce: 1,
+  //   priority: true,
+  //   params: [peernet.selectedAccount, 'MINT']
   // }
 ]
 let tx
@@ -96,7 +96,7 @@ for (let i = 0; i < 1000; i++) {
     nonce,
     params: [
       peernet.selectedAccount,
-      'YTqzVz8gy5KyzQB3ZVN9S1G2zAZs5ypAppgoKdrGVX3YHaqRXi66i',
+      'YTqxcZqw8irJDRUBbuLq5ijuTycDmVfkKSmnx22eVrbxJB6Gf4FGD',
       chain.utils.parseUnits('10').toString()
     ]
   })

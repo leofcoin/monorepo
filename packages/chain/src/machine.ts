@@ -3,7 +3,7 @@ import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
-import { formatBytes } from '@leofcoin/utils'
+import { BigNumber, formatBytes } from '@leofcoin/utils'
 import { RawBlock } from './types.js'
 // import State from './state'
 const debug = globalThis.createDebugger('leofcoin/machine')
@@ -21,14 +21,6 @@ export default class Machine {
   constructor(blocks) {
     // @ts-ignore
     return this.#init(blocks)
-  }
-
-  #createMessage(sender = peernet.selectedAccount) {
-    return {
-      sender,
-      call: this.execute,
-      staticCall: this.get.bind(this)
-    }
   }
 
   async #onmessage(data) {
@@ -155,9 +147,8 @@ export default class Machine {
       if (await stateStore.has('lastBlock')) {
         this.states.lastBlock = JSON.parse(new TextDecoder().decode(await stateStore.get('lastBlock')))
         this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
-        console.log(await stateStore.get('states'))
 
-        console.log({ states: this.states })
+        console.log({ balances: this.states.states[addresses.nativeToken].balances })
       }
       const message = {
         type: 'init',
