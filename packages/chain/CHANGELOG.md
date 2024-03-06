@@ -1,5 +1,24 @@
 # changelog
 
+## 1.6.0
+
+### Minor Changes
+
+- 8d83bd3: Bump
+
+### Patch Changes
+
+- fb4e9c7: Bump
+- Updated dependencies [fb4e9c7]
+- Updated dependencies [1da023a]
+  - @leofcoin/addresses@1.0.20
+  - @leofcoin/messages@1.4.10
+  - @leofcoin/networks@1.1.3
+  - @leofcoin/workers@1.4.15
+  - @leofcoin/errors@1.0.4
+  - @leofcoin/utils@1.1.15
+  - @leofcoin/lib@1.2.40
+
 ## 1.5.69
 
 ### Patch Changes

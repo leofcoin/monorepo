@@ -1,5 +1,11 @@
 # @leofcoin/wallet
 
+## 1.0.2
+
+### Patch Changes
+
+- fb4e9c7: Bump
+
 ## 1.0.1
 
 ### Patch Changes

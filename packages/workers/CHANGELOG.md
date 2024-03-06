@@ -1,5 +1,17 @@
 # @leofcoin/workers
 
+## 1.4.15
+
+### Patch Changes
+
+- fb4e9c7: Bump
+- Updated dependencies [fb4e9c7]
+- Updated dependencies [1da023a]
+  - @leofcoin/addresses@1.0.20
+  - @leofcoin/messages@1.4.10
+  - @leofcoin/utils@1.1.15
+  - @leofcoin/lib@1.2.40
+
 ## 1.4.14
 
 ### Patch Changes

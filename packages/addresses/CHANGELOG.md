@@ -1,5 +1,11 @@
 # @leofcoin/addresses
 
+## 1.0.20
+
+### Patch Changes
+
+- fb4e9c7: Bump
+
 ## 1.0.19
 
 ### Patch Changes
