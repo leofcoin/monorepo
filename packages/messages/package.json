@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.4.10",
+  "version": "1.4.11",
   "description": "",
   "private": false,
   "exports": {
@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.6.18",
-    "@leofcoin/utils": "^1.1.15",
+    "@leofcoin/utils": "^1.1.16",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }

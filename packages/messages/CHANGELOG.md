@@ -1,5 +1,13 @@
 # @leofcoin/messages
 
+## 1.4.11
+
+### Patch Changes
+
+- Upgrade dependencies
+- Updated dependencies
+  - @leofcoin/utils@1.1.16
+
 ## 1.4.10
 
 ### Patch Changes

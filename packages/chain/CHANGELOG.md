@@ -1,5 +1,19 @@
 # changelog
 
+## 1.6.1
+
+### Patch Changes
+
+- Upgrade dependencies
+- Updated dependencies
+  - @leofcoin/addresses@1.0.21
+  - @leofcoin/messages@1.4.11
+  - @leofcoin/networks@1.1.4
+  - @leofcoin/workers@1.4.16
+  - @leofcoin/errors@1.0.5
+  - @leofcoin/utils@1.1.16
+  - @leofcoin/lib@1.2.41
+
 ## 1.6.0
 
 ### Minor Changes

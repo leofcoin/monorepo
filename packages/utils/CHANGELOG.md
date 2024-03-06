@@ -1,5 +1,11 @@
 # @leofcoin/utils
 
+## 1.1.16
+
+### Patch Changes
+
+- Upgrade dependencies
+
 ## 1.1.15
 
 ### Patch Changes
