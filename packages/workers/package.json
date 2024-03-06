@@ -13,7 +13,9 @@
   },
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
@@ -22,7 +24,7 @@
     "@leofcoin/addresses": "^1.0.21",
     "@leofcoin/lib": "^1.2.41",
     "@leofcoin/messages": "^1.4.11",
-    "@leofcoin/storage": "^3.3.2",
+    "@leofcoin/storage": "^3.5.24",
     "@leofcoin/utils": "^1.1.16",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }

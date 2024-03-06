@@ -2,12 +2,20 @@ import json from '@rollup/plugin-json'
 import typescript from '@rollup/plugin-typescript'
 import nodeResolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
-import rimraf from 'rimraf'
 import modify from 'rollup-plugin-modify'
-import builtins from 'rollup-plugin-node-builtins'
-import polyfill from 'rollup-plugin-polyfill-node'
 
-rimraf.sync('./exports')
+import {readdir, unlink} from 'fs/promises'
+import {join} from 'path'
+
+const dir = await readdir('./exports', {recursive: true})
+const promises = []
+
+for (const path of dir) {
+  promises.push(unlink(join('./exports', path)))
+}
+
+await Promise.allSettled(promises)
+
 export default [
   {
     input: ['./src/chain.ts', './src/node.ts'],
@@ -46,8 +54,8 @@ export default [
         mainFields: ['module', 'browser']
       }),
       // globals(),
-      polyfill(),
-      builtins(),
+      // polyfill(),
+      // builtins(),
       commonjs({ exclude: ['simple-peer', './simple-peer.js'] }),
       typescript({
         compilerOptions: { outDir: './exports/browser', declaration: false, declarationDir: './exports/browser' },

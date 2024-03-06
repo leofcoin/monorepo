@@ -10,28 +10,21 @@
     "serve:docs": "jsproject --serve ./docs",
     "watch": "rollup -c -w",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c --silent error --cache true"
+    "build": "rollup -c --silent error --cache true",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^23.0.3",
-    "@rollup/plugin-node-resolve": "^15.0.1",
-    "@rollup/plugin-typescript": "^10.0.0",
-    "rollup": "^3.5.0",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.12.1",
     "rollup-plugin-copy": "^3.5.0",
-    "tslib": "^2.4.1",
-    "typescript": "^4.9.3"
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@types/marked": "^4.0.7",
-    "espree": "^9.4.1",
-    "esprima": "^4.0.1",
-    "extract-comments": "^1.1.0",
-    "glob": "^8.0.3",
-    "globby": "^13.1.2",
-    "highlight.js": "^11.7.0",
-    "marked": "^4.2.3"
+    "globby": "^14.0.1"
   }
 }

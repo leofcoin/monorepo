@@ -48,20 +48,24 @@
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "node test",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^11.0.0",
-    "rollup": "^3.10.0",
-    "tslib": "^2.4.1",
-    "typescript": "^5.2.2"
+    "@leofcoin/types": "^1.0.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.12.1",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@leofcoin/codec-format-interface": "^1.6.18",
+    "@leofcoin/codec-format-interface": "^1.7.11",
     "@leofcoin/utils": "^1.1.16",
-    "@vandeurenglenn/easy-worker": "^1.0.2"
+    "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
+    "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"
   }
 }

@@ -22,7 +22,7 @@ declare type signedTransaction = {
   method: string
   params: any[]
   timestamp: Number
-  signature: base58String
+  signature: Base58String
 }
 
 declare type signable = {

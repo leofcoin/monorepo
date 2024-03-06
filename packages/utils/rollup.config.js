@@ -2,7 +2,6 @@ import json from '@rollup/plugin-json'
 import resolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
 import typescript from '@rollup/plugin-typescript'
-import esbuild from 'rollup-plugin-esbuild'
 export default [
   {
     input: ['./src/utils.ts'],
@@ -20,7 +19,7 @@ export default [
     },
     plugins: [
       json(),
-      esbuild(),
+      typescript({ compilerOptions: { declaration: false, outDir: 'exports/browser' } }),
       resolve({
         browser: true,
         preferBuiltins: false

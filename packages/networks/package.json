@@ -16,12 +16,14 @@
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c --silent error --cache true"
+    "build": "rollup -c --silent error --cache true",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "rollup": "^3.3.0"
+    "rollup": "^4.12.1"
   }
 }

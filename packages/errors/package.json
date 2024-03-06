@@ -14,11 +14,16 @@
     "exports"
   ],
   "scripts": {
-    "build": "npx tsc",
+    "build": "rollup -c",
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6"
+  }
 }

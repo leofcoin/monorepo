@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
     "target": "es2022",
+    "module": "NodeNext",
     "outDir": "./",
-    "moduleResolution":"NodeNext",
+    "moduleResolution": "NodeNext",
     "allowJs": true,
     "declaration": true
   },
-  "include": [
-    "./src/**/*",
-    "@vandeurenglenn/little-pubsub",
-    "@leofcoin/storage"
-  ],
+  "include": ["./src/**/*", "@vandeurenglenn/little-pubsub", "@leofcoin/storage"],
   "exclude": ["./node_modules"]
 }

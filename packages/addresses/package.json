@@ -19,13 +19,15 @@
   "type": "module",
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-json": "^6.0.0",
-    "rollup": "^3.17.2"
+    "@rollup/plugin-json": "^6.1.0",
+    "rollup": "^4.12.1"
   }
 }

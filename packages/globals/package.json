@@ -7,7 +7,9 @@
   "private": false,
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",

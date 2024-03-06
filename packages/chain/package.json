@@ -30,7 +30,6 @@
   "scripts": {
     "np": "np",
     "watch": "rollup -c -w --silent error --cache true",
-    "lint": "eslint src --fix",
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "w": "rollup -c -w",
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
@@ -38,7 +37,9 @@
     "demo": "jsproject --serve ./ --port 5478 --open demo",
     "test": "node --inspect test",
     "pack": "webpack",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "np": {
     "yarn": false,
@@ -49,62 +50,32 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^24.0.1",
-    "@rollup/plugin-json": "^6.0.0",
-    "@rollup/plugin-node-resolve": "^15.0.1",
-    "@rollup/plugin-typescript": "^11.1.1",
-    "@types/bs58check": "^2.1.0",
-    "@types/pako": "^2.0.0",
-    "@types/randombytes": "^2.0.0",
-    "@types/semver": "^7.5.6",
-    "@types/varint": "^6.0.1",
-    "@vandeurenglenn/debug": "^1.1.1",
-    "eslint": "^8.28.0",
-    "eslint-plugin-unicorn": "^45.0.0",
-    "open": "^8.4.0",
-    "rimraf": "^4.4.0",
-    "rollup": "^4.9.2",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/semver": "^7.5.8",
+    "@vandeurenglenn/debug": "^1.2.2",
+    "rollup": "^4.12.1",
     "rollup-plugin-modify": "^3.0.0",
-    "rollup-plugin-node-builtins": "^2.1.2",
-    "rollup-plugin-node-globals": "^1.4.0",
-    "rollup-plugin-polyfill-node": "^0.13.0",
-    "tape": "^5.5.2",
-    "tslib": "^2.5.3",
-    "typescript": "^5.2.2",
-    "wireit": "^0.9.5"
+    "tape": "^5.7.5",
+    "tslib": "^2.6.2"
   },
   "dependencies": {
     "@leofcoin/addresses": "^1.0.21",
+    "@leofcoin/contracts": "^0.1.9",
+    "@leofcoin/crypto": "^0.2.10",
     "@leofcoin/errors": "^1.0.5",
     "@leofcoin/lib": "^1.2.41",
     "@leofcoin/messages": "^1.4.11",
-    "@leofcoin/multi-wallet": "^2.1.1",
+    "@leofcoin/multi-wallet": "^3.1.7",
     "@leofcoin/networks": "^1.1.4",
-    "@leofcoin/peernet": "^1.1.73",
-    "@leofcoin/peernet-swarm": "^1.0.0",
-    "@leofcoin/storage": "^3.0.6",
+    "@leofcoin/peernet": "^1.1.77",
+    "@leofcoin/storage": "^3.5.24",
     "@leofcoin/utils": "^1.1.16",
     "@leofcoin/workers": "^1.4.16",
-    "@netpeer/p2pt-swarm": "^1.3.5",
-    "@netpeer/swarm": "^0.8.9",
-    "@vandeurenglenn/base32": "^1.1.0",
+    "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
-    "@vandeurenglenn/queue": "^1.0.0",
-    "chalk": "^4.0.0",
-    "p-queue": "^7.3.4",
-    "p2pt": "^1.5.1",
-    "pako": "^2.0.4",
-    "semver": "^7.5.4",
-    "simple-peer": "^9.11.1"
-  },
-  "eslintConfig": {
-    "env": {
-      "es2022": true
-    },
-    "parserOptions": {
-      "ecmaVersion": "latest",
-      "sourceType": "module"
-    },
-    "extends": "plugin:unicorn/recommended"
+    "semver": "^7.6.0"
   }
 }

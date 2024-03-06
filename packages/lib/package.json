@@ -32,21 +32,27 @@
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "npm-check-updates": "npx npm-check-updates -i",
+    "check-dependencies": "npx depcheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@leofcoin/addresses": "^1.0.21",
-    "@leofcoin/codec-format-interface": "^1.4.0",
     "@leofcoin/messages": "^1.4.11",
-    "@leofcoin/utils": "^1.1.16"
+    "@leofcoin/peernet": "^1.1.77",
+    "@leofcoin/storage": "^3.5.24",
+    "@leofcoin/utils": "^1.1.16",
+    "@vandeurenglenn/base32": "^1.2.4",
+    "@vandeurenglenn/base58": "^1.1.9",
+    "@vandeurenglenn/typed-array-utils": "^1.2.0"
   },
   "devDependencies": {
-    "@rollup/plugin-json": "^6.0.0",
-    "@rollup/plugin-typescript": "^11.0.0",
-    "rollup": "^3.10.1",
-    "tslib": "^2.4.1"
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.12.1",
+    "tslib": "^2.6.2"
   }
 }
