@@ -66,10 +66,11 @@ try {
   for (const project of [...projects, ...projectDirs]) {
     try {
       const result = await hashit(project)
-      if (result && result.changed === true) {
-        if (orderedList.includes(result.project)) await build(root, result.project)
-        else promises.push(build(root, result.project))
-      }
+      if (result)
+        if (result.changed || process.argv.includes('--all')) {
+          if (orderedList.includes(result.project)) await build(root, result.project)
+          else promises.push(build(root, result.project))
+        }
     } catch (error) {
       if (error.message.includes('Missing script: "build"')) {
         console.warn(`no npm run build command present for ${project}`)

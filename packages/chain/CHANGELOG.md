@@ -1,7 +1,68 @@
 # changelog
-------
+
+## 1.6.1
+
+### Patch Changes
+
+- Upgrade dependencies
+- Updated dependencies
+  - @leofcoin/addresses@1.0.21
+  - @leofcoin/messages@1.4.11
+  - @leofcoin/networks@1.1.4
+  - @leofcoin/workers@1.4.16
+  - @leofcoin/errors@1.0.5
+  - @leofcoin/utils@1.1.16
+  - @leofcoin/lib@1.2.41
+
+## 1.6.0
+
+### Minor Changes
+
+- 8d83bd3: Bump
+
+### Patch Changes
+
+- fb4e9c7: Bump
+- Updated dependencies [fb4e9c7]
+- Updated dependencies [1da023a]
+  - @leofcoin/addresses@1.0.20
+  - @leofcoin/messages@1.4.10
+  - @leofcoin/networks@1.1.3
+  - @leofcoin/workers@1.4.15
+  - @leofcoin/errors@1.0.4
+  - @leofcoin/utils@1.1.15
+  - @leofcoin/lib@1.2.40
+
+## 1.5.69
+
+### Patch Changes
+
+- d239d6b: Bump
+- d239d6b: set to public
+- Updated dependencies [d239d6b]
+- Updated dependencies [d239d6b]
+  - @leofcoin/addresses@1.0.19
+  - @leofcoin/workers@1.4.14
+  - @leofcoin/lib@1.2.39
+  - @leofcoin/messages@1.4.9
+  - @leofcoin/networks@1.1.2
+  - @leofcoin/errors@1.0.3
+  - @leofcoin/utils@1.1.14
+
+## 1.5.68
+
+### Patch Changes
+
+- c24054d: State it
+- Updated dependencies [c24054d]
+  - @leofcoin/addresses@1.0.18
+  - @leofcoin/workers@1.4.13
+  - @leofcoin/lib@1.2.38
+
+---
 
 ## v1.1.0
+
 - validators produce blocks
 - syncs blocks with other nodes
 - double contracts throw and are not added (no cost)

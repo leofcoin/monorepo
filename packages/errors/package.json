@@ -1,8 +1,9 @@
 {
   "name": "@leofcoin/errors",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "",
   "type": "module",
+  "private": false,
   "exports": {
     ".": {
       "import": "./exports/errors.js",

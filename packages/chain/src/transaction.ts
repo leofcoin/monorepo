@@ -147,10 +147,7 @@ export default class Transaction extends Protocol {
 
   async createTransaction(transaction) {
     return {
-      from: transaction.from,
-      to: transaction.to,
-      method: transaction.method,
-      params: transaction.params,
+      ...transaction,
       timestamp: transaction.timestamp || Date.now(),
       nonce: transaction.nonce || (await this.getNonce(transaction.from)) + 1
     }

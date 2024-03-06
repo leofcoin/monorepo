@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "type": "module",
+  "private": false,
   "directories": {
     "lib": "lib"
   },
@@ -14,7 +15,9 @@
     "lint": "npm run lint --workspaces --if-present",
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "node builder",
-    "clean": "node scripts/clean.js"
+    "build-all": "node builder --all",
+    "clean": "node scripts/clean.js",
+    "release": "npm run build && npx changeset publish && git push --all"
   },
   "repository": {
     "type": "git",
@@ -28,6 +31,7 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
+    "@changesets/cli": "^2.27.1",
     "@leofcoin/contracts": "^0.1.4",
     "@vandeurenglenn/doc-it": "^1.0.0",
     "globby": "^13.2.2"

@@ -1,9 +1,10 @@
 {
   "name": "@leofcoin/utils",
-  "version": "1.1.13",
+  "version": "1.1.16",
   "description": "",
   "type": "module",
   "browser": "./exports/browser/utils.js",
+  "private": false,
   "exports": {
     ".": {
       "import": "./exports/utils.js",

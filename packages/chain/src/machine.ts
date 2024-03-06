@@ -1,16 +1,14 @@
-import { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
+import addresses, { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
 import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
-import { formatBytes } from '@leofcoin/utils'
+import { BigNumber, formatBytes } from '@leofcoin/utils'
 import { RawBlock } from './types.js'
 // import State from './state'
 const debug = globalThis.createDebugger('leofcoin/machine')
 export default class Machine {
   worker: EasyWorker
-  #contracts = {}
-  #nonces = {}
 
   states = {
     states: {},
@@ -23,14 +21,6 @@ export default class Machine {
   constructor(blocks) {
     // @ts-ignore
     return this.#init(blocks)
-  }
-
-  #createMessage(sender = peernet.selectedAccount) {
-    return {
-      sender,
-      call: this.execute,
-      staticCall: this.get.bind(this)
-    }
   }
 
   async #onmessage(data) {
@@ -86,6 +76,12 @@ export default class Machine {
         pubsub.publish(data.id, data.value || false)
         break
       }
+      case 'ask': {
+        if (data.question === 'contract') {
+          const input = await peernet.get(data.input, 'contract')
+          this.worker.postMessage({ id: data.id, input })
+        }
+      }
     }
   }
 
@@ -103,13 +99,18 @@ export default class Machine {
           return set
         }, [])
         const state = {}
+        console.log({ contractsToGet })
+        if (!contractsToGet.includes(addresses.contractFactory)) contractsToGet.push(addresses.contractFactory)
+        if (!contractsToGet.includes(addresses.nativeToken)) contractsToGet.push(addresses.nativeToken)
+        if (!contractsToGet.includes(addresses.nameService)) contractsToGet.push(addresses.nameService)
+        if (!contractsToGet.includes(addresses.validators)) contractsToGet.push(addresses.validators)
         await Promise.all(
           contractsToGet.map(async (contract) => {
             const value = await this.#askWorker('get', { contract, method: 'state', params: [] })
             state[contract] = value
           })
         )
-        await stateStore.put('lastblock', JSON.stringify(await this.lastBlock))
+        await stateStore.put('lastBlock', JSON.stringify(await this.lastBlock))
         await stateStore.put('states', JSON.stringify(state))
       }
     } catch (error) {
@@ -143,57 +144,19 @@ export default class Machine {
       })
       this.worker.onmessage(this.#onmessage.bind(this))
 
-      let contracts = []
       if (await stateStore.has('lastBlock')) {
         this.states.lastBlock = JSON.parse(new TextDecoder().decode(await stateStore.get('lastBlock')))
         this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
-        const entries = Object.entries(this.states.states)
-        if (entries.length > 0) {
-          console.log(this.states.lastBlock)
 
-          const promises = []
-          for (const [address, value] of entries) {
-            const setState = async (address, value) => {
-              const contractBytes = await globalThis.contractStore.get(address)
-              const contract = await new ContractMessage(contractBytes)
-              const params = contract.decoded.constructorParameters
-              const hash = await contract.hash()
-              try {
-                const func = new Function(new TextDecoder().decode(contract.decoded.contract))
-                const Contract = func()
-                params.push(value)
-                globalThis.msg = this.#createMessage(contract.decoded.creator)
-                contracts[hash] = await new Contract(...params)
-                debug(`loaded contract: ${hash} size: ${formatBytes(contract.encoded.length)}`)
-              } catch (e) {
-                console.log(e)
-                this.#onmessage({
-                  type: 'contractError',
-                  message: e.message,
-                  hash
-                })
-              }
-            }
-            promises.push(setState(address, value))
-          }
-          await Promise.all(promises)
-        }
+        console.log({ balances: this.states.states[addresses.nativeToken].balances })
       }
-      console.log({ contracts })
-
-      // const blocks = await blockStore.values()
-      contracts = await Promise.all([
-        globalThis.contractStore.get(contractFactory),
-        globalThis.contractStore.get(nativeToken),
-        globalThis.contractStore.get(validators),
-        globalThis.contractStore.get(nameService)
-      ])
-
       const message = {
         type: 'init',
         input: {
-          contracts,
           blocks,
+          fromState: this.states.lastBlock.index > 0,
+          lastBlock: this.states.lastBlock,
+          state: this.states.states,
           // @ts-ignore
           peerid: peernet.peerId
         }

@@ -13,6 +13,6 @@
     "useDefineForClassFields": false,
     "types": ["node"]
   },
-  "include": ["./packages/**/src/**/*.ts"],
+  "include": ["./src/**/*"],
   "exclude": ["node_modules"]
 }

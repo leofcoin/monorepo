@@ -1,9 +1,10 @@
 {
-  "name": "wallet",
-  "version": "1.0.0",
+  "name": "@leofcoin/wallet",
+  "version": "1.0.3",
   "description": "",
   "main": "dist/wallet.js",
   "module": "src/wallet.js",
+  "private": false,
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
