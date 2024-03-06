@@ -1,5 +1,11 @@
 # @leofcoin/addresses
 
+## 1.0.22
+
+### Patch Changes
+
+- Upgrade dependencies
+
 ## 1.0.21
 
 ### Patch Changes

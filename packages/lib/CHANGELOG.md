@@ -1,5 +1,15 @@
 # @leofcoin/lib
 
+## 1.2.42
+
+### Patch Changes
+
+- Upgrade dependencies
+- Updated dependencies
+  - @leofcoin/addresses@1.0.22
+  - @leofcoin/messages@1.4.12
+  - @leofcoin/utils@1.1.17
+
 ## 1.2.41
 
 ### Patch Changes

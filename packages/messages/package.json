@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.4.11",
+  "version": "1.4.12",
   "description": "",
   "private": false,
   "exports": {
@@ -56,7 +56,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@leofcoin/types": "^1.0.4",
+    "@leofcoin/types": "^1.0.5",
     "@rollup/plugin-typescript": "^11.1.6",
     "rollup": "^4.12.1",
     "tslib": "^2.6.2",
@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.7.11",
-    "@leofcoin/utils": "^1.1.16",
+    "@leofcoin/utils": "^1.1.17",
     "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
     "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"
   }

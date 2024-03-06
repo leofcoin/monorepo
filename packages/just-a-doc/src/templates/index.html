@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -293,8 +293,8 @@
         methods.innerHTML = ''
         classes.innerHTML = ''
         properties.innerHTML = `<h2>properties</h2>`
-        console.log(data)
-        title.innerHTML = page
+
+        title.innerHTML = page.replace('')
         for (const token of data) {
           if (token.type === 'property') {
             const property = document.createElement('section')
@@ -380,8 +380,6 @@
       const onhashchange = async () => {
         let selected = location.hash
         selected = selected.split('#!/')[1]
-
-        console.log(selected)
         aside.querySelector('[selected]')?.removeAttribute('selected')
 
         aside.querySelector(`a[href="#!/${selected}"]`).setAttribute('selected', '')

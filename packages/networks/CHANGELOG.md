@@ -1,5 +1,11 @@
 # @leofcoin/networks
 
+## 1.1.5
+
+### Patch Changes
+
+- Upgrade dependencies
+
 ## 1.1.4
 
 ### Patch Changes

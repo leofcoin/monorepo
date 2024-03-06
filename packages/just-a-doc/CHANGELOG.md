@@ -1,5 +1,11 @@
 # @vandeurenglenn/doc-it
 
+## 1.0.10
+
+### Patch Changes
+
+- Upgrade dependencies
+
 ## 1.0.9
 
 ### Patch Changes

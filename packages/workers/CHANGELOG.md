@@ -1,5 +1,16 @@
 # @leofcoin/workers
 
+## 1.4.17
+
+### Patch Changes
+
+- Upgrade dependencies
+- Updated dependencies
+  - @leofcoin/addresses@1.0.22
+  - @leofcoin/lib@1.2.42
+  - @leofcoin/messages@1.4.12
+  - @leofcoin/utils@1.1.17
+
 ## 1.4.16
 
 ### Patch Changes
