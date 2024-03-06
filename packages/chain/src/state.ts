@@ -158,13 +158,13 @@ export default class State extends Contract {
         const localBlock = await globalThis.chainStore.get('lastBlock')
         localBlockHash = new TextDecoder().decode(localBlock)
       } catch (error) {}
-
       if (localBlockHash && localBlockHash !== '0x0') {
         const blockMessage = new BlockMessage(await peernet.get(localBlockHash, 'block'))
         try {
           const states = {
             lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
           }
+
           if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
         } catch (error) {
           // no states found, try resolving blocks
@@ -177,7 +177,6 @@ export default class State extends Contract {
       this.#machine = await new Machine(this.#blocks)
 
       const lastBlock = await this.#machine.lastBlock
-      console.log({ lastBlock })
 
       if (lastBlock.hash !== '0x0') {
         this.updateState(new BlockMessage(lastBlock))
@@ -195,18 +194,15 @@ export default class State extends Contract {
     }
   }
 
-  async updateState(message) {
+  async updateState(message: BlockMessage) {
     try {
       const hash = await message.hash()
-
-      // await this.state.updateState(message)
       await globalThis.chainStore.put('lastBlock', hash)
       globalThis.pubsub.publish('lastBlock', message.encoded)
+      await this.#machine.updateState()
     } catch (error) {
       console.error(error)
     }
-
-    await this.#machine.updateState()
   }
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {

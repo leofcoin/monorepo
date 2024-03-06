@@ -266,9 +266,11 @@ export default class Chain extends VersionControl {
       blockMessage.decoded.transactions
         // @ts-ignore
         .map(async (transaction) => {
+          // @ts-ignore
           let hash = transaction.hash
           if (!hash) {
             hash = await new TransactionMessage(transaction).hash()
+            // @ts-ignore
             transaction.hash = hash
           }
 
@@ -279,7 +281,6 @@ export default class Chain extends VersionControl {
 
     await globalThis.blockStore.put(hash, blockMessage.encoded)
 
-    if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) await this.updateState(blockMessage)
     debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
@@ -301,15 +302,10 @@ export default class Chain extends VersionControl {
           globalThis.pubsub.publish('account-transaction-processed', transaction)
         await globalThis.accountsStore.put(transaction.from, String(transaction.nonce))
       }
-
-      // todo finish state
-      // for (const contract of contracts) {
-      //   const state = await this.machine.get(contract, 'state')
-      //   // await stateStore.put(contract, state)
-      //   console.log(state);
-      // }
-
-      // await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
+      if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) {
+        await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
+        await this.updateState(blockMessage)
+      }
       globalThis.pubsub.publish('block-processed', blockMessage.decoded)
     } catch (error) {
       console.log(error.hash)
@@ -496,17 +492,13 @@ export default class Chain extends VersionControl {
       const hash = await blockMessage.hash()
 
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
-      await this.updateState(blockMessage)
       await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
-
+      await this.updateState(blockMessage)
       debug(`created block: ${hash} @${block.index}`)
 
       globalThis.peernet.publish('add-block', blockMessage.encoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
-      console.log(error)
-      console.log('eeeee')
-
       throw new Error(`invalid block ${block}`)
     }
     // data = await this.machine.execute(to, method, params)
@@ -525,9 +517,6 @@ export default class Chain extends VersionControl {
       }
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
     } catch (e) {
-      console.log(e)
-      console.log('rrrrr')
-
       globalThis.peernet.publish('invalid-transaction', hash)
       throw new Error('invalid transaction')
     }
