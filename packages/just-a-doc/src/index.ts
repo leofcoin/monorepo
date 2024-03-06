@@ -239,14 +239,14 @@ export default async ({ input, output, readme, monorepo }: Options) => {
         outputPath = join(output, dir)
 
         if (!manifest[dir]) manifest[dir] = []
-        manifest[dir].push(parse(file).base.replace('\\', '/'))
+        manifest[dir].push(parse(file).base.replace(/\\/g, '/'))
         try {
           await access(outputPath)
         } catch (error) {
           await mkdir(outputPath)
         }
       } else {
-        pages.push(parse(file).base.replace('\\', '/'))
+        pages.push(parse(file).base.replace(/\\/g, '/'))
       }
 
       await generate(file, outputPath)
