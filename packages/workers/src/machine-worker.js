@@ -4,7 +4,6 @@ import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
-import { randomUUID } from 'crypto'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 const pubsub = new LittlePubSub()
 const worker = new EasyWorker()
@@ -275,7 +274,7 @@ _.loadBlock = (block) => {
 
 const askFor = (question, input) =>
   new Promise((resolve) => {
-    const id = randomUUID()
+    const id = globalThis.crypto.randomUUID()
     pubsub.subscribe(id, resolve)
     worker.postMessage({
       type: 'ask',
