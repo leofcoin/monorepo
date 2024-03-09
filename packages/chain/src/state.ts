@@ -216,8 +216,7 @@ export default class State extends Contract {
     if (block !== undefined) {
       block = await new BlockMessage(block)
       const { index } = block.decoded
-      if (this.#blocks[index - 1] && this.#blocks[index - 1].hash !== block.hash)
-        throw `invalid block ${hash} @${index}`
+      if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
       if (!(await globalThis.peernet.has(hash))) await globalThis.peernet.put(hash, block.encoded, 'block')
     }
     return block
@@ -462,7 +461,9 @@ export default class State extends Contract {
   #getLastTransactions = async () => {
     let lastTransactions = (
       await Promise.all(
-        (await this.blocks)
+        (
+          await this.blocks
+        )
           // @ts-ignore
           .filter((block) => block.loaded)
           .slice(-24)
