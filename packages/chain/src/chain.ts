@@ -170,7 +170,7 @@ export default class Chain extends VersionControl {
     const transaction = new TransactionMessage(message)
     const hash = await transaction.hash()
     // if (await transactionPoolStore.has(hash)) await transactionPoolStore.delete(hash)
-    debug(`added ${transaction}`)
+    debug(`added ${hash}`)
   }
 
   async #prepareRequest(request) {
