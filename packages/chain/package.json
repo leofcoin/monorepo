@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -73,7 +73,7 @@
     "@leofcoin/peernet": "^1.1.77",
     "@leofcoin/storage": "^3.5.24",
     "@leofcoin/utils": "^1.1.17",
-    "@leofcoin/workers": "^1.4.17",
+    "@leofcoin/workers": "^1.4.18",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
     "semver": "^7.6.0"

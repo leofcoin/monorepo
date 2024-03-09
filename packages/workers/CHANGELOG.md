@@ -1,5 +1,11 @@
 # @leofcoin/workers
 
+## 1.4.18
+
+### Patch Changes
+
+- Fix browser build
+
 ## 1.4.17
 
 ### Patch Changes

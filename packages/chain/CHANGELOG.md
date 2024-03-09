@@ -1,5 +1,13 @@
 # changelog
 
+## 1.6.3
+
+### Patch Changes
+
+- Fix browser build
+- Updated dependencies
+  - @leofcoin/workers@1.4.18
+
 ## 1.6.2
 
 ### Patch Changes
