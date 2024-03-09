@@ -383,7 +383,8 @@ export default class State extends Contract {
         await this.resolveBlock(lastBlock.hash)
         console.log('ok')
 
-        let blocksSynced = localIndex > 0 ? (localIndex > index ? localIndex - index : index + -localIndex) : index
+        let blocksSynced =
+          localIndex > 0 ? (localIndex > index ? localIndex - index + 1 : index + -localIndex + 1) : index + 1
         debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
         const blocks = this.#blocks
 
