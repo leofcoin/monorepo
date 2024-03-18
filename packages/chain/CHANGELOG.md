@@ -1,5 +1,11 @@
 # changelog
 
+## 1.6.6
+
+### Patch Changes
+
+- Fix state not updated
+
 ## 1.6.3
 
 ### Patch Changes
