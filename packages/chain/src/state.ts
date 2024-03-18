@@ -545,7 +545,7 @@ export default class State extends Contract {
         }
         transactions = transactions.filter((transaction) => !transaction.decoded.priority)
         await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
-        this.#blocks[block.index - 1].loaded = true
+        this.#blocks[block.index].loaded = true
         await this.#machine.addLoadedBlock(block)
         // @ts-ignore
         debug(`loaded block: ${block.hash} @${block.index}`)
