@@ -155,6 +155,8 @@ export default class Chain extends VersionControl {
   }
 
   async #invalidTransaction(hash) {
+    hash = new TextDecoder().decode(hash)
+
     await globalThis.transactionPoolStore.delete(hash)
     console.log(`removed invalid transaction: ${hash}`)
   }
@@ -296,12 +298,19 @@ export default class Chain extends VersionControl {
     }
     try {
       promises = await Promise.allSettled(promises)
+      const noncesByAddress = {}
       for (let transaction of blockMessage.decoded.transactions) {
         globalThis.pubsub.publish('transaction-processed', transaction)
         if (transaction.to === globalThis.peernet.selectedAccount)
           globalThis.pubsub.publish('account-transaction-processed', transaction)
-        await globalThis.accountsStore.put(transaction.from, String(transaction.nonce))
+        if (!noncesByAddress[transaction.from] || noncesByAddress?.[transaction.from] < transaction.nonce) {
+          noncesByAddress[transaction.from] = transaction.nonce
+        }
       }
+      await Promise.all(
+        Object.entries(noncesByAddress).map(([from, nonce]) => globalThis.accountsStore.put(from, String(nonce)))
+      )
+
       if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) {
         await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
         await this.updateState(blockMessage)
@@ -411,17 +420,22 @@ export default class Chain extends VersionControl {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
 
-    const priority = transactions
-      .filter((transaction: TransactionMessage) => transaction.decoded.priority)
-      .sort((a, b) => a.decoded.nonce - b.decoded.nonce)
-    for (const transaction of priority) {
+    const normalTransactions = []
+    const priorityransactions = []
+
+    for (const transaction of transactions) {
+      if (transaction.decoded.priority) priorityransactions.push(transaction)
+      else normalTransactions.push(transaction)
+    }
+
+    for (const transaction of priorityransactions.sort((a, b) => a.decoded.nonce - b.decoded.nonce)) {
       await this.#handleTransaction(transaction, latestTransactions, block)
     }
 
     await Promise.all(
-      transactions
-        .filter((transaction: TransactionMessage) => !transaction.decoded.priority)
-        .map((transaction: TransactionMessage) => this.#handleTransaction(transaction, latestTransactions, block))
+      normalTransactions.map((transaction: TransactionMessage) =>
+        this.#handleTransaction(transaction, latestTransactions, block)
+      )
     )
 
     // don't add empty block
