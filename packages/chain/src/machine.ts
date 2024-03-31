@@ -51,7 +51,7 @@ export default class Machine {
         break
       }
 
-      case 'executionError': {
+      case 'executeError': {
         // console.warn(`error executing transaction ${data.message}`);
         pubsub.publish(data.id, { error: data.message })
         break
@@ -172,6 +172,7 @@ export default class Machine {
       const id = randombytes(20).toString('hex')
       const onmessage = (message) => {
         pubsub.unsubscribe(id, onmessage)
+
         if (message?.error) reject(message.error)
         else resolve(message)
       }
@@ -217,8 +218,10 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+
       const onmessage = (message) => {
         pubsub.unsubscribe(id, onmessage)
+
         if (message?.error) reject(new ExecutionError(message.error))
         else resolve(message)
       }
