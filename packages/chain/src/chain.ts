@@ -275,6 +275,9 @@ export default class Chain extends VersionControl {
             // @ts-ignore
             transaction.hash = hash
           }
+          if (!(await transactionStore.has(hash))) {
+            transactionStore.put(hash, await blockMessage.hash())
+          }
 
           ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
           return transaction
@@ -526,7 +529,7 @@ export default class Chain extends VersionControl {
     try {
       const has = await globalThis.transactionPoolStore.has(hash)
 
-      if (!has) {
+      if (!has && !(await transactionStore.has(hash))) {
         await globalThis.transactionPoolStore.put(hash, transaction.encoded)
       }
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
