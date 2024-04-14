@@ -102,7 +102,12 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async getNonce(address) {
-    if (!(await globalThis.accountsStore.has(address))) {
+    try {
+      if (!(await globalThis.accountsStore.has(address))) {
+        const nonce = await this.#getNonceFallback(address)
+        await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
+      }
+    } catch (error) {
       const nonce = await this.#getNonceFallback(address)
       await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
     }
@@ -121,8 +126,7 @@ export default class Transaction extends Protocol {
   }
 
   async validateNonce(address, nonce) {
-    let previousNonce = await globalThis.accountsStore.get(address)
-    previousNonce = Number(new TextDecoder().decode(previousNonce))
+    const previousNonce = await this.getNonce(address)
     if (previousNonce > nonce) throw new Error(`a transaction with a higher nonce already exists`)
     if (previousNonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
 

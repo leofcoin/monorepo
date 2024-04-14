@@ -15,7 +15,8 @@ export default class Machine {
     lastBlock: {
       index: 0,
       hash: ''
-    }
+    },
+    accounts: {}
   }
 
   constructor(blocks) {
@@ -110,8 +111,16 @@ export default class Machine {
             state[contract] = value
           })
         )
-        await stateStore.put('lastBlock', JSON.stringify(await this.lastBlock))
-        await stateStore.put('states', JSON.stringify(state))
+        const accounts = await Promise.all((await accountsStore.keys()).map((address) => accountsStore.get(address)))
+
+        const tasks = [
+          stateStore.put('lastBlock', JSON.stringify(await this.lastBlock)),
+          stateStore.put('states', JSON.stringify(state)),
+          stateStore.put('accounts', JSON.stringify(accounts))
+          // accountsStore.clear()
+        ]
+
+        await Promise.all(tasks)
       }
     } catch (error) {
       console.error(error)
@@ -147,6 +156,11 @@ export default class Machine {
       if (await stateStore.has('lastBlock')) {
         this.states.lastBlock = JSON.parse(new TextDecoder().decode(await stateStore.get('lastBlock')))
         this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
+        try {
+          this.states.accounts = JSON.parse(new TextDecoder().decode(await stateStore.get('accounts')))
+        } catch {
+          this.states.accounts = {}
+        }
 
         console.log({ balances: this.states.states[addresses.nativeToken].balances })
       }
