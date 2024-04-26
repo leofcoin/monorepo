@@ -227,8 +227,10 @@ export default class Chain extends VersionControl {
       } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
 
-    const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
-    if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
+    setTimeout(async () => {
+      const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
+      if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
+    }, 3000)
   }
 
   #epochTimeout
