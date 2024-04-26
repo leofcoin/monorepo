@@ -135,9 +135,18 @@ const _executeTransaction = async (transaction) => {
     await _.execute({ contract: to, method, params })
     if (to === nativeToken) {
       nativeCalls += 1
-      if (method === 'burn') nativeBurns += 1
-      if (method === 'mint') nativeMints += 1
-      if (method === 'transfer') nativeTransfers += 1
+      if (method === 'burn') {
+        nativeBurns += 1
+        totalBurnAmount += params[0]
+      }
+      if (method === 'mint') {
+        nativeMints += 1
+        totalMintAmount += params[0]
+      }
+      if (method === 'transfer') {
+        nativeTransfers += 1
+        totalTransferAmount += params[0]
+      }
     }
     totalTransactions += 1
 
@@ -153,10 +162,19 @@ const _executeTransaction = async (transaction) => {
 }
 
 _.init = async (message) => {
-  let { peerid, fromState, state } = message
+  let { peerid, fromState, state, info } = message
   globalThis.peerid = peerid
   console.log({ fromState })
   if (fromState) {
+    nativeCalls = info.nativeCalls
+    nativeBurns = info.nativeBurns
+    nativeMints = info.nativeMints
+    nativeTransfers = info.nativeTransfers
+    totalTransactions = info.totalTransactions
+    totalBurnAmount = info.totalBurnAmount
+    totalMintAmount = info.totalMintAmount
+    totalTransferAmount = info.totalTransferAmount
+
     lastBlock = message.lastBlock
     const setState = async (address, state) => {
       const contractBytes = await resolveContract(address)
@@ -329,6 +347,15 @@ worker.onmessage(({ id, type, input }) => {
       break
     case 'nativeTransfers':
       respond(id, nativeTransfers)
+      break
+    case 'totalBurnAmount':
+      respond(id, totalBurnAmount)
+      break
+    case 'totalMintAmount':
+      respond(id, totalMintAmount)
+      break
+    case 'totalTransferAmount':
+      respond(id, totalTransferAmount)
       break
     case 'totalTransfers':
       respond(id, totalTransfers)

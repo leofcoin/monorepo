@@ -16,7 +16,15 @@ export default class Machine {
       index: 0,
       hash: ''
     },
-    accounts: {}
+    accounts: {},
+    info: {
+      nativeCalls: 0,
+      nativeMints: 0,
+      nativeBurns: 0,
+      nativeTransfers: 0,
+      totalTransactions: 0,
+      totalBlocks: 0
+    }
   }
 
   constructor(blocks) {
@@ -116,7 +124,21 @@ export default class Machine {
         const tasks = [
           stateStore.put('lastBlock', JSON.stringify(await this.lastBlock)),
           stateStore.put('states', JSON.stringify(state)),
-          stateStore.put('accounts', JSON.stringify(accounts))
+          stateStore.put('accounts', JSON.stringify(accounts)),
+          stateStore.put(
+            'info',
+            JSON.stringify({
+              nativeCalls: this.nativeCalls,
+              nativeMints: this.nativeMints,
+              nativeBurns: this.nativeBurns,
+              nativeTransfers: this.nativeTransfers,
+              totalTransactions: this.totalTransactions,
+              totalBurnAmount: this.totalBurnAmount,
+              totaMintAmount: this.totaMintAmount,
+              totalTransferAmount: this.totalTransferAmount,
+              totalBlocks: await blockStore.length
+            })
+          )
           // accountsStore.clear()
         ]
 
@@ -158,8 +180,18 @@ export default class Machine {
         this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
         try {
           this.states.accounts = JSON.parse(new TextDecoder().decode(await stateStore.get('accounts')))
+          this.states.info = JSON.parse(new TextDecoder().decode(await stateStore.get('info')))
         } catch {
           this.states.accounts = {}
+          // todo try fetching info from fully synced peer
+          this.states.info = {
+            nativeCalls: 0,
+            nativeMints: 0,
+            nativeBurns: 0,
+            nativeTransfers: 0,
+            totalTransactions: 0,
+            totalBlocks: 0
+          }
         }
 
         console.log({ balances: this.states.states[addresses.nativeToken].balances })
@@ -171,6 +203,7 @@ export default class Machine {
           fromState: this.states.lastBlock.index > 0,
           lastBlock: this.states.lastBlock,
           state: this.states.states,
+          info: this.states.info,
           // @ts-ignore
           peerid: peernet.peerId
         }
@@ -340,6 +373,16 @@ export default class Machine {
 
   get totalBlocks() {
     return this.#askWorker('totalBlocks')
+  }
+
+  get totalBurnAmount() {
+    return this.#askWorker('totalBurnAmount')
+  }
+  get totaMintAmount() {
+    return this.#askWorker('totaMintAmount')
+  }
+  get totalTransferAmount() {
+    return this.#askWorker('totalTransferAmount')
   }
 
   getBlocks(from?, to?): Promise<[]> {
