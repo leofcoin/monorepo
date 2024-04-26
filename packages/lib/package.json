@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.42",
+  "version": "1.2.43",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
@@ -40,11 +40,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.22",
-    "@leofcoin/messages": "^1.4.12",
+    "@leofcoin/addresses": "^1.0.23",
+    "@leofcoin/messages": "^1.4.13",
     "@leofcoin/peernet": "^1.1.77",
     "@leofcoin/storage": "^3.5.28",
-    "@leofcoin/utils": "^1.1.17",
+    "@leofcoin/utils": "^1.1.18",
     "@vandeurenglenn/base32": "^1.2.4",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/typed-array-utils": "^1.2.0"

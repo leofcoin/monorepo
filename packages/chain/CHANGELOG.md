@@ -1,5 +1,20 @@
 # changelog
 
+## 1.6.12
+
+### Patch Changes
+
+- 78299bf: bump
+- Updated dependencies [78299bf]
+  - @leofcoin/addresses@1.0.23
+  - @leofcoin/crypto@0.2.12
+  - @leofcoin/errors@1.0.7
+  - @leofcoin/lib@1.2.43
+  - @leofcoin/messages@1.4.13
+  - @leofcoin/networks@1.1.6
+  - @leofcoin/utils@1.1.18
+  - @leofcoin/workers@1.4.19
+
 ## 1.6.6
 
 ### Patch Changes

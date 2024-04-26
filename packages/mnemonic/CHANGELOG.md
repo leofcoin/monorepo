@@ -1,5 +1,13 @@
 # @leofcoin/mnemonic
 
+## 1.0.13
+
+### Patch Changes
+
+- 78299bf: bump
+- Updated dependencies [78299bf]
+  - @leofcoin/crypto@0.2.12
+
 ## 1.0.12
 
 ### Patch Changes

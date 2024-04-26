@@ -1,5 +1,11 @@
 # @leofcoin/crypto
 
+## 0.2.12
+
+### Patch Changes
+
+- 78299bf: bump
+
 ## 0.2.11
 
 ### Patch Changes

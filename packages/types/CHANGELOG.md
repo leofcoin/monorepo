@@ -1,5 +1,11 @@
 # @leofcoin/types
 
+## 1.0.6
+
+### Patch Changes
+
+- 78299bf: bump
+
 ## 1.0.5
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @leofcoin/lib
 
+## 1.2.43
+
+### Patch Changes
+
+- 78299bf: bump
+- Updated dependencies [78299bf]
+  - @leofcoin/addresses@1.0.23
+  - @leofcoin/messages@1.4.13
+  - @leofcoin/utils@1.1.18
+
 ## 1.2.42
 
 ### Patch Changes

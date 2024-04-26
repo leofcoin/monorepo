@@ -1,5 +1,11 @@
 # @leofcoin/networks
 
+## 1.1.6
+
+### Patch Changes
+
+- 78299bf: bump
+
 ## 1.1.5
 
 ### Patch Changes

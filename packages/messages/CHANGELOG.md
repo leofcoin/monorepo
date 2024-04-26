@@ -1,5 +1,13 @@
 # @leofcoin/messages
 
+## 1.4.13
+
+### Patch Changes
+
+- 78299bf: bump
+- Updated dependencies [78299bf]
+  - @leofcoin/utils@1.1.18
+
 ## 1.4.12
 
 ### Patch Changes

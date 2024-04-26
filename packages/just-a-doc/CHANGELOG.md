@@ -1,5 +1,11 @@
 # @vandeurenglenn/doc-it
 
+## 1.0.11
+
+### Patch Changes
+
+- 78299bf: bump
+
 ## 1.0.10
 
 ### Patch Changes

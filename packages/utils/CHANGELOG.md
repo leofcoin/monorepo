@@ -1,5 +1,11 @@
 # @leofcoin/utils
 
+## 1.1.18
+
+### Patch Changes
+
+- 78299bf: bump
+
 ## 1.1.17
 
 ### Patch Changes
