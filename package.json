@@ -33,12 +33,14 @@
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
     "@changesets/cli": "^2.27.1",
-    "@vandeurenglenn/doc-it": "^1.0.0"
+    "@vandeurenglenn/doc-it": "^1.0.10"
   },
   "workspaces": [
     "./packages/*"
   ],
   "devDependencies": {
-    "@types/node": "^20.11.24"
+    "@types/node": "^20.12.7",
+    "listr": "^0.14.3",
+    "ora": "^8.0.1"
   }
 }

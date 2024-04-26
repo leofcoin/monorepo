@@ -52,8 +52,12 @@ class CompareStream extends Writable {
 const readAndCache = (file) =>
   new Promise((resolve) => {
     const hash = createHash('SHA1')
-    const input = createReadStream(file)
-    input.pipe(hash).setEncoding('hex').pipe(new CacheStream(resolve))
+    try {
+      const input = createReadStream(file)
+      input.pipe(hash).setEncoding('hex').pipe(new CacheStream(resolve))
+    } catch (error) {
+      console.error(error)
+    }
   })
 
 class HashStream extends Readable {
@@ -91,8 +95,9 @@ export default async ({ project, files }) => {
     originalHash = (await readFile(PROJECT_CACHE_PATH)).toString()
   } catch (error) {}
 
+  let hash
   promises = await Promise.all(promises)
-  const hash = await _createHash(promises.join())
+  hash = await _createHash(promises.join())
   if (String(originalHash) !== String(hash.toString())) {
     changed = true
     await writeFile(PROJECT_CACHE_PATH, hash)
