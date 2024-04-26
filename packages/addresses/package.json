@@ -28,6 +28,6 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
-    "rollup": "^4.12.1"
+    "rollup": "^4.16.4"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.6.9",
+  "version": "1.6.11",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -55,8 +55,8 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/semver": "^7.5.8",
-    "@vandeurenglenn/debug": "^1.2.2",
-    "rollup": "^4.12.1",
+    "@vandeurenglenn/debug": "^1.2.3",
+    "rollup": "^4.16.4",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.7.5",
     "tslib": "^2.6.2"
@@ -68,10 +68,10 @@
     "@leofcoin/errors": "^1.0.6",
     "@leofcoin/lib": "^1.2.42",
     "@leofcoin/messages": "^1.4.12",
-    "@leofcoin/multi-wallet": "^3.1.7",
+    "@leofcoin/multi-wallet": "^3.1.8",
     "@leofcoin/networks": "^1.1.5",
     "@leofcoin/peernet": "^1.1.77",
-    "@leofcoin/storage": "^3.5.24",
+    "@leofcoin/storage": "^3.5.28",
     "@leofcoin/utils": "^1.1.17",
     "@leofcoin/workers": "^1.4.18",
     "@vandeurenglenn/base58": "^1.1.9",

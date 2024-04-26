@@ -24,7 +24,7 @@
     "@leofcoin/addresses": "^1.0.22",
     "@leofcoin/lib": "^1.2.42",
     "@leofcoin/messages": "^1.4.12",
-    "@leofcoin/storage": "^3.5.24",
+    "@leofcoin/storage": "^3.5.28",
     "@leofcoin/utils": "^1.1.17",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
