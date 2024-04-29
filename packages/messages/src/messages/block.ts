@@ -32,32 +32,21 @@ export default class BlockMessage extends FormatInterface {
   encode(decoded?): Uint8Array {
     decoded = decoded || this.decoded
     const validators: Uint8Array[] = []
-    const transactions: Uint8Array[] = []
 
     for (const validator of decoded.validators) {
       if (validator instanceof ValidatorMessage) validators.push(validator.encode())
       else validators.push(new ValidatorMessage(validator).encode())
     }
 
-    for (const transaction of decoded.transactions) {
-      if (transaction instanceof TransactionMessage) transactions.push(transaction.encode())
-      else transactions.push(new TransactionMessage(transaction).encode())
-    }
-
     return super.encode({
       ...decoded,
-      validators: smartConcat(validators),
-      transactions: smartConcat(transactions)
+      validators: smartConcat(validators)
     })
   }
 
   decode(encoded?) {
     encoded = encoded || this.encoded
     super.decode(encoded)
-    // @ts-ignore
-    this.decoded.transactions = smartDeconcat(this.decoded.transactions as Uint8Array).map(
-      (transaction) => new TransactionMessage(transaction).decoded
-    )
     // @ts-ignore
     this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(
       (validator) => new ValidatorMessage(validator).decoded
