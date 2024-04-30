@@ -352,7 +352,7 @@ export default class Chain extends VersionControl {
 
     const doubleTransactions = []
 
-    if (latestTransactions.includes(hash) || transactionStore.has(hash)) {
+    if (latestTransactions.includes(hash) || (await transactionStore.has(hash))) {
       doubleTransactions.push(hash)
     }
 
