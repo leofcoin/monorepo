@@ -6,7 +6,7 @@ export class VersionControl extends State {
   constructor(config) {
     super(config)
   }
-  #currentVersion: string = '1.2.0'
+  #currentVersion: string = '1.2.1'
   async #setCurrentVersion() {
     this.version = this.#currentVersion
     await globalThis.chainStore.put('version', this.version)
@@ -22,15 +22,16 @@ export class VersionControl extends State {
 
       /**
        * protocol version control!
-       * note v1 and 1.1 delete everything because of big changes, this is not what we want in the future
-       * in the future we want newer nodes to handle the new changes and still confirm old version transactions
-       * unless there is a security issue!
+       * Note that before v0.2.0 everything gets deleted because of big changes,
+       * this is not what we want in the future.
+       * In the future we want newer nodes to handle the new changes and still confirm old version transactions
+       * Unless there is a security issue!
+       * But for now the protocoll isn't finished enough and still has to much breaking changes.
        */
-      if (semver.compare('1.1.1', this.version) === 1) {
+      if (semver.compare('1.2.0', this.version) === 1) {
         await this.clearAll()
       }
       if (semver.compare(this.#currentVersion, this.version) === 1) {
-        // await this.clearAll()
         await this.#setCurrentVersion()
       }
       // if (version)
