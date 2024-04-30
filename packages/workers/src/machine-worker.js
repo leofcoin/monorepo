@@ -58,7 +58,9 @@ const get = ({ contract, method, params }) => {
   return result
 }
 
-const resolveContract = (address) => askFor('contract', address)
+const resolveContract = (hash) => askFor('contract', hash)
+
+const resolveTransaction = (hash) => askFor('transaction', hash)
 
 const respond = (id, value) => {
   worker.postMessage({
@@ -214,23 +216,23 @@ _.init = async (message) => {
     )
     console.log({ blocks: message.blocks })
     if (message.blocks?.length > 0) {
-      let pre
+      // let pre
 
-      try {
-        const importee = await import('url')
-        const url = importee.default
-        if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
-      } catch {
-        // browser env
-        pre = './'
-      }
+      // try {
+      //   const importee = await import('url')
+      //   const url = importee.default
+      //   if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
+      // } catch {
+      //   // browser env
+      //   pre = './'
+      // }
 
-      let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
-        serialization: 'advanced',
-        type: 'module'
-      })
-      blocks = await _worker.once(message.blocks)
-      _worker = null
+      // let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
+      //   serialization: 'advanced',
+      //   type: 'module'
+      // })
+      // blocks = await _worker.once(message.blocks)
+      // _worker = null
       // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
       // for (let i = 0; i < blocks.length; i++) {
 
@@ -241,20 +243,25 @@ _.init = async (message) => {
         // this means contracts will be restored from this state
         // this also means devs NEED to make sure the state can be restored
         // on contract deploy an error will be thrown if state wasn't recoverable
-        if (block.index > 24) {
+        if (block.index >= blocks.length - 24) {
           const transactionCount = blocks[block.index - 1].transactions.length
           latestTransactions.splice(-(transactionCount - 1), latestTransactions.length)
         }
 
         if (!block.loaded && !fromState) {
-          const priority = block.transactions.filter((transaction) => transaction.priority)
-          if (priority.length > 0)
-            await Promise.all(
-              priority.sort((a, b) => a.nonce - b.nonce).map((transaction) => _executeTransaction(transaction))
+          const transactions = await Promise.all(
+            block.transactions.map(async (transaction) =>
+              new TransactionMessage(await resolveTransaction(transaction)).decode()
             )
+          )
+          const priority = transactions.filter((transaction) => transaction.priority)?.sort((a, b) => a.nonce - b.nonce)
+          if (priority.length > 0)
+            for (const transaction of priority) {
+              await _executeTransaction(transaction)
+            }
 
           await Promise.all(
-            block.transactions
+            transactions
               .filter((transaction) => !transaction.priority)
               .map(async (transaction) => _executeTransaction(transaction))
           )

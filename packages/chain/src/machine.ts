@@ -86,8 +86,8 @@ export default class Machine {
         break
       }
       case 'ask': {
-        if (data.question === 'contract') {
-          const input = await peernet.get(data.input, 'contract')
+        if (data.question === 'contract' || data.question === 'transaction') {
+          const input = await peernet.get(data.input, data.question)
           this.worker.postMessage({ id: data.id, input })
         }
       }

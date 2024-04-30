@@ -265,23 +265,19 @@ export default class Chain extends VersionControl {
 
     const hash = await blockMessage.hash()
 
-    await Promise.all(
+    const transactionsMessages = await Promise.all(
       blockMessage.decoded.transactions
         // @ts-ignore
-        .map(async (transaction) => {
-          // @ts-ignore
-          let hash = transaction.hash
-          if (!hash) {
-            hash = await new TransactionMessage(transaction).hash()
-            // @ts-ignore
-            transaction.hash = hash
-          }
+        .map(async (hash) => {
+          let data
           if (!(await transactionStore.has(hash))) {
-            transactionStore.put(hash, await blockMessage.hash())
+            data = await peernet.get(hash, 'transaction')
+            transactionStore.put(hash, data)
+          } else {
+            data = transactionStore.get(hash)
           }
-
           ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
-          return transaction
+          return new TransactionMessage(data).decode()
         })
     )
 
@@ -290,9 +286,8 @@ export default class Chain extends VersionControl {
     debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
-    for (let transaction of blockMessage.decoded.transactions) {
+    for (let transaction of transactionsMessages) {
       // await transactionStore.put(transaction.hash, transaction.encoded)
-
       if (!contracts.includes(transaction.to)) {
         contracts.push(transaction.to)
       }
@@ -303,7 +298,7 @@ export default class Chain extends VersionControl {
     try {
       promises = await Promise.allSettled(promises)
       const noncesByAddress = {}
-      for (let transaction of blockMessage.decoded.transactions) {
+      for (let transaction of transactionsMessages) {
         globalThis.pubsub.publish('transaction-processed', transaction)
         if (transaction.to === globalThis.peernet.selectedAccount)
           globalThis.pubsub.publish('account-transaction-processed', transaction)
@@ -357,7 +352,7 @@ export default class Chain extends VersionControl {
 
     const doubleTransactions = []
 
-    if (latestTransactions.includes(hash)) {
+    if (latestTransactions.includes(hash) || transactionStore.has(hash)) {
       doubleTransactions.push(hash)
     }
 
@@ -371,7 +366,7 @@ export default class Chain extends VersionControl {
     try {
       const result = await this.#executeTransaction({ ...transaction.decoded, hash })
 
-      block.transactions.push(transaction)
+      block.transactions.push(hash)
 
       block.fees = block.fees.add(await calculateFee(transaction.decoded))
       await globalThis.accountsStore.put(
@@ -498,11 +493,8 @@ export default class Chain extends VersionControl {
     // block.fees = block.fees.toString()
 
     try {
-      block.transactions = await Promise.all(
-        block.transactions.map(async (transaction) => {
-          await globalThis.transactionPoolStore.delete(await transaction.hash())
-          return transaction.decoded
-        })
+      await Promise.all(
+        block.transactions.map(async (transaction) => await globalThis.transactionPoolStore.delete(transaction))
       )
 
       let blockMessage = await new BlockMessage(block)
