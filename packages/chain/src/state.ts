@@ -110,6 +110,8 @@ export default class State extends Contract {
     await globalThis.accountsStore.clear()
     await globalThis.chainStore.clear()
     await globalThis.blockStore.clear()
+    await globalThis.transactionStore.clear()
+    await globalThis.stateStore.clear()
     await globalThis.transactionPoolStore.clear()
   }
 
