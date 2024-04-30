@@ -6,6 +6,6 @@ export default {
   timestamp: Number(),
   reward: BigNumber.from(0),
   fees: BigNumber.from(0),
-  transactions: new Uint8Array(),
+  transactions: Array(),
   validators: new Uint8Array()
 }
