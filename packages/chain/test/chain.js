@@ -44,34 +44,51 @@ console.log(peernet.selectedAccount)
 // const job = async () => {
 
 let nonce = await chain.getNonce(peernet.selectedAccount)
-// // setTimeout(async () => {
 
-let transactions = [
-  // {
-  //   from: peernet.selectedAccount,
-  //   to: chain.nativeToken,
-  //   nonce: 2,
-  //   priority: true,
-  //   method: 'mint',
-  //   params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
-  // },
-  // {
-  //   from: peernet.selectedAccount,
-  //   to: chain.nativeToken,
-  //   method: 'grantRole',
-  //   nonce: 1,
-  //   priority: true,
-  //   params: [peernet.selectedAccount, 'MINT']
-  // }
-]
-let tx
+const fiveSecondDelay = () =>
+  new Promise((resolve) => {
+    setTimeout(() => resolve(), 5000)
+  })
+// // setTimeout(async () => {
+let hasTransactionsInPool
+
 try {
-  transactions = await Promise.all(transactions.map((tx) => chain.createTransaction(tx)))
-  transactions = await Promise.all(transactions.map((tx) => signTransaction(tx, peernet.identity)))
-  transactions = await Promise.all(transactions.map((tx) => chain.sendTransaction(tx)))
-  transactions = await Promise.all(transactions.map((tx) => tx.wait))
-} catch (e) {
-  console.log({ e })
+  hasTransactionsInPool = (await transactionPoolStore.length) > 0
+} catch (error) {
+  hasTransactionsInPool = false
+}
+
+console.log(await chain.balances)
+console.log(Object.keys(await chain.balances))
+if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
+  let transactions = [
+    {
+      from: peernet.selectedAccount,
+      to: chain.nativeToken,
+      nonce: 2,
+      priority: true,
+      method: 'mint',
+      params: [peernet.selectedAccount, chain.utils.parseUnits('100000000000000').toString()]
+    },
+    {
+      from: peernet.selectedAccount,
+      to: chain.nativeToken,
+      method: 'grantRole',
+      nonce: 1,
+      priority: true,
+      params: [peernet.selectedAccount, 'MINT']
+    }
+  ]
+  let tx
+  try {
+    transactions = await Promise.all(transactions.map((tx) => chain.createTransaction(tx)))
+    transactions = await Promise.all(transactions.map((tx) => signTransaction(tx, peernet.identity)))
+    transactions = await Promise.all(transactions.map((tx) => chain.sendTransaction(tx)))
+    transactions = await Promise.all(transactions.map((tx) => tx.wait))
+    await fiveSecondDelay()
+  } catch (e) {
+    throw e
+  }
 }
 
 //   console.log({nonce});

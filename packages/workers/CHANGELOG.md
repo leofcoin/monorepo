@@ -1,5 +1,11 @@
 # @leofcoin/workers
 
+## 1.5.0
+
+### Minor Changes
+
+- Update chain & machine-worker to support LIP1
+
 ## 1.4.19
 
 ### Patch Changes

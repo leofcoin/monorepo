@@ -1,7 +1,7 @@
 import addresses, { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
 import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
-import { ContractMessage } from '@leofcoin/messages'
+import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
 import { BigNumber, formatBytes } from '@leofcoin/utils'
 import { RawBlock } from './types.js'
@@ -87,7 +87,7 @@ export default class Machine {
       }
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
-          const input = await peernet.get(data.input, data.question)
+          const input = await peernet.get(data.input)
           this.worker.postMessage({ id: data.id, input })
         }
       }
@@ -99,20 +99,28 @@ export default class Machine {
       if ((await this.lastBlock).index > this.states.lastBlock.index) {
         // todo only get state for changed contracts
         const blocks = (await this.blocks).slice(this.states.lastBlock.index)
-        const contractsToGet = blocks.reduce((set, current: RawBlock) => {
-          for (const transaction of current.transactions) {
-            const contract = transaction.to
-            if (!set.includes(contract)) set.push(contract)
-          }
+        let transactions = []
+        for (const block of blocks) {
+          transactions = [...transactions, ...block.transactions]
+        }
+
+        transactions = await Promise.all(
+          transactions.map(async (transaction) => new TransactionMessage(await transactionStore.get(transaction)))
+        )
+
+        const contractsToGet = transactions.reduce((set, current: TransactionMessage) => {
+          const contract = current.decoded.to
+          if (!set.includes(contract)) set.push(contract)
 
           return set
         }, [])
         const state = {}
-        console.log({ contractsToGet })
+
         if (!contractsToGet.includes(addresses.contractFactory)) contractsToGet.push(addresses.contractFactory)
         if (!contractsToGet.includes(addresses.nativeToken)) contractsToGet.push(addresses.nativeToken)
         if (!contractsToGet.includes(addresses.nameService)) contractsToGet.push(addresses.nameService)
         if (!contractsToGet.includes(addresses.validators)) contractsToGet.push(addresses.validators)
+
         await Promise.all(
           contractsToGet.map(async (contract) => {
             const value = await this.#askWorker('get', { contract, method: 'state', params: [] })
@@ -134,7 +142,7 @@ export default class Machine {
               nativeTransfers: this.nativeTransfers,
               totalTransactions: this.totalTransactions,
               totalBurnAmount: this.totalBurnAmount,
-              totaMintAmount: this.totaMintAmount,
+              totalMintAmount: this.totalMintAmount,
               totalTransferAmount: this.totalTransferAmount,
               totalBlocks: await blockStore.length
             })
@@ -378,8 +386,8 @@ export default class Machine {
   get totalBurnAmount() {
     return this.#askWorker('totalBurnAmount')
   }
-  get totaMintAmount() {
-    return this.#askWorker('totaMintAmount')
+  get totalMintAmount() {
+    return this.#askWorker('totalMintAmount')
   }
   get totalTransferAmount() {
     return this.#askWorker('totalTransferAmount')

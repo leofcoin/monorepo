@@ -237,6 +237,7 @@ _.init = async (message) => {
       // for (let i = 0; i < blocks.length; i++) {
 
       // }
+      blocks = message.blocks
       for (const block of blocks) {
         // we only revalidate the latest 24 blocks
         // every 24 blocks a snapshot is taken and stored in state
@@ -244,10 +245,9 @@ _.init = async (message) => {
         // this also means devs NEED to make sure the state can be restored
         // on contract deploy an error will be thrown if state wasn't recoverable
         if (block.index >= blocks.length - 24) {
-          const transactionCount = blocks[block.index - 1].transactions.length
-          latestTransactions.splice(-(transactionCount - 1), latestTransactions.length)
+          const transactionCount = blocks[block.index].transactions.length
+          latestTransactions.splice(-transactionCount, latestTransactions.length)
         }
-
         if (!block.loaded && !fromState) {
           const transactions = await Promise.all(
             block.transactions.map(async (transaction) =>
@@ -269,9 +269,7 @@ _.init = async (message) => {
         block.loaded = true
         worker.postMessage({
           type: 'debug',
-          message: `loaded transactions for block: ${block.blockInfo.hash} @${block.blockInfo.index} ${formatBytes(
-            block.blockInfo.size
-          )}`
+          message: `loaded transactions for block: ${block.hash} @${block.index}`
         })
       }
 

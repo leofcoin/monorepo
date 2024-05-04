@@ -1,5 +1,16 @@
 # changelog
 
+## 1.7.0
+
+### Minor Changes
+
+- Update chain & machine-worker to support LIP1
+
+### Patch Changes
+
+- Updated dependencies
+  - @leofcoin/workers@1.5.0
+
 ## 1.6.12
 
 ### Patch Changes

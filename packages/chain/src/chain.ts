@@ -248,7 +248,6 @@ export default class Chain extends VersionControl {
     try {
       let result = await this.machine.execute(to, method, params)
       // await accountsStore.put(to, nonce)
-      await transactionPoolStore.delete(hash)
       // if (!result) result = this.machine.state
       globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
       return result || 'no state change'
@@ -414,7 +413,6 @@ export default class Chain extends VersionControl {
     }
 
     const latestTransactions = await this.machine.latestTransactions()
-    console.log({ latestTransactions })
 
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
@@ -494,7 +492,10 @@ export default class Chain extends VersionControl {
 
     try {
       await Promise.all(
-        block.transactions.map(async (transaction) => await globalThis.transactionPoolStore.delete(transaction))
+        block.transactions.map(async (transaction: string) => {
+          await globalThis.transactionStore.put(transaction, await transactionPoolStore.get(transaction))
+          await globalThis.transactionPoolStore.delete(transaction)
+        })
       )
 
       let blockMessage = await new BlockMessage(block)
@@ -509,6 +510,8 @@ export default class Chain extends VersionControl {
       globalThis.peernet.publish('add-block', blockMessage.encoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
+      console.log(error)
+
       throw new Error(`invalid block ${block}`)
     }
     // data = await this.machine.execute(to, method, params)
