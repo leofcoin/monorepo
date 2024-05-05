@@ -217,7 +217,10 @@ export default class Chain extends VersionControl {
     const lastBlock = await this.#makeRequest(peer, 'lastBlock')
 
     const localBlock = await this.lastBlock
-    const higherThenCurrentLocal = !localBlock.index ? true : lastBlock.index > localBlock.index
+
+    if (lastBlock.hash === '0x0') return
+
+    const higherThenCurrentLocal = !localBlock?.index ? true : lastBlock.index > localBlock.index
 
     if (Object.keys(lastBlock).length > 0) {
       if (!this.lastBlock || higherThenCurrentLocal) {

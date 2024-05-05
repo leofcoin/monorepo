@@ -24,7 +24,7 @@ const node = await new Node.default(
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
-    version: '1.2.0',
+    version: '1.2.1',
     stars: networks.leofcoin.peach.stars,
     autoStart: false,
     password
@@ -113,7 +113,7 @@ for (let i = 0; i < 1000; i++) {
     nonce,
     params: [
       peernet.selectedAccount,
-      'YTqzBte1j2ddUnHoodcdi74ARjuqRh58j8D59h7Qp45VDHWfkVKz6',
+      'YTqy6AFqP3arS8nKu7JtdkuB6RpB8fTHBBioNiQMUQB6Vw9mXuhoQ',
       chain.utils.parseUnits('10').toString()
     ]
   })

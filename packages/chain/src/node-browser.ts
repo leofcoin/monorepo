@@ -15,7 +15,7 @@ export default class Node {
     config = {
       network: 'leofcoin:peach',
       networkVersion: 'peach',
-      version: '1.2.0',
+      version: '1.2.1',
       stars: networks.leofcoin.peach.stars
     },
     password: string

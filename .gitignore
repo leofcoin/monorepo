@@ -31,5 +31,7 @@ www/www/*.js
 .wireit
 
 packages/messages/exports
+packages/**/www/**/*.js
+packages/**/www/**/index.html
 
-.wireit
+packages/**/www/**/*.ts
