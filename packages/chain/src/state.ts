@@ -459,7 +459,7 @@ export default class State extends Contract {
   }
 
   #loadBlockTransactions = (transactions): Promise<TransactionMessage[]> =>
-    Promise.all(transactions.map((transaction) => new TransactionMessage(transaction)))
+    Promise.all(transactions.map(async (transaction) => new TransactionMessage(await peernet.get(transaction))))
 
   #getLastTransactions = async () => {
     let lastTransactions = (
