@@ -83,6 +83,7 @@ export default async ({ project, files }) => {
   let changed = false
   let originalHash
   let promises = []
+
   for (const file of files) {
     promises.push(readAndCache(file))
   }
@@ -90,7 +91,7 @@ export default async ({ project, files }) => {
   const PROJECT_CACHE_PATH = join(CACHE_PATH, project)
 
   if (promises.length === 0) return
-  let fd
+
   try {
     originalHash = (await readFile(PROJECT_CACHE_PATH)).toString()
   } catch (error) {}

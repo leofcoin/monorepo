@@ -2,10 +2,11 @@ import { readFile, readdir, mkdir, open, stat } from 'fs/promises'
 import { join, parse } from 'path'
 import { CACHE_PATH } from './constants.js'
 import hashit from './hashit.js'
-import { rollup } from 'rollup'
 import { glob } from 'fs/promises'
-import { execSync, spawn, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import Listr from 'listr'
+import os from 'os'
+const availableCpuCores = os.cpus().length
 
 const orderedList = ['messages', 'addresses', 'lib']
 const root = 'packages'
@@ -13,16 +14,13 @@ const root = 'packages'
 const build = async (root, project) =>
   new Promise((resolve) => {
     try {
-      const spawnee = spawn(`npm run build`, { cwd: join(process.cwd(), root, project), shell: true })
-      // spawnee.stdout.on('data', (data) => {
-      //   console.log(data.toString())
-      // })
-
-      // spawnee.stderr.on('data', (data) => {
-      //   if (data.toString().includes('created')) {
-      //   }
-      // })
-      spawnee.stderr.on('close', () => resolve())
+      const spawnee = spawnSync(`npm run build`, { cwd: join(process.cwd(), root, project), shell: true })
+      // todo better error handling
+      if (process.argv.includes('--log')) {
+        const stderr = spawnee.stderr.toString()
+        if (stderr.includes('ERR') || stderr.includes('error')) console.warn(stderr)
+      }
+      resolve()
     } catch (error) {
       console.log(error.message)
       if (error.message.includes('Missing script: "build"')) {
@@ -60,42 +58,57 @@ const checkCache = async () => {
 }
 let projectDirs
 
-const promises = []
+const priorityProjects = []
 
-const projects = []
+const nonPriorityProjects = []
 
-const buildProjects = async () => {
+const sortProjects = () => {
   for (const project of [...projectDirs]) {
     if (orderedList.includes(project.project)) {
       projectDirs.slice(projectDirs.indexOf(project), '1')
-      projects.push(project)
+      priorityProjects.push(project)
+    } else {
+      nonPriorityProjects.push(project)
     }
   }
+}
 
+const buildPriority = async () => {
+  const results = await Promise.all(priorityProjects.map((project) => hashit(project)))
+  for (const result of results) {
+    if (result) {
+      if (result.changed || process.argv.includes('--all'))
+        if (orderedList.includes(result.project)) await build(root, result.project)
+    }
+  }
+}
+
+const buildNonPriority = async () => {
+  const results = await Promise.all(nonPriorityProjects.map((project) => hashit(project)))
+  let promises = []
+  let count = 0
   try {
-    for (const project of [...projects, ...projectDirs]) {
-      try {
-        const result = await hashit(project)
-        if (result)
-          if (result.changed || process.argv.includes('--all')) {
-            if (orderedList.includes(result.project)) await build(root, result.project)
-            else promises.push(build(root, result.project))
-          }
-      } catch (error) {
-        if (error.message.includes('Missing script: "build"')) {
-          console.warn(`no npm run build command present for ${project}`)
+    for (const result of results) {
+      if (result) {
+        if (count === availableCpuCores) {
+          await Promise.all(promises)
+          promises = []
+          count = 0
         }
-        console.log(error.message)
-        console.error(error)
+        if (result.changed || process.argv.includes('--all')) {
+          promises.push(build(root, result.project))
+        }
+        count += 1
       }
     }
-    await Promise.all(promises)
+
+    if (promises.length > 0) await Promise.all(promises)
   } catch (error) {
     console.log(error.message)
     if (error.message.includes('Missing script: "build"')) {
       console.warn(`no npm run build command present for ${project}`)
     }
-    console.error(error)
+    throw error
   }
 }
 
@@ -126,14 +139,21 @@ const tasks = new Listr([
     title: 'Build projects',
     task: () =>
       new Listr([
+        { title: 'sorting projects', task: () => sortProjects() },
+        { title: 'building priority projects', task: () => buildPriority() },
         {
-          title: 'building projects',
-          task: () => buildProjects()
+          title: 'building non priority projects',
+          task: () => buildNonPriority()
         }
       ])
   }
 ])
 
+// await checkCache()
+// projectDirs = await transformWorkspaceDir(root)
+// await sortProjects()
+// await buildPriority()
+// await buildNonPriority()
 tasks.run().catch((err) => {
   console.error(err)
 })
