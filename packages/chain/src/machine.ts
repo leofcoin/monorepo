@@ -87,6 +87,9 @@ export default class Machine {
         pubsub.publish(data.id, data.value || false)
         break
       }
+      case 'addToWantList': {
+        this.wantList.push(data.hash)
+      }
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
           try {
@@ -94,6 +97,8 @@ export default class Machine {
             this.worker.postMessage({ id: data.id, input })
           } catch (error) {
             console.error(error)
+
+            this.worker.postMessage({ id: data.id, input: data.input })
             this.wantList.push(data.input)
           }
         }

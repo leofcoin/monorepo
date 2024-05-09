@@ -58,10 +58,6 @@ const get = ({ contract, method, params }) => {
   return result
 }
 
-const resolveContract = (hash) => askFor('contract', hash)
-
-const resolveTransaction = (hash) => askFor('transaction', hash)
-
 const respond = (id, value) => {
   worker.postMessage({
     type: 'response',
@@ -163,6 +159,13 @@ const _executeTransaction = async (transaction) => {
   }
 }
 
+const addToWantList = (hash) => {
+  worker.postMessage({
+    type: 'addToWantList',
+    hash
+  })
+}
+
 _.init = async (message) => {
   let { peerid, fromState, state, info } = message
   globalThis.peerid = peerid
@@ -180,6 +183,10 @@ _.init = async (message) => {
     lastBlock = message.lastBlock
     const setState = async (address, state) => {
       const contractBytes = await resolveContract(address)
+      if (contractBytes === address) {
+        addToWantList(address)
+        return
+      }
       const contract = await new ContractMessage(contractBytes)
 
       await _.runContract({ hash: address, decoded: contract.decoded, encoded: contract.encoded }, state)
@@ -249,30 +256,42 @@ _.init = async (message) => {
           latestTransactions.splice(-transactionCount, latestTransactions.length)
         }
         if (!block.loaded && !fromState) {
-          const transactions = await Promise.all(
-            block.transactions.map(async (transaction) =>
-              new TransactionMessage(await resolveTransaction(transaction)).decode()
+          try {
+            const transactions = await Promise.all(
+              block.transactions.map(async (transaction) => {
+                const message = new TransactionMessage(await resolveTransaction(transaction)).decode()
+                if (message === transaction) {
+                  throw new Error(`nothing found for ${transaction}`)
+                }
+              })
             )
-          )
-          const priority = transactions.filter((transaction) => transaction.priority)?.sort((a, b) => a.nonce - b.nonce)
-          if (priority.length > 0)
-            for (const transaction of priority) {
-              await _executeTransaction(transaction)
-            }
+            const priority = transactions
+              .filter((transaction) => transaction.priority)
+              ?.sort((a, b) => a.nonce - b.nonce)
+            if (priority.length > 0)
+              for (const transaction of priority) {
+                await _executeTransaction(transaction)
+              }
 
-          await Promise.all(
-            transactions
-              .filter((transaction) => !transaction.priority)
-              .map(async (transaction) => _executeTransaction(transaction))
-          )
+            await Promise.all(
+              transactions
+                .filter((transaction) => !transaction.priority)
+                .map(async (transaction) => _executeTransaction(transaction))
+            )
+            block.loaded = true
+            worker.postMessage({
+              type: 'debug',
+              message: `loaded transactions for block: ${block.hash} @${block.index}`
+            })
+          } catch (error) {
+            // just tell chain it's ready so we can get this node sync
+            // when a node connects this node will try to resolve the wantList
+            // this should result in the node beeing sync
+            if (error.message.includes('nothing found for')) worker.postMessage({ type: 'machine-ready', lastBlock })
+            else console.error(error)
+          }
         }
-        block.loaded = true
-        worker.postMessage({
-          type: 'debug',
-          message: `loaded transactions for block: ${block.hash} @${block.index}`
-        })
       }
-
       if (blocks.length > 0) {
         lastBlock = blocks[blocks.length - 1]
       }
@@ -281,8 +300,6 @@ _.init = async (message) => {
   }
 
   worker.postMessage({ type: 'machine-ready', lastBlock })
-
-  // worker.postMessage({blocks});
 }
 
 _.addLoadedBlock = (block) => {
@@ -306,6 +323,10 @@ const askFor = (question, input) =>
       id
     })
   })
+
+const resolveContract = (hash) => askFor('contract', hash)
+
+const resolveTransaction = (hash) => askFor('transaction', hash)
 
 const runTask = async (id, taskName, input) => {
   try {
