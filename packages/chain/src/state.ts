@@ -32,11 +32,13 @@ export default class State extends Contract {
   #loaded: boolean = false
   jobber: Jobber
 
+  _wantList = []
+
   /**
    * contains transactions we need before we can successfully load
    */
   get wantList(): string[] {
-    return this.#machine.wantList
+    return this.#machine.wantList ?? this._wantList
   }
 
   get state() {
@@ -279,6 +281,7 @@ export default class State extends Contract {
       if (this.#resolveErrorCount < 3) return this.resolveBlock(hash)
 
       this.#resolveErrorCount = 0
+      this.wantList.push(hash)
       throw new ResolveError(`block: ${hash}`, { cause: error })
     }
   }
