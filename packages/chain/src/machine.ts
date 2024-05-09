@@ -27,6 +27,8 @@ export default class Machine {
     }
   }
 
+  wantList: string[] = []
+
   constructor(blocks) {
     // @ts-ignore
     return this.#init(blocks)
@@ -87,8 +89,13 @@ export default class Machine {
       }
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
-          const input = await peernet.get(data.input)
-          this.worker.postMessage({ id: data.id, input })
+          try {
+            const input = await peernet.get(data.input)
+            this.worker.postMessage({ id: data.id, input })
+          } catch (error) {
+            console.error(error)
+            this.wantList.push(data.input)
+          }
         }
       }
     }
