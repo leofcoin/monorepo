@@ -32,6 +32,11 @@ export default class State extends Contract {
   #loaded: boolean = false
   jobber: Jobber
 
+  /**
+   * contains transactions we need before we can successfully load
+   */
+  wantList: string[]
+
   get state() {
     return {
       sync: this.#syncState,
@@ -520,38 +525,45 @@ export default class State extends Contract {
 
     for (const block of blocks) {
       if (block && !block.loaded) {
-        if (block.index === 0) this.#loaded = true
+        try {
+          let transactions = await this.#loadBlockTransactions([...block.transactions] || [])
+          const lastTransactions = await this.#getLastTransactions()
 
-        let transactions = await this.#loadBlockTransactions([...block.transactions] || [])
-        const lastTransactions = await this.#getLastTransactions()
-
-        let priority = []
-        for (const transaction of transactions) {
-          const hash = await transaction.hash()
-          if (lastTransactions.includes(hash)) {
-            console.log('removing invalid block')
-            await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-            blocks.splice(block.index - 1, 1)
-            return this.#loadBlocks(blocks)
+          let priority = []
+          for (const transaction of transactions) {
+            const hash = await transaction.hash()
+            if (lastTransactions.includes(hash)) {
+              console.log('removing invalid block')
+              await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
+              blocks.splice(block.index - 1, 1)
+              return this.#loadBlocks(blocks)
+            }
+            if (transaction.decoded.priority) priority.push(transaction)
+            if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
           }
-          if (transaction.decoded.priority) priority.push(transaction)
-          if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
-        }
 
-        // prority blocks execution from the rest so result in higher fees.
-        if (priority.length > 0) {
-          priority = priority.sort((a, b) => a.nonce - b.nonce)
-          for (const transaction of priority) {
-            await this.#_executeTransaction(transaction)
+          // prority blocks execution from the rest so result in higher fees.
+          if (priority.length > 0) {
+            priority = priority.sort((a, b) => a.nonce - b.nonce)
+            for (const transaction of priority) {
+              await this.#_executeTransaction(transaction)
+            }
+          }
+          transactions = transactions.filter((transaction) => !transaction.decoded.priority)
+          await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
+          this.#blocks[block.index].loaded = true
+
+          if (block.index === 0) this.#loaded = true
+          await this.#machine.addLoadedBlock(block)
+          // @ts-ignore
+          debug(`loaded block: ${block.hash} @${block.index}`)
+          globalThis.pubsub.publish('block-loaded', { ...block })
+        } catch (error) {
+          console.error(error)
+          for (const transaction of block.transactions) {
+            this.wantList.push(transaction)
           }
         }
-        transactions = transactions.filter((transaction) => !transaction.decoded.priority)
-        await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
-        this.#blocks[block.index].loaded = true
-        await this.#machine.addLoadedBlock(block)
-        // @ts-ignore
-        debug(`loaded block: ${block.hash} @${block.index}`)
-        globalThis.pubsub.publish('block-loaded', { ...block })
       }
     }
     this.#chainState = 'loaded'

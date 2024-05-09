@@ -230,6 +230,15 @@ export default class Chain extends VersionControl {
       } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
     }
 
+    if (this.wantList.length > 0) {
+      const promises = await Promise.allSettled(this.wantList.map((hash) => peernet.get(hash)))
+      for (let i = 0; i < promises.length; i++) {
+        const result = promises[i]
+        if (result.status === 'fulfilled') this.wantList.splice(i, 1)
+      }
+      // todo trigger load instead?
+      if (this.wantList.length === 0) await this.triggerSync()
+    }
     setTimeout(async () => {
       const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
       if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
