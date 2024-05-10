@@ -38,7 +38,7 @@ export default class State extends Contract {
    * contains transactions we need before we can successfully load
    */
   get wantList(): string[] {
-    return this.#machine.wantList ?? this._wantList
+    return this.#machine?.wantList ?? this._wantList
   }
 
   get state() {
