@@ -394,10 +394,12 @@ export default class Chain extends VersionControl {
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
       const result = await this.#executeTransaction({ ...transaction.decoded, hash })
+      if (block) {
+        block.transactions.push(hash)
 
-      block.transactions.push(hash)
+        block.fees = block.fees.add(await calculateFee(transaction.decoded))
+      }
 
-      block.fees = block.fees.add(await calculateFee(transaction.decoded))
       await globalThis.accountsStore.put(
         transaction.decoded.from,
         new TextEncoder().encode(String(transaction.decoded.nonce))
