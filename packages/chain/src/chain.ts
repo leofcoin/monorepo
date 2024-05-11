@@ -280,13 +280,8 @@ export default class Chain extends VersionControl {
       blockMessage.decoded.transactions
         // @ts-ignore
         .map(async (hash) => {
-          let data
-          if (!(await transactionStore.has(hash))) {
-            data = await peernet.get(hash, 'transaction')
-            transactionStore.put(hash, data)
-          } else {
-            data = transactionStore.get(hash)
-          }
+          const data = await peernet.get(hash, 'transaction')
+          // transactionStore.put(hash, data)
           ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
           return new TransactionMessage(data)
         })
@@ -407,6 +402,7 @@ export default class Chain extends VersionControl {
         transaction.decoded.from,
         new TextEncoder().encode(String(transaction.decoded.nonce))
       )
+      await transactionStore.put(hash, await transaction.encode())
     } catch (e) {
       console.log('vvvvvv')
 
