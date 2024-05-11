@@ -210,6 +210,7 @@ export default class State extends Contract {
       const hash = await message.hash()
       await globalThis.chainStore.put('lastBlock', hash)
       globalThis.pubsub.publish('lastBlock', message.encoded)
+      if (!this.#machine) this.#machine = await new Machine(this.#blocks)
       await this.#machine.updateState()
     } catch (error) {
       console.error(error)
@@ -245,6 +246,16 @@ export default class State extends Contract {
     }
     try {
       const block = await this.getAndPutBlock(hash)
+      await Promise.all(
+        block.decoded.transactions.map(async (hash) => {
+          // should be in a transaction store already
+          if (!(await transactionStore.has(hash))) {
+            const data = await peernet.get(hash, 'transaction')
+            await transactionStore.put(hash, data)
+          }
+          ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
+        })
+      )
       index = block.decoded.index
       const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
       this.#totalSize += size
@@ -532,17 +543,17 @@ export default class State extends Contract {
       if (block && !block.loaded) {
         try {
           let transactions = await this.#loadBlockTransactions([...block.transactions] || [])
-          const lastTransactions = await this.#getLastTransactions()
+          // const lastTransactions = await this.#getLastTransactions()
 
           let priority = []
           for (const transaction of transactions) {
             const hash = await transaction.hash()
-            if (lastTransactions.includes(hash)) {
-              console.log('removing invalid block')
-              await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-              blocks.splice(block.index - 1, 1)
-              return this.#loadBlocks(blocks)
-            }
+            // if (lastTransactions.includes(hash)) {
+            //   console.log('removing invalid block')
+            //   await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
+            //   blocks.splice(block.index - 1, 1)
+            //   return this.#loadBlocks(blocks)
+            // }
             if (transaction.decoded.priority) priority.push(transaction)
             if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
           }

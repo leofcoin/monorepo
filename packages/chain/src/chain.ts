@@ -276,7 +276,7 @@ export default class Chain extends VersionControl {
 
     const hash = await blockMessage.hash()
 
-    const transactionsMessages = await Promise.all(
+    const transactions = await Promise.all(
       blockMessage.decoded.transactions
         // @ts-ignore
         .map(async (hash) => {
@@ -288,7 +288,7 @@ export default class Chain extends VersionControl {
             data = transactionStore.get(hash)
           }
           ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
-          return new TransactionMessage(data).decode()
+          return new TransactionMessage(data)
         })
     )
 
@@ -297,24 +297,47 @@ export default class Chain extends VersionControl {
     debug(`added block: ${hash}`)
     let promises = []
     let contracts = []
-    for (let transaction of transactionsMessages) {
-      // await transactionStore.put(transaction.hash, transaction.encoded)
-      if (!contracts.includes(transaction.to)) {
-        contracts.push(transaction.to)
+
+    const normalTransactions = []
+    const priorityransactions = []
+
+    for (const transaction of transactions) {
+      if (!contracts.includes(transaction.decoded.to)) {
+        contracts.push(transaction.decoded.to)
       }
-      // Todo: go trough all accounts
-      //@ts-ignore
-      promises.push(this.#executeTransaction(transaction))
+      if (transaction.decoded.priority) priorityransactions.push(transaction)
+      else normalTransactions.push(transaction)
     }
+
+    for (const transaction of priorityransactions.sort((a, b) => a.decoded.nonce - b.decoded.nonce)) {
+      await this.#handleTransaction(transaction, [], block)
+    }
+
+    await Promise.all(
+      normalTransactions.map((transaction: TransactionMessage) => this.#handleTransaction(transaction, [], block))
+    )
+
+    // for (let transaction of transactionsMessages) {
+    //   // await transactionStore.put(transaction.hash, transaction.encoded)
+    //   if (!contracts.includes(transaction.to)) {
+    //     contracts.push(transaction.to)
+    //   }
+    //   // Todo: go trough all accounts
+    //   //@ts-ignore
+    //   promises.push(this.#executeTransaction(transaction))
+    // }
     try {
       promises = await Promise.allSettled(promises)
       const noncesByAddress = {}
-      for (let transaction of transactionsMessages) {
+      for (let transaction of transactions) {
         globalThis.pubsub.publish('transaction-processed', transaction)
-        if (transaction.to === globalThis.peernet.selectedAccount)
+        if (transaction.decoded.to === globalThis.peernet.selectedAccount)
           globalThis.pubsub.publish('account-transaction-processed', transaction)
-        if (!noncesByAddress[transaction.from] || noncesByAddress?.[transaction.from] < transaction.nonce) {
-          noncesByAddress[transaction.from] = transaction.nonce
+        if (
+          !noncesByAddress[transaction.decoded.from] ||
+          noncesByAddress?.[transaction.decoded.from] < transaction.decoded.nonce
+        ) {
+          noncesByAddress[transaction.decoded.from] = transaction.decoded.nonce
         }
       }
       await Promise.all(
