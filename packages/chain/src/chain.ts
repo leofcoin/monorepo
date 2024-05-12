@@ -305,11 +305,11 @@ export default class Chain extends VersionControl {
     }
 
     for (const transaction of priorityransactions.sort((a, b) => a.decoded.nonce - b.decoded.nonce)) {
-      await this.#handleTransaction(transaction, [], block)
+      await this.#handleTransaction(transaction, [])
     }
 
     await Promise.all(
-      normalTransactions.map((transaction: TransactionMessage) => this.#handleTransaction(transaction, [], block))
+      normalTransactions.map((transaction: TransactionMessage) => this.#handleTransaction(transaction, []))
     )
 
     // for (let transaction of transactionsMessages) {
@@ -376,7 +376,7 @@ export default class Chain extends VersionControl {
     if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
   }
 
-  async #handleTransaction(transaction, latestTransactions, block) {
+  async #handleTransaction(transaction, latestTransactions, block?) {
     const hash = await transaction.hash()
 
     const doubleTransactions = []
