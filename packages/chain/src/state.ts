@@ -471,7 +471,7 @@ export default class State extends Contract {
         })
         let node = await globalThis.peernet.prepareMessage(data)
 
-        let message = await peer.request(node)
+        let message = await peer.request(node.encode())
         message = await new globalThis.peernet.protos['peernet-response'](message)
         this.knownBlocks = message.decoded.response
       }
