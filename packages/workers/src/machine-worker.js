@@ -263,6 +263,7 @@ _.init = async (message) => {
                 if (message === transaction) {
                   throw new Error(`nothing found for ${transaction}`)
                 }
+                return message
               })
             )
             const priority = transactions
