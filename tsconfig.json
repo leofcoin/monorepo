@@ -13,6 +13,6 @@
     "useDefineForClassFields": false,
     "types": ["node"]
   },
-  "include": ["./packages/**/src/**/*.ts"],
+  "include": ["./packages/**/src/**/*.ts", "./rage"],
   "exclude": ["node_modules"]
 }
