@@ -23,7 +23,7 @@
   "dependencies": {
     "@leofcoin/addresses": "^1.0.23",
     "@leofcoin/lib": "^1.2.43",
-    "@leofcoin/messages": "^1.4.13",
+    "@leofcoin/messages": "^1.4.15",
     "@leofcoin/storage": "^3.5.28",
     "@leofcoin/utils": "^1.1.18",
     "@vandeurenglenn/easy-worker": "^1.0.2"

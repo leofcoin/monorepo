@@ -16,8 +16,10 @@
     "build": "node builder",
     "build-all": "node builder --all --log",
     "clean": "node scripts/clean.js",
+    "patch": "npm run build && npx changeset publish && git push --all",
     "release": "npm run build && npx changeset publish && git push --all",
     "npm-check-updates": "npm run npm-check-updates --workspaces --if-present",
+    "ncu": "npm run npm-check-updates",
     "check-dependencies": "npm run check-dependencies --ignore-path='.gitignore' --workspaces --if-present"
   },
   "repository": {
@@ -32,14 +34,14 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
-    "@changesets/cli": "^2.27.1",
-    "@vandeurenglenn/doc-it": "^1.0.10"
+    "@changesets/cli": "^2.27.7",
+    "@vandeurenglenn/doc-it": "^1.0.11"
   },
   "workspaces": [
     "./packages/*"
   ],
   "devDependencies": {
-    "@types/node": "^20.12.7",
+    "@types/node": "^20.14.10",
     "listr": "^0.14.3",
     "ora": "^8.0.1"
   }

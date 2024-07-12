@@ -371,7 +371,11 @@ export default class Chain extends VersionControl {
       }
 
       const transaction = await signTransaction(rawTransaction, globalThis.peernet.identity)
-      await this.sendTransaction(transaction)
+      try {
+        await this.sendTransaction(transaction)
+      } catch (error) {
+        console.error(error)
+      }
     }
     if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
   }

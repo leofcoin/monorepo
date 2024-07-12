@@ -1,6 +1,7 @@
 import { signTransaction } from '@leofcoin/lib'
 import { TransactionMessage } from '@leofcoin/messages'
 import networks from '@leofcoin/networks'
+import addresses from '@leofcoin/addresses'
 globalThis.createDebugger = (ta) => {
   return (t) => {
     console.log(`${ta}: ${t}`)
@@ -101,9 +102,19 @@ console.log({ balances })
 // return
 let promises = []
 nonce = await chain.getNonce(peernet.selectedAccount)
-console.log(nonce)
+// nonce += 1
+// const rawTransaction = await chain.createTransaction({
+//   from: peernet.selectedAccount,
+//   to: 'IHNY2GQHPOPCY6WOYJZWMNWQ5TJRQPKCHEENFHU73YGHQL5AD3SEG4WPRHR',
+//   method: 'addValidator',
+//   params: ['YTqwsrwDeouUikxeAKhftqDxsEqoyMcGw6pEtMvvWZbPEyvRt2a9Y'],
+//   nonce,
+//   timestamp: Date.now()
+// })
 
-for (let i = 0; i < 100; i++) {
+// const transaction = await signTransaction(rawTransaction, peernet.identity)
+// await chain.sendTransaction(transaction)
+for (let i = 0; i < 1; i++) {
   // contract , method, from, to, amount, (optional) nonce
   nonce += 1
   const rawTransaction = await chain.createTransaction({
@@ -113,8 +124,8 @@ for (let i = 0; i < 100; i++) {
     nonce,
     params: [
       peernet.selectedAccount,
-      'YTqyqxj6LuXTuCpAsKPCzXVudTxAvCJHqYYefjbWRAzgwzwE8gaZx',
-      chain.utils.parseUnits('10').toString()
+      'YTqyPbB8pN2oCkWz75vJJ4Fi7vUvxN64bwnLrnHKwaad382qytPqZ',
+      chain.utils.parseUnits('1000000000000').toString()
     ]
   })
   const transaction = await signTransaction(rawTransaction, peernet.identity)
@@ -125,7 +136,9 @@ promises = await Promise.allSettled(promises.map((transaction) => chain.sendTran
 
 promises = await Promise.allSettled(promises.map(({ value }) => value.wait))
 console.timeEnd('transactions handled')
-
+setTimeout(() => {
+  console.log({ balances })
+}, 1000)
 // balances = await chain.balances
 // console.log(`balance for ${Object.keys(balances)[0]}:${chain.utils.formatUnits(balances[Object.keys(balances)[0]]).toString()}`);
 // console.log(`balance for ${Object.keys(balances)[1]}:${chain.utils.formatUnits(balances[Object.keys(balances)[1]]).toString()}`);

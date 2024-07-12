@@ -116,7 +116,11 @@ const createMessage = (sender = globalThis.peerid, contract) => {
   return {
     contract,
     sender,
-    call: _.execute,
+    call: (params) => {
+      // make sure sender is set to the actual caller (iow contracts need approval to access tokens ...)
+      globalThis.msg = createMessage(contract, params.contract)
+      return _.execute(params)
+    },
     staticCall: get
   }
 }
