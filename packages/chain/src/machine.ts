@@ -139,7 +139,13 @@ export default class Machine {
             state[contract] = value
           })
         )
-        const accounts = await Promise.all((await accountsStore.keys()).map((address) => accountsStore.get(address)))
+
+        let accounts
+        try {
+          accounts = await Promise.all((await accountsStore.keys()).map((address) => accountsStore.get(address)))
+        } catch (error) {
+          accounts = []
+        }
 
         const tasks = [
           stateStore.put('lastBlock', JSON.stringify(await this.lastBlock)),
