@@ -140,11 +140,28 @@ export default class Machine {
           })
         )
 
-        let accounts
+        let accounts = {}
         try {
-          accounts = await Promise.all((await accountsStore.keys()).map((address) => accountsStore.get(address)))
+          const promises = []
+          for (const address of await accountsStore.keys()) {
+            promises.push(async () => {
+              accounts[address] = await accountsStore.get(address)
+            })
+          }
+          await Promise.all(promises)
         } catch (error) {
-          accounts = []
+          const promises = []
+          // no accounts found local, try to reconstruct from transactions
+          for (const transaction of transactions.reverse()) {
+            const { from, to, amount, nonce } = transaction.decoded.data
+            if (!accounts[from]) {
+              accounts[from] = nonce
+              promises.push(async () => {
+                await accountsStore.put(from, nonce)
+              })
+            }
+          }
+          await Promise.all(promises)
         }
 
         const tasks = [
@@ -154,14 +171,14 @@ export default class Machine {
           stateStore.put(
             'info',
             JSON.stringify({
-              nativeCalls: this.nativeCalls,
-              nativeMints: this.nativeMints,
-              nativeBurns: this.nativeBurns,
-              nativeTransfers: this.nativeTransfers,
-              totalTransactions: this.totalTransactions,
-              totalBurnAmount: this.totalBurnAmount,
-              totalMintAmount: this.totalMintAmount,
-              totalTransferAmount: this.totalTransferAmount,
+              nativeCalls: await this.nativeCalls,
+              nativeMints: await this.nativeMints,
+              nativeBurns: await this.nativeBurns,
+              nativeTransfers: await this.nativeTransfers,
+              totalTransactions: await this.totalTransactions,
+              totalBurnAmount: await this.totalBurnAmount,
+              totalMintAmount: await this.totalMintAmount,
+              totalTransferAmount: await this.totalTransferAmount,
               totalBlocks: await blockStore.length
             })
           )
