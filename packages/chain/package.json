@@ -56,26 +56,26 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/semver": "^7.5.8",
     "@vandeurenglenn/debug": "^1.2.5",
-    "rollup": "^4.18.1",
+    "rollup": "^4.21.0",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.8.1",
     "tslib": "^2.6.3"
   },
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.23",
-    "@leofcoin/contracts": "^0.1.11",
+    "@leofcoin/addresses": "^1.0.24",
+    "@leofcoin/contracts": "^0.1.12",
     "@leofcoin/crypto": "^0.2.12",
     "@leofcoin/errors": "^1.0.7",
-    "@leofcoin/lib": "^1.2.43",
+    "@leofcoin/lib": "^1.2.44",
     "@leofcoin/messages": "^1.4.15",
     "@leofcoin/multi-wallet": "^3.1.8",
     "@leofcoin/networks": "^1.1.6",
-    "@leofcoin/peernet": "^1.1.78",
-    "@leofcoin/storage": "^3.5.28",
+    "@leofcoin/peernet": "^1.1.79",
+    "@leofcoin/storage": "^3.5.30",
     "@leofcoin/utils": "^1.1.18",
     "@leofcoin/workers": "^1.5.2",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
-    "semver": "^7.6.2"
+    "semver": "^7.6.3"
   }
 }
