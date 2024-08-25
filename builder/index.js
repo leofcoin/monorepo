@@ -10,7 +10,7 @@ const availableCpuCores = os.cpus().length
 
 const orderedList = ['messages', 'addresses', 'lib']
 const root = 'packages'
-
+const start = Date.now()
 const build = async (root, project) =>
   new Promise((resolve) => {
     try {
@@ -154,6 +154,10 @@ const tasks = new Listr([
 // await sortProjects()
 // await buildPriority()
 // await buildNonPriority()
-tasks.run().catch((err) => {
-  console.error(err)
-})
+
+try {
+  await tasks.run()
+  console.log(`done building in ${(Date.now() - start) / 1000}s`)
+} catch (error) {
+  console.error(error)
+}
