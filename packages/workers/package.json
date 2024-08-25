@@ -5,17 +5,24 @@
   "type": "module",
   "private": false,
   "exports": {
-    ".": "./src/workers.js",
-    "./machine-worker": "./src/machine-worker.js",
-    "./block-worker": "./src/block-worker.js",
+    "./machine-worker": {
+      "import": "./exports/machine-worker.js",
+      "types": "./exports/machine-worker.d.ts"
+    },
+    "./block-worker": "./exports/block-worker.js",
     "./transaction-worker": "./src/transaction-worker.js",
     "./pool-worker": "./src/pool-worker.js"
   },
+  "files": [
+    "exports",
+    "src/**/*.js"
+  ],
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
     "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck"
+    "check-dependencies": "npx depcheck",
+    "build": "rollup -c --silent error --cache true"
   },
   "keywords": [],
   "author": "",
