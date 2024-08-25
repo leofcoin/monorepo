@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.7.29",
+  "version": "1.7.30",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -37,7 +37,7 @@
     "demo": "jsproject --serve ./ --port 5478 --open demo",
     "test": "node --inspect test",
     "pack": "webpack",
-    "build": "rollup -c",
+    "build": "rollup -c --silent error",
     "npm-check-updates": "npx npm-check-updates -i",
     "check-dependencies": "npx depcheck"
   },
