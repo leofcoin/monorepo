@@ -4,10 +4,10 @@ import nodeResolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import modify from 'rollup-plugin-modify'
 
-import {readdir, unlink} from 'fs/promises'
-import {join} from 'path'
+import { readdir, unlink } from 'fs/promises'
+import { join } from 'path'
 
-const dir = await readdir('./exports', {recursive: true})
+const dir = await readdir('./exports', { recursive: true })
 const promises = []
 
 for (const path of dir) {
@@ -70,7 +70,7 @@ export default [
     ]
   },
   {
-    input: ['./../workers/src/machine-worker.js', './../workers/src/block-worker.js'],
+    input: ['./../workers/exports/browser/machine-worker.js', './../workers/exports/browser/block-worker.js'],
     output: {
       dir: './exports/browser/workers',
       format: 'es'
@@ -87,7 +87,7 @@ export default [
     ]
   },
   {
-    input: ['./../workers/src/machine-worker.js', './../workers/src/block-worker.js'],
+    input: ['./../workers/exports/machine-worker.js', './../workers/exports/block-worker.js'],
     output: {
       dir: './exports/workers',
       format: 'es'
