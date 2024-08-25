@@ -18,12 +18,15 @@ export default class Machine {
     },
     accounts: {},
     info: {
-      nativeCalls: 0,
-      nativeMints: 0,
-      nativeBurns: 0,
-      nativeTransfers: 0,
-      totalTransactions: 0,
-      totalBlocks: 0
+      nativeCalls: BigNumber.from(0),
+      nativeMints: BigNumber.from(0),
+      nativeBurns: BigNumber.from(0),
+      nativeTransfers: BigNumber.from(0),
+      totalBurnAmount: BigNumber.from(0),
+      totalMintAmount: BigNumber.from(0),
+      totalTransferAmount: BigNumber.from(0),
+      totalTransactions: BigNumber.from(0),
+      totalBlocks: BigNumber.from(0)
     }
   }
 
@@ -108,7 +111,10 @@ export default class Machine {
 
   async updateState() {
     try {
-      if ((await this.lastBlock).index > this.states.lastBlock.index) {
+      if (
+        (await this.lastBlock).index > this.states.lastBlock.index ||
+        ((await this.lastBlock).hash !== this.states.lastBlock.hash && (await this.lastBlock).index === 0)
+      ) {
         // todo only get state for changed contracts
         const blocks = (await this.blocks).slice(this.states.lastBlock.index)
         let transactions = []
@@ -223,21 +229,27 @@ export default class Machine {
         this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
         try {
           this.states.accounts = JSON.parse(new TextDecoder().decode(await stateStore.get('accounts')))
-          this.states.info = JSON.parse(new TextDecoder().decode(await stateStore.get('info')))
-        } catch {
+          const info = JSON.parse(new TextDecoder().decode(await stateStore.get('info')))
+          for (const key in info) {
+            info[key] = BigNumber.from(info[key])
+          }
+          this.states.info = info
+        } catch (error) {
+          console.error(error)
           this.states.accounts = {}
           // todo try fetching info from fully synced peer
           this.states.info = {
-            nativeCalls: 0,
-            nativeMints: 0,
-            nativeBurns: 0,
-            nativeTransfers: 0,
-            totalTransactions: 0,
-            totalBlocks: 0
+            nativeCalls: BigNumber.from(0),
+            nativeMints: BigNumber.from(0),
+            nativeBurns: BigNumber.from(0),
+            nativeTransfers: BigNumber.from(0),
+            totalBurnAmount: BigNumber.from(0),
+            totalMintAmount: BigNumber.from(0),
+            totalTransferAmount: BigNumber.from(0),
+            totalTransactions: BigNumber.from(0),
+            totalBlocks: BigNumber.from(0)
           }
         }
-
-        console.log({ balances: this.states.states[addresses.nativeToken].balances })
       }
       const message = {
         type: 'init',
@@ -320,6 +332,7 @@ export default class Machine {
         type: 'execute',
         id,
         input: {
+          to: contract,
           contract,
           method,
           params: parameters
