@@ -415,8 +415,24 @@ export default class Machine {
     return this.#askWorker('nativeTransfers')
   }
 
+  get totalBurnAmount() {
+    return this.#askWorker('totalBurnAmount')
+  }
+
+  get totalMintAmount() {
+    return this.#askWorker('totalMintAmount')
+  }
+
+  get totalTransferAmount() {
+    return this.#askWorker('totalTransferAmount')
+  }
+
   get totalTransactions() {
     return this.#askWorker('totalTransactions')
+  }
+
+  get totalBlocks() {
+    return this.#askWorker('totalBlocks')
   }
 
   get blocks() {
@@ -425,20 +441,6 @@ export default class Machine {
 
   get lastBlock() {
     return this.#askWorker('lastBlock')
-  }
-
-  get totalBlocks() {
-    return this.#askWorker('totalBlocks')
-  }
-
-  get totalBurnAmount() {
-    return this.#askWorker('totalBurnAmount')
-  }
-  get totalMintAmount() {
-    return this.#askWorker('totalMintAmount')
-  }
-  get totalTransferAmount() {
-    return this.#askWorker('totalTransferAmount')
   }
 
   getBlocks(from?, to?): Promise<[]> {

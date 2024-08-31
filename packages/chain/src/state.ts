@@ -60,6 +60,10 @@ export default class State extends Contract {
     return this.#resolving
   }
 
+  get nativeCalls() {
+    return this.#machine.nativeCalls
+  }
+
   get nativeMints() {
     return this.#machine.nativeMints
   }
@@ -72,12 +76,24 @@ export default class State extends Contract {
     return this.#machine.nativeTransfers
   }
 
+  get totalBurnAmouint() {
+    return this.#machine.totalBurnAmount
+  }
+
+  get totalMintAmount() {
+    return this.#machine.totalMintAmount
+  }
+
+  get totalTransferAmount() {
+    return this.#machine.totalTransferAmount
+  }
+
   get totalTransactions() {
     return this.#machine.totalTransactions
   }
 
-  get nativeCalls() {
-    return this.#machine.nativeCalls
+  get totalBlocks() {
+    return this.#machine.totalBlocks
   }
 
   get blocks() {
