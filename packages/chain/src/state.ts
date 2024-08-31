@@ -112,6 +112,10 @@ export default class State extends Contract {
     return this.#machine ? this.#machine.lastBlock : { index: 0, hash: '0x0', previousHash: '0x0' }
   }
 
+  get lastBlockHeight() {
+    return this.#machine ? this.#machine.lastBlockHeight : 0
+  }
+
   getBlock(index) {
     return this.#machine.getBlock(index)
   }

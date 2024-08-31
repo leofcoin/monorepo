@@ -451,6 +451,10 @@ export default class Machine {
     return this.#askWorker('lastBlock')
   }
 
+  get lastBlockHeight() {
+    return this.#askWorker('lastBlockHeight')
+  }
+
   getBlocks(from?, to?): Promise<[]> {
     return this.#askWorker('blocks', { from, to })
   }

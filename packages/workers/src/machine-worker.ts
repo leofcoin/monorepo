@@ -411,6 +411,9 @@ worker.onmessage(({ id, type, input }) => {
     case 'lastBlock':
       respond(id, lastBlock)
       break
+    case 'lastBlockHeight':
+      respond(id, lastBlock.index)
+      break
     case 'latestTransactions':
       respond(id, latestTransactions)
       break
