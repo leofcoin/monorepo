@@ -399,6 +399,14 @@ export default class Machine {
     })
   }
 
+  get contracts() {
+    return this.#askWorker('contracts')
+  }
+
+  get totalContracts() {
+    return this.#askWorker('totalContracts')
+  }
+
   get nativeCalls() {
     return this.#askWorker('nativeCalls')
   }

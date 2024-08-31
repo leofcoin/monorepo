@@ -60,6 +60,14 @@ export default class State extends Contract {
     return this.#resolving
   }
 
+  get contracts() {
+    return this.#machine.contracts
+  }
+
+  get totalContracts() {
+    return this.#machine.totalContracts
+  }
+
   get nativeCalls() {
     return this.#machine.nativeCalls
   }

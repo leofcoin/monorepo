@@ -27,6 +27,7 @@ let totalTransactions: BigNumber
 let totalBurnAmount: BigNumber
 let totalMintAmount: BigNumber
 let totalTransferAmount: BigNumber
+let totalBlocks: BigNumber
 
 let blocks = []
 let contracts = {}
@@ -217,6 +218,7 @@ const _ = {
     totalBurnAmount = BigNumber.from(info?.totalBurnAmount ?? 0)
     totalMintAmount = BigNumber.from(info?.totalMintAmount ?? 0)
     totalTransferAmount = BigNumber.from(info?.totalTransferAmount ?? 0)
+    totalBlocks = BigNumber.from(info?.totalBlocks ?? 0)
 
     if (fromState) {
       lastBlock = message.lastBlock
@@ -344,6 +346,7 @@ const _ = {
   addLoadedBlock: (block) => {
     blocks[block.index - 1] = block
     lastBlock = blocks[blocks.length - 1]
+    totalBlocks = totalBlocks.add(1)
     return true
   },
   loadBlock: (block) => {
@@ -375,6 +378,9 @@ worker.onmessage(({ id, type, input }) => {
     case 'contracts':
       respond(id, contracts)
       break
+    case 'totalContracts':
+      respond(id, Object.keys(contracts).length)
+      break
     case 'nativeMints':
       respond(id, nativeMints)
       break
@@ -394,7 +400,7 @@ worker.onmessage(({ id, type, input }) => {
       respond(id, totalTransferAmount)
       break
     case 'totalBlocks':
-      respond(id, blocks.length)
+      respond(id, totalBlocks)
       break
     case 'blocks':
       respond(id, input ? blocks.slice(input.from, input.to) : blocks)
