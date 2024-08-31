@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.7.34",
+  "version": "1.7.35",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -55,7 +55,7 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/semver": "^7.5.8",
     "@vandeurenglenn/debug": "^1.2.5",
-    "rollup": "^4.21.1",
+    "rollup": "^4.21.2",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.8.1",
     "tslib": "^2.7.0"
@@ -70,7 +70,7 @@
     "@leofcoin/multi-wallet": "^3.1.8",
     "@leofcoin/networks": "^1.1.6",
     "@leofcoin/peernet": "^1.1.79",
-    "@leofcoin/storage": "^3.5.30",
+    "@leofcoin/storage": "^3.5.31",
     "@leofcoin/utils": "^1.1.18",
     "@leofcoin/workers": "^1.5.3",
     "@vandeurenglenn/base58": "^1.1.9",
