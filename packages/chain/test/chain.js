@@ -2,6 +2,7 @@ import { signTransaction } from '@leofcoin/lib'
 import { TransactionMessage } from '@leofcoin/messages'
 import networks from '@leofcoin/networks'
 import addresses from '@leofcoin/addresses'
+
 globalThis.createDebugger = (ta) => {
   return (t) => {
     console.log(`${ta}: ${t}`)
@@ -61,6 +62,8 @@ try {
 
 console.log(await chain.balances)
 console.log(Object.keys(await chain.balances))
+console.log(peernet.selectedAccount)
+
 if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
   let transactions = [
     {
@@ -124,8 +127,8 @@ for (let i = 0; i < 1; i++) {
     nonce,
     params: [
       peernet.selectedAccount,
-      'YTqyPbB8pN2oCkWz75vJJ4Fi7vUvxN64bwnLrnHKwaad382qytPqZ',
-      chain.utils.parseUnits('1000000000000').toString()
+      'YTqxts7awrjHjYwNNnLugbDp2BMqAhCXGnGvhJYMPL6iBCWJAcbaj',
+      chain.utils.parseUnits('1').toString()
     ]
   })
   const transaction = await signTransaction(rawTransaction, peernet.identity)

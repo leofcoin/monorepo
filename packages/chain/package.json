@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.7.31",
+  "version": "1.7.34",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -38,8 +38,7 @@
     "test": "node --inspect test",
     "pack": "webpack",
     "build": "rollup -c --silent error",
-    "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck"
+    "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "np": {
     "yarn": false,
@@ -56,10 +55,10 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/semver": "^7.5.8",
     "@vandeurenglenn/debug": "^1.2.5",
-    "rollup": "^4.21.0",
+    "rollup": "^4.21.1",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.8.1",
-    "tslib": "^2.6.3"
+    "tslib": "^2.7.0"
   },
   "dependencies": {
     "@leofcoin/addresses": "^1.0.24",
@@ -73,7 +72,7 @@
     "@leofcoin/peernet": "^1.1.79",
     "@leofcoin/storage": "^3.5.30",
     "@leofcoin/utils": "^1.1.18",
-    "@leofcoin/workers": "^1.5.2",
+    "@leofcoin/workers": "^1.5.3",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
     "semver": "^7.6.3"

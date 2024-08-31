@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
   "private": false,
@@ -20,18 +20,17 @@
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck",
+    "npm-check-updates": "npx npm-check-updates -u --install always",
     "build": "rollup -c --silent error --cache true"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.23",
-    "@leofcoin/lib": "^1.2.43",
+    "@leofcoin/addresses": "^1.0.24",
+    "@leofcoin/lib": "^1.2.44",
     "@leofcoin/messages": "^1.4.15",
-    "@leofcoin/storage": "^3.5.28",
+    "@leofcoin/storage": "^3.5.30",
     "@leofcoin/utils": "^1.1.18",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }

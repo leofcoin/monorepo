@@ -6,8 +6,7 @@
   "private": false,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck"
+    "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "exports": {
     ".": {

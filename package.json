@@ -41,8 +41,8 @@
     "./packages/*"
   ],
   "devDependencies": {
-    "@types/node": "^20.14.10",
+    "@types/node": "^22.5.1",
     "listr": "^0.14.3",
-    "ora": "^8.0.1"
+    "ora": "^8.1.0"
   }
 }

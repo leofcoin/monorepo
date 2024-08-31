@@ -49,8 +49,7 @@
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "node test",
     "build": "rollup -c",
-    "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck"
+    "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "keywords": [],
   "author": "",
@@ -58,9 +57,9 @@
   "devDependencies": {
     "@leofcoin/types": "^1.0.6",
     "@rollup/plugin-typescript": "^11.1.6",
-    "rollup": "^4.18.1",
-    "tslib": "^2.6.3",
-    "typescript": "^5.5.3"
+    "rollup": "^4.21.1",
+    "tslib": "^2.7.0",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.7.11",

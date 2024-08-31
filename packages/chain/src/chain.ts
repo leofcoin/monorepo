@@ -137,6 +137,9 @@ export default class Chain extends VersionControl {
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('stateInfo', () => {
+      return new globalThis.peernet.protos['peernet-response']({ response: this.machine.states.info })
+    })
 
     globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
 
@@ -225,9 +228,10 @@ export default class Chain extends VersionControl {
     if (Object.keys(lastBlock).length > 0) {
       if (!this.lastBlock || higherThenCurrentLocal) {
         this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
-
+        const stateInfo = await this.#makeRequest(peer, 'stateInfo')
         await this.syncChain(lastBlock)
-      } else if (!this.knownBlocks) this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
+        this.machine.states.info = stateInfo
+      }
     }
 
     if (this.wantList.length > 0) {

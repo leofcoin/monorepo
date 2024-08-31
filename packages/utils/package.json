@@ -22,8 +22,7 @@
     "build": "rollup -c --silent error",
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "npm-check-updates": "npx npm-check-updates -i",
-    "check-dependencies": "npx depcheck"
+    "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +32,6 @@
     "@ethersproject/units": "^5.7.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.4"
   }
 }
