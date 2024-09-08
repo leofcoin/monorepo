@@ -72,7 +72,7 @@
     "@leofcoin/peernet": "^1.1.79",
     "@leofcoin/storage": "^3.5.31",
     "@leofcoin/utils": "^1.1.18",
-    "@leofcoin/workers": "^1.5.4",
+    "@leofcoin/workers": "^1.5.6",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
     "semver": "^7.6.3"
