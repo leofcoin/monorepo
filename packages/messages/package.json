@@ -57,9 +57,9 @@
   "devDependencies": {
     "@leofcoin/types": "^1.0.6",
     "@rollup/plugin-typescript": "^11.1.6",
-    "rollup": "^4.21.2",
+    "rollup": "^4.21.3",
     "tslib": "^2.7.0",
-    "typescript": "^5.5.4"
+    "typescript": "^5.6.2"
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.7.11",

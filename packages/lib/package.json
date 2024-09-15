@@ -41,8 +41,8 @@
   "dependencies": {
     "@leofcoin/addresses": "^1.0.24",
     "@leofcoin/messages": "^1.4.15",
-    "@leofcoin/peernet": "^1.1.79",
-    "@leofcoin/storage": "^3.5.31",
+    "@leofcoin/peernet": "^1.1.80",
+    "@leofcoin/storage": "^3.5.32",
     "@leofcoin/utils": "^1.1.18",
     "@vandeurenglenn/base32": "^1.2.4",
     "@vandeurenglenn/base58": "^1.1.9",
@@ -51,7 +51,7 @@
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-typescript": "^11.1.6",
-    "rollup": "^4.21.2",
+    "rollup": "^4.21.3",
     "tslib": "^2.7.0"
   }
 }
