@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.13",
+  "version": "1.0.18",
   "description": "bip39 mnemonic",
   "private": false,
   "exports": {
