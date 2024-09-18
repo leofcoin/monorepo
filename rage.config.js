@@ -3,5 +3,6 @@ export default {
   root: 'packages',
   src: 'src',
   exports: 'exports',
-  dependencies: 'package.lock.json'
+  dependencies: 'package.lock.json',
+  monorepo: true
 }
