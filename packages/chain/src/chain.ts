@@ -160,8 +160,8 @@ export default class Chain extends VersionControl {
   async #invalidTransaction(hash) {
     hash = new TextDecoder().decode(hash)
 
+    console.log(`removing invalid transaction: ${hash}`)
     await globalThis.transactionPoolStore.delete(hash)
-    console.log(`removed invalid transaction: ${hash}`)
   }
 
   async #validatorTimeout(validatorInfo) {

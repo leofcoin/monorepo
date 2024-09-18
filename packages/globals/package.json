@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/globals",
-  "version": "1.0.9",
+  "version": "1.0.13",
   "description": "",
   "main": "src/globals.js",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/addresses",
-  "version": "1.0.36",
+  "version": "1.0.40",
   "description": "",
   "exports": {
     ".": {

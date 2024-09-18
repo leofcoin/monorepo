@@ -117,7 +117,7 @@ nonce = await chain.getNonce(peernet.selectedAccount)
 
 // const transaction = await signTransaction(rawTransaction, peernet.identity)
 // await chain.sendTransaction(transaction)
-for (let i = 0; i < 1; i++) {
+for (let i = 0; i < 5; i++) {
   // contract , method, from, to, amount, (optional) nonce
   nonce += 1
   const rawTransaction = await chain.createTransaction({
@@ -128,7 +128,7 @@ for (let i = 0; i < 1; i++) {
     params: [
       peernet.selectedAccount,
       'YTqxts7awrjHjYwNNnLugbDp2BMqAhCXGnGvhJYMPL6iBCWJAcbaj',
-      chain.utils.parseUnits('1').toString()
+      chain.utils.parseUnits('100000').toString()
     ]
   })
   const transaction = await signTransaction(rawTransaction, peernet.identity)

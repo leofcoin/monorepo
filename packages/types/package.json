@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/types",
-  "version": "1.0.10",
+  "version": "1.0.14",
   "description": "",
   "type": "module",
   "private": false,
@@ -11,6 +11,9 @@
   "exports": {
     ".": {
       "types": "./index.d.ts"
+    },
+    "./globals": {
+      "types": "./globals.d.ts"
     }
   },
   "author": "",
