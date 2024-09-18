@@ -13,8 +13,8 @@
     "serve:docs": "jsproject --serve ./docs --port 1111",
     "test": "npm run test --workspaces --if-present",
     "prettier": "npm run prettier --workspaces --if-present",
-    "build": "node builder",
-    "build-all": "node builder --all --log",
+    "build": "rage --build",
+    "build-all": "rage --build --all --log",
     "clean": "node scripts/clean.js",
     "patch": "npm run build && npx changeset publish && git push --all",
     "release": "npm run build && npx changeset publish && git push --all",
@@ -42,6 +42,7 @@
   ],
   "devDependencies": {
     "@types/node": "^22.5.5",
+    "@vandeurenglenn/rage": "^1.0.1",
     "listr": "^0.14.3",
     "ora": "^8.1.0"
   }
