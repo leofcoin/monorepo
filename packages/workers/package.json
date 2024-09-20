@@ -27,11 +27,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.24",
-    "@leofcoin/lib": "^1.2.44",
-    "@leofcoin/messages": "^1.4.15",
+    "@leofcoin/addresses": "^1.0.38",
+    "@leofcoin/lib": "^1.2.63",
+    "@leofcoin/messages": "^1.4.33",
     "@leofcoin/storage": "^3.5.32",
-    "@leofcoin/utils": "^1.1.18",
+    "@leofcoin/utils": "^1.1.30",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }
