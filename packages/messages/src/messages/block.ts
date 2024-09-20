@@ -4,7 +4,6 @@ import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
 import smartConcat from '@vandeurenglenn/typed-array-smart-concat'
 import smartDeconcat from '@vandeurenglenn/typed-array-smart-deconcat'
-import { BigNumber } from '@leofcoin/utils'
 import { messageInput } from '../types.js'
 
 export default class BlockMessage extends FormatInterface {
@@ -13,8 +12,8 @@ export default class BlockMessage extends FormatInterface {
     index: Number
     previousHash: String
     timestamp: String
-    reward: BigNumber
-    fees: BigNumber
+    reward: bigint
+    fees: bigint
     transactions: TransactionMessage['decoded'][]
     validators: ValidatorMessage['decoded'][]
   }

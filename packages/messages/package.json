@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.4.33",
+  "version": "1.4.36",
   "description": "",
   "private": false,
   "exports": {
@@ -62,7 +62,7 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
-    "@leofcoin/codec-format-interface": "^1.7.11",
+    "@leofcoin/codec-format-interface": "^1.7.12",
     "@leofcoin/utils": "^1.1.30",
     "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
     "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"

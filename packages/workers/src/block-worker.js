@@ -1,5 +1,4 @@
 import { BlockMessage } from '@leofcoin/messages'
-import { formatBytes, BigNumber } from '@leofcoin/utils'
 
 import EasyWorker from '@vandeurenglenn/easy-worker'
 

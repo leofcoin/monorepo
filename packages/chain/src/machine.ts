@@ -3,8 +3,6 @@ import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
-import { BigNumber, formatBytes } from '@leofcoin/utils'
-import { RawBlock } from './types.js'
 // import State from './state'
 const debug = globalThis.createDebugger('leofcoin/machine')
 export default class Machine {
@@ -18,15 +16,15 @@ export default class Machine {
     },
     accounts: {},
     info: {
-      nativeCalls: BigNumber.from(0),
-      nativeMints: BigNumber.from(0),
-      nativeBurns: BigNumber.from(0),
-      nativeTransfers: BigNumber.from(0),
-      totalBurnAmount: BigNumber.from(0),
-      totalMintAmount: BigNumber.from(0),
-      totalTransferAmount: BigNumber.from(0),
-      totalTransactions: BigNumber.from(0),
-      totalBlocks: BigNumber.from(0)
+      nativeCalls: BigInt(0),
+      nativeMints: BigInt(0),
+      nativeBurns: BigInt(0),
+      nativeTransfers: BigInt(0),
+      totalBurnAmount: BigInt(0),
+      totalMintAmount: BigInt(0),
+      totalTransferAmount: BigInt(0),
+      totalTransactions: BigInt(0),
+      totalBlocks: BigInt(0)
     }
   }
 
@@ -104,6 +102,10 @@ export default class Machine {
             this.worker.postMessage({ id: data.id, input: data.input })
             this.wantList.push(data.input)
           }
+        } else if (data.question === 'peers') {
+          this.worker.postMessage({ id: data.id, input: peernet.peers })
+        } else {
+          this.worker.postMessage({ id: data.id, input: data.input })
         }
       }
     }
@@ -231,7 +233,7 @@ export default class Machine {
           this.states.accounts = JSON.parse(new TextDecoder().decode(await stateStore.get('accounts')))
           const info = JSON.parse(new TextDecoder().decode(await stateStore.get('info')))
           for (const key in info) {
-            info[key] = BigNumber.from(info[key])
+            info[key] = BigInt(info[key])
           }
           this.states.info = info
         } catch (error) {
@@ -239,15 +241,15 @@ export default class Machine {
           this.states.accounts = {}
           // todo try fetching info from fully synced peer
           this.states.info = {
-            nativeCalls: BigNumber.from(0),
-            nativeMints: BigNumber.from(0),
-            nativeBurns: BigNumber.from(0),
-            nativeTransfers: BigNumber.from(0),
-            totalBurnAmount: BigNumber.from(0),
-            totalMintAmount: BigNumber.from(0),
-            totalTransferAmount: BigNumber.from(0),
-            totalTransactions: BigNumber.from(0),
-            totalBlocks: BigNumber.from(0)
+            nativeCalls: BigInt(0),
+            nativeMints: BigInt(0),
+            nativeBurns: BigInt(0),
+            nativeTransfers: BigInt(0),
+            totalBurnAmount: BigInt(0),
+            totalMintAmount: BigInt(0),
+            totalTransferAmount: BigInt(0),
+            totalTransactions: BigInt(0),
+            totalBlocks: BigInt(0)
           }
         }
       }

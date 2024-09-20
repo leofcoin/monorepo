@@ -1,5 +1,5 @@
 import '@vandeurenglenn/debug'
-import { BigNumber, formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
+import { formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses from '@leofcoin/addresses'
 import { signTransaction } from '@leofcoin/lib'
@@ -10,14 +10,9 @@ import {
   nameServiceMessage,
   calculateFee
 } from '@leofcoin/lib'
-import { BigNumberish } from '@ethersproject/bignumber'
-import State from './state.js'
 import { Address } from './types.js'
-import semver from 'semver'
 import { VersionControl } from './version-control.js'
 import Validators from '@leofcoin/contracts/validators'
-
-globalThis.BigNumber = BigNumber
 
 const debug = globalThis.createDebugger('leofcoin/chain')
 
@@ -119,7 +114,7 @@ export default class Chain extends VersionControl {
     const initialized = await globalThis.contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
 
-    this.utils = { BigNumber, formatUnits, parseUnits }
+    this.utils = { formatUnits, parseUnits }
 
     // this.#state = new State()
 
@@ -446,7 +441,7 @@ export default class Chain extends VersionControl {
     let block = {
       transactions: [],
       validators: [],
-      fees: BigNumber.from(0),
+      fees: BigInt(0),
       timestamp,
       previousHash: '',
       reward: parseUnits('150'),
@@ -645,15 +640,15 @@ export default class Chain extends VersionControl {
     return this.machine.get(contract, method, parameters)
   }
 
-  mint(to: Address, amount: BigNumberish) {
+  mint(to: Address, amount: bigint) {
     return this.call(addresses.nativeToken, 'mint', [to, amount])
   }
 
-  transfer(from: Address, to: Address, amount: BigNumberish) {
+  transfer(from: Address, to: Address, amount: bigint) {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
-  get balances(): Promise<{ [index: string]: BigNumberish }> {
+  get balances(): Promise<{ [index: string]: bigint }> {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
 

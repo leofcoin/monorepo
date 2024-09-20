@@ -10,7 +10,7 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "useDefineForClassFields": false,
-    "types": ["node"]
+    "types": ["node", "@leofcoin/types"]
   },
   "include": ["./src/**/*"],
   "exclude": ["node_modules"]

@@ -1,12 +1,10 @@
 import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import { formatBytes, BigNumber } from '@leofcoin/utils'
+import { formatBytes } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
-import bytecodes from '@leofcoin/lib/bytecodes' assert { type: 'json' }
+import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
-
-globalThis.BigNumber = BigNumber
 
 const pubsub = new LittlePubSub()
 const worker = new EasyWorker()
@@ -18,16 +16,16 @@ const validatorsMessage = bytecodes.validators
 
 const latestTransactions = []
 
-let nativeCalls: BigNumber
-let nativeBurns: BigNumber
-let nativeMints: BigNumber
-let nativeTransfers: BigNumber
-let totalTransactions: BigNumber
+let nativeCalls: bigint
+let nativeBurns: bigint
+let nativeMints: bigint
+let nativeTransfers: bigint
+let totalTransactions: bigint
 
-let totalBurnAmount: BigNumber
-let totalMintAmount: BigNumber
-let totalTransferAmount: BigNumber
-let totalBlocks: BigNumber
+let totalBurnAmount: bigint
+let totalMintAmount: bigint
+let totalTransferAmount: bigint
+let totalBlocks: bigint
 
 let blocks = []
 let contracts = {}
@@ -46,6 +44,11 @@ const createMessage = (sender = globalThis.peerid, contract) => {
     staticCall: get
   }
 }
+
+const createState = async () => ({
+  peers: await askFor('peers'),
+  lastBlock
+})
 
 const debug = (message) => {
   worker.postMessage({
@@ -81,7 +84,7 @@ const respond = (id, value) => {
   })
 }
 
-const askFor = (question, input) =>
+const askFor = (question, input?) =>
   new Promise((resolve) => {
     const id = globalThis.crypto.randomUUID()
     pubsub.subscribe(id, resolve)
@@ -118,6 +121,7 @@ const _executeTransaction = async (transaction) => {
     latestTransactions.push(hash)
     const { from, to, method, params, nonce } = transaction
     globalThis.msg = createMessage(from, to)
+    globalThis.state = await createState()
 
     await _.execute({ contract: to, method, params })
 
@@ -149,6 +153,7 @@ const _ = {
       if (state) params.push(state)
 
       globalThis.msg = createMessage(decoded.creator, hash)
+      globalThis.state = await createState()
       contracts[hash] = await new Contract(...params)
 
       debug(`loaded contract: ${hash} size: ${formatBytes(encoded.length)}`)
@@ -172,26 +177,26 @@ const _ = {
         result = await contracts[contract][method](...params)
       }
       if (contract === nativeToken) {
-        nativeCalls.add(1)
+        nativeCalls += 1n
         if (method === 'burn') {
-          nativeBurns = nativeBurns.add(1)
-          totalBurnAmount = totalBurnAmount.add(params[1])
+          nativeBurns = nativeBurns += 1n
+          totalBurnAmount = totalBurnAmount += params[1]
         }
         if (method === 'mint') {
-          nativeMints = nativeMints.add(1)
-          totalMintAmount = totalMintAmount.add(params[1])
+          nativeMints = nativeMints += 1n
+          totalMintAmount = totalMintAmount += params[1]
         }
         if (method === 'transfer') {
-          nativeTransfers = nativeTransfers.add(1)
-          totalTransferAmount = totalTransferAmount.add(params[2])
+          nativeTransfers = nativeTransfers += 1n
+          totalTransferAmount = totalTransferAmount += params[2]
         }
 
         if (method === 'transferFrom') {
-          nativeTransfers = nativeTransfers.add(1)
-          totalTransferAmount = totalTransferAmount.add(params[1])
+          nativeTransfers = nativeTransfers += 1n
+          totalTransferAmount = totalTransferAmount += params[1]
         }
       }
-      totalTransactions = totalTransactions.add(1)
+      totalTransactions = totalTransactions += 1n
       // state.put(result)
       return result
     } catch (e) {
@@ -210,15 +215,15 @@ const _ = {
     globalThis.peerid = peerid
     console.log({ fromState, info })
 
-    nativeCalls = BigNumber.from(info?.nativeCalls ?? 0)
-    nativeMints = BigNumber.from(info?.nativeMints ?? 0)
-    nativeBurns = BigNumber.from(info?.nativeBurns ?? 0)
-    nativeTransfers = BigNumber.from(info?.nativeTransfers ?? 0)
-    totalTransactions = BigNumber.from(info?.totalTransactions ?? 0)
-    totalBurnAmount = BigNumber.from(info?.totalBurnAmount ?? 0)
-    totalMintAmount = BigNumber.from(info?.totalMintAmount ?? 0)
-    totalTransferAmount = BigNumber.from(info?.totalTransferAmount ?? 0)
-    totalBlocks = BigNumber.from(info?.totalBlocks ?? 0)
+    nativeCalls = BigInt(info?.nativeCalls ?? 0)
+    nativeMints = BigInt(info?.nativeMints ?? 0)
+    nativeBurns = BigInt(info?.nativeBurns ?? 0)
+    nativeTransfers = BigInt(info?.nativeTransfers ?? 0)
+    totalTransactions = BigInt(info?.totalTransactions ?? 0)
+    totalBurnAmount = BigInt(info?.totalBurnAmount ?? 0)
+    totalMintAmount = BigInt(info?.totalMintAmount ?? 0)
+    totalTransferAmount = BigInt(info?.totalTransferAmount ?? 0)
+    totalBlocks = BigInt(info?.totalBlocks ?? 0)
 
     if (fromState) {
       lastBlock = message.lastBlock
@@ -346,7 +351,7 @@ const _ = {
   addLoadedBlock: (block) => {
     blocks[block.index - 1] = block
     lastBlock = blocks[blocks.length - 1]
-    totalBlocks = totalBlocks.add(1)
+    totalBlocks = totalBlocks += 1n
     return true
   },
   loadBlock: (block) => {

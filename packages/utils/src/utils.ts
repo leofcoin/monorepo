@@ -1,4 +1,4 @@
-export { BigNumber } from '@ethersproject/bignumber'
+export { toBigInt, getBigInt } from 'ethers'
 
 export { formatUnits, parseUnits } from '@ethersproject/units'
 

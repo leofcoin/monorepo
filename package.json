@@ -42,7 +42,7 @@
   ],
   "devDependencies": {
     "@types/node": "^22.5.5",
-    "@vandeurenglenn/rage": "^1.0.1",
+    "@vandeurenglenn/rage": "^1.0.2",
     "listr": "^0.14.3",
     "ora": "^8.1.0"
   }

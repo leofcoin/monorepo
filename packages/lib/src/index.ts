@@ -2,7 +2,7 @@ import bytecodes from './bytecodes.json'
 import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages'
 import { validators, contractFactory } from '@leofcoin/addresses'
 export { default as nodeConfig } from './node-config.js'
-import { BigNumber, formatUnits, parseUnits } from '@leofcoin/utils'
+import { formatUnits, parseUnits } from '@leofcoin/utils'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
 import '@vandeurenglenn/base58'
 
