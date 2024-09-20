@@ -1,5 +1,4 @@
-import { BigNumber } from '@ethersproject/bignumber'
-import LeofcoinBlock from './../messages/exports/messages/block.js'
+import LeofcoinBlock from '@leofcoin/messages/block'
 import Peer from '@netpeer/swarm/peer'
 
 declare interface Msg {
@@ -17,8 +16,6 @@ declare interface State {
 }
 
 declare global {
-  const BigNumber: BigNumber
-  type BigNumberish = string | number | bigint | BigNumber | ArrayLike<number>
   type address = string
   const msg: Msg
   const state: State
