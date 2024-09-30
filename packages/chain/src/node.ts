@@ -17,7 +17,7 @@ export default class Node {
       network: 'leofcoin:peach',
       networkName: 'leofcoin:peach',
       networkVersion: 'peach',
-      version: '1.2.1',
+      version: '0.1.0',
       stars: networks.leofcoin.peach.stars,
       autoStart: false
     },
