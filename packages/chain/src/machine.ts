@@ -3,6 +3,7 @@ import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
+import { jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 // import State from './state'
 const debug = globalThis.createDebugger('leofcoin/machine')
 export default class Machine {
@@ -11,7 +12,7 @@ export default class Machine {
   states = {
     states: {},
     lastBlock: {
-      index: 0,
+      index: -1,
       hash: ''
     },
     accounts: {},
@@ -103,7 +104,7 @@ export default class Machine {
             this.wantList.push(data.input)
           }
         } else if (data.question === 'peers') {
-          this.worker.postMessage({ id: data.id, input: peernet.peers })
+          this.worker.postMessage({ id: data.id, input: peernet.connections ? peernet.peers : [] })
         } else {
           this.worker.postMessage({ id: data.id, input: data.input })
         }
@@ -173,22 +174,25 @@ export default class Machine {
         }
 
         const tasks = [
-          stateStore.put('lastBlock', JSON.stringify(await this.lastBlock)),
-          stateStore.put('states', JSON.stringify(state)),
-          stateStore.put('accounts', JSON.stringify(accounts)),
+          stateStore.put('lastBlock', JSON.stringify(await this.lastBlock, jsonStringifyBigInt)),
+          stateStore.put('states', JSON.stringify(state, jsonStringifyBigInt)),
+          stateStore.put('accounts', JSON.stringify(accounts, jsonStringifyBigInt)),
           stateStore.put(
             'info',
-            JSON.stringify({
-              nativeCalls: await this.nativeCalls,
-              nativeMints: await this.nativeMints,
-              nativeBurns: await this.nativeBurns,
-              nativeTransfers: await this.nativeTransfers,
-              totalTransactions: await this.totalTransactions,
-              totalBurnAmount: await this.totalBurnAmount,
-              totalMintAmount: await this.totalMintAmount,
-              totalTransferAmount: await this.totalTransferAmount,
-              totalBlocks: await blockStore.length
-            })
+            JSON.stringify(
+              {
+                nativeCalls: await this.nativeCalls,
+                nativeMints: await this.nativeMints,
+                nativeBurns: await this.nativeBurns,
+                nativeTransfers: await this.nativeTransfers,
+                totalTransactions: await this.totalTransactions,
+                totalBurnAmount: await this.totalBurnAmount,
+                totalMintAmount: await this.totalMintAmount,
+                totalTransferAmount: await this.totalTransferAmount,
+                totalBlocks: await blockStore.length
+              },
+              jsonStringifyBigInt
+            )
           )
           // accountsStore.clear()
         ]
@@ -226,16 +230,25 @@ export default class Machine {
       })
       this.worker.onmessage(this.#onmessage.bind(this))
 
+      let rawLastBlock
+      let rawStates
+      let rawAccounts
+      let rawInfo
+
       if (await stateStore.has('lastBlock')) {
-        this.states.lastBlock = JSON.parse(new TextDecoder().decode(await stateStore.get('lastBlock')))
-        this.states.states = JSON.parse(new TextDecoder().decode(await stateStore.get('states')))
+        const decoder = new TextDecoder()
+        const decode = (param) => decoder.decode(param)
+        rawLastBlock = decode(await stateStore.get('lastBlock'))
+        this.states.lastBlock = JSON.parse(rawLastBlock, jsonParseBigInt)
+
         try {
-          this.states.accounts = JSON.parse(new TextDecoder().decode(await stateStore.get('accounts')))
-          const info = JSON.parse(new TextDecoder().decode(await stateStore.get('info')))
-          for (const key in info) {
-            info[key] = BigInt(info[key])
-          }
-          this.states.info = info
+          rawStates = decode(await stateStore.get('states'))
+          rawAccounts = decode(await stateStore.get('accounts'))
+          rawInfo = decode(await stateStore.get('info'))
+
+          this.states.states = JSON.parse(rawStates, jsonParseBigInt)
+          this.states.accounts = JSON.parse(rawAccounts, jsonParseBigInt)
+          this.states.info = JSON.parse(rawInfo, jsonParseBigInt)
         } catch (error) {
           console.error(error)
           this.states.accounts = {}
@@ -251,16 +264,20 @@ export default class Machine {
             totalTransactions: BigInt(0),
             totalBlocks: BigInt(0)
           }
+          rawInfo = JSON.stringify(this.states.info, jsonStringifyBigInt)
+
+          await stateStore.put('info', new TextEncoder().encode(rawInfo))
         }
       }
+
       const message = {
         type: 'init',
         input: {
           blocks,
-          fromState: this.states.lastBlock.index > 0,
-          lastBlock: this.states.lastBlock,
-          state: this.states.states,
-          info: this.states.info,
+          fromState: this.states.lastBlock?.index >= 0,
+          lastBlock: rawLastBlock,
+          state: rawStates,
+          info: rawInfo,
           // @ts-ignore
           peerid: peernet.peerId
         }

@@ -1,5 +1,5 @@
 import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import { formatBytes } from '@leofcoin/utils'
+import { formatBytes, jsonParseBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
@@ -180,23 +180,23 @@ const _ = {
         nativeCalls += 1n
         if (method === 'burn') {
           nativeBurns = nativeBurns += 1n
-          totalBurnAmount = totalBurnAmount += params[1]
+          totalBurnAmount += BigInt(params[1])
         }
         if (method === 'mint') {
           nativeMints = nativeMints += 1n
-          totalMintAmount = totalMintAmount += params[1]
+          totalMintAmount += BigInt(params[1])
         }
         if (method === 'transfer') {
           nativeTransfers = nativeTransfers += 1n
-          totalTransferAmount = totalTransferAmount += params[2]
+          totalTransferAmount += BigInt(params[2])
         }
 
-        if (method === 'transferFrom') {
-          nativeTransfers = nativeTransfers += 1n
-          totalTransferAmount = totalTransferAmount += params[1]
-        }
+        // if (method === 'transferFrom') {
+        //   nativeTransfers = nativeTransfers += 1n
+        //   totalTransferAmount += params[1]
+        // }
       }
-      totalTransactions = totalTransactions += 1n
+      totalTransactions += 1n
       // state.put(result)
       return result
     } catch (e) {
@@ -212,6 +212,9 @@ const _ = {
   },
   init: async (message) => {
     let { peerid, fromState, state, info } = message
+    if (info) info = JSON.parse(info, jsonParseBigInt)
+    if (state) state = JSON.parse(state, jsonParseBigInt)
+
     globalThis.peerid = peerid
     console.log({ fromState, info })
 
@@ -226,7 +229,10 @@ const _ = {
     totalBlocks = BigInt(info?.totalBlocks ?? 0)
 
     if (fromState) {
-      lastBlock = message.lastBlock
+      if (message.lastBlock) {
+        lastBlock = JSON.parse(message.lastBlock, jsonParseBigInt)
+      }
+
       const setState = async (address, state?) => {
         const contractBytes = await resolveContract(address)
         if (contractBytes === address) {
@@ -302,6 +308,7 @@ const _ = {
             latestTransactions.splice(-transactionCount, latestTransactions.length)
           }
           if (!block.loaded && !fromState) {
+            totalBlocks += 1n
             try {
               const transactions = await Promise.all(
                 block.transactions.map(async (transaction) => {
@@ -377,35 +384,8 @@ worker.onmessage(({ id, type, input }) => {
     case 'addLoadedBlock':
       runTask(id, 'addLoadedBlock', input)
       break
-    case 'nativeCalls':
-      respond(id, nativeCalls)
-      break
     case 'contracts':
       respond(id, contracts)
-      break
-    case 'totalContracts':
-      respond(id, Object.keys(contracts).length)
-      break
-    case 'nativeMints':
-      respond(id, nativeMints)
-      break
-    case 'nativeBurns':
-      respond(id, nativeBurns)
-      break
-    case 'nativeTransfers':
-      respond(id, nativeTransfers)
-      break
-    case 'totalBurnAmount':
-      respond(id, totalBurnAmount)
-      break
-    case 'totalMintAmount':
-      respond(id, totalMintAmount)
-      break
-    case 'totalTransferAmount':
-      respond(id, totalTransferAmount)
-      break
-    case 'totalBlocks':
-      respond(id, totalBlocks)
       break
     case 'blocks':
       respond(id, input ? blocks.slice(input.from, input.to) : blocks)
@@ -422,15 +402,43 @@ worker.onmessage(({ id, type, input }) => {
     case 'latestTransactions':
       respond(id, latestTransactions)
       break
-    case 'totalTransactions':
-      respond(id, totalTransactions)
-      break
     case 'has':
       respond(id, has(input.address))
       break
     case 'get':
       respond(id, get(input))
       break
+    case 'totalContracts':
+      respond(id, Object.keys(contracts).length)
+      break
+    case 'nativeCalls':
+      respond(id, nativeCalls.toString())
+      break
+    case 'nativeMints':
+      respond(id, nativeMints.toString())
+      break
+    case 'nativeBurns':
+      respond(id, nativeBurns.toString())
+      break
+    case 'nativeTransfers':
+      respond(id, nativeTransfers.toString())
+      break
+    case 'totalBurnAmount':
+      respond(id, totalBurnAmount.toString())
+      break
+    case 'totalMintAmount':
+      respond(id, totalMintAmount.toString())
+      break
+    case 'totalTransferAmount':
+      respond(id, totalTransferAmount.toString())
+      break
+    case 'totalBlocks':
+      respond(id, totalBlocks.toString())
+      break
+    case 'totalTransactions':
+      respond(id, totalTransactions.toString())
+      break
+
     default:
       console.log(`machine-worker: unsupported taskType: ${type}`)
       break

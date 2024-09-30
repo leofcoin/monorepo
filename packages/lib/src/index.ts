@@ -2,7 +2,7 @@ import bytecodes from './bytecodes.json'
 import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages'
 import { validators, contractFactory } from '@leofcoin/addresses'
 export { default as nodeConfig } from './node-config.js'
-import { formatUnits, parseUnits } from '@leofcoin/utils'
+import { formatUnits, parseUnits, toBigInt } from '@leofcoin/utils'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
 import '@vandeurenglenn/base58'
 
@@ -46,10 +46,10 @@ export const calculateFee = async (transaction, format = false) => {
   // excluded from fees
   if (transaction.to === validators) return 0
   transaction = await new TransactionMessage(transaction)
-  let fee = parseUnits(String(transaction.encoded.length))
+  let fee = toBigInt(String(transaction.encoded.length))
 
   // fee per gb
-  fee = fee.div(1073741824)
+  fee /= 1073741824n
   // fee = fee.div(1000000)
 
   return format ? formatUnits(fee.toString()) : fee

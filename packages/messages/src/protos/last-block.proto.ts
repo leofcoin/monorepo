@@ -1,4 +1,4 @@
 export default {
   hash: String(),
-  index: Number()
+  index: BigInt(0)
 }

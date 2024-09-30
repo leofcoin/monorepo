@@ -400,7 +400,7 @@ export default class Chain extends VersionControl {
       if (block) {
         block.transactions.push(hash)
 
-        block.fees = block.fees.add(await calculateFee(transaction.decoded))
+        block.fees = block.fees += await calculateFee(transaction.decoded)
       }
 
       await globalThis.accountsStore.put(
@@ -444,7 +444,7 @@ export default class Chain extends VersionControl {
       fees: BigInt(0),
       timestamp,
       previousHash: '',
-      reward: parseUnits('150'),
+      reward: BigInt(150),
       index: 0
     }
 
@@ -509,8 +509,8 @@ export default class Chain extends VersionControl {
 
     block.validators = block.validators.map((validator) => {
       validator.reward = block.fees
-      validator.reward = validator.reward.add(block.reward)
-      validator.reward = validator.reward.div(block.validators.length)
+      validator.reward += block.reward
+      validator.reward /= BigInt(block.validators.length)
       delete validator.bw
       return validator
     })

@@ -1,6 +1,6 @@
-export { toBigInt, getBigInt } from 'ethers'
+export { toBigInt, getBigInt, formatUnits, parseUnits } from 'ethers/utils'
 
-export { formatUnits, parseUnits } from '@ethersproject/units'
+export { jsonStringifyBigInt, jsonParseBigInt } from '@vandeurenglenn/proto-array/utils'
 
 export declare type ByteFormats = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
 

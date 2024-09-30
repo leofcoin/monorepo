@@ -1,7 +1,5 @@
-import { BigNumber } from '@leofcoin/utils'
-
 export default {
-  index: Number(),
+  index: BigInt(0),
   previousHash: String(),
   timestamp: Number(),
   reward: BigInt(0),
