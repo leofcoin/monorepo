@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/errors",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "",
   "type": "module",
   "private": false,
@@ -23,6 +23,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^11.1.6"
+    "@rollup/plugin-typescript": "^12.1.0"
   }
 }

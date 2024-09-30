@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "bip39 mnemonic",
   "private": false,
   "exports": {
@@ -18,12 +18,12 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^11.1.6",
-    "rollup": "^4.22.2",
+    "@rollup/plugin-typescript": "^12.1.0",
+    "rollup": "^4.22.5",
     "tape": "^5.9.0",
     "tslib": "^2.7.0"
   },
   "dependencies": {
-    "@leofcoin/crypto": "^0.2.24"
+    "@leofcoin/crypto": "^0.2.28"
   }
 }

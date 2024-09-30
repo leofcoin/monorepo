@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/wallet",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "",
   "main": "dist/wallet.js",
   "module": "src/wallet.js",
@@ -19,8 +19,8 @@
     "prompt": "^1.3.0"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-commonjs": "^28.0.0",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^15.2.3"
+    "@rollup/plugin-node-resolve": "^15.3.0"
   }
 }

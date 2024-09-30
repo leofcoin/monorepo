@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.5.18",
+  "version": "1.5.19",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
   "private": false,
@@ -27,11 +27,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.38",
-    "@leofcoin/lib": "^1.2.63",
-    "@leofcoin/messages": "^1.4.33",
+    "@leofcoin/addresses": "^1.0.44",
+    "@leofcoin/lib": "^1.2.67",
+    "@leofcoin/messages": "^1.4.37",
     "@leofcoin/storage": "^3.5.32",
-    "@leofcoin/utils": "^1.1.30",
+    "@leofcoin/utils": "^1.1.35",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }
