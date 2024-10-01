@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/networks",
-  "version": "1.1.23",
+  "version": "1.1.24",
   "description": "",
   "type": "module",
   "private": false,
@@ -23,6 +23,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "rollup": "^4.22.5"
+    "rollup": "^4.23.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.5.20",
+  "version": "1.5.21",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
   "private": false,
@@ -31,7 +31,7 @@
     "@leofcoin/lib": "^1.2.67",
     "@leofcoin/messages": "^1.4.37",
     "@leofcoin/storage": "^3.5.32",
-    "@leofcoin/utils": "^1.1.35",
+    "@leofcoin/utils": "^1.1.36",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }

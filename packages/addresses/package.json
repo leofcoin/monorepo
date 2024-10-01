@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/addresses",
-  "version": "1.0.51",
+  "version": "1.0.52",
   "description": "",
   "exports": {
     ".": {
@@ -27,6 +27,6 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
-    "rollup": "^4.22.5"
+    "rollup": "^4.23.0"
   }
 }
