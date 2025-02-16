@@ -2,7 +2,7 @@
 import Peernet from '@leofcoin/peernet/browser'
 import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
-import { DEFAULT_NODE_OPTIONS } from './constants.js'
+import { DEFAULT_NODE_OPTIONS, NodeOptions } from './constants.js'
 
 export default class Node {
   #node
@@ -11,15 +11,7 @@ export default class Node {
     return this._init(config, password)
   }
 
-  async _init(
-    config = {
-      network: 'leofcoin:peach',
-      networkVersion: 'peach',
-      version: '0.1.0',
-      stars: networks.leofcoin.peach.stars
-    },
-    password: string
-  ): Promise<this> {
+  async _init(config: NodeOptions = {}, password: string): Promise<this> {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)

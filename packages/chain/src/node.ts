@@ -14,11 +14,6 @@ export default class Node {
 
   async _init(
     config = {
-      network: 'leofcoin:peach',
-      networkName: 'leofcoin:peach',
-      networkVersion: 'peach',
-      version: '0.1.0',
-      stars: networks.leofcoin.peach.stars,
       autoStart: false
     },
     password
