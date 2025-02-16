@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/crypto",
-  "version": "0.2.36",
+  "version": "0.2.37",
   "description": "a simple nodejs/web crypto api",
   "private": false,
   "exports": {

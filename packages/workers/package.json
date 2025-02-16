@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.5.21",
+  "version": "1.5.22",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
   "private": false,

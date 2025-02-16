@@ -1,7 +1,6 @@
 import semver from 'semver'
 import Contract from './contract.js'
 import State from './state.js'
-import { warn } from 'console'
 
 export class VersionControl extends State {
   constructor(config) {
@@ -38,9 +37,9 @@ export class VersionControl extends State {
       // check if we are above v1.0.0 and if we still not reached v1.0.0
       // if so, clear all data
       // once v1.0.0 is reached this will not run and we can remove this check once every node is above v1.0.0
-      warn('the reachedZeroZero flag is set to false, this will clear all data on every start if above v1.0.0')
+      console.warn('the reachedZeroZero flag is set to false, this will clear all data on every start if above v1.0.0')
       if (semver.compare(this.version, '1.0.0') === 1 && !this.#reachedOneZeroZero) {
-        warn('clearing all data because we are below v1.0.0')
+        console.warn('clearing all data because we are below v1.0.0')
         await this.clearAll()
       }
 
