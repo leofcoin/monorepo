@@ -7,14 +7,16 @@ import modify from 'rollup-plugin-modify'
 import { readdir, unlink } from 'fs/promises'
 import { join } from 'path'
 
-const dir = await readdir('./exports', { recursive: true })
-const promises = []
+try {
+  const dir = await readdir('./exports', { recursive: true })
+  const promises = []
 
-for (const path of dir) {
-  promises.push(unlink(join('./exports', path)))
-}
+  for (const path of dir) {
+    promises.push(unlink(join('./exports', path)))
+  }
 
-await Promise.allSettled(promises)
+  await Promise.allSettled(promises)
+} catch (error) {}
 
 export default [
   {
