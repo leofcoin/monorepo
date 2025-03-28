@@ -25,7 +25,7 @@ const node = await new Node.default(
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
-    version: '1.2.1',
+    version: '0.1.0',
     stars: networks.leofcoin.peach.stars,
     autoStart: false,
     password
@@ -54,10 +54,20 @@ const fiveSecondDelay = () =>
 let hasTransactionsInPool
 
 try {
-  hasTransactionsInPool = (await transactionPoolStore.length) > 0
+  hasTransactionsInPool = (await transactionPoolStore.length()) > 0
 } catch (error) {
   hasTransactionsInPool = false
 }
+
+console.log({
+  hasTransactionsInPool
+})
+
+console.log({ nonce })
+
+console.log(Object.keys(await chain.balances).length === 0)
+
+console.log(await chain.balances)
 
 if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
   let transactions = [
@@ -86,6 +96,7 @@ if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
     transactions = await Promise.all(transactions.map((tx) => tx.wait))
     await fiveSecondDelay()
   } catch (e) {
+    console.warn(e)
     throw e
   }
 }
