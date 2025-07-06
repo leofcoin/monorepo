@@ -22,21 +22,35 @@ export default async (
     networkVersion: 'v1.0.0'
   }
 ) => {
-  await peernet.addProto('contract-message', ContractMessage)
-  await peernet.addProto('transaction-message', TransactionMessage)
-  await peernet.addProto('block-message', BlockMessage)
-  await peernet.addProto('bw-message', BWMessage)
-  await peernet.addProto('bw-request-message', BWRequestMessage)
-  await peernet.addProto('validator-message', ValidatorMessage)
-  await peernet.addProto('state-message', StateMessage)
+  const protos = [
+    { name: 'transaction-message', handler: TransactionMessage },
+    { name: 'contract-message', handler: ContractMessage },
+    { name: 'block-message', handler: BlockMessage },
+    { name: 'bw-message', handler: BWMessage },
+    { name: 'bw-request-message', handler: BWRequestMessage },
+    { name: 'validator-message', handler: ValidatorMessage },
+    { name: 'state-message', handler: StateMessage }
+  ]
+
+  for (const proto of protos) {
+    peernet.addProto(proto.name, proto.handler)
+  }
 
   let name = `.${config.network}`
   const parts = config.network.split(':')
   if (parts[1]) name = `.${parts[0]}/${parts[1]}`
-  await peernet.addStore('contract', 'lfc', name, false)
-  await peernet.addStore('accounts', 'lfc', name, false)
-  await peernet.addStore('transactionPool', 'lfc', name, false)
-  await peernet.addStore('state', 'lfc', name, false)
-  // private stores
-  await peernet.addStore('wallet', 'lfc', name, true)
+  const stores = ['transactionPool', 'state', 'accounts', 'contract', { name: 'wallet', private: true }]
+
+  for (const store of stores) {
+    if (typeof store === 'string') {
+      await peernet.addStore(store, 'lfc', name, false)
+    } else {
+      await peernet.addStore(store.name, 'lfc', name, store.private)
+    }
+  }
+
+  return {
+    stores,
+    protos
+  }
 }
