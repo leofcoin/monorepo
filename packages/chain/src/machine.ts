@@ -100,7 +100,7 @@ export default class Machine {
           } catch (error) {
             console.error(error)
 
-            this.worker.postMessage({ id: data.id, input: data.input })
+            this.worker.postMessage({ id: data.id, error: `could not get ${data.question} @${data.input}` })
             this.wantList.push(data.input)
           }
         } else if (data.question === 'peers') {
