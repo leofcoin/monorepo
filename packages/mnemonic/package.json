@@ -18,12 +18,12 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^12.1.0",
-    "rollup": "^4.23.0",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "rollup": "^4.44.2",
     "tape": "^5.9.0",
-    "tslib": "^2.7.0"
+    "tslib": "^2.8.1"
   },
   "dependencies": {
-    "@leofcoin/crypto": "^0.2.28"
+    "@leofcoin/crypto": "^0.2.37"
   }
 }

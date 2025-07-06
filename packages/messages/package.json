@@ -55,15 +55,15 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@leofcoin/types": "^1.0.21",
-    "@rollup/plugin-typescript": "^12.1.0",
-    "rollup": "^4.23.0",
-    "tslib": "^2.7.0",
-    "typescript": "^5.6.2"
+    "@leofcoin/types": "^1.0.22",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "rollup": "^4.44.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.7.13",
-    "@leofcoin/utils": "^1.1.36",
+    "@leofcoin/utils": "^1.1.39",
     "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
     "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"
   }
