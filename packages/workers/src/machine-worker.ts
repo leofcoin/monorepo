@@ -1,5 +1,5 @@
 import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
-import { formatBytes, jsonParseBigInt } from '@leofcoin/utils'
+import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
 import EasyWorker from '@vandeurenglenn/easy-worker'
@@ -205,7 +205,7 @@ const _ = {
         `error: ${e.message}
         contract: ${contract}
         method: ${method}
-        params: ${JSON.stringify(params, null, '\t')}
+        params: ${JSON.stringify(params, jsonStringifyBigInt, '\t')}
         `
       )
     }
@@ -269,8 +269,8 @@ const _ = {
     } else {
       await Promise.all(
         [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage].map(async (contract) => {
-          contract = await new ContractMessage(new Uint8Array(contract.split(',')))
-          return _.runContract({ decoded: contract.decoded, encoded: contract.encoded, hash: await contract.hash() })
+          const message: ContractMessage = await new ContractMessage(new Uint8Array(contract.split(',')))
+          return _.runContract({ decoded: message.decoded, encoded: message.encoded, hash: await message.hash() })
         })
       )
       console.log({ blocks: message.blocks })
