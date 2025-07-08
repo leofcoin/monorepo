@@ -104,7 +104,10 @@ export default class Machine {
             this.wantList.push(data.input)
           }
         } else if (data.question === 'peers') {
-          this.worker.postMessage({ id: data.id, input: peernet.connections ? peernet.peers : [] })
+          this.worker.postMessage({
+            id: data.id,
+            input: peernet.connections ? Object.entries(peernet.connections).map(([id, peer]) => peer.toJSON()) : []
+          })
         } else {
           this.worker.postMessage({ id: data.id, input: data.input })
         }
