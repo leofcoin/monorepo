@@ -154,7 +154,10 @@ export default class Chain extends VersionControl {
 
   async #invalidTransaction(hash) {
     hash = new TextDecoder().decode(hash)
-
+    if (!(await globalThis.transactionPoolStore.has(hash))) {
+      debug(`transaction ${hash} not in pool`)
+      return
+    }
     console.log(`removing invalid transaction: ${hash}`)
     await globalThis.transactionPoolStore.delete(hash)
   }
@@ -324,9 +327,9 @@ export default class Chain extends VersionControl {
       promises = await Promise.allSettled(promises)
       const noncesByAddress = {}
       for (let transaction of transactions) {
-        globalThis.pubsub.publish('transaction-processed', transaction)
+        globalThis.pubsub.publish('transaction-processed', transaction.encoded)
         if (transaction.decoded.to === globalThis.peernet.selectedAccount)
-          globalThis.pubsub.publish('account-transaction-processed', transaction)
+          globalThis.pubsub.publish('account-transaction-processed', transaction.encoded)
         if (
           !noncesByAddress[transaction.decoded.from] ||
           noncesByAddress?.[transaction.decoded.from] < transaction.decoded.nonce
@@ -415,13 +418,7 @@ export default class Chain extends VersionControl {
       console.log(hash)
       peernet.publish('invalid-transaction', hash)
 
-      console.log(await globalThis.transactionPoolStore.keys())
-
-      console.log(await globalThis.transactionPoolStore.has(e.hash))
-
       await globalThis.transactionPoolStore.delete(e.hash)
-
-      console.log(await globalThis.transactionPoolStore.has(e.hash))
     }
   }
 
