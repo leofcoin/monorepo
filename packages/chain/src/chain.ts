@@ -1,7 +1,7 @@
 import '@vandeurenglenn/debug'
 import { formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
-import addresses from '@leofcoin/addresses'
+import addresses, { contractFactory, nameService, nativeToken, validators } from '@leofcoin/addresses'
 import { signTransaction } from '@leofcoin/lib'
 import {
   contractFactoryMessage,
@@ -13,6 +13,7 @@ import {
 import { Address } from './types.js'
 import { VersionControl } from './version-control.js'
 import Validators from '@leofcoin/contracts/validators'
+import ConnectionMonitor from './connection-monitor.js'
 
 const debug = globalThis.createDebugger('leofcoin/chain')
 
@@ -32,6 +33,12 @@ export default class Chain extends VersionControl {
   #participants = []
   #participating = false
   #jail = []
+
+  #peerConnectionRetries = new Map()
+  #maxPeerRetries = 5
+  #peerRetryDelay = 5000
+
+  #connectionMonitor: ConnectionMonitor
 
   constructor(config) {
     super(config)
@@ -111,6 +118,8 @@ export default class Chain extends VersionControl {
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
+    this.#connectionMonitor = new ConnectionMonitor(this.version)
+
     const initialized = await globalThis.contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
 
@@ -121,8 +130,12 @@ export default class Chain extends VersionControl {
     // todo some functions rely on state
     await super.init()
 
+    // Start connection monitoring
+    this.#connectionMonitor.start()
+
     await globalThis.peernet.addRequestHandler('bw-request-message', () => {
-      return new BWMessage(globalThis.peernet.client.bw) || { up: 0, down: 0 }
+      const bw = (globalThis.peernet.client as any)?.bw || { up: 0, down: 0 }
+      return new BWMessage(bw)
     })
 
     // await globalThis.peernet.addRequestHandler('peerId', () => {
@@ -233,7 +246,7 @@ export default class Chain extends VersionControl {
     }
 
     if (this.wantList.length > 0) {
-      const promises = await Promise.allSettled(this.wantList.map((hash) => peernet.get(hash)))
+      const promises = await Promise.allSettled(this.wantList.map((hash) => peernet.get(hash, 'block')))
       for (let i = 0; i < promises.length; i++) {
         const result = promises[i]
         if (result.status === 'fulfilled') this.wantList.splice(i, 1)
@@ -614,7 +627,7 @@ export default class Chain extends VersionControl {
    * @returns
    */
   internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage(sender, contract)
+    // globalThis.msg = this.#createMessage(sender, contract) // Debug line removed
 
     return this.machine.execute(contract, method, parameters)
   }
@@ -627,13 +640,13 @@ export default class Chain extends VersionControl {
    * @returns
    */
   call(contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage(peernet.selectedAccount, contract)
+    // globalThis.msg = this.#createMessage(peernet.selectedAccount, contract) // Debug line removed
 
     return this.machine.execute(contract, method, parameters)
   }
 
   staticCall(contract: Address, method: string, parameters?: any[]) {
-    globalThis.msg = this.#createMessage(peernet.selectedAccount, contract)
+    // globalThis.msg = this.#createMessage(peernet.selectedAccount, contract) // Debug line removed
     return this.machine.get(contract, method, parameters)
   }
 
@@ -668,5 +681,28 @@ export default class Chain extends VersionControl {
    */
   lookup(name): Promise<{ owner; address }> {
     return this.call(addresses.nameService, 'lookup', [name])
+  }
+
+  #monitorPeerConnections() {
+    setInterval(() => {
+      const connectedPeers = Object.values(globalThis.peernet.connections).filter((peer) => peer.connected)
+      debug(`Connected peers: ${connectedPeers.length}`)
+
+      if (connectedPeers.length === 0) {
+        debug('No peers connected, attempting to reconnect...')
+        this.#attemptPeerReconnection()
+      }
+    }, 10000) // Check every 10 seconds
+  }
+
+  async #attemptPeerReconnection() {
+    try {
+      // Try to reconnect to star servers
+      if (globalThis.peernet && globalThis.peernet.start) {
+        await globalThis.peernet.start()
+      }
+    } catch (error) {
+      console.warn('Failed to reconnect to peers:', error.message)
+    }
   }
 }

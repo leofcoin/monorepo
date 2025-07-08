@@ -1,11 +1,11 @@
 import BlockMessage from './exports/block.js'
 import { ContractMessage } from './exports/index.js'
-import { BigNumber } from '@leofcoin/utils'
+// import { BigNumber } from '@leofcoin/utils' // BigNumber not available, using BigInt instead
 
 const validators = [
   {
     address: 'address',
-    reward: new BigNumber.from(0).toString()
+    reward: BigInt(0).toString()
   }
 ]
 
@@ -26,8 +26,8 @@ const block = {
   index: 0,
   previousHash: 'hash',
   timestamp: new Date().getTime(),
-  reward: new BigNumber.from('0').toString(),
-  fees: new BigNumber.from('0').toString(),
+  reward: BigInt('0').toString(),
+  fees: BigInt('0').toString(),
   transactions,
   validators
 }

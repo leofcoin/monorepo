@@ -646,6 +646,17 @@ export default class State extends Contract {
 
   get shouldSync() {
     if (this.#chainSyncing) return false
+
+    // Check if we have any connected peers with the same version
+    const compatiblePeers = Object.values(globalThis.peernet.connections || {}).filter(
+      (peer) => peer.connected && peer.version === this.version
+    )
+
+    if (compatiblePeers.length === 0) {
+      debug('No compatible peers available for sync')
+      return false
+    }
+
     if (
       !this.#chainSyncing ||
       this.#resolveErrored ||
@@ -656,6 +667,32 @@ export default class State extends Contract {
       return true
 
     return false
+  }
+
+  async #waitForPeers(timeoutMs = 30000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const checkPeers = () => {
+        const peers = Object.values(globalThis.peernet.connections || {}).filter(
+          (peer) => peer.connected && peer.version === this.version
+        )
+
+        if (peers.length > 0) {
+          resolve(true)
+        }
+      }
+
+      // Check immediately
+      checkPeers()
+
+      // Set up interval to check periodically
+      const interval = setInterval(checkPeers, 1000)
+
+      // Set timeout
+      setTimeout(() => {
+        clearInterval(interval)
+        resolve(false)
+      }, timeoutMs)
+    })
   }
 
   async triggerSync() {
