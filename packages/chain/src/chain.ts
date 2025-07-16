@@ -118,7 +118,7 @@ export default class Chain extends VersionControl {
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
-    this.#connectionMonitor = new ConnectionMonitor(this.version)
+    this.#connectionMonitor = new ConnectionMonitor()
 
     const initialized = await globalThis.contractStore.has(addresses.contractFactory)
     if (!initialized) await this.#setup()
@@ -131,7 +131,7 @@ export default class Chain extends VersionControl {
     await super.init()
 
     // Start connection monitoring
-    this.#connectionMonitor.start()
+    this.#connectionMonitor.start(this.version)
 
     await globalThis.peernet.addRequestHandler('bw-request-message', () => {
       const bw = (globalThis.peernet.client as any)?.bw || { up: 0, down: 0 }

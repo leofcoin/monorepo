@@ -1,3 +1,5 @@
+import Peer from '@netpeer/swarm/peer'
+
 /**
  * Connection Monitor - Monitors peer connections and handles reconnection logic
  */
@@ -5,9 +7,11 @@ export default class ConnectionMonitor {
   #isMonitoring: boolean = false
   #checkInterval: NodeJS.Timeout | null = null
   #reconnectAttempts: number = 0
+  #peerReconnectAttempts: { [peerId: string]: number } = {}
   #maxReconnectAttempts: number = 10
   #reconnectDelay: number = 5000
   #healthCheckInterval: number = 10000
+  #version: string
 
   get isMonitoring() {
     return this.#isMonitoring
@@ -18,12 +22,17 @@ export default class ConnectionMonitor {
   }
 
   get compatiblePeers() {
-    return this.connectedPeers.filter((peer) => peer.version === this.version)
+    return this.connectedPeers.filter((peer) => peer.version === this.#version)
   }
 
-  constructor(private version: string) {}
+  get disconnectedPeers() {
+    return Object.values(globalThis.peernet?.connections || {}).filter((peer) => !peer.connected)
+  }
 
-  start() {
+  start(version) {
+    this.#version = version
+    console.log(`🔗 Connection Monitor initialized for version: ${this.#version}`)
+
     if (this.#isMonitoring) return
 
     this.#isMonitoring = true
@@ -59,10 +68,23 @@ export default class ConnectionMonitor {
       await this.#attemptReconnection()
     } else if (compatiblePeers.length === 0) {
       console.warn('⚠️ No compatible peers found')
+      await this.#attemptReconnection()
       // Could attempt to find compatible peers or trigger version negotiation
     } else {
       // Reset reconnect attempts on successful connection
       this.#reconnectAttempts = 0
+    }
+
+    // Log disconnected peers
+    const disconnectedPeers = this.disconnectedPeers
+    if (disconnectedPeers.length > 0) {
+      console.warn(`⚠️ Disconnected peers: ${disconnectedPeers.map((peer) => peer.peerId).join(', ')}`)
+      // Attempt to reconnect each disconnected peer
+      const promises = []
+      for (const peer of disconnectedPeers) {
+        promises.push(this.#attemptPeerReconnection(peer))
+      }
+      await Promise.all(promises)
     }
 
     // Publish connection status
@@ -71,6 +93,37 @@ export default class ConnectionMonitor {
       compatible: compatiblePeers.length,
       healthy: compatiblePeers.length > 0
     })
+  }
+
+  async #attemptPeerReconnection(peer: Peer) {
+    if (this.#peerReconnectAttempts[peer.peerId] >= this.#maxReconnectAttempts) {
+      console.error('❌ Max reconnection attempts reached')
+      this.#peerReconnectAttempts[peer.peerId] = 0
+      return
+    }
+    if (!this.#peerReconnectAttempts[peer.peerId]) {
+      this.#peerReconnectAttempts[peer.peerId] = 0
+    }
+    this.#peerReconnectAttempts[peer.peerId]++
+    console.log(`🔄 Attempting reconnection ${this.#peerReconnectAttempts[peer.peerId]}/${this.#maxReconnectAttempts}`)
+
+    try {
+      const peerId = peer.peerId || peer.id
+      // Attempt to reconnect the specific peer
+
+      await peernet.client.reconnect(peerId, globalThis.peernet?.stars[0])
+    } catch (error) {
+      console.error('❌ Reconnection failed:', error.message)
+    }
+    //   // Try to restart the network
+    //   if (globalThis.peernet?.start) {
+    //     await globalThis.peernet.start()
+    //   } else {
+    //     console.warn('⚠️ Peernet start method not available, skipping reconnection')
+    //   }
+    // } catch (error) {
+    //   console.error('❌ Reconnection failed:', error.message)
+    // }
   }
 
   async #attemptReconnection() {
