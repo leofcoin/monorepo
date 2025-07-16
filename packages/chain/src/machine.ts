@@ -486,7 +486,7 @@ export default class Machine {
   }
 
   async addLoadedBlock(block) {
-    if (block.decoded) block = { ...block.decoded, hahs: await block.hash() }
+    if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
     return this.#askWorker('addLoadedBlock', block)
   }
 
