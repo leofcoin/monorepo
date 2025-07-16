@@ -429,7 +429,7 @@ export default class State extends Contract {
 
       if (!localBlock || Number(localBlock.index) < Number(lastBlock.index)) {
         // TODO: check if valid
-        const localIndex = localBlock ? localBlock.index : 0
+        const localIndex = localBlock ? Number(localBlock.index) : 0
         const index = lastBlock.index
         await this.resolveBlock(lastBlock.hash)
         console.log('ok')
@@ -597,10 +597,10 @@ export default class State extends Contract {
           await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
           this.#blocks[block.index].loaded = true
 
-          if (block.index === 0) this.#loaded = true
+          if (Number(block.index) === 0) this.#loaded = true
           await this.#machine.addLoadedBlock(block)
           // @ts-ignore
-          debug(`loaded block: ${block.hash} @${block.index}`)
+          debug(`loaded block: ${block.hash} @${Number(block.index)}`)
           globalThis.pubsub.publish('block-loaded', { ...block })
         } catch (error) {
           console.error(error)
