@@ -16,6 +16,7 @@
     "build": "rage --build",
     "build-all": "rage --build --all --log",
     "clean": "node scripts/clean.js",
+    "flush": "node scripts/flush.js",
     "patch": "npm run build && npx changeset publish && git push --all",
     "release": "npm run build && npx changeset publish && git push --all",
     "npm-check-updates": "npm run npm-check-updates --workspaces --if-present",
@@ -41,7 +42,7 @@
     "./packages/*"
   ],
   "devDependencies": {
-    "@types/node": "^24.0.11",
+    "@types/node": "^24.0.14",
     "@vandeurenglenn/rage": "^1.0.4",
     "listr": "^0.14.3",
     "ora": "^8.2.0"
