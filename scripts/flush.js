@@ -13,3 +13,5 @@ await globalThis.blockStore.clear()
 await globalThis.transactionStore.clear()
 await globalThis.stateStore.clear()
 await globalThis.transactionPoolStore.clear()
+
+process.exit()
