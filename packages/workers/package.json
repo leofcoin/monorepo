@@ -31,7 +31,7 @@
     "@leofcoin/lib": "^1.2.72",
     "@leofcoin/messages": "^1.4.40",
     "@leofcoin/storage": "^3.5.38",
-    "@leofcoin/utils": "^1.1.39",
+    "@leofcoin/utils": "^1.1.40",
     "@vandeurenglenn/easy-worker": "^1.0.2"
   }
 }
