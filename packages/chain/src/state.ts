@@ -430,7 +430,7 @@ export default class State extends Contract {
       if (!localBlock || Number(localBlock.index) < Number(lastBlock.index)) {
         // TODO: check if valid
         const localIndex = localBlock ? Number(localBlock.index) : 0
-        const index = lastBlock.index
+        const index = Number(lastBlock.index)
         await this.resolveBlock(lastBlock.hash)
         console.log('ok')
 
@@ -566,13 +566,16 @@ export default class State extends Contract {
   async #loadBlocks(blocks: BlockInMemory[]): Promise<boolean> {
     this.#chainState = 'loading'
     let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
-
+    debug(`pool transactions: ${poolTransactionKeys.length}`)
+    debug(`loading ${blocks.length} blocks`)
     for (const block of blocks) {
       if (block && !block.loaded) {
         try {
+          debug(`loading block: ${Number(block.index)} ${block.hash}`)
           let transactions = await this.#loadBlockTransactions([...block.transactions] || [])
           // const lastTransactions = await this.#getLastTransactions()
 
+          debug(`loading transactions: ${transactions.length} for block ${block.index}`)
           let priority = []
           for (const transaction of transactions) {
             const hash = await transaction.hash()
@@ -588,15 +591,19 @@ export default class State extends Contract {
 
           // prority blocks execution from the rest so result in higher fees.
           if (priority.length > 0) {
+            debug(`executing ${priority.length} priority transactions for block ${block.index}`)
             priority = priority.sort((a, b) => a.nonce - b.nonce)
             for (const transaction of priority) {
               await this.#_executeTransaction(transaction)
             }
           }
+
           transactions = transactions.filter((transaction) => !transaction.decoded.priority)
+          debug(`executing ${transactions.length} transactions for block ${block.index}`)
           await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
           this.#blocks[block.index].loaded = true
 
+          debug(`executed transactions for block ${block.index}`)
           if (Number(block.index) === 0) this.#loaded = true
           await this.#machine.addLoadedBlock(block)
           // @ts-ignore
