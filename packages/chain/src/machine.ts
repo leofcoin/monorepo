@@ -117,15 +117,18 @@ export default class Machine {
 
   async updateState() {
     try {
+      const lastBlock = await this.lastBlock
+      const lastBlockIndex = Number(lastBlock.index)
+      const statesLastBlockIndex = Number(this.states.lastBlock.index)
       if (
-        (await this.lastBlock).index > this.states.lastBlock.index ||
-        ((await this.lastBlock).hash !== this.states.lastBlock.hash && (await this.lastBlock).index === 0)
+        lastBlockIndex > statesLastBlockIndex ||
+        (lastBlock.hash !== this.states.lastBlock.hash && Number(lastBlockIndex) === 0)
       ) {
         // todo only get state for changed contracts
-        const blocks = (await this.blocks).slice(this.states.lastBlock.index)
+        const blocks = (await this.blocks).slice(statesLastBlockIndex)
         let transactions = []
         for (const block of blocks) {
-          transactions = [...transactions, ...block.transactions]
+          if (block?.transactions) transactions = [...transactions, ...block.transactions]
         }
 
         transactions = await Promise.all(
@@ -486,8 +489,10 @@ export default class Machine {
   }
 
   async addLoadedBlock(block) {
+    debug(`adding loaded block: ${block.index}@${block.hash}`)
+    debug(JSON.stringify(block, jsonStringifyBigInt))
     if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
-    return this.#askWorker('addLoadedBlock', block)
+    return this.#askWorker('addLoadedBlock', JSON.stringify(block, jsonStringifyBigInt))
   }
 
   async latestTransactions() {
