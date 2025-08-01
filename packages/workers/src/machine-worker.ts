@@ -356,9 +356,20 @@ const _ = {
     worker.postMessage({ type: 'machine-ready', lastBlock })
   },
   addLoadedBlock: (block) => {
-    blocks[block.index - 1] = block
+    const size = formatBytes(block.length)
+    block = JSON.parse(block, jsonParseBigInt)
+    // if (block.decoded) block = { ...block.decoded, hash: await new BlockMessage(block).hash() }
+    // if (blocks[block.index - 1]) {
+    //   console.warn(`block ${block.index} already loaded, skipping`)
+    //   return false
+    // }
+    blocks[block.index.toString()] = block
     lastBlock = blocks[blocks.length - 1]
-    totalBlocks = totalBlocks += 1n
+    totalBlocks += 1n
+    worker.postMessage({
+      type: 'debug',
+      message: `added block: ${block.hash}@${block.index} size: ${size}`
+    })
     return true
   },
   loadBlock: (block) => {
