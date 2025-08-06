@@ -14,6 +14,8 @@ declare global {
   var stateStore: Storage
   var accountsStore: Storage
   var contractStore: Storage
+  var walletStore: Storage
+  var transactionStore: Storage
 }
 
 export default async (
