@@ -126,9 +126,9 @@ export default class ConnectionMonitor {
 
     try {
       // Try to restart the network
-      if (globalThis.peernet?.start) {
-        await globalThis.peernet.start()
-      }
+      // if (globalThis.peernet?.start) {
+      //   await globalThis.peernet.start()
+      // }
 
       // Wait a bit before next check
       await new Promise((resolve) => setTimeout(resolve, this.#reconnectDelay))
