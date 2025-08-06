@@ -6,7 +6,6 @@ import Peer from '@netpeer/swarm/peer'
 export default class ConnectionMonitor {
   #isMonitoring: boolean = false
   #checkInterval: NodeJS.Timeout | null = null
-  #reconnectAttempts: number = 0
   #peerReconnectAttempts: { [peerId: string]: number } = {}
   #maxReconnectAttempts: number = 10
   #reconnectDelay: number = 5000
@@ -70,9 +69,6 @@ export default class ConnectionMonitor {
       console.warn('⚠️ No compatible peers found')
       await this.#attemptReconnection()
       // Could attempt to find compatible peers or trigger version negotiation
-    } else {
-      // Reset reconnect attempts on successful connection
-      this.#reconnectAttempts = 0
     }
 
     // Log disconnected peers
@@ -99,7 +95,6 @@ export default class ConnectionMonitor {
     if (this.#peerReconnectAttempts[peer.peerId] >= this.#maxReconnectAttempts) {
       console.error('❌ Max reconnection attempts reached')
       this.#peerReconnectAttempts[peer.peerId] = 0
-      return
     }
     if (!this.#peerReconnectAttempts[peer.peerId]) {
       this.#peerReconnectAttempts[peer.peerId] = 0
@@ -127,13 +122,7 @@ export default class ConnectionMonitor {
   }
 
   async #attemptReconnection() {
-    if (this.#reconnectAttempts >= this.#maxReconnectAttempts) {
-      console.error('❌ Max reconnection attempts reached')
-      return
-    }
-
-    this.#reconnectAttempts++
-    console.log(`🔄 Attempting reconnection ${this.#reconnectAttempts}/${this.#maxReconnectAttempts}`)
+    console.warn('⚠️ Attempting to reconnect to peers...')
 
     try {
       // Try to restart the network
@@ -146,8 +135,14 @@ export default class ConnectionMonitor {
     } catch (error) {
       console.error('❌ Reconnection failed:', error.message)
 
-      // Exponential backoff
-      this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
+      if (this.#reconnectDelay >= 30000) {
+        console.warn('⚠️ Reconnection delay reached maximum, resetting to 5 seconds')
+        this.#reconnectDelay = 5000
+      } else {
+        // Exponential backoff
+        this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
+        console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
+      }
     }
   }
 
