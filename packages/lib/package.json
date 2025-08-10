@@ -41,7 +41,7 @@
   "dependencies": {
     "@leofcoin/addresses": "^1.0.54",
     "@leofcoin/messages": "^1.4.40",
-    "@leofcoin/peernet": "^1.1.93",
+    "@leofcoin/peernet": "^1.1.95",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.40",
     "@vandeurenglenn/base32": "^1.2.4",
