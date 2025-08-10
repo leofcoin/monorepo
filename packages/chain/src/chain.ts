@@ -658,6 +658,14 @@ export default class Chain extends VersionControl {
     return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
   }
 
+  BalanceOf(address: Address): Promise<bigint> {
+    return this.staticCall(addresses.nativeToken, 'balanceOf', [address])
+  }
+
+  get Balance(): Promise<bigint> {
+    return this.staticCall(addresses.nativeToken, 'balanceOf', [globalThis.peernet.selectedAccount])
+  }
+
   get balances(): Promise<{ [index: string]: bigint }> {
     return this.staticCall(addresses.nativeToken, 'balances')
   }
