@@ -148,11 +148,9 @@ export default class ConnectionMonitor {
   // lightweight TCP probe to detect internet connectivity in Node.js
   async #isOnLine(timeout = 1500): Promise<boolean> {
     // If not running in Node, fallback to navigator.onLine if available, otherwise assume online
-    if (typeof process === 'undefined') {
-      if (navigator?.onLine !== undefined) {
-        return navigator.onLine
-      }
-      return true
+
+    if (navigator?.onLine !== undefined) {
+      return navigator.onLine
     }
 
     return new Promise(async (resolve) => {
