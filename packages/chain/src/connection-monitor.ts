@@ -11,6 +11,7 @@ export default class ConnectionMonitor {
   #reconnectDelay: number = 5000
   #healthCheckInterval: number = 60000
   #version: string
+  #lastHealthCheckAt: number = 0
 
   // event handlers to remove later
   #onOnline: (() => void) | null = null
@@ -71,6 +72,8 @@ export default class ConnectionMonitor {
       }
     }
 
+    // prime last check timestamp and start periodic checks
+    this.#lastHealthCheckAt = Date.now()
     this.#checkInterval = setInterval(() => {
       this.#healthCheck()
     }, this.#healthCheckInterval)
@@ -109,34 +112,31 @@ export default class ConnectionMonitor {
   }
 
   async #healthCheck() {
+    const now = Date.now()
+    const expectedNext = this.#lastHealthCheckAt + this.#healthCheckInterval
+    const drift = now - expectedNext
+    this.#lastHealthCheckAt = now
+
+    // Detect large timer drift (common after sleep) and proactively attempt restore
+    if (drift > 5000) {
+      console.log(`⏰ Detected timer drift of ${drift}ms (likely system sleep) — attempting restore`)
+      // Fire and forget; normal reconnection/backoff still applies below
+      void this.#restoreNetwork()
+    }
+
     const connectedPeers = this.connectedPeers
     const compatiblePeers = this.compatiblePeers
 
     console.log(`🔍 Health check: ${connectedPeers.length} connected, ${compatiblePeers.length} compatible`)
 
+    // If we have no connections or none are compatible, try to reconnect
     if (connectedPeers.length === 0) {
-      console.warn('⚠️ No peer connections detected')
+      console.warn('⚠️ No peer connections detected — attempting reconnection')
       await this.#attemptReconnection()
     } else if (compatiblePeers.length === 0) {
-      console.warn('⚠️ No compatible peers found')
+      console.warn('⚠️ No compatible peers found — attempting reconnection')
       await this.#attemptReconnection()
-      // Could attempt to find compatible peers or trigger version negotiation
     }
-
-    // Log disconnected peers
-    const disconnectedPeers = this.disconnectedPeers
-    if (disconnectedPeers.length > 0) {
-      console.warn(`⚠️ Disconnected peers: ${disconnectedPeers.map((peer) => peer.peerId).join(', ')}`)
-      // Attempt to reconnect each disconnected peer sequentially to avoid racing signaling/state
-      for (const peer of disconnectedPeers) {
-        // small spacing between attempts to reduce signaling races
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 150))
-        // eslint-disable-next-line no-await-in-loop
-        await this.#attemptPeerReconnection(peer)
-      }
-    }
-
     // Publish connection status
     globalThis.pubsub?.publish('connection-status', {
       connected: connectedPeers.length,
@@ -145,181 +145,76 @@ export default class ConnectionMonitor {
     })
   }
 
-  async #attemptPeerReconnection(peer: Peer) {
-    if (!peer) return
-
-    const peerId = (peer as any).peerId || (peer as any).id
-    if (!peerId) return
-
-    if (!this.#peerReconnectAttempts[peerId]) {
-      this.#peerReconnectAttempts[peerId] = 0
-    }
-
-    if (this.#peerReconnectAttempts[peerId] >= this.#maxReconnectAttempts) {
-      console.error('❌ Max reconnection attempts reached for', peerId)
-      this.#peerReconnectAttempts[peerId] = 0
-      return
-    }
-
-    this.#peerReconnectAttempts[peerId]++
-    console.log(
-      `🔄 Attempting reconnection ${this.#peerReconnectAttempts[peerId]}/${this.#maxReconnectAttempts} for ${peerId}`
-    )
-
-    try {
-      const peernet = globalThis.peernet
-      if (!peernet) {
-        console.warn('⚠️ globalThis.peernet not available')
-        return
+  // lightweight TCP probe to detect internet connectivity in Node.js
+  async #isOnLine(timeout = 1500): Promise<boolean> {
+    // If not running in Node, fallback to navigator.onLine if available, otherwise assume online
+    if (typeof process === 'undefined') {
+      if (navigator?.onLine !== undefined) {
+        return navigator.onLine
       }
+      return true
+    }
 
-      // Try targeted reconnect if available
-      if (peernet.client?.reconnect) {
-        try {
-          await peernet.client.reconnect(peerId, peernet.stars?.[0])
-          return
-        } catch (err: any) {
-          const msg = String(err?.message || err)
-          console.warn('⚠️ Targeted reconnect failed:', msg)
-
-          // handle signaling/state mismatches by cleaning up only that peer and retrying targeted reconnect
-          if (
-            msg.includes('Called in wrong state') ||
-            msg.includes('setRemoteDescription') ||
-            msg.includes('channelNames') ||
-            msg.includes("channelNames don't match")
-          ) {
-            console.warn(
-              '⚠️ Detected signaling/channel mismatch — cleaning up peer state and retrying targeted reconnect'
-            )
-
-            try {
-              await this.#cleanupPeerState(peerId, peernet)
-              // small backoff before retry
-              await new Promise((r) => setTimeout(r, 150))
-              await peernet.client.reconnect(peerId, peernet.stars?.[0])
-              return
-            } catch (retryErr: any) {
-              console.warn('⚠️ Retry targeted reconnect failed:', String(retryErr?.message || retryErr))
-              // fall through to non-targeted fallback below
-            }
+    return new Promise(async (resolve) => {
+      try {
+        // lazy require so bundlers / browser builds don't break
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const net = await import('net')
+        const socket = new net.Socket()
+        let finished = false
+        const finish = (val: boolean) => {
+          if (finished) return
+          finished = true
+          try {
+            socket.destroy()
+          } catch (e) {
+            // ignore
           }
-
-          throw err
+          resolve(val)
         }
-      }
 
-      // If no targeted reconnect, try start/restore
-      if (peernet.start) {
-        await peernet.start()
-      }
-    } catch (error: any) {
-      console.error('❌ Reconnection failed:', error?.message || error)
-      // As fallback, try full restart only if even the cleanup+retry failed
-      if (globalThis.peernet) {
-        await this.#performFullRestart(globalThis.peernet)
-      }
-    }
-  }
+        socket.setTimeout(timeout)
+        socket.once('connect', () => finish(true))
+        socket.once('error', () => finish(false))
+        socket.once('timeout', () => finish(false))
 
-  // helper: try to close/destroy a single peer connection and remove it from peernet's map
-  async #cleanupPeerState(peerId: string, peernet: any) {
-    try {
-      const conns = peernet.connections || {}
-      const conn =
-        conns[peerId] || conns[Object.keys(conns).find((k) => k.includes(peerId) || (peerId.includes(k) as any))]
-      if (!conn) return
-
-      // close underlying RTCPeerConnection if exposed
-      try {
-        if (conn.pc && typeof conn.pc.close === 'function') {
-          conn.pc.close()
-        }
+        // connect to Cloudflare DNS (1.1.1.1) on TCP/53 — fast and reliable
+        socket.connect(53, '1.1.1.1')
       } catch (e) {
-        // ignore
+        resolve(false)
       }
-
-      // call any destroy/cleanup API on the connection object
-      try {
-        if (typeof conn.destroy === 'function') {
-          conn.destroy()
-        } else if (typeof conn.close === 'function') {
-          conn.close()
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      // remove reference so reconnect path will create a fresh one
-      try {
-        delete peernet.connections[peerId]
-      } catch (e) {
-        // ignore
-      }
-
-      // small pause to let underlying sockets/RTCs settle
-      await new Promise((r) => setTimeout(r, 100))
-    } catch (e) {
-      // ignore cleanup errors
-    }
-  }
-
-  // New helper: close stale RTCPeerConnections if present and then restart peernet
-  async #performFullRestart(peernet: any) {
-    try {
-      // Close underlying peer RTCPeerConnections if the library exposes them
-      try {
-        const conns = peernet.connections || {}
-        for (const id of Object.keys(conns)) {
-          const p = conns[id] as any
-          // try to close underlying RTCPeerConnection if exposed
-          if (p && p.pc && typeof p.pc.close === 'function') {
-            try {
-              p.pc.close()
-            } catch (e) {
-              // ignore
-            }
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      // If the library supports stop -> start, do that to fully reset signaling state
-      if (typeof peernet.stop === 'function') {
-        try {
-          await peernet.stop()
-        } catch (e) {
-          // ignore stop errors
-        }
-      }
-
-      // small delay to ensure sockets/RTCs are closed
-      await new Promise((r) => setTimeout(r, 250))
-
-      if (typeof peernet.start === 'function') {
-        await peernet.start()
-      } else {
-        console.warn('⚠️ peernet.start not available for full restart')
-      }
-
-      // reset reconnect attempts so we can try fresh
-      this.#peerReconnectAttempts = {}
-      console.log('✅ Full peernet restart completed')
-    } catch (e) {
-      console.error('❌ Full restart failed:', (e as any)?.message || e)
-    }
+    })
   }
 
   // Called on visibility/online/resume events
   async #restoreNetwork() {
-    console.log('🔁 Restoring network after resume/wake')
-    // If there is a peernet instance, try a safe restore
-    if (globalThis.peernet) {
-      await this.#performFullRestart(globalThis.peernet)
-    } else {
-      // If no global peernet, attempt a normal reconnection flow
-      await this.#attemptReconnection()
+    console.log('🔁 Restoring network')
+
+    try {
+      const online = await this.#isOnLine(1500)
+      if (!online) {
+        console.warn('⚠️ No internet detected, skipping restore')
+        return
+      }
+    } catch (e) {
+      // If the probe failed for any reason, continue with restore attempt
+      console.warn('⚠️ Online probe failed, proceeding with restore', (e as any)?.message || e)
+    }
+
+    try {
+      // prefer safe client reinit if available
+      console.log('🔄 Attempting to reinitialize peernet client')
+      await globalThis.peernet.client.reinit()
+    } catch (e) {
+      console.warn(
+        '⚠️ peernet.client.reinit failed, falling back to peernet.start if available',
+        (e as any)?.message || e
+      )
+      try {
+        await globalThis.peernet.start()
+      } catch (err) {
+        console.error('❌ peernet.start also failed during restore', (err as any)?.message || err)
+      }
     }
   }
 
@@ -345,23 +240,9 @@ export default class ConnectionMonitor {
     })
   }
 
-  // New: attempt reconnection flow (gentle start + sequential per-peer reconnect)
   async #attemptReconnection() {
-    console.warn('⚠️ Attempting to reconnect to peers...')
-
     try {
-      // attempt targeted reconnection for disconnected peers sequentially (avoid racing WebRTC state)
-      const disconnected = this.disconnectedPeers
-      for (const p of disconnected) {
-        // small spacing between attempts to reduce signaling races
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 200))
-        // eslint-disable-next-line no-await-in-loop
-        await this.#attemptPeerReconnection(p as Peer)
-      }
-
-      // pause before next health check cycle
-      await new Promise((resolve) => setTimeout(resolve, this.#reconnectDelay))
+      await this.#restoreNetwork()
     } catch (error: any) {
       console.error('❌ Reconnection failed:', error?.message || error)
 
@@ -373,6 +254,8 @@ export default class ConnectionMonitor {
         this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
         console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
       }
+
+      setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.7.101",
+  "version": "1.7.108",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -49,13 +49,13 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-commonjs": "^28.0.8",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.1.4",
-    "@types/semver": "^7.7.0",
+    "@types/semver": "^7.7.1",
     "@vandeurenglenn/debug": "^1.2.6",
-    "rollup": "^4.46.4",
+    "rollup": "^4.52.4",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.9.0",
     "tslib": "^2.8.1"
@@ -75,6 +75,6 @@
     "@leofcoin/workers": "^1.5.27",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.2",
-    "semver": "^7.7.2"
+    "semver": "^7.7.3"
   }
 }
