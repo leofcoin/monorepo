@@ -9,9 +9,10 @@ export default class ConnectionMonitor {
   #peerReconnectAttempts: { [peerId: string]: number } = {}
   #maxReconnectAttempts: number = 10
   #reconnectDelay: number = 5000
-  #healthCheckInterval: number = 60000
+  #healthCheckInterval: number = 15000 // Check every 15 seconds for faster recovery
   #version: string
   #lastHealthCheckAt: number = 0
+  #reconnecting: boolean = false
 
   // event handlers to remove later
   #onOnline: (() => void) | null = null
@@ -133,7 +134,7 @@ export default class ConnectionMonitor {
     if (connectedPeers.length === 0) {
       console.warn('⚠️ No peer connections detected — attempting reconnection')
       await this.#attemptReconnection()
-    } else if (compatiblePeers.length === 0) {
+    } else if (compatiblePeers.length === 0 && connectedPeers.length > 0) {
       console.warn('⚠️ No compatible peers found — attempting reconnection')
       await this.#attemptReconnection()
     }
@@ -186,12 +187,19 @@ export default class ConnectionMonitor {
 
   // Called on visibility/online/resume events
   async #restoreNetwork() {
+    if (this.#reconnecting) {
+      console.log('🔁 Reconnection already in progress, skipping')
+      return
+    }
+
+    this.#reconnecting = true
     console.log('🔁 Restoring network')
 
     try {
       const online = await this.#isOnLine(1500)
       if (!online) {
         console.warn('⚠️ No internet detected, skipping restore')
+        this.#reconnecting = false
         return
       }
     } catch (e) {
@@ -200,19 +208,86 @@ export default class ConnectionMonitor {
     }
 
     try {
-      // prefer safe client reinit if available
-      console.log('🔄 Attempting to reinitialize peernet client')
-      await globalThis.peernet.client.reinit()
-    } catch (e) {
-      console.warn(
-        '⚠️ peernet.client.reinit failed, falling back to peernet.start if available',
-        (e as any)?.message || e
-      )
-      try {
-        await globalThis.peernet.start()
-      } catch (err) {
-        console.error('❌ peernet.start also failed during restore', (err as any)?.message || err)
+      // Try multiple restoration approaches
+      console.log('🔄 Attempting network restoration...')
+
+      // Approach 1: Try client.reinit if available
+      if (globalThis.peernet?.client?.reinit) {
+        console.log('  → Trying client.reinit()')
+        try {
+          await globalThis.peernet.client.reinit()
+          console.log('  ✅ client.reinit() succeeded')
+        } catch (e) {
+          console.warn('  ⚠️ client.reinit() failed:', (e as any)?.message || e)
+        }
       }
+
+      // Approach 2: Try peernet.start if available
+      if (globalThis.peernet?.start) {
+        console.log('  → Trying peernet.start()')
+        try {
+          await globalThis.peernet.start()
+          console.log('  ✅ peernet.start() succeeded')
+        } catch (e) {
+          console.warn('  ⚠️ peernet.start() failed:', (e as any)?.message || e)
+        }
+      }
+
+      // Approach 3: Try client.connect if available
+      if (
+        globalThis.peernet?.client &&
+        'connect' in globalThis.peernet.client &&
+        typeof (globalThis.peernet.client as any).connect === 'function'
+      ) {
+        console.log('  → Trying client.connect()')
+        try {
+          await (globalThis.peernet.client as any).connect()
+          console.log('  ✅ client.connect() succeeded')
+        } catch (e) {
+          console.warn('  ⚠️ client.connect() failed:', (e as any)?.message || e)
+        }
+      }
+
+      // Approach 4: Explicitly dial star servers if available
+      try {
+        const networkName = globalThis.peernet?.network
+        if (networkName && typeof networkName === 'string') {
+          // Try to import network config
+          const { default: networks } = await import('@leofcoin/networks')
+          const [mainKey, subKey] = networkName.split(':')
+          const networkConfig = networks?.[mainKey]?.[subKey]
+
+          if (networkConfig?.stars && Array.isArray(networkConfig.stars)) {
+            console.log('  → Attempting to dial star servers:', networkConfig.stars.join(', '))
+            for (const star of networkConfig.stars) {
+              try {
+                if (globalThis.peernet?.client && 'dial' in globalThis.peernet.client) {
+                  await (globalThis.peernet.client as any).dial(star)
+                  console.log(`  ✅ Connected to star server: ${star}`)
+                } else if (globalThis.peernet?.client && 'connect' in globalThis.peernet.client) {
+                  // Try connect with the star URL
+                  await (globalThis.peernet.client as any).connect(star)
+                  console.log(`  ✅ Connected to star server: ${star}`)
+                }
+              } catch (e) {
+                console.warn(`  ⚠️ Failed to dial ${star}:`, (e as any)?.message || e)
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('  ⚠️ Could not load or dial star servers:', (e as any)?.message || e)
+      }
+
+      // Give it a moment to establish connections
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      const connectedAfter = this.connectedPeers.length
+      console.log(`🔄 Restoration complete. Connected peers: ${connectedAfter}`)
+    } catch (error: any) {
+      console.error('❌ Network restoration failed:', error?.message || error)
+    } finally {
+      this.#reconnecting = false
     }
   }
 
@@ -239,18 +314,41 @@ export default class ConnectionMonitor {
   }
 
   async #attemptReconnection() {
+    if (this.#reconnecting) {
+      console.log('⏭️ Reconnection already in progress')
+      return
+    }
+
     try {
       await this.#restoreNetwork()
+
+      // Check if reconnection was successful
+      const hasConnections = this.connectedPeers.length > 0
+      if (hasConnections) {
+        console.log('✅ Reconnection successful, resetting backoff delay')
+        this.#reconnectDelay = 5000
+      } else {
+        console.warn('⚠️ Reconnection attempt completed but no peers connected')
+        // Schedule retry with backoff
+        if (this.#reconnectDelay >= 30000) {
+          console.warn('⚠️ Reconnection delay reached maximum, resetting to 5 seconds')
+          this.#reconnectDelay = 5000
+        } else {
+          // exponential-ish backoff
+          this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
+          console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
+        }
+
+        setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
+      }
     } catch (error: any) {
       console.error('❌ Reconnection failed:', error?.message || error)
 
+      // Schedule retry with backoff
       if (this.#reconnectDelay >= 30000) {
-        console.warn('⚠️ Reconnection delay reached maximum, resetting to 5 seconds')
         this.#reconnectDelay = 5000
       } else {
-        // exponential-ish backoff
         this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
-        console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
       }
 
       setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)

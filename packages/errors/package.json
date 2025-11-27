@@ -23,6 +23,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^12.1.4"
+    "@rollup/plugin-typescript": "^12.3.0"
   }
 }

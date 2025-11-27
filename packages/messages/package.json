@@ -56,10 +56,10 @@
   "license": "MIT",
   "devDependencies": {
     "@leofcoin/types": "^1.0.22",
-    "@rollup/plugin-typescript": "^12.1.4",
-    "rollup": "^4.46.4",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "rollup": "^4.52.5",
     "tslib": "^2.8.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.7.13",
