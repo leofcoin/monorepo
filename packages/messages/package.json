@@ -57,12 +57,12 @@
   "devDependencies": {
     "@leofcoin/types": "^1.0.22",
     "@rollup/plugin-typescript": "^12.3.0",
-    "rollup": "^4.52.5",
+    "rollup": "^4.53.3",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@leofcoin/codec-format-interface": "^1.7.13",
+    "@leofcoin/codec-format-interface": "^1.7.14",
     "@leofcoin/utils": "^1.1.40",
     "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
     "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"

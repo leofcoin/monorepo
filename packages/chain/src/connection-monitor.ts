@@ -6,10 +6,8 @@ import Peer from '@netpeer/swarm/peer'
 export default class ConnectionMonitor {
   #isMonitoring: boolean = false
   #checkInterval: NodeJS.Timeout | null = null
-  #peerReconnectAttempts: { [peerId: string]: number } = {}
-  #maxReconnectAttempts: number = 10
   #reconnectDelay: number = 5000
-  #healthCheckInterval: number = 15000 // Check every 15 seconds for faster recovery
+  #healthCheckInterval: number = 60000
   #version: string
   #lastHealthCheckAt: number = 0
   #reconnecting: boolean = false
