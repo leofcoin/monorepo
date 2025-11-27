@@ -54,8 +54,11 @@ export default class ConnectionMonitor {
 
       this.#onVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
-          console.log('💡 Visibility regained — attempting restore')
-          void this.#restoreNetwork()
+          console.log('💡 Visibility regained')
+          if (this.connectedPeers.length === 0) {
+            console.log('💡 Visibility regained — attempting restore')
+            void this.#restoreNetwork()
+          }
         }
       }
       document.addEventListener('visibilitychange', this.#onVisibilityChange)
