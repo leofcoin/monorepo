@@ -182,7 +182,7 @@ export default class State extends Contract {
 
     try {
       const rawBlock = await globalThis.chainStore.has('lastBlock')
-      console.log({ rawBlock })
+
       if (rawBlock) {
         localBlockHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
         blockMessage = await globalThis.peernet.get(localBlockHash, 'block')
