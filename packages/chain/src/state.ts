@@ -417,18 +417,18 @@ export default class State extends Contract {
 
   async #syncChain(lastBlock) {
     try {
-      if (this.knownBlocks?.length === Number(lastBlock.index) + 1) {
-        let promises = []
-        promises = await Promise.allSettled(
-          this.knownBlocks.map(async (address) => {
-            const has = await globalThis.peernet.has(address)
-            return { has, address }
-          })
-        )
-        promises = promises.filter(({ status, value }) => status === 'fulfilled' && !value.has)
+      // if (this.knownBlocks?.length === Number(lastBlock.index) + 1) {
+      //   let promises = []
+      //   promises = await Promise.allSettled(
+      //     this.knownBlocks.map(async (address) => {
+      //       const has = await globalThis.peernet.has(address)
+      //       return { has, address }
+      //     })
+      //   )
+      //   promises = promises.filter(({ status, value }) => status === 'fulfilled' && !value.has)
 
-        await Promise.allSettled(promises.map(({ value }) => this.getAndPutBlock(value.address)))
-      }
+      //   await Promise.allSettled(promises.map(({ value }) => this.getAndPutBlock(value.address)))
+      // }
 
       const localBlock = await this.lastBlock
 
