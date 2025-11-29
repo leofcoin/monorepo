@@ -2,7 +2,6 @@ import Transaction from './transaction.js'
 import { createContractMessage, signTransaction } from '@leofcoin/lib'
 import addresses from '@leofcoin/addresses'
 import type MultiWallet from '@leofcoin/multi-wallet'
-import { RawTransactionMessage } from '@leofcoin/messages'
 /**
  * @extends {Transaction}
  */
@@ -10,8 +9,6 @@ export default class Contract extends Transaction {
   constructor(config) {
     super(config)
   }
-
-  async init() {}
 
   /**
    *
