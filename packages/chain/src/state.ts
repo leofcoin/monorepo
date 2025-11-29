@@ -172,18 +172,29 @@ export default class State extends Contract {
 
   async init() {
     this.jobber = new Jobber(this.resolveTimeout)
-    if (super.init) await super.init()
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
     await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
 
+    let localBlockHash
+    let blockMessage
+    let localBlock
+
     try {
-      await globalThis.chainStore.has('lastBlock')
+      const rawBlock = await globalThis.chainStore.has('lastBlock')
+      console.log({ rawBlock })
+      if (rawBlock) {
+        localBlockHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
+        blockMessage = await globalThis.peernet.get(localBlockHash, 'block')
+        blockMessage = await new BlockMessage(blockMessage)
+        localBlock = { ...blockMessage.decoded, hash: localBlockHash }
+      } else {
+        localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
+      }
     } catch {
-      await globalThis.chainStore.put('lastBlock', '0x0')
+      localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
     }
-    globalThis.pubsub.publish('lastBlock', await this.lastBlock)
-    // load local blocks
+
     try {
       this.knownBlocks = await blockStore.keys()
     } catch (error) {
@@ -192,13 +203,7 @@ export default class State extends Contract {
     }
 
     try {
-      let localBlockHash
-      try {
-        const localBlock = await globalThis.chainStore.get('lastBlock')
-        localBlockHash = new TextDecoder().decode(localBlock)
-      } catch (error) {}
-      if (localBlockHash && localBlockHash !== '0x0') {
-        const blockMessage = new BlockMessage(await peernet.get(localBlockHash, 'block'))
+      if (localBlock.hash && localBlock.hash !== '0x0') {
         try {
           const states = {
             lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
