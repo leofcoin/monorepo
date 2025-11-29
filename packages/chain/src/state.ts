@@ -393,8 +393,6 @@ export default class State extends Contract {
 
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
-    console.log('starting sync')
-
     if (globalThis.peernet.peers.length === 0) return 'connectionless'
 
     try {
@@ -444,7 +442,7 @@ export default class State extends Contract {
         debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
         const blocks = this.#blocks
 
-        const start = blocks.length - blocksSynced
+        const start = localIndex - blocksSynced
         if (this.#machine) {
           await this.#loadBlocks(blocks.slice(start))
         }
