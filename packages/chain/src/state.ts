@@ -442,7 +442,7 @@ export default class State extends Contract {
         debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
         const blocks = this.#blocks
 
-        const start = localIndex - blocksSynced
+        const start = localIndex + 1
         if (this.#machine) {
           await this.#loadBlocks(blocks.slice(start))
         }
