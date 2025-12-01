@@ -193,6 +193,11 @@ export default class ConnectionMonitor {
       return
     }
 
+    if (this.connectedPeers.length > 0) {
+      console.log('✅ Already connected to peers, skipping restoration')
+      return
+    }
+
     this.#reconnecting = true
     console.log('🔁 Restoring network')
 
