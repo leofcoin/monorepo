@@ -115,7 +115,7 @@ for (let i = 0; i < 10; i++) {
     to: chain.nativeToken,
     method: 'transfer',
     nonce,
-    params: [peernet.selectedAccount, 'YTqxcXggF2KDbGC6ibFGSxuwKjQCuRAVfy6vxBwQ5gA2dmFSkZpkK', parseUnits('100')]
+    params: [peernet.selectedAccount, 'YTqxZpWaSDPV1cmediYrvSrdByA1qwx7hBw9WrbCiVMYJf5Q3fPYK', parseUnits('100')]
   })
   const transaction = await signTransaction(rawTransaction, peernet.identity)
   promises.push(transaction)
