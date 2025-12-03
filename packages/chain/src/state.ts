@@ -260,9 +260,17 @@ export default class State extends Contract {
     let block = await globalThis.peernet.get(hash, 'block')
     if (block !== undefined) {
       block = await new BlockMessage(block)
+      const computedHash = await block.hash()
+      if (computedHash !== hash) {
+        throw new ResolveError(`block hash mismatch for ${hash}`, {
+          cause: new Error('hash does not match payload')
+        })
+      }
       const { index } = block.decoded
-      if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
-      if (!(await globalThis.peernet.has(hash))) await globalThis.peernet.put(hash, block.encoded, 'block')
+      if (this.#blocks[index] && this.#blocks[index].hash !== computedHash)
+        throw new ResolveError(`invalid block ${computedHash} @${index}`)
+      if (!(await globalThis.peernet.has(computedHash)))
+        await globalThis.peernet.put(computedHash, block.encoded, 'block')
     }
     return block
   }
@@ -271,9 +279,15 @@ export default class State extends Contract {
     let index = this.#blockHashMap.get(hash)
 
     if (this.#blocks[index]) {
-      if (this.#blocks[index].previousHash !== '0x0') {
-        return this.resolveBlock(this.#blocks[index].previousHash)
+      // Block already exists, check if we need to resolve previous blocks
+      const localHash = await globalThis.stateStore.get('lastBlock')
+      const previousHash = this.#blocks[index].previousHash
+      if (previousHash === localHash) return
+      if (previousHash !== '0x0' && !this.#blocks[this.#blockHashMap.get(previousHash)]) {
+        // Previous block not in memory, recursively resolve it
+        return this.resolveBlock(previousHash)
       } else {
+        // Previous block already exists or is genesis, stop resolving
         return
       }
     }
@@ -313,7 +327,11 @@ export default class State extends Contract {
     try {
       await this.jobber.add(() => this.#resolveBlock(hash))
       this.#resolving = false
-
+      const lastBlockHash = await globalThis.stateStore.get('lastBlock')
+      if (lastBlockHash === hash) {
+        this.#resolveErrored = false
+        return
+      }
       if (!this.#blockHashMap.has(this.#lastResolved.previousHash) && this.#lastResolved.previousHash !== '0x0')
         return this.resolveBlock(this.#lastResolved.previousHash)
     } catch (error) {
@@ -331,6 +349,12 @@ export default class State extends Contract {
   }
 
   async resolveBlocks() {
+    // Don't re-resolve if already syncing or resolving
+    if (this.#chainSyncing || this.#resolving) {
+      debug('Already syncing or resolving, skipping resolveBlocks()')
+      return
+    }
+
     try {
       if (this.jobber.busy && this.jobber.destroy) {
         await this.jobber.destroy()
@@ -345,6 +369,7 @@ export default class State extends Contract {
       const hash = new TextDecoder().decode(localBlock)
 
       if (hash && hash !== '0x0') {
+        debug(`Resolving blocks from hash: ${hash}`)
         await this.resolveBlock(hash)
       }
     } catch (error) {
@@ -429,24 +454,43 @@ export default class State extends Contract {
       // }
 
       const localBlock = await this.lastBlock
+      const localIndex = localBlock ? Number(localBlock.index) : -1
+      const remoteIndex = Number(lastBlock.index)
+      const remoteBlockHash = lastBlock.hash
 
-      if (!localBlock || Number(localBlock.index) < Number(lastBlock.index)) {
-        // TODO: check if valid
-        const localIndex = localBlock ? Number(localBlock.index) : 0
-        const index = Number(lastBlock.index)
-        await this.resolveBlock(lastBlock.hash)
-        console.log('ok')
+      // Get the local state hash from chainStore
+      let localStateHash = '0x0'
+      try {
+        localStateHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
+      } catch (error) {
+        debug(`No local state hash found: ${error}`)
+      }
 
-        let blocksSynced =
-          localIndex > 0 ? (localIndex > index ? localIndex - index + 1 : index + -localIndex + 1) : index + 1
-        debug(`synced ${blocksSynced} ${blocksSynced > 1 ? 'blocks' : 'block'}`)
+      debug(`Local block height: ${localIndex}, remote block height: ${remoteIndex}`)
+      debug(`Local state hash: ${localStateHash}, remote block hash: ${remoteBlockHash}`)
+
+      // Use state hash comparison: only resolve if remote hash differs from local state hash
+      if (localStateHash !== remoteBlockHash) {
+        // Remote block hash differs from our local state, need to resolve
+        debug(`Resolving remote block: ${remoteBlockHash} @${remoteIndex} (differs from local state)`)
+        await this.resolveBlock(remoteBlockHash)
+
+        const blocksSynced = remoteIndex - localIndex
+        debug(`Resolved ${blocksSynced} new block(s)`)
         const blocks = this.#blocks
 
+        debug(`Loading blocks from index ${localIndex + 1} to ${remoteIndex}`)
         const start = localIndex + 1
-        if (this.#machine) {
+        if (this.#machine && blocks.length > start) {
           await this.#loadBlocks(blocks.slice(start))
         }
-        await this.updateState(new BlockMessage(blocks[blocks.length - 1]))
+
+        // Update state with the latest block
+        if (blocks.length > 0) {
+          await this.updateState(new BlockMessage(blocks[blocks.length - 1]))
+        }
+      } else {
+        debug(`Block already in local state. Remote hash: ${remoteBlockHash} matches local state`)
       }
     } catch (error) {
       console.log(error)
