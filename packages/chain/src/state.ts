@@ -209,7 +209,12 @@ export default class State extends Contract {
             lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
           }
 
-          if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
+          if (blockMessage.decoded.index > states.lastBlock.index) {
+            await this.resolveBlocks()
+          } else {
+            // load state from store if exists
+            await this.#loadBlocksFromStore()
+          }
         } catch (error) {
           // no states found, try resolving blocks
           await this.resolveBlocks()
@@ -273,6 +278,33 @@ export default class State extends Contract {
         await globalThis.peernet.put(computedHash, block.encoded, 'block')
     }
     return block
+  }
+
+  /**
+   * Load blocks from store into memory when state already exists.
+   * This avoids re-resolving blocks that were already processed.
+   * 
+   * Note: Blocks are marked with `loaded: true` because state was restored,
+   * meaning transactions were already executed. This differs from #resolveBlock
+   * which only resolves block data from the network without executing transactions.
+   */
+  async #loadBlocksFromStore(): Promise<void> {
+    debug('loading blocks from store')
+    for (const hash of this.knownBlocks) {
+      try {
+        const block = await this.getAndPutBlock(hash)
+        if (block !== undefined) {
+          const index = block.decoded.index
+          const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
+          this.#totalSize += size
+          this.#blocks[index] = { hash, ...block.decoded, loaded: true }
+          this.#blockHashMap.set(hash, index)
+          debug(`loaded block from store: ${hash} @${index} ${formatBytes(size)}`)
+        }
+      } catch (error) {
+        debug(`failed to load block ${hash} from store: ${error}`)
+      }
+    }
   }
 
   async #resolveBlock(hash) {
