@@ -260,17 +260,9 @@ export default class State extends Contract {
     let block = await globalThis.peernet.get(hash, 'block')
     if (block !== undefined) {
       block = await new BlockMessage(block)
-      const computedHash = await block.hash()
-      if (computedHash !== hash) {
-        throw new ResolveError(`block hash mismatch for ${hash}`, {
-          cause: new Error('hash does not match payload')
-        })
-      }
       const { index } = block.decoded
-      if (this.#blocks[index] && this.#blocks[index].hash !== computedHash)
-        throw new ResolveError(`invalid block ${computedHash} @${index}`)
-      if (!(await globalThis.peernet.has(computedHash)))
-        await globalThis.peernet.put(computedHash, block.encoded, 'block')
+      if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
+      if (!(await globalThis.peernet.has(hash))) await globalThis.peernet.put(hash, block.encoded, 'block')
     }
     return block
   }
@@ -524,43 +516,35 @@ export default class State extends Contract {
     }
     // @ts-ignore
     promises = await this.promiseRequests(promises)
-    const candidates = promises.sort((a, b) => b.value.index - a.value.index)
+    console.log({ promises })
+    let latest = { index: 0, hash: '0x0', previousHash: '0x0' }
 
-    for (const { value, peer } of candidates) {
-      if (!value?.hash || value.hash === '0x0') continue
-      try {
-        let message = await globalThis.peernet.get(value.hash, 'block')
-        message = await new BlockMessage(message)
-        const hash = await message.hash()
-        if (hash !== value.hash) {
-          throw new Error(`invalid block hash for candidate ${value.hash}`)
-        }
+    promises = promises.sort((a, b) => b.index - a.index)
 
-        const latest = { ...message.decoded, hash }
+    if (promises.length > 0) latest = promises[0].value
 
-        if (peer?.connected && peer.version === this.version) {
-          let data = await new globalThis.peernet.protos['peernet-request']({
-            request: 'knownBlocks'
-          })
-          let node = await globalThis.peernet.prepareMessage(data)
+    if (latest.hash && latest.hash !== '0x0') {
+      let message = await globalThis.peernet.get(latest.hash, 'block')
+      message = await new BlockMessage(message)
+      const hash = await message.hash()
+      if (hash !== latest.hash) throw new Error('invalid block @getLatestBlock')
 
-          let response = await peer.request(node.encode())
-          response = await new globalThis.peernet.protos['peernet-response'](response)
-          this.knownBlocks = response.decoded.response
-        }
+      latest = { ...message.decoded, hash }
 
-        return latest
-      } catch (error) {
-        console.warn('[state] ignoring invalid lastBlock candidate', {
-          error,
-          hash: value?.hash,
-          index: value?.index
+      const peer = promises[0].peer
+
+      if (peer.connected && peer.version === this.version) {
+        let data = await new globalThis.peernet.protos['peernet-request']({
+          request: 'knownBlocks'
         })
-        continue
+        let node = await globalThis.peernet.prepareMessage(data)
+
+        let message = await peer.request(node.encode())
+        message = await new globalThis.peernet.protos['peernet-response'](message)
+        this.knownBlocks = message.decoded.response
       }
     }
-
-    return { index: 0, hash: '0x0', previousHash: '0x0' }
+    return latest
   }
 
   #loadBlockTransactions = (transactions): Promise<TransactionMessage[]> =>
