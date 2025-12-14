@@ -752,7 +752,7 @@ export default class State extends Contract {
   }
 
   async triggerLoad() {
-    if (this.#blocks.length > 0) {
+    if (this.#blocks?.length > 0) {
       this.#machine = await new Machine(this.#blocks)
     }
   }
