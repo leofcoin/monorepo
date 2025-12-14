@@ -131,6 +131,12 @@ export default class ConnectionMonitor {
 
     console.log(`🔍 Health check: ${connectedPeers.length} connected, ${compatiblePeers.length} compatible`)
 
+    // If a reconnection is already ongoing, skip this cycle to avoid log spam/loops
+    if (this.#reconnecting) {
+      console.log('⏭️ Health check: reconnection already in progress, skipping reconnect attempt')
+      return
+    }
+
     // If we have no connections or none are compatible, try to reconnect
     if (connectedPeers.length === 0) {
       console.warn('⚠️ No peer connections detected — attempting reconnection')
@@ -192,13 +198,14 @@ export default class ConnectionMonitor {
       console.log('🔁 Reconnection already in progress, skipping')
       return
     }
+    this.#reconnecting = true
 
     if (this.connectedPeers.length > 0) {
       console.log('✅ Already connected to peers, skipping restoration')
+      this.#reconnecting = false
       return
     }
 
-    this.#reconnecting = true
     console.log('🔁 Restoring network')
 
     try {
