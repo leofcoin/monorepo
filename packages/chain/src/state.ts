@@ -166,7 +166,7 @@ export default class State extends Contract {
 
   #knownBlocksHandler = async () => {
     return new globalThis.peernet.protos['peernet-response']({
-      response: { blocks: this.#blocks.map((block) => block.hash) }
+      response: { blocks: await globalThis.blockStore.keys() }
     })
   }
 
