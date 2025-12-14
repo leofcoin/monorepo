@@ -269,13 +269,17 @@ export default class State extends Contract {
 
   async #resolveBlock(hash) {
     let index = this.#blockHashMap.get(hash)
-
+    let localHash = '0x0'
+    try {
+      localHash = await globalThis.stateStore.get('lastBlock')
+    } catch (error) {
+      debug('no local state found')
+    }
     if (this.#blocks[index]) {
       // Block already exists, check if we need to resolve previous blocks
-      const localHash = await globalThis.stateStore.get('lastBlock')
       const previousHash = this.#blocks[index].previousHash
       if (previousHash === localHash) return
-      if (previousHash !== '0x0' && !this.#blocks[this.#blockHashMap.get(previousHash)]) {
+      if (previousHash !== '0x0') {
         // Previous block not in memory, recursively resolve it
         return this.resolveBlock(previousHash)
       } else {
