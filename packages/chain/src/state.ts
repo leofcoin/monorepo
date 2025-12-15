@@ -519,6 +519,7 @@ export default class State extends Contract {
         const task = async () => {
           try {
             const result = await peer.request(node.encode())
+            debug({ result })
             return { result: Uint8Array.from(Object.values(result)), peer }
           } catch (error) {
             throw error
@@ -535,7 +536,7 @@ export default class State extends Contract {
     promises = promises.sort((a, b) => b.index - a.index)
 
     if (promises.length > 0) latest = promises[0].value
-
+    debug(`Latest block from peers: ${latest.hash} @${latest.index}`)
     if (latest.hash && latest.hash !== '0x0') {
       let message = await globalThis.peernet.get(latest.hash, 'block')
       message = await new BlockMessage(message)
@@ -677,7 +678,7 @@ export default class State extends Contract {
   promiseRequests(promises) {
     return new Promise(async (resolve, reject) => {
       const timeout = setTimeout(() => {
-        resolve([])
+        resolve([{ index: 0, hash: '0x0' }])
         debug('sync timed out')
       }, this.requestTimeout)
 

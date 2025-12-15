@@ -217,8 +217,10 @@ export default class Chain extends VersionControl {
   }
 
   async #peerConnected(peerId) {
+    debug(`peer connected: ${peerId}`)
     const peer = peernet.getConnection(peerId)
 
+    debug(`peer connected with version ${peer.version}`)
     // todo handle version changes
     // for now just do nothing if version doesn't match
     debug(`peer connected with version ${peer.version}`)
