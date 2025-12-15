@@ -4,8 +4,9 @@ import EasyWorker from '@vandeurenglenn/easy-worker'
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
 import { jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
+import { createDebugger } from '@vandeurenglenn/debug'
 // import State from './state'
-const debug = globalThis.createDebugger('leofcoin/machine')
+const debug = createDebugger('leofcoin/machine')
 export default class Machine {
   worker: EasyWorker
 

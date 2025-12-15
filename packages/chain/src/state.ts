@@ -1,3 +1,4 @@
+import { createDebugger } from '@vandeurenglenn/debug'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
 import Contract from './contract.js'
@@ -10,7 +11,7 @@ import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
 
-const debug = globalThis.createDebugger('leofcoin/state')
+const debug = createDebugger('leofcoin/state')
 
 export default class State extends Contract {
   #resolveErrored: boolean
