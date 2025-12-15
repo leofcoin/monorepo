@@ -159,11 +159,8 @@ export default class State extends Contract {
   }
 
   #lastBlockHandler = async () => {
-    const lastBlock = await this.lastBlock
-    // Don't advertise 0x0 as a valid block to other peers
-    const response = lastBlock.hash !== '0x0' ? lastBlock : undefined
     return new globalThis.peernet.protos['peernet-response']({
-      response
+      response: await this.lastBlock
     })
   }
 
