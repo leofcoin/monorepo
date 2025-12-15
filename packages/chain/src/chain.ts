@@ -1,4 +1,4 @@
-import '@vandeurenglenn/debug'
+import { createDebugger } from '@vandeurenglenn/debug'
 import { formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import { ContractMessage, TransactionMessage, BlockMessage, BWMessage, BWRequestMessage } from '@leofcoin/messages'
 import addresses, { contractFactory, nameService, nativeToken, validators } from '@leofcoin/addresses'
@@ -15,7 +15,7 @@ import { VersionControl } from './version-control.js'
 import Validators from '@leofcoin/contracts/validators'
 import ConnectionMonitor from './connection-monitor.js'
 
-const debug = globalThis.createDebugger('leofcoin/chain')
+const debug = createDebugger('leofcoin/chain')
 
 // check if browser or local
 export default class Chain extends VersionControl {
