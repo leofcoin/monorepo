@@ -287,9 +287,35 @@ export default class Chain extends VersionControl {
   }
 
   async #addBlock(block) {
+    // Store the original received encoded bytes for validation
+    const receivedEncoded = block instanceof BlockMessage ? block.encoded : block
+
     const blockMessage = await new BlockMessage(block)
 
     const hash = await blockMessage.hash()
+
+    // Verify data integrity: re-encode should produce the same bytes
+    const canonicalEncoded = blockMessage.encoded
+    if (receivedEncoded.length === canonicalEncoded.length) {
+      let mismatch = false
+      for (let i = 0; i < receivedEncoded.length; i++) {
+        if (receivedEncoded[i] !== canonicalEncoded[i]) {
+          mismatch = true
+          break
+        }
+      }
+      if (mismatch) {
+        console.warn(
+          `[chain] ⚠️  Block data corrupted in transit: encoded bytes don't match canonical form for block #${blockMessage.decoded.index}`
+        )
+      } else {
+        console.log(`[chain] ✅ Block data integrity verified via codec: ${hash}`)
+      }
+    } else {
+      console.warn(
+        `[chain] ⚠️  Block data size mismatch: received ${receivedEncoded.length} bytes but canonical is ${canonicalEncoded.length} bytes for block #${blockMessage.decoded.index}`
+      )
+    }
 
     const transactions = await Promise.all(
       blockMessage.decoded.transactions
@@ -553,6 +579,10 @@ export default class Chain extends VersionControl {
       await this.updateState(blockMessage)
       debug(`created block: ${hash} @${block.index}`)
 
+      // Publish canonical encoded form via codec interface
+      console.log(
+        `[chain] 📤 Publishing block #${block.index} | hash: ${hash} | encoded bytes: ${blockMessage.encoded.length}`
+      )
       globalThis.peernet.publish('add-block', blockMessage.encoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
