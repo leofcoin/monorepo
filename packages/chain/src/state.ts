@@ -159,8 +159,11 @@ export default class State extends Contract {
   }
 
   #lastBlockHandler = async () => {
+    const lastBlock = await this.lastBlock
+    // Don't advertise 0x0 as a valid block to other peers
+    const response = lastBlock.hash !== '0x0' ? lastBlock : undefined
     return new globalThis.peernet.protos['peernet-response']({
-      response: await this.lastBlock
+      response
     })
   }
 
@@ -465,6 +468,12 @@ export default class State extends Contract {
       debug(`Local block height: ${localIndex}, remote block height: ${remoteIndex}`)
       debug(`Local state hash: ${localStateHash}, remote block hash: ${remoteBlockHash}`)
 
+      // Skip syncing if remote block hash is 0x0 (invalid state)
+      if (remoteBlockHash === '0x0') {
+        debug(`Remote block hash is 0x0, skipping sync`)
+        return
+      }
+
       // Use state hash comparison: only resolve if remote hash differs from local state hash
       if (localStateHash !== remoteBlockHash) {
         // Remote block hash differs from our local state, need to resolve
@@ -668,7 +677,7 @@ export default class State extends Contract {
   promiseRequests(promises) {
     return new Promise(async (resolve, reject) => {
       const timeout = setTimeout(() => {
-        resolve([{ index: 0, hash: '0x0' }])
+        resolve([])
         debug('sync timed out')
       }, this.requestTimeout)
 
