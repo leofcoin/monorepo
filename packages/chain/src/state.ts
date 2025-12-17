@@ -186,9 +186,11 @@ export default class State extends Contract {
 
       if (rawBlock) {
         localBlockHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
-        blockMessage = await globalThis.peernet.get(localBlockHash, 'block')
-        blockMessage = await new BlockMessage(blockMessage)
-        localBlock = { ...blockMessage.decoded, hash: localBlockHash }
+        if (localBlockHash !== '0x0') {
+          blockMessage = await globalThis.peernet.get(localBlockHash, 'block')
+          blockMessage = await new BlockMessage(blockMessage)
+          localBlock = { ...blockMessage.decoded, hash: localBlockHash }
+        }
       } else {
         localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
       }
@@ -199,8 +201,7 @@ export default class State extends Contract {
     try {
       this.knownBlocks = await blockStore.keys()
     } catch (error) {
-      console.error(error)
-      throw error
+      debug('no local known blocks found')
     }
 
     try {
