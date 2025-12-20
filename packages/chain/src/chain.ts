@@ -19,8 +19,6 @@ const debug = createDebugger('leofcoin/chain')
 
 // check if browser or local
 export default class Chain extends VersionControl {
-  #state
-
   #slotTime = 10000
   id
   utils = {}
@@ -125,9 +123,6 @@ export default class Chain extends VersionControl {
 
     this.utils = { formatUnits, parseUnits }
 
-    // this.#state = new State()
-
-    // todo some functions rely on state
     await super.init()
 
     // Start connection monitoring
@@ -276,8 +271,6 @@ export default class Chain extends VersionControl {
   async #executeTransaction({ hash, from, to, method, params, nonce }) {
     try {
       let result = await this.machine.execute(to, method, params)
-      // await accountsStore.put(to, nonce)
-      // if (!result) result = this.machine.state
       globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
       return result || 'no state change'
     } catch (error) {
