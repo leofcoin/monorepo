@@ -72,7 +72,7 @@ export default class Machine {
       }
 
       case 'debug': {
-        debug(data.message)
+        // debug(data.message)
         if (data.message.includes('loaded transactions for block:')) {
           pubsub.publish('block-loaded', data.message.replace('loaded transactions for block: ', '').split(' @')[0])
         }

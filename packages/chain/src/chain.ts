@@ -238,12 +238,13 @@ export default class Chain extends VersionControl {
 
     const higherThenCurrentLocal = !localBlock?.index ? true : lastBlock.index > localBlock.index
 
-    if (Object.keys(lastBlock).length > 0) {
+    if (lastBlock) {
       if (!this.lastBlock || higherThenCurrentLocal) {
-        this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
-        const stateInfo = await this.#makeRequest(peer, 'stateInfo')
-        await this.syncChain(lastBlock)
-        // this.machine.states.info = stateInfo
+        const knownBlocksResponse = await this.#makeRequest(peer, 'knownBlocks')
+        if (knownBlocksResponse.blocks)
+          for (const hash of knownBlocksResponse.blocks) {
+            this.wantList.push(hash)
+          }
       }
     }
 
@@ -260,6 +261,10 @@ export default class Chain extends VersionControl {
       const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
       if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
     }, 3000)
+
+    const stateInfo = await this.#makeRequest(peer, 'stateInfo')
+    await this.syncChain(lastBlock)
+    this.machine.states.info = stateInfo
   }
 
   #epochTimeout
