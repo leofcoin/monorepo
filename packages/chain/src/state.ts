@@ -275,14 +275,22 @@ export default class State extends Contract {
 
       // Fetch all missing transactions in parallel
       if (transactionsToFetch.length > 0) {
-        const fetchedTransactions = await Promise.all(
+        const fetchedResults = await Promise.allSettled(
           transactionsToFetch.map((txHash) => globalThis.peernet.get(txHash, 'transaction'))
         )
 
-        // Batch store all transactions
-        await Promise.all(
-          transactionsToFetch.map((txHash, i) => globalThis.transactionStore.put(txHash, fetchedTransactions[i]))
-        )
+        // Batch store all transactions that were successfully fetched
+        for (let i = 0; i < fetchedResults.length; i++) {
+          if (fetchedResults[i].status === 'fulfilled') {
+            await globalThis.transactionStore.put(transactionsToFetch[i], fetchedResults[i].value)
+          } else {
+            debug(
+              `failed to fetch transaction ${transactionsToFetch[i]}: ${
+                fetchedResults[i].reason?.message || fetchedResults[i].reason
+              }`
+            )
+          }
+        }
       }
 
       // Remove from pool

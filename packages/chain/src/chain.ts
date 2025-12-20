@@ -590,7 +590,7 @@ export default class Chain extends VersionControl {
       console.log(
         `[chain] 📤 Publishing block #${block.index} | hash: ${hash} | encoded bytes: ${blockMessage.encoded.length}`
       )
-      globalThis.peernet.publish('add-block', blockMessage.encoded)
+      globalThis.peernet.publish('add-block', blockMessage.decoded)
       globalThis.pubsub.publish('add-block', blockMessage.decoded)
     } catch (error) {
       console.log(error)
@@ -627,7 +627,7 @@ export default class Chain extends VersionControl {
     const event = await super.sendTransaction(transactionMessage)
 
     this.#sendTransaction(transactionMessage.encoded)
-    globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
+    globalThis.peernet.publish('send-transaction', transactionMessage.decoded)
     return event
   }
 
