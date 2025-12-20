@@ -243,7 +243,7 @@ export default class Chain extends VersionControl {
         this.knownBlocks = await this.#makeRequest(peer, 'knownBlocks')
         const stateInfo = await this.#makeRequest(peer, 'stateInfo')
         await this.syncChain(lastBlock)
-        this.machine.states.info = stateInfo
+        // this.machine.states.info = stateInfo
       }
     }
 
