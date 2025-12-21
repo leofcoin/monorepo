@@ -28,7 +28,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "ethers": "^6.15.0",
+    "ethers": "^6.16.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {

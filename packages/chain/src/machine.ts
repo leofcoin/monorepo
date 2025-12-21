@@ -491,7 +491,6 @@ export default class Machine {
 
   async addLoadedBlock(block) {
     debug(`adding loaded block: ${block.index}@${block.hash}`)
-    debug(JSON.stringify(block, jsonStringifyBigInt))
     if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
     return this.#askWorker('addLoadedBlock', JSON.stringify(block, jsonStringifyBigInt))
   }
