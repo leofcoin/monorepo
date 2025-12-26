@@ -32,7 +32,26 @@ export default class Machine {
 
   wantList: string[] = []
 
-  constructor(blocks) {
+  constructor(blocks?: any[]) {
+    if (blocks) {
+      return this.init(blocks) as any
+    }
+  }
+
+  async #safePeenetGet(hash: string, type: string = 'block', timeoutMs: number = 3000) {
+    try {
+      const promise = peernet.get(hash, type)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`peernet.get timeout for ${hash}`)), timeoutMs)
+      )
+      return await Promise.race([promise, timeoutPromise])
+    } catch (error) {
+      debug(`peernet.get failed for ${hash}:`, (error as any)?.message || error)
+      return undefined
+    }
+  }
+
+  init(blocks) {
     // @ts-ignore
     return this.#init(blocks)
   }
@@ -96,8 +115,13 @@ export default class Machine {
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
           try {
-            const input = await peernet.get(data.input)
-            this.worker.postMessage({ id: data.id, input })
+            const input = await this.#safePeenetGet(data.input)
+            if (input === undefined) {
+              this.worker.postMessage({ id: data.id, error: `could not get ${data.question} @${data.input}` })
+              this.wantList.push(data.input)
+            } else {
+              this.worker.postMessage({ id: data.id, input })
+            }
           } catch (error) {
             console.error(error)
 
@@ -330,7 +354,8 @@ export default class Machine {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message
         if (!(await globalThis.contractStore.has(parameters[0]))) {
-          message = await peernet.get(parameters[0], 'contract')
+          message = await this.#safePeenetGet(parameters[0], 'contract')
+          if (!message) throw new Error(`contract ${parameters[0]} not available`)
           message = await new ContractMessage(message)
           await globalThis.contractStore.put(await message.hash(), message.encoded)
         }
@@ -346,8 +371,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.execute timeout for ${contract}.${method}`))
+      }, 30000) // 30 second timeout for machine operations
 
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
 
         if (message?.error) reject(new ExecutionError(message.error))
@@ -370,7 +400,13 @@ export default class Machine {
   get(contract, method, parameters?): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.get timeout for ${contract}.${method}`))
+      }, 30000) // 30 second timeout for machine operations
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         resolve(message)
       }
@@ -391,7 +427,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.has timeout for ${address}`))
+      }, 10000) // 10 second timeout
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)
@@ -411,7 +453,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.#askWorker timeout for ${type}`))
+      }, 30000)
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)
