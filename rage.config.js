@@ -1,5 +1,5 @@
 export default {
-  priority: ['messages', 'addresses', 'lib', 'workers'],
+  priority: ['contracts', 'messages', 'addresses', 'lib', 'workers'],
   root: 'packages',
   src: 'src',
   exports: 'exports',

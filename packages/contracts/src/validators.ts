@@ -8,6 +8,7 @@ export declare interface ValidatorsState extends RolesState {
   currency: address
   validators: address[]
   currentValidator: address
+  validatorHistory: { [height: number]: address[] }
 }
 
 export default class Validators extends Roles {
@@ -28,6 +29,9 @@ export default class Validators extends Roles {
 
   #balances: { [address: address]: bigint } = {}
 
+  /** Track validator set changes at each block height (for protocol safety) */
+  #validatorHistory: { [height: number]: address[] } = {}
+
   get state() {
     return {
       ...super.state,
@@ -35,7 +39,8 @@ export default class Validators extends Roles {
       minimumBalance: this.#minimumBalance,
       currency: this.#currency,
       validators: this.#validators,
-      currentValidator: this.#currentValidator
+      currentValidator: this.#currentValidator,
+      validatorHistory: this.#validatorHistory
     }
   }
 
@@ -47,10 +52,12 @@ export default class Validators extends Roles {
       this.#validators = state.validators
       this.#balances = state.balances
       this.#currentValidator = state.currentValidator
+      this.#validatorHistory = state.validatorHistory || {}
     } else {
       this.#currency = tokenAddress
       this.#validators.push(msg.sender)
       this.#currentValidator = msg.sender
+      this.#validatorHistory[0] = [msg.sender]
     }
   }
 
@@ -91,6 +98,24 @@ export default class Validators extends Roles {
     if (msg.sender !== address && !this.hasRole(msg.sender, 'OWNER'))
       throw new Error('sender is not the validator or owner')
     return true
+  }
+
+  /** Query validators at a specific block height (enables height-scoped validator snapshots) */
+  validatorsByHeight(height: number) {
+    // If we have history for this height, return it
+    if (this.#validatorHistory[height]) {
+      return this.#validatorHistory[height]
+    }
+    
+    // Otherwise return current validators
+    // (In future, could query historical state from block headers)
+    return this.#validators
+  }
+
+  /** Record validator set change at a specific block height */
+  recordValidatorSnapshot(height: number) {
+    // Create a snapshot of current validators at this height
+    this.#validatorHistory[height] = [...this.#validators]
   }
 
   async addValidator(validator: address) {
