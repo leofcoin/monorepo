@@ -5,7 +5,8 @@ import {
   BWMessage,
   BWRequestMessage,
   ValidatorMessage,
-  StateMessage
+  StateMessage,
+  LastBlockMessage
 } from '@leofcoin/messages'
 import Storage from '@leofcoin/storage'
 
@@ -31,7 +32,8 @@ export default async (
     { name: 'bw-message', handler: BWMessage },
     { name: 'bw-request-message', handler: BWRequestMessage },
     { name: 'validator-message', handler: ValidatorMessage },
-    { name: 'state-message', handler: StateMessage }
+    { name: 'state-message', handler: StateMessage },
+    { name: 'last-block', handler: LastBlockMessage }
   ]
 
   for (const proto of protos) {
@@ -41,6 +43,11 @@ export default async (
   let name = `.${config.network}`
   const parts = config.network.split(':')
   if (parts[1]) name = `.${parts[0]}/${parts[1]}`
+  // optional namespace suffix to isolate multiple local nodes on same network
+  // e.g., '.leofcoin/peach/dev-validator-1'
+  if (typeof (config as any).storeNamespace === 'string' && (config as any).storeNamespace.length > 0) {
+    name = `${name}/${(config as any).storeNamespace}`
+  }
   const stores = ['transactionPool', 'state', 'accounts', 'contract', { name: 'wallet', private: true }]
 
   for (const store of stores) {

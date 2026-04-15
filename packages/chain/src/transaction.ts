@@ -76,13 +76,15 @@ export default class Transaction extends Protocol {
     // @ts-ignore
     if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !== '0x0') {
       // @ts-ignore
-      let block = await peernet.get(this.lastBlock.hash, 'block')
+      let block
+      try {
+        block = await globalThis.peernet.get(this.lastBlock.hash, 'block')
+      } catch (error) {
+        block = undefined
+      }
+      if (block === undefined) return [] // Fallback if block unavailable
       block = await new BlockMessage(block)
 
-      // for (let tx of block.decoded?.transactions) {
-      //   tx = await peernet.get(tx, 'transaction')
-      //   transactions.push(new TransactionMessage(tx))
-      // }
       transactions = transactions.filter((tx) => tx.from === address)
       while (transactions.length === 0 && block.decoded.index !== 0 && block.decoded.previousHash !== '0x0') {
         block = await globalThis.blockStore.get(block.decoded.previousHash)
@@ -92,8 +94,12 @@ export default class Transaction extends Protocol {
     }
     if (transactions.length === 0) return 0
 
-    transactions = transactions.sort((a, b) => a.timestamp - b.timestamp)
-    return transactions[transactions.length - 1].nonce
+    // Optimize: find max nonce instead of sorting entire array
+    let maxNonce = 0
+    for (const tx of transactions) {
+      if (tx.nonce > maxNonce) maxNonce = tx.nonce
+    }
+    return maxNonce
   }
 
   /**
@@ -102,6 +108,8 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async getNonce(address) {
+    // DO NOT use nonce cache here - multiple parallel calls could create race conditions
+    // Instead, optimize the store queries and pool filtering
     try {
       if (!(await globalThis.accountsStore.has(address))) {
         const nonce = await this.#getNonceFallback(address)
@@ -135,7 +143,6 @@ export default class Transaction extends Protocol {
     transactions = transactions.filter((tx) => tx.decoded.from === address)
 
     for (const transaction of transactions) {
-      if (transaction.decoded.nonce > nonce) throw new Error(`a transaction with a higher nonce already exists`)
       if (transaction.decoded.nonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
     }
   }
@@ -169,8 +176,8 @@ export default class Transaction extends Protocol {
       let data
 
       const wait = new Promise(async (resolve, reject) => {
-        if (pubsub.subscribers[`transaction.completed.${hash}`]) {
-          const result = pubsub.subscribers[`transaction.completed.${hash}`].value
+        if (pubsub.hasSubscribers(`transaction.completed.${hash}`)) {
+          const result = pubsub.getValue(`transaction.completed.${hash}`)
           if (result.status !== 'fulfilled') {
             await transactionPoolStore.delete(hash)
           }
@@ -191,7 +198,11 @@ export default class Transaction extends Protocol {
       })
       await globalThis.transactionPoolStore.put(hash, message.encoded)
       // debug(`Added ${hash} to the transaction pool`)
-      peernet.publish('add-transaction', message.encoded)
+      try {
+        peernet.publish('add-transaction', message.encoded)
+      } catch (publishError) {
+        console.warn('peernet publish failed: add-transaction', (publishError as Error)?.message ?? publishError)
+      }
       const fee = await calculateFee(message.decoded)
       return { hash, data, fee, wait, message }
     } catch (error) {

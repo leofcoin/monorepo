@@ -1,5 +1,9 @@
 import networks from '@leofcoin/networks'
 
+export const PROTOCOL_VERSION = '0.1.1'
+export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes
+export const REACHED_ONE_ZERO_ZERO = false // set to true when protocol reaches v1.0.0
+
 export type NodeOptions = {
   network?: string
   networkVersion?: string
@@ -10,6 +14,6 @@ export type NodeOptions = {
 export const DEFAULT_NODE_OPTIONS = {
   network: 'leofcoin:peach',
   networkVersion: 'peach',
-  version: '0.1.0',
+  version: PROTOCOL_VERSION,
   stars: networks.leofcoin.peach.stars
 }

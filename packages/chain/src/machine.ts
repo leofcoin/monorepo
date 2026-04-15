@@ -32,23 +32,13 @@ export default class Machine {
 
   wantList: string[] = []
 
-  constructor(blocks?: any[]) {
-    if (blocks) {
-      return this.init(blocks) as any
-    }
-  }
+  readyResolve: (value: Machine | PromiseLike<Machine>) => void
+  ready = new Promise<Machine>((resolve) => {
+    this.readyResolve = resolve
+  })
 
-  async #safePeenetGet(hash: string, type: string = 'block', timeoutMs: number = 3000) {
-    try {
-      const promise = peernet.get(hash, type)
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`peernet.get timeout for ${hash}`)), timeoutMs)
-      )
-      return await Promise.race([promise, timeoutPromise])
-    } catch (error) {
-      debug(`peernet.get failed for ${hash}:`, (error as any)?.message || error)
-      return undefined
-    }
+  constructor(blocks?: any[]) {
+    this.init(blocks)
   }
 
   init(blocks) {
@@ -115,7 +105,7 @@ export default class Machine {
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
           try {
-            const input = await this.#safePeenetGet(data.input)
+            const input = await peernet.get(data.input, data.question)
             if (input === undefined) {
               this.worker.postMessage({ id: data.id, error: `could not get ${data.question} @${data.input}` })
               this.wantList.push(data.input)
@@ -204,23 +194,34 @@ export default class Machine {
           await Promise.all(promises)
         }
 
+        // Helper to sort object keys for deterministic serialization
+        const sortedStringify = (obj, replacer) => {
+          const sorted = {}
+          const keys = Object.keys(obj).sort()
+          for (const key of keys) {
+            sorted[key] = obj[key]
+          }
+          return JSON.stringify(sorted, replacer)
+        }
+
         const tasks = [
-          stateStore.put('lastBlock', JSON.stringify(await this.lastBlock, jsonStringifyBigInt)),
-          stateStore.put('states', JSON.stringify(state, jsonStringifyBigInt)),
-          stateStore.put('accounts', JSON.stringify(accounts, jsonStringifyBigInt)),
+          stateStore.put('lastBlock', sortedStringify(await this.lastBlock, jsonStringifyBigInt)),
+          stateStore.put('states', sortedStringify(state, jsonStringifyBigInt)),
+          stateStore.put('accounts', sortedStringify(accounts, jsonStringifyBigInt)),
           stateStore.put(
             'info',
-            JSON.stringify(
+            sortedStringify(
               {
+                nativeBurnAmount: await this.totalBurnAmount,
+                nativeBurns: await this.nativeBurns,
                 nativeCalls: await this.nativeCalls,
                 nativeMints: await this.nativeMints,
-                nativeBurns: await this.nativeBurns,
                 nativeTransfers: await this.nativeTransfers,
-                totalTransactions: await this.totalTransactions,
+                totalBlocks: await blockStore.length,
                 totalBurnAmount: await this.totalBurnAmount,
                 totalMintAmount: await this.totalMintAmount,
-                totalTransferAmount: await this.totalTransferAmount,
-                totalBlocks: await blockStore.length
+                totalTransactions: await this.totalTransactions,
+                totalTransferAmount: await this.totalTransferAmount
               },
               jsonStringifyBigInt
             )
@@ -314,6 +315,7 @@ export default class Machine {
         }
       }
       this.worker.postMessage(message)
+      this.readyResolve(this)
     })
   }
 
@@ -354,7 +356,7 @@ export default class Machine {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message
         if (!(await globalThis.contractStore.has(parameters[0]))) {
-          message = await this.#safePeenetGet(parameters[0], 'contract')
+          message = await peernet.get(parameters[0], 'contract')
           if (!message) throw new Error(`contract ${parameters[0]} not available`)
           message = await new ContractMessage(message)
           await globalThis.contractStore.put(await message.hash(), message.encoded)
@@ -522,11 +524,17 @@ export default class Machine {
   }
 
   get lastBlock() {
-    return this.#askWorker('lastBlock')
+    return this.#askWorker('lastBlock').catch((error) => {
+      debug('lastBlock fallback after worker timeout:', (error as Error)?.message ?? error)
+      return this.states.lastBlock
+    })
   }
 
   get lastBlockHeight() {
-    return this.#askWorker('lastBlockHeight')
+    return this.#askWorker('lastBlockHeight').catch((error) => {
+      debug('lastBlockHeight fallback after worker timeout:', (error as Error)?.message ?? error)
+      return Number(this.states.lastBlock?.index ?? 0)
+    })
   }
 
   getBlocks(from?, to?): Promise<[]> {

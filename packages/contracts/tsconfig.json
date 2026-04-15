@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "declarationDir": "./exports",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "outDir": "exports",
+    "types": ["@leofcoin/types", "@leofcoin/types/global"]
+  },
+  "include": ["./src/**/*"]
+}

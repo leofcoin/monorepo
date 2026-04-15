@@ -26,7 +26,12 @@ export default class ConnectionMonitor {
   }
 
   get compatiblePeers() {
-    return this.connectedPeers.filter((peer) => peer.version === this.#version)
+    return this.connectedPeers.filter((peer) => {
+      if (!peer.version || !this.#version) return false
+      const [peerMajor, peerMinor] = peer.version.split('.')
+      const [localMajor, localMinor] = this.#version.split('.')
+      return peerMajor === localMajor && peerMinor === localMinor
+    })
   }
 
   get disconnectedPeers() {
@@ -128,17 +133,16 @@ export default class ConnectionMonitor {
 
     const connectedPeers = this.connectedPeers
     const compatiblePeers = this.compatiblePeers
+    const disconnectedPeers = this.disconnectedPeers
 
-    console.log(`🔍 Health check: ${connectedPeers.length} connected, ${compatiblePeers.length} compatible`)
+    console.log(
+      `🔍 Health check: ${connectedPeers.length} connected, ${compatiblePeers.length} compatible, ${disconnectedPeers.length} negotiating`
+    )
 
-    // If a reconnection is already ongoing, skip this cycle to avoid log spam/loops
-    if (this.#reconnecting) {
-      console.log('⏭️ Health check: reconnection already in progress, skipping reconnect attempt')
-      return
-    }
-
-    // If we have no connections or none are compatible, try to reconnect
-    if (connectedPeers.length === 0) {
+    // If we have no connections or none are compatible, try to reconnect.
+    // Don't trigger reconnection if peers are still in WebRTC ICE negotiation (disconnectedPeers > 0) —
+    // reinit() would tear down the in-flight handshake.
+    if (connectedPeers.length === 0 && disconnectedPeers.length === 0) {
       console.warn('⚠️ No peer connections detected — attempting reconnection')
       await this.#attemptReconnection()
     } else if (compatiblePeers.length === 0 && connectedPeers.length > 0) {
@@ -246,22 +250,7 @@ export default class ConnectionMonitor {
         }
       }
 
-      // Approach 3: Try client.connect if available
-      if (
-        globalThis.peernet?.client &&
-        'connect' in globalThis.peernet.client &&
-        typeof (globalThis.peernet.client as any).connect === 'function'
-      ) {
-        console.log('  → Trying client.connect()')
-        try {
-          await (globalThis.peernet.client as any).connect()
-          console.log('  ✅ client.connect() succeeded')
-        } catch (e) {
-          console.warn('  ⚠️ client.connect() failed:', (e as any)?.message || e)
-        }
-      }
-
-      // Approach 4: Explicitly dial star servers if available
+      // Approach 3: Explicitly dial star servers if available (only if client.reinit() didn't succeed)
       try {
         const networkName = globalThis.peernet?.network
         if (networkName && typeof networkName === 'string') {
@@ -276,10 +265,6 @@ export default class ConnectionMonitor {
               try {
                 if (globalThis.peernet?.client && 'dial' in globalThis.peernet.client) {
                   await (globalThis.peernet.client as any).dial(star)
-                  console.log(`  ✅ Connected to star server: ${star}`)
-                } else if (globalThis.peernet?.client && 'connect' in globalThis.peernet.client) {
-                  // Try connect with the star URL
-                  await (globalThis.peernet.client as any).connect(star)
                   console.log(`  ✅ Connected to star server: ${star}`)
                 }
               } catch (e) {
@@ -327,16 +312,14 @@ export default class ConnectionMonitor {
   }
 
   async #attemptReconnection() {
-    if (this.#reconnecting) {
-      console.log('⏭️ Reconnection already in progress')
-      return
-    }
-
     try {
       await this.#restoreNetwork()
 
-      // Check if reconnection was successful
-      const hasConnections = this.connectedPeers.length > 0
+      // Check if reconnection was successful.
+      // Treat peers that are still negotiating (in connections but not yet connected) as success —
+      // they were discovered via the star and WebRTC ICE is in progress. Retrying now would call
+      // reinit() again and tear down the in-flight handshake.
+      const hasConnections = this.connectedPeers.length > 0 || this.disconnectedPeers.length > 0
       if (hasConnections) {
         console.log('✅ Reconnection successful, resetting backoff delay')
         this.#reconnectDelay = 5000

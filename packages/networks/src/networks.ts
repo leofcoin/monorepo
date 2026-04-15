@@ -1,6 +1,6 @@
 // todo only one star needed, no need to have one for each network
-// unless we change anything to the star protocoll
-// version diferences should be handled in the chain
+// unless we change anything to the star protocol
+// version differences should be handled in the chain
 // maybe a good way to handle could be in p2pt-swarm
 
 export default {

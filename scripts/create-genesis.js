@@ -24,9 +24,15 @@ import { join } from 'path'
   // const Chain = require('./../chain/dist/chain');
 
   const Node = (await import('../packages/chain/exports/node.js')).default
-  const node = await new Node({ network: 'leofcoin:peach', networkVersion: 'peach' })
-  await nodeConfig()
-  console.log(peernet.selectedAccount)
+  const node = new Node({ network: 'leofcoin:peach', networkVersion: 'peach' })
+  await node.ready
+  await blockStore.clear()
+  await transactionPoolStore.clear()
+  await contractStore.clear()
+  await transactionStore.clear()
+  await accountsStore.clear()
+  console.log(node)
+  // console.log(peernet);
   // const chain = await new Chain()
   // console.log(chain);
 
@@ -78,7 +84,6 @@ import { join } from 'path'
     nameService: await nameService.toString(),
     validators: await validators.toString()
   }
-  console.log(await factory.toBs32())
   await write(join(process.cwd(), 'packages/addresses/src/addresses.json'), JSON.stringify(addresses, null, '\t'))
   await write(join(process.cwd(), 'packages/lib/src/bytecodes.json'), JSON.stringify(bytecodes, null, '\t'))
   console.log('done')
