@@ -106,7 +106,7 @@ export default class Validators extends Roles {
     if (this.#validatorHistory[height]) {
       return this.#validatorHistory[height]
     }
-    
+
     // Otherwise return current validators
     // (In future, could query historical state from block headers)
     return this.#validators

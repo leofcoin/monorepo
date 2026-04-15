@@ -628,6 +628,8 @@ export default class State extends Contract {
 
   async #getLatestBlock() {
     let promises = []
+    const connectedPeers = Object.values(globalThis.peernet.connections || {}).filter((peer) => peer.connected)
+    let compatiblePeerCount = 0
 
     let data = await new globalThis.peernet.protos['peernet-request']({
       request: 'lastBlock'
@@ -637,15 +639,8 @@ export default class State extends Contract {
     for (const id in globalThis.peernet.connections) {
       // @ts-ignore
       const peer = globalThis.peernet.connections[id]
-      // CRITICAL FIX: Use semver comparison (major.minor) not exact match
-      const isVersionCompatible = () => {
-        if (!peer.version || !this.version) return false
-        const [peerMajor, peerMinor] = peer.version.split('.')
-        const [localMajor, localMinor] = this.version.split('.')
-        return peerMajor === localMajor && peerMinor === localMinor
-      }
-
-      if (peer.connected && isVersionCompatible()) {
+      if (peer.connected && this.isVersionCompatible(peer.version)) {
+        compatiblePeerCount += 1
         const task = async () => {
           try {
             const result = await peer.request(node.encoded)
@@ -661,9 +656,21 @@ export default class State extends Contract {
         promises.push(task())
       }
     }
+
+    if (connectedPeers.length > 0 && compatiblePeerCount === 0) {
+      throw new ResolveError(
+        `latestBlock: no compatible peers found for local version ${this.version} among ${connectedPeers.length} connected peers`
+      )
+    }
+
     // @ts-ignore
     console.log({ promises })
     promises = (await this.promiseRequests(promises)) as any[]
+
+    if (compatiblePeerCount > 0 && promises.length === 0) {
+      throw new ResolveError('latestBlock: no responses from compatible peers')
+    }
+
     console.log({ promises })
     let latest = { index: 0, hash: '0x0', previousHash: '0x0' }
 
@@ -681,15 +688,7 @@ export default class State extends Contract {
 
       const peer = promises[0].peer
 
-      // CRITICAL FIX: Check version compatibility using semver
-      const isVersionCompatible = () => {
-        if (!peer.version || !this.version) return false
-        const [peerMajor, peerMinor] = peer.version.split('.')
-        const [localMajor, localMinor] = this.version.split('.')
-        return peerMajor === localMajor && peerMinor === localMinor
-      }
-
-      if (peer.connected && isVersionCompatible()) {
+      if (peer.connected && this.isVersionCompatible(peer.version)) {
         let data = await new globalThis.peernet.protos['peernet-request']({
           request: 'knownBlocks'
         })
@@ -864,7 +863,7 @@ export default class State extends Contract {
 
     // Check if we have any connected peers with the same version
     const compatiblePeers = Object.values(globalThis.peernet.connections || {}).filter(
-      (peer) => peer.connected && peer.version === this.version
+      (peer) => peer.connected && this.isVersionCompatible(peer.version)
     )
 
     if (compatiblePeers.length === 0) {
@@ -888,7 +887,7 @@ export default class State extends Contract {
     return new Promise((resolve) => {
       const checkPeers = () => {
         const peers = Object.values(globalThis.peernet.connections || {}).filter(
-          (peer) => peer.connected && peer.version === this.version
+          (peer) => peer.connected && this.isVersionCompatible(peer.version)
         )
 
         if (peers.length > 0) {

@@ -6,7 +6,7 @@ export default {
   fees: BigInt(0),
   transactions: Array(),
   validators: new Uint8Array(),
-  producer: String(''),
-  producerProof: String(''),
-  protocolVersion: String('')
+  producer: String(),
+  producerProof: String(),
+  protocolVersion: String()
 }

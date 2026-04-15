@@ -175,11 +175,11 @@ export default class Chain extends VersionControl {
     if (!blockMessage.decoded.protocolVersion || typeof blockMessage.decoded.protocolVersion !== 'string') {
       throw new Error(`Block ${blockMessage.decoded.index} does not have a valid protocolVersion field`)
     }
-    
+
     if (!this.isVersionCompatible(blockMessage.decoded.protocolVersion)) {
       throw new Error(
         `Block ${blockMessage.decoded.index} uses incompatible protocol version: ${blockMessage.decoded.protocolVersion} ` +
-        `(local: ${this.version}). Major.minor version must match.`
+          `(local: ${this.version}). Major.minor version must match.`
       )
     }
 
@@ -187,16 +187,18 @@ export default class Chain extends VersionControl {
     if (!blockMessage.decoded.producer || typeof blockMessage.decoded.producer !== 'string') {
       throw new Error(`Block ${blockMessage.decoded.index} does not have a valid producer field`)
     }
-    
+
     // Validate producerProof field
     if (!blockMessage.decoded.producerProof || typeof blockMessage.decoded.producerProof !== 'string') {
       throw new Error(`Block ${blockMessage.decoded.index} does not have a valid producerProof field`)
     }
-    
+
     // Verify producer is in validators list
-    const producerIsValidator = validators.some(v => v.address === blockMessage.decoded.producer)
+    const producerIsValidator = validators.some((v) => v.address === blockMessage.decoded.producer)
     if (!producerIsValidator) {
-      throw new Error(`Block ${blockMessage.decoded.index} producer ${blockMessage.decoded.producer} is not in validators list`)
+      throw new Error(
+        `Block ${blockMessage.decoded.index} producer ${blockMessage.decoded.producer} is not in validators list`
+      )
     }
 
     const addresses = validators.map((validator) => validator.address)
@@ -234,13 +236,15 @@ export default class Chain extends VersionControl {
   /** Handle epoch transition when a block crosses epoch boundary */
   async #handleEpochBoundary(blockHeight: number): Promise<void> {
     if (!this.#isEpochBoundary(blockHeight)) return
-    
+
     // Epoch boundary crossed: update epoch start, reset round, trigger validator rotation
     this.#currentEpochStartHeight = blockHeight + 1
     this.#consensusRound = 0
-    
-    debug(`[consensus] Epoch boundary at block ${blockHeight}: new epoch starts at height ${this.#currentEpochStartHeight}`)
-    
+
+    debug(
+      `[consensus] Epoch boundary at block ${blockHeight}: new epoch starts at height ${this.#currentEpochStartHeight}`
+    )
+
     // If we're participating as a validator, trigger immediate epoch to determine new proposer
     if (this.#participating && !this.#runningEpoch) {
       await this.#runEpoch()
@@ -676,6 +680,35 @@ export default class Chain extends VersionControl {
     debug(`peer connected: ${peerId}`)
     const peer = peernet.getConnection(peerId)
 
+    if (!peer) {
+      debug(`peer not found: ${peerId}`)
+      return
+    }
+
+    if (!peer.version) {
+      try {
+        let versionResponse: any = await this.#makeRequest(peer, 'version')
+
+        if (versionResponse instanceof Uint8Array) {
+          const decoded = new TextDecoder().decode(versionResponse)
+          try {
+            versionResponse = JSON.parse(decoded)
+          } catch {
+            versionResponse = decoded
+          }
+        }
+
+        if (typeof versionResponse === 'string') {
+          peer.version = versionResponse
+        } else if (versionResponse && typeof versionResponse === 'object' && typeof versionResponse.version === 'string') {
+          peer.version = versionResponse.version
+        }
+      } catch (error) {
+        debug(`failed to request version from peer ${peerId}:`, (error as Error)?.message ?? error)
+        return
+      }
+    }
+
     debug(`peer connected with version ${peer.version}`)
     if (!this.isVersionCompatible(peer.version)) {
       debug(`versions don't match`)
@@ -950,17 +983,17 @@ export default class Chain extends VersionControl {
 
       if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) {
         await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
-        
+
         // Record validator snapshot at this block height for future consensus queries
         try {
           await this.call(addresses.validators, 'recordValidatorSnapshot', [blockMessage.decoded.index])
         } catch (snapshotError) {
           debug(`failed to record validator snapshot: ${(snapshotError as Error)?.message ?? snapshotError}`)
         }
-        
+
         // Check if this block crosses epoch boundary and handle transition
         await this.#handleEpochBoundary(Number(blockMessage.decoded.index))
-        
+
         await this.updateState(blockMessage)
       }
       globalThis.pubsub.publish('block-processed', blockMessage.decoded)
@@ -1174,14 +1207,14 @@ export default class Chain extends VersionControl {
 
       // Set producer to current account
       block.producer = globalThis.peernet.selectedAccount || ''
-      
+
       // Sign block hash to authenticate producer (producer must be the proposer)
       if (block.producer && this.keypair) {
         const blockHashInput = JSON.stringify({
           index: block.index,
           previousHash: block.previousHash,
           timestamp: block.timestamp,
-          validators: block.validators.map(v => v.address).sort()
+          validators: block.validators.map((v) => v.address).sort()
         })
         block.producerProof = await signTransaction(blockHashInput, this.keypair)
       }

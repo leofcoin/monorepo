@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.8.30",
+  "version": "1.9.2",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {

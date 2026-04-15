@@ -134,10 +134,24 @@ export default class Transaction extends Protocol {
   }
 
   async validateNonce(address, nonce) {
-    const previousNonce = await this.getNonce(address)
-    if (previousNonce > nonce) throw new Error(`a transaction with a higher nonce already exists`)
-    if (previousNonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
+    // Compare only against the COMMITTED nonce (accountsStore), not the pool max.
+    // The pool may hold many future nonces from batch sends — rejecting lower nonces
+    // because a higher one is already queued would break concurrent batch submission.
+    let committedNonce: number
+    try {
+      if (await globalThis.accountsStore.has(address)) {
+        const raw = await globalThis.accountsStore.get(address)
+        committedNonce = Number(new TextDecoder().decode(raw))
+      } else {
+        committedNonce = await this.#getNonceFallback(address)
+      }
+    } catch {
+      committedNonce = 0
+    }
 
+    if (committedNonce >= nonce) throw new Error(`a transaction with the same nonce already exists`)
+
+    // Only reject exact duplicates already in the pool (not "higher nonce" rejections)
     let transactions = await globalThis.transactionPoolStore.values()
     transactions = await this.promiseTransactions(transactions)
     transactions = transactions.filter((tx) => tx.decoded.from === address)
