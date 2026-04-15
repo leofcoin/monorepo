@@ -59,4 +59,13 @@ export class VersionControl extends State {
       return this.#setCurrentVersion()
     }
   }
+
+  protected isVersionCompatible(peerVersion?: string) {
+    if (!peerVersion || !this.version) return false
+
+    const [peerMajor, peerMinor] = peerVersion.split('.')
+    const [localMajor, localMinor] = this.version.split('.')
+
+    return peerMajor === localMajor && peerMinor === localMinor
+  }
 }

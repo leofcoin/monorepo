@@ -57,7 +57,8 @@ export default class Chain extends VersionControl {
 
   #participants = []
   #participating = false
-  #jail = []
+  #jail: Set<string> = new Set()
+  #jailReleaseTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
 
   #peerConnectionRetries = new Map()
   #maxPeerRetries = 5
@@ -133,12 +134,77 @@ export default class Chain extends VersionControl {
     }
   }
 
-  async #runEpoch() {
+  #isJailed(address?: string): boolean {
+    return typeof address === 'string' && this.#jail.has(address)
+  }
+
+  async #getConsensusValidators(nextBlockIndex?: number): Promise<string[]> {
+    const localBlock = await this.lastBlock
+    const localIndex = localBlock?.index !== undefined ? Number(localBlock.index) : -1
+
+    if (
+      Array.isArray(localBlock?.validators) &&
+      localBlock.validators.length > 0 &&
+      (nextBlockIndex === undefined || nextBlockIndex === localIndex + 1)
+    ) {
+      return [
+        ...new Set(
+          localBlock.validators
+            .map((validator: { address: string }) => validator.address)
+            .filter((address: string) => Boolean(address))
+        )
+      ].sort()
+    }
+
+    const validators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+    return [...new Set(validators)].sort()
+  }
+
+  #validateBlockValidators(blockMessage: BlockMessage): void {
+    const validators = blockMessage.decoded.validators || []
+
+    if (!Array.isArray(validators) || validators.length === 0) {
+      throw new Error(`Block ${blockMessage.decoded.index} does not include validators`)
+    }
+
+    const addresses = validators.map((validator) => validator.address)
+    if (addresses.some((address) => typeof address !== 'string' || address.length === 0)) {
+      throw new Error(`Block ${blockMessage.decoded.index} includes an invalid validator address`)
+    }
+
+    const canonicalAddresses = [...addresses].sort()
+    if (canonicalAddresses.some((address, index) => address !== addresses[index])) {
+      throw new Error(`Block ${blockMessage.decoded.index} validators are not canonically sorted`)
+    }
+
+    if (new Set(addresses).size !== addresses.length) {
+      throw new Error(`Block ${blockMessage.decoded.index} validators contain duplicates`)
+    }
+
+    const validatorCount = BigInt(validators.length)
+    const expectedReward = blockMessage.decoded.fees / validatorCount + blockMessage.decoded.reward / validatorCount
+
+    for (const validator of validators) {
+      if (validator.reward !== expectedReward) {
+        throw new Error(
+          `Block ${blockMessage.decoded.index} has an invalid reward for validator ${validator.address}: ` +
+            `expected ${expectedReward}, got ${validator.reward}`
+        )
+      }
+    }
+  }
+
+  async #runEpoch(): Promise<void> {
     if (this.#runningEpoch) return
     this.#runningEpoch = true
     console.log('epoch')
-    const validators = await this.staticCall(addresses.validators, 'validators')
+    const validators = await this.#getConsensusValidators()
     console.log({ validators })
+
+    if (this.#isJailed(peernet.selectedAccount)) {
+      this.#runningEpoch = false
+      return
+    }
 
     if (!validators.includes(peernet.selectedAccount)) {
       this.#runningEpoch = false
@@ -298,11 +364,21 @@ export default class Chain extends VersionControl {
     await globalThis.transactionPoolStore.delete(hash)
   }
 
-  async #validatorTimeout(validatorInfo) {
-    setTimeout(() => {
-      this.#jail.splice(this.#jail.indexOf(validatorInfo.address), 1)
-    }, validatorInfo.timeout)
-    this.#jail.push(validatorInfo.address)
+  async #validatorTimeout(validatorInfo: { address?: string; timeout?: number }): Promise<void> {
+    const address = validatorInfo?.address
+    if (!address) return
+
+    const timeout = Math.min(Math.max(Number(validatorInfo.timeout) || 0, 0), 60 * 60 * 1000)
+    const existingRelease = this.#jailReleaseTimers.get(address)
+    if (existingRelease) clearTimeout(existingRelease)
+
+    this.#jail.add(address)
+    const releaseTimer = setTimeout(() => {
+      this.#jail.delete(address)
+      this.#jailReleaseTimers.delete(address)
+    }, timeout)
+
+    this.#jailReleaseTimers.set(address, releaseTimer)
   }
 
   // ── Tendermint consensus handlers ────────────────────────────────────────
@@ -335,7 +411,7 @@ export default class Chain extends VersionControl {
       const msg = JSON.parse(new TextDecoder().decode(payload))
       const { blockHash, index, round, from } = msg
 
-      const validators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+      const validators = await this.#getConsensusValidators(index)
       const expectedProposerIdx = (index + round) % validators.length
       if (!validators[expectedProposerIdx] || validators[expectedProposerIdx] !== from) {
         debug(`[consensus] Proposal from wrong proposer at height ${index} round ${round}`)
@@ -369,7 +445,7 @@ export default class Chain extends VersionControl {
         this.#roundTimer = null
       }
 
-      if (validators.includes(peernet.selectedAccount)) {
+      if (validators.includes(peernet.selectedAccount) && !this.#isJailed(peernet.selectedAccount)) {
         await this.#castVote('prevote', blockHash, index, round)
       }
     } catch (e) {
@@ -386,7 +462,7 @@ export default class Chain extends VersionControl {
       const msg = JSON.parse(new TextDecoder().decode(payload))
       const { blockHash, index, round, from } = msg
 
-      const validators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+      const validators = await this.#getConsensusValidators(index)
       if (!validators.includes(from)) return
 
       const localBlock = await this.lastBlock
@@ -401,7 +477,11 @@ export default class Chain extends VersionControl {
       const voteCount = this.#prevotes.get(voteKey)!.size
       debug(`[consensus] Prevotes ${voteKey}: ${voteCount}/${validators.length} (need ${threshold})`)
 
-      if (voteCount >= threshold && validators.includes(peernet.selectedAccount)) {
+      if (
+        voteCount >= threshold &&
+        validators.includes(peernet.selectedAccount) &&
+        !this.#isJailed(peernet.selectedAccount)
+      ) {
         await this.#castVote('precommit', blockHash, index, round)
       }
     } catch (e) {
@@ -419,7 +499,7 @@ export default class Chain extends VersionControl {
       const msg = JSON.parse(new TextDecoder().decode(payload))
       const { blockHash, index, round, from } = msg
 
-      const validators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+      const validators = await this.#getConsensusValidators(index)
       if (!validators.includes(from)) return
       if (index <= this.#committedHeight) return
 
@@ -544,21 +624,7 @@ export default class Chain extends VersionControl {
     const peer = peernet.getConnection(peerId)
 
     debug(`peer connected with version ${peer.version}`)
-    // todo handle version changes
-    // for now just do nothing if version doesn't match
-    debug(`peer connected with version ${peer.version}`)
-    const compatibleVersion = () => {
-      if (!peer.version || !this.version) return false
-      const [peerMajor, peerMinor] = peer.version.split('.')
-      const [localMajor, localMinor] = this.version.split('.')
-      // IMPORTANT: Use semver comparison (major.minor) not exact match
-      // This allows 0.1.0 and 0.1.1 (patch versions) to be compatible
-      const majorMatch = peerMajor === localMajor
-      const minorMatch = peerMinor === localMinor
-      return majorMatch && minorMatch
-    }
-
-    if (!compatibleVersion()) {
+    if (!this.isVersionCompatible(peer.version)) {
       debug(`versions don't match`)
       return
     }
@@ -755,6 +821,7 @@ export default class Chain extends VersionControl {
     }
 
     console.log(`[chain] ✅ Block data integrity verified: ${hash}`)
+    this.#validateBlockValidators(blockMessage)
 
     // NOW SAFE TO PROCEED with transaction processing
     const transactions = await Promise.all(
@@ -979,7 +1046,7 @@ export default class Chain extends VersionControl {
 
     for (const validator of validators) {
       const peer = peers[validator]
-      if (peer && peer.connected && peer.version === this.version) {
+      if (peer && peer.connected && this.isVersionCompatible(peer.version)) {
         let data = await new BWRequestMessage()
         const node = await globalThis.peernet.prepareMessage(data.encoded)
         try {
