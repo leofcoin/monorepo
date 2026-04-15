@@ -700,7 +700,11 @@ export default class Chain extends VersionControl {
 
         if (typeof versionResponse === 'string') {
           peer.version = versionResponse
-        } else if (versionResponse && typeof versionResponse === 'object' && typeof versionResponse.version === 'string') {
+        } else if (
+          versionResponse &&
+          typeof versionResponse === 'object' &&
+          typeof versionResponse.version === 'string'
+        ) {
           peer.version = versionResponse.version
         }
       } catch (error) {
