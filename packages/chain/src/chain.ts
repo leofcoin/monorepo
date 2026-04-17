@@ -6,20 +6,22 @@ import {
   BlockMessage,
   BWMessage,
   BWRequestMessage,
-  LastBlockMessage
+  LastBlockMessage,
+  StateMessage,
+  PrevoteMessage,
+  PrecommitMessage,
+  ProposalMessage
 } from '@leofcoin/messages'
-import addresses, { contractFactory, nameService, nativeToken, validators } from '@leofcoin/addresses'
-import { signTransaction } from '@leofcoin/lib'
+import addresses from '@leofcoin/addresses'
 import {
+  signTransaction,
   contractFactoryMessage,
   nativeTokenMessage,
   validatorsMessage,
   nameServiceMessage,
   calculateFee
 } from '@leofcoin/lib'
-import { Address } from './types.js'
 import { VersionControl } from './version-control.js'
-import validators from '@leofcoin/contracts/validators'
 import ConnectionMonitor from './connection-monitor.js'
 import { log } from 'node:console'
 import codecs from '@leofcoin/codecs/utils'
@@ -33,6 +35,30 @@ codecs.addCodec({
 codecs.addCodec({
   name: 'last-block-request-message',
   codec: 0x6c62726d,
+  hashAlg: 'keccak-256'
+})
+
+codecs.addCodec({
+  name: 'proposal-message',
+  codec: 0x70726d,
+  hashAlg: 'keccak-256'
+})
+
+codecs.addCodec({
+  name: 'prevote-message',
+  codec: 0x70766d,
+  hashAlg: 'keccak-256'
+})
+
+codecs.addCodec({
+  name: 'precommit-message',
+  codec: 0x7063636d,
+  hashAlg: 'keccak-256'
+})
+
+codecs.addCodec({
+  name: 'state-message',
+  codec: 0x73746d,
   hashAlg: 'keccak-256'
 })
 
@@ -385,7 +411,9 @@ export default class Chain extends VersionControl {
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
     await globalThis.peernet.addRequestHandler('stateInfo', () => {
-      return new globalThis.peernet.protos['peernet-response']({ response: this.machine.states.info })
+      return new globalThis.peernet.protos['peernet-response']({
+        response: new StateMessage(this.machine.states.info).encoded
+      })
     })
 
     globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
@@ -450,7 +478,10 @@ export default class Chain extends VersionControl {
     this.#castedVotes.add(voteKey)
 
     const from = peernet.selectedAccount
-    const payload = new TextEncoder().encode(JSON.stringify({ blockHash, index, round, from }))
+    const voteData = { blockHash, index: BigInt(index), round: BigInt(round), from }
+    const Message = type === 'prevote' ? PrevoteMessage : PrecommitMessage
+    const message = new Message(voteData)
+    const payload = message.encoded
     try {
       globalThis.peernet.publish(`consensus:${type}`, payload)
     } catch (e) {
@@ -465,18 +496,19 @@ export default class Chain extends VersionControl {
    */
   #handleProposal = async (payload) => {
     try {
-      const msg = JSON.parse(new TextDecoder().decode(payload))
+      const message = new ProposalMessage(payload)
+      const msg = message.decoded
       const { blockHash, index, round, from } = msg
 
-      const validators = await this.#getConsensusValidators(index)
-      const expectedProposerIdx = (index + round) % validators.length
+      const validators = await this.#getConsensusValidators(Number(index))
+      const expectedProposerIdx = Number((index + round) % BigInt(validators.length))
       if (!validators[expectedProposerIdx] || validators[expectedProposerIdx] !== from) {
         debug(`[consensus] Proposal from wrong proposer at height ${index} round ${round}`)
         return
       }
 
       const localBlock = await this.lastBlock
-      const localIndex = localBlock?.index !== undefined ? Number(localBlock.index) : -1
+      const localIndex = localBlock?.index !== undefined ? localBlock.index : -1n
       if (index <= localIndex) {
         debug(`[consensus] Ignoring stale proposal at height ${index} (local: ${localIndex})`)
         return
@@ -496,14 +528,14 @@ export default class Chain extends VersionControl {
         return
       }
 
-      this.#consensusRound = round
+      this.#consensusRound = Number(round)
       if (this.#roundTimer) {
         clearTimeout(this.#roundTimer)
         this.#roundTimer = null
       }
 
       if (validators.includes(peernet.selectedAccount) && !this.#isJailed(peernet.selectedAccount)) {
-        await this.#castVote('prevote', blockHash, index, round)
+        await this.#castVote('prevote', blockHash, Number(index), Number(round))
       }
     } catch (e) {
       debug('[consensus] Error handling proposal:', (e as Error)?.message)
@@ -516,14 +548,15 @@ export default class Chain extends VersionControl {
    */
   #handlePrevote = async (payload) => {
     try {
-      const msg = JSON.parse(new TextDecoder().decode(payload))
+      const message = new PrevoteMessage(payload)
+      const msg = message.decoded
       const { blockHash, index, round, from } = msg
 
-      const validators = await this.#getConsensusValidators(index)
+      const validators = await this.#getConsensusValidators(Number(index))
       if (!validators.includes(from)) return
 
       const localBlock = await this.lastBlock
-      const localIndex = localBlock?.index !== undefined ? Number(localBlock.index) : -1
+      const localIndex = localBlock?.index !== undefined ? localBlock.index : -1n
       if (index <= localIndex) return
 
       const voteKey = `${index}:${round}:${blockHash}`
@@ -539,7 +572,7 @@ export default class Chain extends VersionControl {
         validators.includes(peernet.selectedAccount) &&
         !this.#isJailed(peernet.selectedAccount)
       ) {
-        await this.#castVote('precommit', blockHash, index, round)
+        await this.#castVote('precommit', blockHash, Number(index), Number(round))
       }
     } catch (e) {
       debug('[consensus] Error handling prevote:', (e as Error)?.message)
@@ -553,12 +586,13 @@ export default class Chain extends VersionControl {
    */
   #handlePrecommit = async (payload) => {
     try {
-      const msg = JSON.parse(new TextDecoder().decode(payload))
+      const message = new PrecommitMessage(payload)
+      const msg = message.decoded
       const { blockHash, index, round, from } = msg
 
-      const validators = await this.#getConsensusValidators(index)
+      const validators = await this.#getConsensusValidators(Number(index))
       if (!validators.includes(from)) return
-      if (index <= this.#committedHeight) return
+      if (index <= BigInt(this.#committedHeight)) return
 
       const voteKey = `${index}:${round}:${blockHash}`
       if (!this.#precommits.has(voteKey)) this.#precommits.set(voteKey, new Set())
@@ -568,26 +602,26 @@ export default class Chain extends VersionControl {
       const voteCount = this.#precommits.get(voteKey)!.size
       debug(`[consensus] Precommits ${voteKey}: ${voteCount}/${validators.length} (need ${threshold})`)
 
-      if (voteCount >= threshold && index > this.#committedHeight) {
-        this.#committedHeight = index
+      if (voteCount >= threshold && index > BigInt(this.#committedHeight)) {
+        this.#committedHeight = Number(index)
         this.#consensusRound = 0
 
         // Prune vote state for committed and older heights
         for (const key of [...this.#prevotes.keys()]) {
-          if (Number(key.split(':')[0]) <= index) this.#prevotes.delete(key)
+          if (BigInt(key.split(':')[0]) <= index) this.#prevotes.delete(key)
         }
         for (const key of [...this.#precommits.keys()]) {
-          if (Number(key.split(':')[0]) <= index) this.#precommits.delete(key)
+          if (BigInt(key.split(':')[0]) <= index) this.#precommits.delete(key)
         }
         for (const key of [...this.#castedVotes]) {
-          if (Number(key.split(':')[1]) <= index) this.#castedVotes.delete(key)
+          if (BigInt(key.split(':')[1]) <= index) this.#castedVotes.delete(key)
         }
 
         // Non-proposers add the block to local state now.
         // Proposers already committed state in #createBlock() and their
         // lastBlock.index === index, so the guard below skips them.
         const currentBlock = await this.lastBlock
-        const currentIndex = currentBlock?.index !== undefined ? Number(currentBlock.index) : -1
+        const currentIndex = currentBlock?.index !== undefined ? currentBlock.index : -1n
         if (index > currentIndex) {
           debug(`[consensus] ✅ Committing block ${blockHash} at height ${index}`)
           try {
@@ -648,12 +682,8 @@ export default class Chain extends VersionControl {
   async getPeerTransactionPool(peer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
     if (transactionsInPool instanceof Uint8Array) {
-      try {
-        const text = new TextDecoder().decode(transactionsInPool)
-        transactionsInPool = JSON.parse(text)
-      } catch (e) {
-        return []
-      }
+      debug('transactionPool response must be decoded array payload')
+      return []
     }
     if (!Array.isArray(transactionsInPool)) return []
 
@@ -690,12 +720,7 @@ export default class Chain extends VersionControl {
         let versionResponse: any = await this.#makeRequest(peer, 'version')
 
         if (versionResponse instanceof Uint8Array) {
-          const decoded = new TextDecoder().decode(versionResponse)
-          try {
-            versionResponse = JSON.parse(decoded)
-          } catch {
-            versionResponse = decoded
-          }
+          versionResponse = new TextDecoder().decode(versionResponse)
         }
 
         if (typeof versionResponse === 'string') {
@@ -707,6 +732,13 @@ export default class Chain extends VersionControl {
         ) {
           peer.version = versionResponse.version
         }
+
+        if (!peer.version || typeof peer.version !== 'string') {
+          const reason = `invalid version response from peer ${peerId}`
+          debug(reason)
+          await this.#recordPeerFailure(peerId, reason)
+          return
+        }
       } catch (error) {
         debug(`failed to request version from peer ${peerId}:`, (error as Error)?.message ?? error)
         return
@@ -715,7 +747,9 @@ export default class Chain extends VersionControl {
 
     debug(`peer connected with version ${peer.version}`)
     if (!this.isVersionCompatible(peer.version)) {
-      debug(`versions don't match`)
+      const mismatchReason = `incompatible peer version ${peer.version} (local: ${this.version})`
+      console.error(`[chain] ${mismatchReason}`)
+      await this.#recordPeerFailure(peerId, mismatchReason)
       return
     }
 
@@ -736,7 +770,7 @@ export default class Chain extends VersionControl {
     // This prevents Byzantine nodes from claiming a fake chain length to steer our sync
     const localBlock = await this.lastBlock
     const MAX_SYNC_AHEAD = 100_000
-    if (lastBlock?.index > (localBlock?.index ?? 0) + MAX_SYNC_AHEAD) {
+    if (lastBlock?.index > BigInt(localBlock?.index ?? 0) + BigInt(MAX_SYNC_AHEAD)) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
       debug(`Peer ${peerName} claims unreasonable block height ${lastBlock.index} (local: ${localBlock?.index ?? 0})`)
       await this.#recordPeerFailure(peerId, `unreasonable lastBlock index: ${lastBlock.index}`)
@@ -755,14 +789,13 @@ export default class Chain extends VersionControl {
         try {
           let knownBlocksResponse = await this.#makeRequest(peer, 'knownBlocks')
           if (knownBlocksResponse instanceof Uint8Array) {
-            try {
-              knownBlocksResponse = JSON.parse(new TextDecoder().decode(knownBlocksResponse))
-            } catch (e) {
-              console.log(e)
-            }
+            const reason = `knownBlocks must be object response, got raw bytes from ${peerId}`
+            debug(reason)
+            await this.#recordPeerFailure(peerId, reason)
+            return
           }
           const MAX_WANTLIST_SIZE = 1000
-          if (knownBlocksResponse.blocks) {
+          if (knownBlocksResponse && Array.isArray(knownBlocksResponse.blocks)) {
             const remaining = MAX_WANTLIST_SIZE - this.wantList.length
             if (remaining > 0) {
               for (const hash of knownBlocksResponse.blocks.slice(0, remaining)) {
@@ -801,11 +834,7 @@ export default class Chain extends VersionControl {
     try {
       let stateInfo = await this.#makeRequest(peer, 'stateInfo')
       if (stateInfo instanceof Uint8Array) {
-        try {
-          stateInfo = JSON.parse(new TextDecoder().decode(stateInfo))
-        } catch (e) {
-          console.log(e)
-        }
+        stateInfo = new StateMessage(stateInfo).decoded
       }
       await this.syncChain(lastBlock)
       this.machine.states.info = stateInfo
@@ -825,7 +854,7 @@ export default class Chain extends VersionControl {
   }
 
   async #versionHandler() {
-    return new globalThis.peernet.protos['peernet-response']({ response: { version: this.version } })
+    return new globalThis.peernet.protos['peernet-response']({ response: this.version })
   }
 
   async #executeTransaction({ hash, from, to, method, params, nonce }) {
@@ -1234,14 +1263,14 @@ export default class Chain extends VersionControl {
 
       // Phase 2: announce proposal for consensus voting instead of direct add-block
       console.log(`[consensus] 📤 Proposing block #${block.index} | hash: ${hash} | round: ${this.#consensusRound}`)
-      const proposalPayload = new TextEncoder().encode(
-        JSON.stringify({
-          blockHash: hash,
-          index: block.index,
-          round: this.#consensusRound,
-          from: peernet.selectedAccount
-        })
-      )
+      const proposalData = {
+        blockHash: hash,
+        index: BigInt(block.index),
+        round: BigInt(this.#consensusRound),
+        from: peernet.selectedAccount
+      }
+      const proposalMessage = new ProposalMessage(proposalData)
+      const proposalPayload = proposalMessage.encoded
       try {
         globalThis.peernet.publish('consensus:propose', proposalPayload)
       } catch (publishError) {

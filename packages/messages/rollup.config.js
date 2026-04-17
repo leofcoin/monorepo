@@ -1,5 +1,5 @@
 import typescript from '@rollup/plugin-typescript'
-
+import autoExports from 'rollup-plugin-auto-exports'
 export default [
   {
     input: [
@@ -16,8 +16,8 @@ export default [
     ],
     output: {
       format: 'es',
-      dir: './exports'
+      dir: 'exports'
     },
-    plugins: [typescript()]
+    plugins: [typescript(), autoExports()]
   }
 ]

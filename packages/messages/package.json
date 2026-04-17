@@ -4,41 +4,245 @@
   "description": "",
   "private": false,
   "exports": {
+    "./block": {
+      "import": "./exports/block.js",
+      "types": "./exports/messages/block.d.ts"
+    },
+    "./block.js": {
+      "import": "./exports/block.js",
+      "types": "./exports/messages/block.d.ts"
+    },
+    "./block.proto": {
+      "import": "./exports/block.proto.js",
+      "types": "./exports/protos/block.proto.d.ts"
+    },
+    "./block.proto.js": {
+      "import": "./exports/block.proto.js",
+      "types": "./exports/protos/block.proto.d.ts"
+    },
+    "./bw-request": {
+      "import": "./exports/bw-request.js",
+      "types": "./exports/messages/bw-request.d.ts"
+    },
+    "./bw-request.js": {
+      "import": "./exports/bw-request.js",
+      "types": "./exports/messages/bw-request.d.ts"
+    },
+    "./bw-request.proto": {
+      "import": "./exports/bw-request.proto.js",
+      "types": "./exports/protos/bw-request.proto.d.ts"
+    },
+    "./bw-request.proto.js": {
+      "import": "./exports/bw-request.proto.js",
+      "types": "./exports/protos/bw-request.proto.d.ts"
+    },
+    "./bw": {
+      "import": "./exports/bw.js",
+      "types": "./exports/messages/bw.d.ts"
+    },
+    "./bw.js": {
+      "import": "./exports/bw.js",
+      "types": "./exports/messages/bw.d.ts"
+    },
+    "./bw.proto": {
+      "import": "./exports/bw.proto.js",
+      "types": "./exports/protos/bw.proto.d.ts"
+    },
+    "./bw.proto.js": {
+      "import": "./exports/bw.proto.js",
+      "types": "./exports/protos/bw.proto.d.ts"
+    },
+    "./contract": {
+      "import": "./exports/contract.js",
+      "types": "./exports/messages/contract.d.ts"
+    },
+    "./contract.js": {
+      "import": "./exports/contract.js",
+      "types": "./exports/messages/contract.d.ts"
+    },
+    "./contract.proto": {
+      "import": "./exports/contract.proto.js",
+      "types": "./exports/protos/contract.proto.d.ts"
+    },
+    "./contract.proto.js": {
+      "import": "./exports/contract.proto.js",
+      "types": "./exports/protos/contract.proto.d.ts"
+    },
     ".": {
       "import": "./exports/index.js",
       "types": "./exports/index.d.ts"
     },
-    "./block": {
-      "import": "./exports/block.js",
-      "types": "./exports/block.d.ts"
-    },
-    "./bw-request": {
-      "import": "./exports/bw-request.js",
-      "types": "./exports/bw-request.d.ts"
-    },
-    "./bw": {
-      "import": "./exports/bw.js",
-      "types": "./exports/bw.d.ts"
-    },
-    "./contract": {
-      "import": "./exports/contract.js",
-      "types": "./exports/contract.d.ts"
+    "./index.js": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
     },
     "./last-block-request": {
       "import": "./exports/last-block-request.js",
-      "types": "./exports/last-block-request.d.ts"
+      "types": "./exports/messages/last-block-request.d.ts"
+    },
+    "./last-block-request.js": {
+      "import": "./exports/last-block-request.js",
+      "types": "./exports/messages/last-block-request.d.ts"
+    },
+    "./last-block-request.proto": {
+      "import": "./exports/last-block-request.proto.js",
+      "types": "./exports/protos/last-block-request.proto.d.ts"
+    },
+    "./last-block-request.proto.js": {
+      "import": "./exports/last-block-request.proto.js",
+      "types": "./exports/protos/last-block-request.proto.d.ts"
     },
     "./last-block": {
       "import": "./exports/last-block.js",
-      "types": "./exports/last-block.d.ts"
+      "types": "./exports/messages/last-block.d.ts"
     },
-    "./transaction": {
-      "import": "./exports/transaction.js",
-      "types": "./exports/transaction.d.ts"
+    "./last-block.js": {
+      "import": "./exports/last-block.js",
+      "types": "./exports/messages/last-block.d.ts"
+    },
+    "./last-block.proto": {
+      "import": "./exports/last-block.proto.js",
+      "types": "./exports/protos/last-block.proto.d.ts"
+    },
+    "./last-block.proto.js": {
+      "import": "./exports/last-block.proto.js",
+      "types": "./exports/protos/last-block.proto.d.ts"
+    },
+    "./precommit": {
+      "import": "./exports/precommit.js",
+      "types": "./exports/messages/precommit.d.ts"
+    },
+    "./precommit.js": {
+      "import": "./exports/precommit.js",
+      "types": "./exports/messages/precommit.d.ts"
+    },
+    "./precommit.proto": {
+      "import": "./exports/precommit.proto.js",
+      "types": "./exports/protos/precommit.proto.d.ts"
+    },
+    "./precommit.proto.js": {
+      "import": "./exports/precommit.proto.js",
+      "types": "./exports/protos/precommit.proto.d.ts"
+    },
+    "./prevote": {
+      "import": "./exports/prevote.js",
+      "types": "./exports/messages/prevote.d.ts"
+    },
+    "./prevote.js": {
+      "import": "./exports/prevote.js",
+      "types": "./exports/messages/prevote.d.ts"
+    },
+    "./prevote.proto": {
+      "import": "./exports/prevote.proto.js",
+      "types": "./exports/protos/prevote.proto.d.ts"
+    },
+    "./prevote.proto.js": {
+      "import": "./exports/prevote.proto.js",
+      "types": "./exports/protos/prevote.proto.d.ts"
+    },
+    "./proposal": {
+      "import": "./exports/proposal.js",
+      "types": "./exports/messages/proposal.d.ts"
+    },
+    "./proposal.js": {
+      "import": "./exports/proposal.js",
+      "types": "./exports/messages/proposal.d.ts"
+    },
+    "./proposal.proto": {
+      "import": "./exports/proposal.proto.js",
+      "types": "./exports/protos/proposal.proto.d.ts"
+    },
+    "./proposal.proto.js": {
+      "import": "./exports/proposal.proto.js",
+      "types": "./exports/protos/proposal.proto.d.ts"
+    },
+    "./publish": {
+      "import": "./exports/publish.js",
+      "types": "./exports/messages/publish.d.ts"
+    },
+    "./publish.js": {
+      "import": "./exports/publish.js",
+      "types": "./exports/messages/publish.d.ts"
+    },
+    "./publish.proto": {
+      "import": "./exports/publish.proto.js",
+      "types": "./exports/protos/publish.proto.d.ts"
+    },
+    "./publish.proto.js": {
+      "import": "./exports/publish.proto.js",
+      "types": "./exports/protos/publish.proto.d.ts"
+    },
+    "./raw-transaction": {
+      "import": "./exports/raw-transaction.js",
+      "types": "./exports/messages/raw-transaction.d.ts"
+    },
+    "./raw-transaction.js": {
+      "import": "./exports/raw-transaction.js",
+      "types": "./exports/messages/raw-transaction.d.ts"
+    },
+    "./raw-transaction.proto": {
+      "import": "./exports/raw-transaction.proto.js",
+      "types": "./exports/protos/raw-transaction.proto.d.ts"
+    },
+    "./raw-transaction.proto.js": {
+      "import": "./exports/raw-transaction.proto.js",
+      "types": "./exports/protos/raw-transaction.proto.d.ts"
     },
     "./state": {
       "import": "./exports/state.js",
-      "types": "./exports/state.d.ts"
+      "types": "./exports/messages/state.d.ts"
+    },
+    "./state.js": {
+      "import": "./exports/state.js",
+      "types": "./exports/messages/state.d.ts"
+    },
+    "./state.proto": {
+      "import": "./exports/state.proto.js",
+      "types": "./exports/protos/state.proto.d.ts"
+    },
+    "./state.proto.js": {
+      "import": "./exports/state.proto.js",
+      "types": "./exports/protos/state.proto.d.ts"
+    },
+    "./transaction": {
+      "import": "./exports/transaction.js",
+      "types": "./exports/messages/transaction.d.ts"
+    },
+    "./transaction.js": {
+      "import": "./exports/transaction.js",
+      "types": "./exports/messages/transaction.d.ts"
+    },
+    "./transaction.proto": {
+      "import": "./exports/transaction.proto.js",
+      "types": "./exports/protos/transaction.proto.d.ts"
+    },
+    "./transaction.proto.js": {
+      "import": "./exports/transaction.proto.js",
+      "types": "./exports/protos/transaction.proto.d.ts"
+    },
+    "./types": {
+      "import": "./exports/types.js",
+      "types": "./exports/types.d.ts"
+    },
+    "./types.js": {
+      "import": "./exports/types.js",
+      "types": "./exports/types.d.ts"
+    },
+    "./validator": {
+      "import": "./exports/validator.js",
+      "types": "./exports/messages/validator.d.ts"
+    },
+    "./validator.js": {
+      "import": "./exports/validator.js",
+      "types": "./exports/messages/validator.d.ts"
+    },
+    "./validator.proto": {
+      "import": "./exports/validator.proto.js",
+      "types": "./exports/protos/validator.proto.d.ts"
+    },
+    "./validator.proto.js": {
+      "import": "./exports/validator.proto.js",
+      "types": "./exports/protos/validator.proto.d.ts"
     }
   },
   "files": [
@@ -55,15 +259,16 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@leofcoin/types": "^1.0.22",
+    "@leofcoin/types": "^1.0.23",
     "@rollup/plugin-typescript": "^12.3.0",
     "rollup": "^4.60.1",
+    "rollup-plugin-auto-exports": "^1.1.1",
     "tslib": "^2.8.1",
     "typescript": "^6.0.2"
   },
   "dependencies": {
     "@leofcoin/codec-format-interface": "^1.8.2",
-    "@leofcoin/utils": "^1.1.40",
+    "@leofcoin/utils": "^1.1.41",
     "@vandeurenglenn/typed-array-smart-concat": "^1.0.4",
     "@vandeurenglenn/typed-array-smart-deconcat": "^1.0.3"
   }

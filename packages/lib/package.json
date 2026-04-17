@@ -39,11 +39,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.55",
-    "@leofcoin/messages": "^1.4.40",
+    "@leofcoin/addresses": "^1.0.56",
+    "@leofcoin/messages": "^1.4.41",
     "@leofcoin/peernet": "^1.2.17",
     "@leofcoin/storage": "^3.5.38",
-    "@leofcoin/utils": "^1.1.40",
+    "@leofcoin/utils": "^1.1.41",
     "@vandeurenglenn/base32": "^1.2.4",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/typed-array-utils": "^1.2.0"
