@@ -642,6 +642,49 @@ export default class Chain extends VersionControl {
     }
   }
 
+  async #decodeKnownBlocksResponse(response: any): Promise<{ blocks: string[] } | null> {
+    if (!response) return null
+
+    if (Array.isArray(response.blocks)) {
+      return { blocks: response.blocks }
+    }
+
+    if (response instanceof Uint8Array) {
+      // Compatibility path for peers that still return bytes instead of decoded object payloads.
+      try {
+        const decodedText = new TextDecoder().decode(response)
+        const parsed = JSON.parse(decodedText)
+        if (Array.isArray(parsed)) return { blocks: parsed }
+        if (parsed && Array.isArray(parsed.blocks)) return { blocks: parsed.blocks }
+      } catch {
+        // Fall through to nested peernet-response decode below.
+      }
+
+      try {
+        const nestedResponse = await new globalThis.peernet.protos['peernet-response'](response)
+        const nestedPayload = nestedResponse?.decoded?.response
+        if (Array.isArray(nestedPayload)) return { blocks: nestedPayload }
+        if (nestedPayload && Array.isArray(nestedPayload.blocks)) {
+          return { blocks: nestedPayload.blocks }
+        }
+        if (nestedPayload instanceof Uint8Array) {
+          try {
+            const nestedText = new TextDecoder().decode(nestedPayload)
+            const nestedParsed = JSON.parse(nestedText)
+            if (Array.isArray(nestedParsed)) return { blocks: nestedParsed }
+            if (nestedParsed && Array.isArray(nestedParsed.blocks)) return { blocks: nestedParsed.blocks }
+          } catch {
+            return null
+          }
+        }
+      } catch {
+        return null
+      }
+    }
+
+    return null
+  }
+
   async getPeerTransactionPool(peer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
     if (transactionsInPool instanceof Uint8Array) {
@@ -750,20 +793,19 @@ export default class Chain extends VersionControl {
     if (lastBlock) {
       if (!this.lastBlock || higherThenCurrentLocal) {
         try {
-          let knownBlocksResponse = await this.#makeRequest(peer, 'knownBlocks')
-          if (knownBlocksResponse instanceof Uint8Array) {
-            const reason = `knownBlocks must be object response, got raw bytes from ${peerId}`
+          const knownBlocksRaw = await this.#makeRequest(peer, 'knownBlocks')
+          const knownBlocksResponse = await this.#decodeKnownBlocksResponse(knownBlocksRaw)
+          if (!knownBlocksResponse) {
+            const reason = `knownBlocks decode failed for peer ${peerId}`
             debug(reason)
             await this.#recordPeerFailure(peerId, reason)
             return
           }
           const MAX_WANTLIST_SIZE = 1000
-          if (knownBlocksResponse && Array.isArray(knownBlocksResponse.blocks)) {
-            const remaining = MAX_WANTLIST_SIZE - this.wantList.length
-            if (remaining > 0) {
-              for (const hash of knownBlocksResponse.blocks.slice(0, remaining)) {
-                this.wantList.push(hash)
-              }
+          const remaining = MAX_WANTLIST_SIZE - this.wantList.length
+          if (remaining > 0) {
+            for (const hash of knownBlocksResponse.blocks.slice(0, remaining)) {
+              this.wantList.push(hash)
             }
           }
         } catch (error) {

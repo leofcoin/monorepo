@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.9.3",
+  "version": "1.9.6",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -61,18 +61,19 @@
     "tslib": "^2.8.1"
   },
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.56",
-    "@leofcoin/contracts": "^0.1.17",
-    "@leofcoin/crypto": "^0.2.37",
-    "@leofcoin/errors": "^1.0.26",
-    "@leofcoin/lib": "^1.2.75",
-    "@leofcoin/messages": "^1.4.41",
+    "@leofcoin/addresses": "^1.0.57",
+    "@leofcoin/codecs": "^1.1.1",
+    "@leofcoin/contracts": "^0.1.18",
+    "@leofcoin/crypto": "^0.2.38",
+    "@leofcoin/errors": "^1.0.27",
+    "@leofcoin/lib": "^1.2.76",
+    "@leofcoin/messages": "^1.5.1",
     "@leofcoin/multi-wallet": "^3.1.8",
-    "@leofcoin/networks": "^1.1.26",
+    "@leofcoin/networks": "^1.1.27",
     "@leofcoin/peernet": "^1.2.17",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.41",
-    "@leofcoin/workers": "^1.5.28",
+    "@leofcoin/workers": "^1.5.29",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.3",
     "semver": "^7.7.4"
