@@ -365,6 +365,23 @@
         "development": 6,
         "total": 8
       }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T17:58:09.538Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
     }
   ]
 }

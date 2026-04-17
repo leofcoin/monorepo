@@ -24,43 +24,6 @@ import {
 import { VersionControl } from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { log } from 'node:console'
-import codecs from '@leofcoin/codecs/utils'
-
-codecs.addCodec({
-  name: 'last-block-message',
-  codec: 0x6c626d,
-  hashAlg: 'keccak-256'
-})
-
-codecs.addCodec({
-  name: 'last-block-request-message',
-  codec: 0x6c62726d,
-  hashAlg: 'keccak-256'
-})
-
-codecs.addCodec({
-  name: 'proposal-message',
-  codec: 0x70726d,
-  hashAlg: 'keccak-256'
-})
-
-codecs.addCodec({
-  name: 'prevote-message',
-  codec: 0x70766d,
-  hashAlg: 'keccak-256'
-})
-
-codecs.addCodec({
-  name: 'precommit-message',
-  codec: 0x7063636d,
-  hashAlg: 'keccak-256'
-})
-
-codecs.addCodec({
-  name: 'state-message',
-  codec: 0x73746d,
-  hashAlg: 'keccak-256'
-})
 
 const debug = createDebugger('leofcoin/chain')
 

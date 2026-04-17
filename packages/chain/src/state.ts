@@ -15,13 +15,6 @@ import Jobber from './jobs/jobber.js'
 import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
 import { log } from 'console'
-import codecs from '@leofcoin/codecs/utils'
-
-codecs.addCodec({
-  name: 'last-block-message',
-  codec: 0x6c626d,
-  hashAlg: 'keccak-256'
-})
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
