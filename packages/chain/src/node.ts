@@ -6,10 +6,10 @@ import { DEFAULT_NODE_OPTIONS } from './constants.js'
 
 export default class Node {
   #node
+  ready: Promise<this>
 
   constructor(config, password) {
-    // @ts-ignore
-    return this._init(config, password)
+    this.ready = this._init(config, password)
   }
 
   async _init(

@@ -3,6 +3,7 @@
     "module": "NodeNext",
     "target": "ES2022",
     "outDir": "./exports",
+    "rootDirs": ["./src"],
     "moduleResolution":"nodenext",
     "declaration": true,
     "emitDeclarationOnly": true,
@@ -15,7 +16,7 @@
     ]
   },
   "include": [
-    "./src/*"
+    "./src/**/*"
   ],
   "exclude": [
     "node_modules"

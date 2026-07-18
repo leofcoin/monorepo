@@ -1,0 +1,38 @@
+{
+  "name": "@leofcoin/codecs",
+  "version": "1.1.2",
+  "description": "Get/set codecs from one place - also contains all known Leofcoin codecs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    },
+    "./codecs": {
+      "import": "./exports/codecs.js",
+      "types": "./exports/codecs.d.ts"
+    },
+    "./utils": {
+      "import": "./exports/utils.js",
+      "types": "./exports/utils.d.ts"
+    }
+  },
+  "files": [
+    "exports"
+  ],
+  "scripts": {
+    "build": "rollup -c --silent error",
+    "prettier": "prettier src --config ./../../.prettierrc --write",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "npm-check-updates": "npx npm-check-updates -u --install always"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.3.0",
+    "rollup": "^4.61.1",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3"
+  }
+}

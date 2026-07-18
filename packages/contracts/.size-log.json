@@ -1,0 +1,625 @@
+{
+  "entries": [
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:24:38.519Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 9,
+        "total": 11
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:25:00.970Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 9,
+        "total": 11
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:26:05.675Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "nodeModules": {
+        "bytes": 49315966,
+        "formatted": "47.03 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 9,
+        "total": 11
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:26:07.387Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "nodeModules": {
+        "bytes": 49315966,
+        "formatted": "47.03 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 9,
+        "total": 11
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:26:17.057Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "nodeModules": {
+        "bytes": 49315966,
+        "formatted": "47.03 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 9,
+        "total": 11
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:30:39.118Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "nodeModules": {
+        "bytes": 40282265,
+        "formatted": "38.42 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.14",
+      "timestamp": "2025-12-25T16:35:15.410Z",
+      "size": {
+        "bytes": 33464,
+        "formatted": "32.68 KB"
+      },
+      "nodeModules": {
+        "bytes": 40282265,
+        "formatted": "38.42 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.15",
+      "timestamp": "2025-12-25T16:48:50.705Z",
+      "size": {
+        "bytes": 33746,
+        "formatted": "32.96 KB"
+      },
+      "nodeModules": {
+        "bytes": 40109779,
+        "formatted": "38.25 MB"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:03:31.692Z",
+      "size": {
+        "bytes": 30022,
+        "formatted": "29.32 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:04:08.558Z",
+      "size": {
+        "bytes": 30022,
+        "formatted": "29.32 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:11:04.490Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:14:27.141Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:17:15.946Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:25:06.245Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.16",
+      "timestamp": "2026-04-15T20:25:34.516Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-15T20:29:45.714Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-15T20:29:52.324Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-15T20:41:38.067Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-15T20:43:31.996Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T17:32:11.313Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T17:36:36.427Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T17:40:05.557Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T17:58:09.538Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T18:07:32.604Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T18:07:40.000Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T18:45:11.831Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.17",
+      "timestamp": "2026-04-17T18:45:18.832Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-22T17:02:36.312Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-22T17:02:43.825Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-23T14:46:05.393Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-23T15:16:45.728Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-30T20:24:41.941Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-30T20:24:49.475Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-05-31T20:45:59.389Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-06-06T17:38:05.629Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-06-06T17:39:13.711Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    },
+    {
+      "version": "0.1.19",
+      "timestamp": "2026-06-06T17:39:29.845Z",
+      "size": {
+        "bytes": 30783,
+        "formatted": "30.06 KB"
+      },
+      "nodeModules": {
+        "bytes": 0,
+        "formatted": "0 Bytes"
+      },
+      "dependencies": {
+        "production": 2,
+        "development": 6,
+        "total": 8
+      }
+    }
+  ]
+}

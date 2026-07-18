@@ -16,6 +16,9 @@ export default class BlockMessage extends FormatInterface {
     fees: bigint
     transactions: TransactionMessage['decoded'][]
     validators: ValidatorMessage['decoded'][]
+    producer: String
+    producerProof: String
+    protocolVersion: String
   }
 
   get messageName() {

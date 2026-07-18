@@ -3,20 +3,20 @@
       "module": "NodeNext",
       "target": "ES2022",
       "outDir": "./exports",
+      "rootDir": "./src",
       "moduleResolution":"NodeNext",
       "declaration": true,
       "emitDeclarationOnly": true,
       "declarationDir": "./exports",
       "allowSyntheticDefaultImports": true,    
       "resolveJsonModule": true,
-      "allowJs": true,
       "useDefineForClassFields": false,
       "types": [
         "node"
       ]
     },
   "include": [
-    "./src/**/*"
+    "./src/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -1,0 +1,43 @@
+{
+  "name": "@leofcoin/contracts",
+  "version": "0.1.19",
+  "description": "",
+  "type": "module",
+  "exports": {
+    "./factory": "./exports/factory.js",
+    "./name-service": "./exports/name-service.js",
+    "./name-token": "./exports/name-service.js",
+    "./power-token": "./exports/power-token.js",
+    "./native-token": "./exports/native-token.js",
+    "./validators": "./exports/validators.js"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "postbuild": "node scripts/track-size.js",
+    "test": "node --test test/**/*.js",
+    "size": "node scripts/track-size.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leofcoin/contracts.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leofcoin/contracts/issues"
+  },
+  "homepage": "https://github.com/leofcoin/contracts#readme",
+  "dependencies": {
+    "@leofcoin/standards": "^0.3.6",
+    "lucky-numbers": "^1.2.1"
+  },
+  "devDependencies": {
+    "@leofcoin/types": "^1.0.22",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "rollup": "^4.54.0",
+    "tslib": "^2.8.1"
+  }
+}

@@ -29,13 +29,15 @@ export interface globalMessage {
 
 export declare type BlockInMemory = {
   index: number
-  transactions: RawTransaction[]
-  loaded?: Boolean
+  hash: string
+  transactions: string[]
+  loaded?: boolean
 }
 
 export declare type RawBlock = {
   index: number
-  transactions: RawTransaction[]
+  hash: string
+  transactions: string[]
 }
 
 export declare type ChainConfig = {

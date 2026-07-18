@@ -32,7 +32,16 @@ export default class Machine {
 
   wantList: string[] = []
 
-  constructor(blocks) {
+  readyResolve: (value: Machine | PromiseLike<Machine>) => void
+  ready = new Promise<Machine>((resolve) => {
+    this.readyResolve = resolve
+  })
+
+  constructor(blocks?: any[]) {
+    this.init(blocks)
+  }
+
+  init(blocks) {
     // @ts-ignore
     return this.#init(blocks)
   }
@@ -72,7 +81,7 @@ export default class Machine {
       }
 
       case 'debug': {
-        debug(data.message)
+        // debug(data.message)
         if (data.message.includes('loaded transactions for block:')) {
           pubsub.publish('block-loaded', data.message.replace('loaded transactions for block: ', '').split(' @')[0])
         }
@@ -96,8 +105,13 @@ export default class Machine {
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
           try {
-            const input = await peernet.get(data.input)
-            this.worker.postMessage({ id: data.id, input })
+            const input = await peernet.get(data.input, data.question)
+            if (input === undefined) {
+              this.worker.postMessage({ id: data.id, error: `could not get ${data.question} @${data.input}` })
+              this.wantList.push(data.input)
+            } else {
+              this.worker.postMessage({ id: data.id, input })
+            }
           } catch (error) {
             console.error(error)
 
@@ -180,23 +194,34 @@ export default class Machine {
           await Promise.all(promises)
         }
 
+        // Helper to sort object keys for deterministic serialization
+        const sortedStringify = (obj, replacer) => {
+          const sorted = {}
+          const keys = Object.keys(obj).sort()
+          for (const key of keys) {
+            sorted[key] = obj[key]
+          }
+          return JSON.stringify(sorted, replacer)
+        }
+
         const tasks = [
-          stateStore.put('lastBlock', JSON.stringify(await this.lastBlock, jsonStringifyBigInt)),
-          stateStore.put('states', JSON.stringify(state, jsonStringifyBigInt)),
-          stateStore.put('accounts', JSON.stringify(accounts, jsonStringifyBigInt)),
+          stateStore.put('lastBlock', sortedStringify(await this.lastBlock, jsonStringifyBigInt)),
+          stateStore.put('states', sortedStringify(state, jsonStringifyBigInt)),
+          stateStore.put('accounts', sortedStringify(accounts, jsonStringifyBigInt)),
           stateStore.put(
             'info',
-            JSON.stringify(
+            sortedStringify(
               {
+                nativeBurnAmount: await this.totalBurnAmount,
+                nativeBurns: await this.nativeBurns,
                 nativeCalls: await this.nativeCalls,
                 nativeMints: await this.nativeMints,
-                nativeBurns: await this.nativeBurns,
                 nativeTransfers: await this.nativeTransfers,
-                totalTransactions: await this.totalTransactions,
+                totalBlocks: await blockStore.length,
                 totalBurnAmount: await this.totalBurnAmount,
                 totalMintAmount: await this.totalMintAmount,
-                totalTransferAmount: await this.totalTransferAmount,
-                totalBlocks: await blockStore.length
+                totalTransactions: await this.totalTransactions,
+                totalTransferAmount: await this.totalTransferAmount
               },
               jsonStringifyBigInt
             )
@@ -290,6 +315,7 @@ export default class Machine {
         }
       }
       this.worker.postMessage(message)
+      this.readyResolve(this)
     })
   }
 
@@ -331,6 +357,7 @@ export default class Machine {
         let message
         if (!(await globalThis.contractStore.has(parameters[0]))) {
           message = await peernet.get(parameters[0], 'contract')
+          if (!message) throw new Error(`contract ${parameters[0]} not available`)
           message = await new ContractMessage(message)
           await globalThis.contractStore.put(await message.hash(), message.encoded)
         }
@@ -346,8 +373,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.execute timeout for ${contract}.${method}`))
+      }, 30000) // 30 second timeout for machine operations
 
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
 
         if (message?.error) reject(new ExecutionError(message.error))
@@ -370,7 +402,13 @@ export default class Machine {
   get(contract, method, parameters?): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.get timeout for ${contract}.${method}`))
+      }, 30000) // 30 second timeout for machine operations
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         resolve(message)
       }
@@ -391,7 +429,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.has timeout for ${address}`))
+      }, 10000) // 10 second timeout
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)
@@ -411,7 +455,13 @@ export default class Machine {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
+      const timeout = setTimeout(() => {
+        pubsub.unsubscribe(id, onmessage)
+        reject(new Error(`Machine.#askWorker timeout for ${type}`))
+      }, 30000)
+
       const onmessage = (message) => {
+        clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
         if (message?.error) reject(message.error)
         else resolve(message)
@@ -474,11 +524,17 @@ export default class Machine {
   }
 
   get lastBlock() {
-    return this.#askWorker('lastBlock')
+    return this.#askWorker('lastBlock').catch((error) => {
+      debug('lastBlock fallback after worker timeout:', (error as Error)?.message ?? error)
+      return this.states.lastBlock
+    })
   }
 
   get lastBlockHeight() {
-    return this.#askWorker('lastBlockHeight')
+    return this.#askWorker('lastBlockHeight').catch((error) => {
+      debug('lastBlockHeight fallback after worker timeout:', (error as Error)?.message ?? error)
+      return Number(this.states.lastBlock?.index ?? 0)
+    })
   }
 
   getBlocks(from?, to?): Promise<[]> {
@@ -491,7 +547,6 @@ export default class Machine {
 
   async addLoadedBlock(block) {
     debug(`adding loaded block: ${block.index}@${block.hash}`)
-    debug(JSON.stringify(block, jsonStringifyBigInt))
     if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
     return this.#askWorker('addLoadedBlock', JSON.stringify(block, jsonStringifyBigInt))
   }

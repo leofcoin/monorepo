@@ -5,5 +5,8 @@ export default {
   reward: BigInt(0),
   fees: BigInt(0),
   transactions: Array(),
-  validators: new Uint8Array()
+  validators: new Uint8Array(),
+  producer: String(),
+  producerProof: String(),
+  protocolVersion: String()
 }
