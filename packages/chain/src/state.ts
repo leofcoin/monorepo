@@ -584,19 +584,17 @@ export default class State extends Contract {
         return
       }
 
-      // CRITICAL: Prevent DoS from excessive reorgs
-      const MAX_REORG_DEPTH = 6
-      const reorgDepth = localIndex - remoteIndex
-      if (reorgDepth > 0 && reorgDepth > MAX_REORG_DEPTH) {
-        console.warn(
-          `[consensus-safety] Peer proposing reorg depth of ${reorgDepth} blocks ` +
-            `(limit is ${MAX_REORG_DEPTH}). Rejecting to prevent DoS.`
-        )
-        throw new Error(`Excessive reorg depth: ${reorgDepth} blocks (max ${MAX_REORG_DEPTH})`)
-      }
-
-      // Skip if local machine is already ahead of remote
+      // Skip if local machine is already ahead of remote; also guard against DoS via deep reorgs
       if (localIndex > remoteIndex) {
+        const MAX_REORG_DEPTH = 6
+        const reorgDepth = localIndex - remoteIndex
+        if (reorgDepth > MAX_REORG_DEPTH) {
+          console.warn(
+            `[consensus-safety] Peer proposing reorg depth of ${reorgDepth} blocks ` +
+              `(limit is ${MAX_REORG_DEPTH}). Rejecting to prevent DoS.`
+          )
+          throw new Error(`Excessive reorg depth: ${reorgDepth} blocks (max ${MAX_REORG_DEPTH})`)
+        }
         debug(`Local index ${localIndex} is ahead of remote ${remoteIndex}, skipping sync`)
         return
       }
