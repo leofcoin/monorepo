@@ -729,7 +729,7 @@ export default class State extends Contract {
 
     let latest = { index: 0, hash: '0x0', previousHash: '0x0' }
 
-    promises = promises.sort((a, b) => b.index - a.index)
+    promises = promises.sort((a, b) => Number(b.value.index) - Number(a.value.index))
 
     if (promises.length > 0) latest = promises[0].value
     debug(`Latest block from peers: ${latest.hash} @${latest.index}`)

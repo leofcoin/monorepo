@@ -6,7 +6,6 @@ import {
   TransactionMessage,
   BlockMessage,
   BWMessage,
-  BWRequestMessage,
   LastBlockMessage,
   StateMessage,
   PrevoteMessage,
@@ -1096,10 +1095,17 @@ export default class Chain extends VersionControl {
         // @ts-ignore
         .map(async (hash) => {
           const data = await peernet.get(hash, 'transaction')
-          // transactionStore.put(hash, data)
-          ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
           return new TransactionMessage(data)
         })
+    )
+
+    // Authenticate every referenced transaction before storing the block or
+    // mutating the local transaction pool.
+    await Promise.all(transactions.map((transaction) => this.validateTransactionSignature(transaction)))
+    await Promise.all(
+      blockMessage.decoded.transactions.map(async (transactionHash) => {
+        if (await transactionPoolStore.has(transactionHash)) await transactionPoolStore.delete(transactionHash)
+      })
     )
 
     await globalThis.blockStore.put(hash, blockMessage.encoded)
@@ -1127,30 +1133,13 @@ export default class Chain extends VersionControl {
       return 0
     })
 
-    // OPTIMIZATION: Group transactions by sender address and execute in parallel
-    // This maintains nonce ordering per sender while allowing independent senders to execute concurrently
-    const txsByAddress = new Map<string, any[]>()
+    // Contract calls share global state, so every node must execute the complete
+    // block in exactly the same order regardless of sender.
     for (const transaction of allTransactions) {
-      const sender = transaction.decoded.from
-      if (!txsByAddress.has(sender)) {
-        txsByAddress.set(sender, [])
-      }
-      txsByAddress.get(sender)!.push(transaction)
+      if (!contracts.includes(transaction.decoded.to)) contracts.push(transaction.decoded.to)
+      this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+      await this.#handleTransaction(transaction, [])
     }
-
-    // Execute each sender's transactions sequentially, but different senders in parallel
-    const addressGroups = [...txsByAddress.values()]
-    await Promise.all(
-      addressGroups.map(async (addressTxs) => {
-        for (const transaction of addressTxs) {
-          if (!contracts.includes(transaction.decoded.to)) {
-            contracts.push(transaction.decoded.to)
-          }
-          this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
-          await this.#handleTransaction(transaction, [])
-        }
-      })
-    )
 
     // for (let transaction of transactionsMessages) {
     //   // await transactionStore.put(transaction.hash, transaction.encoded)
@@ -1237,6 +1226,7 @@ export default class Chain extends VersionControl {
   }
 
   async #handleTransaction(transaction, latestTransactions, block?) {
+    await this.validateTransactionSignature(transaction)
     const hash = await transaction.hash()
 
     const doubleTransactions = []
@@ -1321,85 +1311,14 @@ export default class Chain extends VersionControl {
       return 0
     })
 
-    // OPTIMIZATION: Group transactions by sender address and execute in parallel
-    // This maintains nonce ordering per sender while allowing independent senders to execute concurrently
-    const txsByAddress = new Map<string, any[]>()
+    // Preserve the deterministic global order: different senders may still
+    // mutate the same contract state.
     for (const transaction of allTransactions) {
-      const sender = transaction.decoded.from
-      if (!txsByAddress.has(sender)) {
-        txsByAddress.set(sender, [])
-      }
-      txsByAddress.get(sender)!.push(transaction)
+      await this.#handleTransaction(transaction, latestTransactions, block)
     }
-
-    // Execute each sender's transactions sequentially, but different senders in parallel
-    const addressGroups = [...txsByAddress.values()]
-    await Promise.all(
-      addressGroups.map(async (addressTxs) => {
-        for (const transaction of addressTxs) {
-          await this.#handleTransaction(transaction, latestTransactions, block)
-        }
-      })
-    )
 
     // don't add empty block
     if (block.transactions.length === 0) return
-
-    const validators = (await this.staticCall(addresses.validators, 'validators')) as Validators['validators']
-    const peers = {}
-    for (const entry of globalThis.peernet.peers) {
-      peers[entry[0]] = entry[1]
-    }
-
-    // OPTIMIZATION: Collect BW in parallel in background after block is committed
-    // This defers non-critical work so block commitment is faster
-    const finalizeBWAndBroadcast = async () => {
-      const bwPromises = validators.map(async (validator) => {
-        const peer = peers[validator]
-        if (peer && peer.connected && this.isVersionCompatible(peer.version)) {
-          try {
-            let data = await new BWRequestMessage()
-            const node = await globalThis.peernet.prepareMessage(data.encoded)
-            const bw = await peer.request(node.encoded)
-            return {
-              address: validator,
-              bw: bw.up + bw.down
-            }
-          } catch (error) {
-            const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
-            debug(`bw request failed: ${peerId}:`, (error as Error)?.message ?? error)
-            return null
-          }
-        } else if (globalThis.peernet.selectedAccount === validator) {
-          return {
-            address: globalThis.peernet.selectedAccount,
-            bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
-          }
-        }
-        return null
-      })
-
-      const bwResults = await Promise.allSettled(bwPromises)
-      for (const result of bwResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          block.validators.push(result.value)
-        }
-      }
-    }
-
-    // Fire off BW collection in background, don't await it here
-    finalizeBWAndBroadcast().catch((error) => {
-      debug(`background BW finalization failed:`, (error as Error)?.message ?? error)
-    })
-
-    block.validators = block.validators.map((validator) => {
-      validator.reward = block.fees
-      validator.reward += block.reward
-      validator.reward /= BigInt(block.validators.length)
-      delete validator.bw
-      return validator
-    })
-    // block.validators = calculateValidatorReward(block.validators, block.fees)
 
     const localBlock = await this.lastBlock
     block.index = localBlock.index
@@ -1488,6 +1407,7 @@ export default class Chain extends VersionControl {
 
   async #sendTransaction(transaction) {
     transaction = await new TransactionMessage(transaction.encoded || transaction)
+    await this.validateTransactionSignature(transaction)
     const hash = await transaction.hash()
 
     try {

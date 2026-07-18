@@ -1,7 +1,9 @@
 import Protocol from './protocol.js'
 import { TransactionMessage, BlockMessage } from '@leofcoin/messages'
-import { calculateFee } from '@leofcoin/lib'
+import { calculateFee, createTransactionHash } from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
+import MultiWallet from '@leofcoin/multi-wallet'
+import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
@@ -105,20 +107,38 @@ export default class Transaction extends Protocol {
     // @ts-ignore
     if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !== '0x0') {
       // @ts-ignore
-      let block
+      let blockHash = this.lastBlock.hash
       try {
-        block = await globalThis.peernet.get(this.lastBlock.hash, 'block')
-      } catch (error) {
-        block = undefined
-      }
-      if (block === undefined) return [] // Fallback if block unavailable
-      block = await new BlockMessage(block)
+        while (blockHash && blockHash !== '0x0' && transactions.length === 0) {
+          let rawBlock
+          try {
+            rawBlock = await globalThis.blockStore.get(blockHash)
+          } catch {
+            rawBlock = await globalThis.peernet.get(blockHash, 'block')
+          }
+          if (!rawBlock) break
 
-      transactions = transactions.filter((tx) => tx.from === address)
-      while (transactions.length === 0 && block.decoded.index !== 0 && block.decoded.previousHash !== '0x0') {
-        block = await globalThis.blockStore.get(block.decoded.previousHash)
-        block = await new BlockMessage(block)
-        transactions = block.decoded.transactions.filter((tx) => tx.from === address)
+          const block = await new BlockMessage(rawBlock)
+          const blockTransactions = await Promise.all(
+            block.decoded.transactions.map(async (hash) => {
+              let rawTransaction
+              try {
+                rawTransaction = await globalThis.transactionStore.get(hash)
+              } catch {
+                // Fall through to the network lookup below.
+              }
+              if (!rawTransaction) rawTransaction = await globalThis.peernet.get(hash, 'transaction')
+              return rawTransaction ? new TransactionMessage(rawTransaction) : undefined
+            })
+          )
+          transactions = blockTransactions
+            .filter((transaction): transaction is TransactionMessage => Boolean(transaction))
+            .filter((transaction) => transaction.decoded.from === address)
+            .map((transaction) => transaction.decoded)
+          blockHash = block.decoded.previousHash
+        }
+      } catch {
+        return 0
       }
     }
     if (transactions.length === 0) return 0
@@ -190,6 +210,25 @@ export default class Transaction extends Protocol {
     return new TransactionMessage({ ...transaction, signature })
   }
 
+  async validateTransactionSignature(message: TransactionMessage): Promise<void> {
+    if (!this.isTransactionMessage(message)) message = await new TransactionMessage(message)
+
+    const { from, signature } = message.decoded
+    if (!from || typeof from !== 'string') throw new Error('transaction sender required')
+    if (!signature || typeof signature !== 'string') throw new Error('transaction not signed')
+
+    try {
+      const network = globalThis.peernet?.network || 'leofcoin'
+      const verifier = new MultiWallet(network)
+      await verifier.fromAddress(from, null, network)
+      const valid = await verifier.verify(fromBase58(signature), await createTransactionHash(message))
+      if (!valid) throw new Error('signature does not match transaction sender')
+    } catch (error) {
+      if ((error as Error)?.message === 'signature does not match transaction sender') throw error
+      throw new Error(`invalid transaction signature: ${(error as Error)?.message ?? error}`)
+    }
+  }
+
   async createTransaction(transaction) {
     return {
       ...transaction,
@@ -200,11 +239,10 @@ export default class Transaction extends Protocol {
 
   async sendTransaction(message) {
     if (!this.isTransactionMessage(message)) message = await new TransactionMessage(message)
-    if (!message.decoded.signature) throw new Error(`transaction not signed`)
     if (message.decoded.nonce === undefined) throw new Error(`nonce required`)
 
+    await this.validateTransactionSignature(message)
     await this.validateNonce(message.decoded.from, message.decoded.nonce)
-    // todo check if signature is valid
     const hash = await message.hash()
     try {
       let data
