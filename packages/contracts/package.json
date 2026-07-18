@@ -5,11 +5,12 @@
   "type": "module",
   "exports": {
     "./factory": "./exports/factory.js",
-    "./name-token": "./exports/name-token.js",
+    "./name-service": "./exports/name-service.js",
+    "./name-token": "./exports/name-service.js",
     "./power-token": "./exports/power-token.js",
     "./native-token": "./exports/native-token.js",
     "./validators": "./exports/validators.js"
-  },
+  }
   "scripts": {
     "build": "rollup -c",
     "postbuild": "node scripts/track-size.js",
