@@ -159,7 +159,9 @@ export default class Validators extends Roles {
       // only return 128 best participating max
       .splice(0, _peers.length > 128 ? 128 : _peers.length)
 
-    const luckyNumber = lottery(1, peers.length - 1)
+    if (peers.length === 0) return
+
+    const luckyNumber = peers.length === 1 ? [0] : lottery(1, peers.length - 1)
 
     let nextValidator = peers[luckyNumber[0]][0]
     // redraw when the validator is the same
