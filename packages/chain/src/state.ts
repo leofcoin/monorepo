@@ -262,7 +262,7 @@ export default class State extends Contract {
 
     try {
       console.log('fetching known blocks from blockStore')
-      this.knownBlocks = await blockStore.keys()
+      this.knownBlocks = await globalThis.blockStore.keys()
     } catch (error) {
       console.log('no local known blocks found')
     }
