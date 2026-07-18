@@ -31,7 +31,7 @@ const blockchainCodecs = [
   },
   {
     name: 'raw-transaction-message',
-    codec: '0x772746d',
+    codec: '0x72746d',
     hashAlg: 'keccak-256'
   },
   {
