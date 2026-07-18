@@ -221,7 +221,7 @@ export default class State extends Contract {
   }
 
   async init() {
-    console.log('State init start')
+    debug('State init start')
     this.jobber = new Jobber(this.resolveTimeout)
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
