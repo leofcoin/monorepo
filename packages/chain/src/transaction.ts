@@ -25,8 +25,16 @@ export default class Transaction extends Protocol {
   }
 
   removePendingNonce(address: string, nonce: number) {
-    if (this.#pendingNonces.has(address)) {
-      this.#pendingNonces.get(address)!.delete(nonce)
+    const nonces = this.#pendingNonces.get(address)
+    if (!nonces) return
+
+    nonces.delete(nonce)
+
+    if (this.#maxPendingNonce.get(address) === nonce) {
+      let max = -1
+      for (const n of nonces) if (n > max) max = n
+      if (max === -1) this.#maxPendingNonce.delete(address)
+      else this.#maxPendingNonce.set(address, max)
     }
   }
 
