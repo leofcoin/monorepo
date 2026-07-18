@@ -27,11 +27,11 @@ import { join } from 'path'
   const password = process.env.GENESIS_PASSWORD || process.argv[2]
   const node = new Node({ network: 'leofcoin:peach', networkVersion: 'peach' }, password)
   await node.ready
-  await blockStore.clear()
-  await transactionPoolStore.clear()
-  await contractStore.clear()
-  await transactionStore.clear()
-  await accountsStore.clear()
+  await globalThis.blockStore.clear()
+  await globalThis.transactionPoolStore.clear()
+  await globalThis.contractStore.clear()
+  await globalThis.transactionStore.clear()
+  await globalThis.accountsStore.clear()
   console.log(node)
   // console.log(peernet);
   // const chain = await new Chain()
