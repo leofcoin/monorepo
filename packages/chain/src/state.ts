@@ -584,12 +584,6 @@ export default class State extends Contract {
         return
       }
 
-      // Skip if local machine is already ahead of remote
-      if (localIndex > remoteIndex) {
-        debug(`Local index ${localIndex} is ahead of remote ${remoteIndex}, skipping sync`)
-        return
-      }
-
       // CRITICAL: Prevent DoS from excessive reorgs
       const MAX_REORG_DEPTH = 6
       const reorgDepth = localIndex - remoteIndex
@@ -599,6 +593,12 @@ export default class State extends Contract {
             `(limit is ${MAX_REORG_DEPTH}). Rejecting to prevent DoS.`
         )
         throw new Error(`Excessive reorg depth: ${reorgDepth} blocks (max ${MAX_REORG_DEPTH})`)
+      }
+
+      // Skip if local machine is already ahead of remote
+      if (localIndex > remoteIndex) {
+        debug(`Local index ${localIndex} is ahead of remote ${remoteIndex}, skipping sync`)
+        return
       }
 
       // Use state hash comparison: only resolve if remote hash differs from local state hash
