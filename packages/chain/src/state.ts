@@ -749,7 +749,7 @@ export default class State extends Contract {
         })
         let node = await globalThis.peernet.prepareMessage(data)
         try {
-          let message = await peer.request(node.encode())
+          let message = await peer.request(node.encoded)
           message = await new globalThis.peernet.protos['peernet-response'](message)
           const MAX_WANTLIST_SIZE = 1000
           const incoming = message.decoded.response.blocks.filter((block) => !this.knownBlocks.includes(block))
