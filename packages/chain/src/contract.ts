@@ -86,7 +86,9 @@ export default class Contract extends Transaction {
   ) {
     // Try to get base contract by name or hash
     if (baseContractIdentifier) {
-      const baseContract = contractRegistry.getBaseContract(baseContractIdentifier)
+      const baseContract =
+        contractRegistry.getBaseContract(baseContractIdentifier) ??
+        contractRegistry.getBaseContractByHash(baseContractIdentifier)
       if (!baseContract) {
         throw new Error(
           `Base contract '${baseContractIdentifier}' not found. Register it first using registerBaseContract.`
