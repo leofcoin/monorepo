@@ -191,8 +191,9 @@ export class ContractRegistry {
   /**
    * Clear all registered contracts
    */
-  clear(): void {
+clear(): void {
     this.baseContracts.clear()
+    this.contractNames.clear()
     this.contractDependencies.clear()
   }
 
