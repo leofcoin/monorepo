@@ -14,7 +14,6 @@ import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js'
 import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
-import { log } from 'console'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -68,6 +67,47 @@ export default class State extends Contract {
 
   get resolving() {
     return this.#resolving
+  }
+
+  async #resolveLastBlockMessage(result: unknown) {
+    if (result instanceof Uint8Array) {
+      try {
+        let payload: unknown = result
+        for (let i = 0; i < 3; i += 1) {
+          try {
+            const wrapped = await new globalThis.peernet.protos['peernet-response'](payload)
+            if (wrapped?.decoded?.response === undefined) break
+            payload = wrapped.decoded.response
+          } catch {
+            break
+          }
+        }
+        if (payload !== result) return this.#resolveLastBlockMessage(payload)
+
+        return new LastBlockMessage(result)
+      } catch {
+        const candidate = new TextDecoder().decode(result)
+        if (candidate) {
+          const blockData = await globalThis.peernet.get(candidate, 'block')
+          if (blockData) return new BlockMessage(blockData)
+        }
+      }
+    }
+
+    if (typeof result === 'string') {
+      const blockData = await globalThis.peernet.get(result, 'block')
+      if (blockData) return new BlockMessage(blockData)
+    }
+
+    if (result && typeof result === 'object') {
+      const response = (result as any).decoded?.response ?? (result as any).response
+      if (response !== undefined) return this.#resolveLastBlockMessage(response)
+      if ('hash' in result && 'index' in result) {
+        return new LastBlockMessage(result)
+      }
+    }
+
+    throw new Error(`invalid lastBlock payload: ${typeof result}`)
   }
 
   get contracts() {
@@ -181,7 +221,7 @@ export default class State extends Contract {
   }
 
   async init() {
-    log('State init start')
+    console.log('State init start')
     this.jobber = new Jobber(this.resolveTimeout)
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
@@ -191,13 +231,13 @@ export default class State extends Contract {
     let blockMessage
     let localBlock
 
-    log('State init before try-catch')
+    console.log('State init before try-catch')
     try {
       const rawBlock = await globalThis.chainStore.has('lastBlock')
-      log('State init after has lastBlock check')
+      console.log('State init after has lastBlock check')
       if (rawBlock) {
-        log('State init after has lastBlock found')
-        log(rawBlock)
+        console.log('State init after has lastBlock found')
+        console.log(rawBlock)
         localBlockHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
         console.log(localBlockHash)
 
@@ -208,35 +248,34 @@ export default class State extends Contract {
           blockMessage = await new BlockMessage(blockMessage)
           localBlock = { ...blockMessage.decoded, hash: localBlockHash }
         }
-        log('State init after localBlock set')
+        console.log('State init after localBlock set')
       } else {
         localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
       }
     } catch {
       console.log('e')
 
-      log('State init middle')
+      console.log('State init middle')
       localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
     }
-    log('State init middle')
+    console.log('State init middle')
 
     try {
-      log('fetching known blocks from blockStore')
+      console.log('fetching known blocks from blockStore')
       this.knownBlocks = await blockStore.keys()
     } catch (error) {
-      debug('no local known blocks found')
+      console.log('no local known blocks found')
     }
 
     try {
       if (localBlock?.hash && localBlock.hash !== '0x0') {
         try {
-          const states = {
-            lastBlock: JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
+          // Avoid JSON decode here; just check if persisted state snapshot exists.
+          if (!(await globalThis.stateStore.has('lastBlock'))) {
+            await this.resolveBlocks()
           }
-
-          if (blockMessage.decoded.index > states.lastBlock.index) await this.resolveBlocks()
-        } catch (error) {
-          // no states found, try resolving blocks
+        } catch {
+          // no state marker found, try resolving blocks
           await this.resolveBlocks()
         }
       } else {
@@ -328,7 +367,11 @@ export default class State extends Contract {
     let index = this.#blockHashMap.get(hash)
     let localHash = '0x0'
     try {
-      localHash = await globalThis.stateStore.get('lastBlock')
+      const rawLocalHash = await globalThis.stateStore.get('lastBlock')
+      if (rawLocalHash) {
+        const decoded = JSON.parse(new TextDecoder().decode(rawLocalHash))
+        localHash = typeof decoded === 'string' ? decoded : decoded?.hash ?? '0x0'
+      }
     } catch (error) {
       debug('no local state found')
     }
@@ -636,10 +679,22 @@ export default class State extends Contract {
         compatiblePeerCount += 1
         const task = async () => {
           try {
-            const result = await peer.request(node.encoded)
-            debug(`lastBlock result: ${JSON.stringify(result)}`)
+            let result = await peer.request(node.encoded)
+            const resultType = result instanceof Uint8Array ? `bytes:${result.length}` : typeof result
+            debug(`lastBlock result type: ${resultType}`)
             console.log({ result })
-            return { result: new LastBlockMessage(result), peer }
+            if (result instanceof Uint8Array) {
+              for (let i = 0; i < 3; i += 1) {
+                try {
+                  const wrapped = await new globalThis.peernet.protos['peernet-response'](result)
+                  if (wrapped?.decoded?.response === undefined) break
+                  result = wrapped.decoded.response
+                } catch {
+                  break
+                }
+              }
+            }
+            return { result, peer }
           } catch (error) {
             const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
             debug(`lastBlock request failed: ${peerId}:`, (error as Error)?.message ?? error)
@@ -665,6 +720,13 @@ export default class State extends Contract {
     }
 
     console.log({ promises })
+    promises = await Promise.all(
+      promises.map(async (item) => ({
+        value: (await this.#resolveLastBlockMessage(item.value)).decoded,
+        peer: item.peer
+      }))
+    )
+
     let latest = { index: 0, hash: '0x0', previousHash: '0x0' }
 
     promises = promises.sort((a, b) => b.index - a.index)
@@ -763,8 +825,11 @@ export default class State extends Contract {
    */
   async #loadBlocks(blocks: BlockInMemory[]): Promise<boolean> {
     this.#chainState = 'loading'
-    let poolTransactionKeys = await globalThis.transactionPoolStore.keys()
-    debug(`pool transactions: ${poolTransactionKeys.length}`)
+    if (blocks.some((block) => !block)) {
+      throw new Error('missing block data during load; chain resolution incomplete')
+    }
+    const poolTransactionKeys = new Set(await globalThis.transactionPoolStore.keys())
+    debug(`pool transactions: ${poolTransactionKeys.size}`)
     debug(`loading ${blocks.length} blocks`)
     for (const block of blocks) {
       if (block && !block.loaded) {
@@ -784,7 +849,7 @@ export default class State extends Contract {
             //   return this.#loadBlocks(blocks)
             // }
             if (transaction.decoded.priority) priority.push(transaction)
-            if (poolTransactionKeys.includes(hash)) await globalThis.transactionPoolStore.delete(hash)
+            if (poolTransactionKeys.has(hash)) await globalThis.transactionPoolStore.delete(hash)
           }
 
           // prority blocks execution from the rest so result in higher fees.

@@ -1,5 +1,5 @@
 import json from '@rollup/plugin-json'
-import typescript from '@rollup/plugin-typescript'
+import esbuild from 'rollup-plugin-esbuild'
 import nodeResolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import modify from 'rollup-plugin-modify'
@@ -27,11 +27,7 @@ export default [
     },
     plugins: [
       json(),
-      typescript({
-        compilerOptions: { outDir: './exports', declaration: true, declarationDir: './exports' },
-        exclude: ['node_modules'],
-        include: ['./src/**/*']
-      }),
+      esbuild({ target: 'es2022' }),
       modify({
         '@leofcoin/workers/machine-worker.js': 'workers/machine-worker.js',
         '@leofcoin/workers/src/block-worker.js': 'block-worker.js'
@@ -59,12 +55,7 @@ export default [
       // polyfill(),
       // builtins(),
       commonjs({ exclude: ['simple-peer', './simple-peer.js'] }),
-      typescript({
-        compilerOptions: { outDir: './exports/browser', declaration: false, declarationDir: './exports/browser' },
-        exclude: ['node_modules'],
-        include: ['./src/**/*']
-      }),
-
+      esbuild({ target: 'es2022' }),
       modify({
         '@leofcoin/workers/machine-worker.js': 'workers/machine-worker.js',
         '@leofcoin/workers/block-worker.js': 'block-worker.js'

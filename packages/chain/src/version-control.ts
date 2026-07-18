@@ -69,3 +69,5 @@ export class VersionControl extends State {
     return peerMajor === localMajor && peerMinor === localMinor
   }
 }
+
+export default VersionControl

@@ -1,4 +1,5 @@
 import { createDebugger } from '@vandeurenglenn/debug'
+import { Codec } from '@leofcoin/codec-format-interface'
 import { formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
 import {
   ContractMessage,
@@ -21,9 +22,8 @@ import {
   nameServiceMessage,
   calculateFee
 } from '@leofcoin/lib'
-import { VersionControl } from './version-control.js'
+import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
-import { log } from 'node:console'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -344,10 +344,10 @@ export default class Chain extends VersionControl {
     this.#participants = []
     this.#participating = false
     this.#connectionMonitor = new ConnectionMonitor()
-    log('[chain] init:start')
+    console.log('[chain] init:start')
 
     const initialized = await globalThis.contractStore.has(addresses.contractFactory)
-    log(`chain initialized: ${initialized}`)
+    console.log(`chain initialized: ${initialized}`)
     if (!initialized) await this.#setup()
 
     this.utils = { formatUnits, parseUnits }
@@ -357,7 +357,7 @@ export default class Chain extends VersionControl {
 
     // todo some functions rely on state
     await super.init()
-    log('super init done')
+    console.log('super init done')
     // Start connection monitoring
     this.#connectionMonitor.start(this.version)
 
@@ -373,9 +373,11 @@ export default class Chain extends VersionControl {
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
-    await globalThis.peernet.addRequestHandler('stateInfo', () => {
+    await globalThis.peernet.addRequestHandler('stateInfo', async () => {
+      const lastblock = (await this.lastBlock) || { index: 0, hash: '0x0', previousHash: '0x0' }
+      const values = this.machine?.states?.info || {}
       return new globalThis.peernet.protos['peernet-response']({
-        response: new StateMessage(this.machine.states.info).encoded
+        response: new StateMessage({ lastblock, values }).encoded
       })
     })
 
@@ -617,6 +619,7 @@ export default class Chain extends VersionControl {
     const transaction = new TransactionMessage(message)
     const hash = await transaction.hash()
     // if (await transactionPoolStore.has(hash)) await transactionPoolStore.delete(hash)
+    this.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
     debug(`added ${hash}`)
   }
 
@@ -629,12 +632,63 @@ export default class Chain extends VersionControl {
     const node = await this.#prepareRequest(request)
     try {
       let response = await peer.request(node.encoded)
-      response = await new globalThis.peernet.protos['peernet-response'](response)
+      console.log(`raw response for request ${request}:`, response)
+      if (response === undefined || response === null) return response
 
-      if (!(response.decoded.response instanceof Uint8Array)) {
-        console.warn(`Deprecated: ${response.decoded.response} is not an Uint8Array`)
+      const normalizeResponse = async (payload: unknown): Promise<unknown> => {
+        if (payload === undefined || payload === null) return payload
+
+        if (payload instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload))) {
+          let bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload)
+
+          for (let i = 0; i < 3; i += 1) {
+            try {
+              const codec = new Codec(bytes)
+              if (codec.name !== 'peernet-response') break
+
+              const wrapped = await new globalThis.peernet.protos['peernet-response'](bytes)
+              if (wrapped?.decoded?.response === undefined) break
+              const next = wrapped.decoded.response
+              if (next instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(next))) {
+                bytes = next instanceof Uint8Array ? next : new Uint8Array(next)
+                continue
+              }
+              return normalizeResponse(next)
+            } catch {
+              break
+            }
+          }
+
+          try {
+            return JSON.parse(new TextDecoder().decode(bytes))
+          } catch {
+            return bytes
+          }
+        }
+
+        if (payload && typeof payload === 'object') {
+          const objectPayload = payload as Record<string, unknown>
+          const decoded = objectPayload.decoded as Record<string, unknown> | undefined
+          if ('decoded' in objectPayload && decoded && 'response' in decoded) {
+            return normalizeResponse(decoded.response)
+          }
+          if ('response' in objectPayload) {
+            return normalizeResponse(objectPayload.response)
+          }
+        }
+
+        if (typeof payload === 'string') {
+          try {
+            return JSON.parse(payload)
+          } catch {
+            return payload
+          }
+        }
+
+        return payload
       }
-      return response.decoded.response
+
+      return await normalizeResponse(response)
     } catch (error) {
       const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
       debug(`peernet request failed: ${request} -> ${peerId}:`, (error as Error)?.message ?? error)
@@ -642,44 +696,103 @@ export default class Chain extends VersionControl {
     }
   }
 
+  async #resolveLastBlockMessage(result: unknown) {
+    if (result instanceof Uint8Array) {
+      try {
+        // Unwrap nested peernet-response wrappers before attempting LastBlockMessage decode.
+        let payload: unknown = result
+        for (let i = 0; i < 3; i += 1) {
+          try {
+            const wrapped = await new globalThis.peernet.protos['peernet-response'](payload)
+            if (wrapped?.decoded?.response === undefined) break
+            payload = wrapped.decoded.response
+          } catch {
+            break
+          }
+        }
+        if (payload !== result) return this.#resolveLastBlockMessage(payload)
+
+        return new LastBlockMessage(result)
+      } catch {
+        const candidate = new TextDecoder().decode(result)
+        if (candidate) {
+          const blockData = await globalThis.peernet.get(candidate, 'block')
+          if (blockData) return new BlockMessage(blockData)
+        }
+      }
+    }
+
+    if (typeof result === 'string') {
+      const blockData = await globalThis.peernet.get(result, 'block')
+      if (blockData) return new BlockMessage(blockData)
+    }
+
+    if (result && typeof result === 'object') {
+      const response = (result as any).decoded?.response ?? (result as any).response
+      if (response !== undefined) return this.#resolveLastBlockMessage(response)
+      if ('hash' in result && 'index' in result) {
+        return new LastBlockMessage(result)
+      }
+    }
+
+    throw new Error(`invalid lastBlock payload: ${typeof result}`)
+  }
+
   async #decodeKnownBlocksResponse(response: any): Promise<{ blocks: string[] } | null> {
     if (!response) return null
+
+    if (Array.isArray(response)) {
+      return { blocks: response }
+    }
 
     if (Array.isArray(response.blocks)) {
       return { blocks: response.blocks }
     }
 
-    if (response instanceof Uint8Array) {
-      // Compatibility path for peers that still return bytes instead of decoded object payloads.
+    if (response.response && Array.isArray(response.response.blocks)) {
+      return { blocks: response.response.blocks }
+    }
+
+    if (typeof response === 'string') {
       try {
-        const decodedText = new TextDecoder().decode(response)
-        const parsed = JSON.parse(decodedText)
+        const parsed = JSON.parse(response)
         if (Array.isArray(parsed)) return { blocks: parsed }
         if (parsed && Array.isArray(parsed.blocks)) return { blocks: parsed.blocks }
-      } catch {
-        // Fall through to nested peernet-response decode below.
-      }
-
-      try {
-        const nestedResponse = await new globalThis.peernet.protos['peernet-response'](response)
-        const nestedPayload = nestedResponse?.decoded?.response
-        if (Array.isArray(nestedPayload)) return { blocks: nestedPayload }
-        if (nestedPayload && Array.isArray(nestedPayload.blocks)) {
-          return { blocks: nestedPayload.blocks }
-        }
-        if (nestedPayload instanceof Uint8Array) {
-          try {
-            const nestedText = new TextDecoder().decode(nestedPayload)
-            const nestedParsed = JSON.parse(nestedText)
-            if (Array.isArray(nestedParsed)) return { blocks: nestedParsed }
-            if (nestedParsed && Array.isArray(nestedParsed.blocks)) return { blocks: nestedParsed.blocks }
-          } catch {
-            return null
-          }
-        }
+        if (parsed?.response && Array.isArray(parsed.response.blocks)) return { blocks: parsed.response.blocks }
       } catch {
         return null
       }
+      return null
+    }
+
+    if (!(response instanceof Uint8Array)) return null
+
+    // Keep knownBlocks decoding binary/codec-first.
+    // Some peers may wrap peernet-response more than once, so unwrap up to 3 layers.
+    let payload: any = response
+    for (let i = 0; i < 3; i++) {
+      if (!(payload instanceof Uint8Array)) break
+      try {
+        const nestedResponse = await new globalThis.peernet.protos['peernet-response'](payload)
+        payload = nestedResponse?.decoded?.response
+      } catch {
+        break
+      }
+    }
+
+    if (Array.isArray(payload)) return { blocks: payload }
+    if (payload && Array.isArray(payload.blocks)) return { blocks: payload.blocks }
+    if (payload?.response && Array.isArray(payload.response.blocks)) return { blocks: payload.response.blocks }
+
+    // Backward-compatible fallback for peers returning JSON bytes.
+    try {
+      const decoded = new TextDecoder().decode(response)
+      const parsed = JSON.parse(decoded)
+      if (Array.isArray(parsed)) return { blocks: parsed }
+      if (parsed && Array.isArray(parsed.blocks)) return { blocks: parsed.blocks }
+      if (parsed?.response && Array.isArray(parsed.response.blocks)) return { blocks: parsed.response.blocks }
+    } catch {
+      return null
     }
 
     return null
@@ -687,26 +800,40 @@ export default class Chain extends VersionControl {
 
   async getPeerTransactionPool(peer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
+    console.log('raw response for request transactionPool:', transactionsInPool)
     if (transactionsInPool instanceof Uint8Array) {
-      debug('transactionPool response must be decoded array payload')
-      return []
+      try {
+        transactionsInPool = JSON.parse(new TextDecoder().decode(transactionsInPool))
+      } catch {
+        debug('transactionPool response must be decoded array payload')
+        return []
+      }
+    }
+    if (typeof transactionsInPool === 'string') {
+      try {
+        transactionsInPool = JSON.parse(transactionsInPool)
+      } catch {
+        return []
+      }
     }
     if (!Array.isArray(transactionsInPool)) return []
 
-    // todo iterate vs getting all keys?
-    const transactions = await globalThis.transactionPoolStore.keys()
+    // Use Set for O(1) membership checks instead of array.includes
+    const localTransactions = new Set(await globalThis.transactionPoolStore.keys())
 
     const transactionsToGet = []
 
     for (const key of transactionsInPool) {
-      let txData
-      try {
-        txData = await globalThis.peernet.get(key, 'transaction')
-      } catch (error) {
-        debug(`Failed to get transaction ${key}:`, (error as Error)?.message ?? error)
-      }
-      if (txData !== undefined && !transactions.includes(key)) {
-        transactionsToGet.push(transactionPoolStore.put(key, txData))
+      if (!localTransactions.has(key)) {
+        let txData
+        try {
+          txData = await globalThis.peernet.get(key, 'transaction')
+        } catch (error) {
+          debug(`Failed to get transaction ${key}:`, (error as Error)?.message ?? error)
+        }
+        if (txData !== undefined) {
+          transactionsToGet.push(transactionPoolStore.put(key, txData))
+        }
       }
     }
     return Promise.all(transactionsToGet)
@@ -763,8 +890,14 @@ export default class Chain extends VersionControl {
     try {
       console.log('requesting last block from peer...')
       console.log(await this.lastBlock)
-      console.log(new LastBlockMessage(await this.#makeRequest(peer, 'lastBlock')))
-      lastBlock = new LastBlockMessage(await this.#makeRequest(peer, 'lastBlock')).decoded
+      const lastBlockRaw = await this.#makeRequest(peer, 'lastBlock')
+      console.log('raw last block response:', lastBlockRaw)
+      if (lastBlockRaw === undefined || lastBlockRaw === null) {
+        throw new Error(`invalid lastBlock payload: ${typeof lastBlockRaw}`)
+      }
+      const lastBlockMessage = await this.#resolveLastBlockMessage(lastBlockRaw)
+      console.log(lastBlockMessage)
+      lastBlock = lastBlockMessage.decoded
     } catch (error) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
       debug(`lastBlock request failed: ${peerName}:`, (error as Error)?.message ?? error)
@@ -788,40 +921,40 @@ export default class Chain extends VersionControl {
       return
     }
 
-    const higherThenCurrentLocal = !localBlock?.index ? true : lastBlock.index > localBlock.index
+    const higherThenCurrentLocal = localBlock?.index == null ? true : lastBlock.index > localBlock.index
 
     if (lastBlock) {
-      if (!this.lastBlock || higherThenCurrentLocal) {
+      if (!localBlock || higherThenCurrentLocal) {
         try {
           const knownBlocksRaw = await this.#makeRequest(peer, 'knownBlocks')
           const knownBlocksResponse = await this.#decodeKnownBlocksResponse(knownBlocksRaw)
           if (!knownBlocksResponse) {
-            const reason = `knownBlocks decode failed for peer ${peerId}`
-            debug(reason)
-            await this.#recordPeerFailure(peerId, reason)
-            return
-          }
-          const MAX_WANTLIST_SIZE = 1000
-          const remaining = MAX_WANTLIST_SIZE - this.wantList.length
-          if (remaining > 0) {
-            for (const hash of knownBlocksResponse.blocks.slice(0, remaining)) {
-              this.wantList.push(hash)
+            debug(
+              `knownBlocks decode failed for peer ${peerId} (non-fatal), continuing sync without prefilled wantList`
+            )
+          } else {
+            const MAX_WANTLIST_SIZE = 1000
+            const remaining = MAX_WANTLIST_SIZE - this.wantList.length
+            if (remaining > 0) {
+              for (const hash of knownBlocksResponse.blocks.slice(0, remaining)) {
+                this.wantList.push(hash)
+              }
             }
           }
         } catch (error) {
           const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-          debug(`knownBlocks request failed: ${peerName}:`, (error as Error)?.message ?? error)
-          await this.#recordPeerFailure(peerId, `knownBlocks request failed: ${(error as Error)?.message ?? error}`)
-          return
+          debug(
+            `knownBlocks request failed: ${peerName} (non-fatal), continuing sync without prefilled wantList:`,
+            (error as Error)?.message ?? error
+          )
         }
       }
     }
 
     if (this.wantList.length > 0) {
       const promises = await Promise.allSettled(this.wantList.map((hash) => peernet.get(hash, 'block')))
-      for (let i = 0; i < promises.length; i++) {
-        const result = promises[i]
-        if (result.status === 'fulfilled') this.wantList.splice(i, 1)
+      for (let i = promises.length - 1; i >= 0; i -= 1) {
+        if (promises[i].status === 'fulfilled') this.wantList.splice(i, 1)
       }
       // todo trigger load instead?
       if (this.wantList.length === 0) await this.triggerSync()
@@ -839,9 +972,20 @@ export default class Chain extends VersionControl {
     try {
       let stateInfo = await this.#makeRequest(peer, 'stateInfo')
       if (stateInfo instanceof Uint8Array) {
-        stateInfo = new StateMessage(stateInfo).decoded
+        const decodedStateInfo = new StateMessage(stateInfo).decoded as {
+          values?: Record<string, unknown>
+        }
+        stateInfo = decodedStateInfo?.values ?? decodedStateInfo
       }
+      debug(
+        `sync start with peer ${peerId}: local=${localBlock?.index ?? -1} remote=${lastBlock?.index ?? -1} hash=${
+          lastBlock?.hash
+        }`
+      )
       await this.syncChain(lastBlock)
+      debug(
+        `sync finished with peer ${peerId}: state=${this.syncState} localNow=${(await this.lastBlock)?.index ?? -1}`
+      )
       this.machine.states.info = stateInfo
     } catch (error) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
@@ -895,7 +1039,6 @@ export default class Chain extends VersionControl {
     const existingBlockAtHeight = this.#blocks[blockIndex]
     if (existingBlockAtHeight) {
       if (existingBlockAtHeight.hash !== hash) {
-        console.error(`[CONSENSUS ALERT] Conflicting blocks at height ${blockIndex}:`)
         console.error(`  Local:  ${existingBlockAtHeight.hash}`)
         console.error(`  Remote: ${hash}`)
         throw new Error(`Block conflict detected at index ${blockIndex}`)
@@ -984,13 +1127,30 @@ export default class Chain extends VersionControl {
       return 0
     })
 
-    // Execute sequentially (NOT concurrently) to ensure deterministic state
+    // OPTIMIZATION: Group transactions by sender address and execute in parallel
+    // This maintains nonce ordering per sender while allowing independent senders to execute concurrently
+    const txsByAddress = new Map<string, any[]>()
     for (const transaction of allTransactions) {
-      if (!contracts.includes(transaction.decoded.to)) {
-        contracts.push(transaction.decoded.to)
+      const sender = transaction.decoded.from
+      if (!txsByAddress.has(sender)) {
+        txsByAddress.set(sender, [])
       }
-      await this.#handleTransaction(transaction, [])
+      txsByAddress.get(sender)!.push(transaction)
     }
+
+    // Execute each sender's transactions sequentially, but different senders in parallel
+    const addressGroups = [...txsByAddress.values()]
+    await Promise.all(
+      addressGroups.map(async (addressTxs) => {
+        for (const transaction of addressTxs) {
+          if (!contracts.includes(transaction.decoded.to)) {
+            contracts.push(transaction.decoded.to)
+          }
+          this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+          await this.#handleTransaction(transaction, [])
+        }
+      })
+    )
 
     // for (let transaction of transactionsMessages) {
     //   // await transactionStore.put(transaction.hash, transaction.encoded)
@@ -1161,49 +1321,76 @@ export default class Chain extends VersionControl {
       return 0
     })
 
-    // Execute sequentially (NOT concurrently) to ensure deterministic state
+    // OPTIMIZATION: Group transactions by sender address and execute in parallel
+    // This maintains nonce ordering per sender while allowing independent senders to execute concurrently
+    const txsByAddress = new Map<string, any[]>()
     for (const transaction of allTransactions) {
-      await this.#handleTransaction(transaction, latestTransactions, block)
+      const sender = transaction.decoded.from
+      if (!txsByAddress.has(sender)) {
+        txsByAddress.set(sender, [])
+      }
+      txsByAddress.get(sender)!.push(transaction)
     }
+
+    // Execute each sender's transactions sequentially, but different senders in parallel
+    const addressGroups = [...txsByAddress.values()]
+    await Promise.all(
+      addressGroups.map(async (addressTxs) => {
+        for (const transaction of addressTxs) {
+          await this.#handleTransaction(transaction, latestTransactions, block)
+        }
+      })
+    )
 
     // don't add empty block
     if (block.transactions.length === 0) return
 
     const validators = (await this.staticCall(addresses.validators, 'validators')) as Validators['validators']
-    // block.validators = Object.keys(block.validators).reduce((set, key) => {
-    //   if (block.validators[key].active) {
-    //     push({
-    //       address: key
-    //     })
-    //   }
-    // }, [])
     const peers = {}
     for (const entry of globalThis.peernet.peers) {
       peers[entry[0]] = entry[1]
     }
 
-    for (const validator of validators) {
-      const peer = peers[validator]
-      if (peer && peer.connected && this.isVersionCompatible(peer.version)) {
-        let data = await new BWRequestMessage()
-        const node = await globalThis.peernet.prepareMessage(data.encoded)
-        try {
-          const bw = await peer.request(node.encoded)
-          block.validators.push({
-            address: validator,
-            bw: bw.up + bw.down
-          })
-        } catch (error) {
-          const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
-          debug(`bw request failed: ${peerId}:`, (error as Error)?.message ?? error)
+    // OPTIMIZATION: Collect BW in parallel in background after block is committed
+    // This defers non-critical work so block commitment is faster
+    const finalizeBWAndBroadcast = async () => {
+      const bwPromises = validators.map(async (validator) => {
+        const peer = peers[validator]
+        if (peer && peer.connected && this.isVersionCompatible(peer.version)) {
+          try {
+            let data = await new BWRequestMessage()
+            const node = await globalThis.peernet.prepareMessage(data.encoded)
+            const bw = await peer.request(node.encoded)
+            return {
+              address: validator,
+              bw: bw.up + bw.down
+            }
+          } catch (error) {
+            const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
+            debug(`bw request failed: ${peerId}:`, (error as Error)?.message ?? error)
+            return null
+          }
+        } else if (globalThis.peernet.selectedAccount === validator) {
+          return {
+            address: globalThis.peernet.selectedAccount,
+            bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
+          }
         }
-      } else if (globalThis.peernet.selectedAccount === validator) {
-        block.validators.push({
-          address: globalThis.peernet.selectedAccount,
-          bw: globalThis.peernet.bw.up + globalThis.peernet.bw.down
-        })
+        return null
+      })
+
+      const bwResults = await Promise.allSettled(bwPromises)
+      for (const result of bwResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          block.validators.push(result.value)
+        }
       }
     }
+
+    // Fire off BW collection in background, don't await it here
+    finalizeBWAndBroadcast().catch((error) => {
+      debug(`background BW finalization failed:`, (error as Error)?.message ?? error)
+    })
 
     block.validators = block.validators.map((validator) => {
       validator.reward = block.fees
@@ -1246,15 +1433,22 @@ export default class Chain extends VersionControl {
       // Set producer to current account
       block.producer = globalThis.peernet.selectedAccount || ''
 
-      // Sign block hash to authenticate producer (producer must be the proposer)
-      if (block.producer && this.keypair) {
-        const blockHashInput = JSON.stringify({
-          index: block.index,
-          previousHash: block.previousHash,
-          timestamp: block.timestamp,
-          validators: block.validators.map((v) => v.address).sort()
-        })
-        block.producerProof = await signTransaction(blockHashInput, this.keypair)
+      // Sign deterministic block bytes (without producerProof) to avoid JSON encoding.
+      const producerSigner = globalThis.peernet?.identity
+      if (block.producer && producerSigner) {
+        const unsignedBlockMessage = await new BlockMessage({ ...block, producerProof: '' })
+        const unsignedBlockHash = await unsignedBlockMessage.hash()
+        const signedProof = await signTransaction(
+          {
+            from: block.producer,
+            to: addresses.validators,
+            method: 'produceBlock',
+            params: [unsignedBlockHash],
+            timestamp: block.timestamp
+          },
+          producerSigner
+        )
+        block.producerProof = signedProof.signature
       }
 
       let blockMessage = await new BlockMessage(block)

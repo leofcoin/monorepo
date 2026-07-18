@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.9.6",
+  "version": "1.9.22",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -49,33 +49,34 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/semver": "^7.7.1",
     "@vandeurenglenn/debug": "^1.4.0",
-    "rollup": "^4.60.1",
+    "rollup": "^4.61.1",
+    "rollup-plugin-esbuild": "^6.2.1",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.9.0",
     "tslib": "^2.8.1"
   },
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.57",
-    "@leofcoin/codecs": "^1.1.1",
-    "@leofcoin/contracts": "^0.1.18",
-    "@leofcoin/crypto": "^0.2.38",
-    "@leofcoin/errors": "^1.0.27",
-    "@leofcoin/lib": "^1.2.76",
-    "@leofcoin/messages": "^1.5.1",
-    "@leofcoin/multi-wallet": "^3.1.8",
-    "@leofcoin/networks": "^1.1.27",
-    "@leofcoin/peernet": "^1.2.17",
+    "@leofcoin/addresses": "^1.0.58",
+    "@leofcoin/codecs": "^1.1.2",
+    "@leofcoin/contracts": "^0.1.19",
+    "@leofcoin/crypto": "^0.2.39",
+    "@leofcoin/errors": "^1.0.28",
+    "@leofcoin/lib": "^1.2.77",
+    "@leofcoin/messages": "^1.5.2",
+    "@leofcoin/multi-wallet": "^3.1.9",
+    "@leofcoin/networks": "^1.1.28",
+    "@leofcoin/peernet": "^1.2.21",
     "@leofcoin/storage": "^3.5.38",
-    "@leofcoin/utils": "^1.1.41",
-    "@leofcoin/workers": "^1.5.29",
+    "@leofcoin/utils": "^1.1.42",
+    "@leofcoin/workers": "^1.5.30",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.3",
-    "semver": "^7.7.4"
+    "semver": "^7.8.2"
   }
 }

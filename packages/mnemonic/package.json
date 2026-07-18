@@ -19,11 +19,11 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",
-    "rollup": "^4.60.1",
+    "rollup": "^4.61.1",
     "tape": "^5.9.0",
     "tslib": "^2.8.1"
   },
   "dependencies": {
-    "@leofcoin/crypto": "^0.2.38"
+    "@leofcoin/crypto": "^0.2.39"
   }
 }

@@ -7,6 +7,7 @@ export default class ConnectionMonitor {
   #isMonitoring: boolean = false
   #checkInterval: NodeJS.Timeout | null = null
   #reconnectDelay: number = 5000
+  #reconnectTimer: NodeJS.Timeout | null = null
   #healthCheckInterval: number = 60000
   #version: string
   #lastHealthCheckAt: number = 0
@@ -16,6 +17,7 @@ export default class ConnectionMonitor {
   #onOnline: (() => void) | null = null
   #onVisibilityChange: (() => void) | null = null
   #onSigcont: (() => void) | null = null
+  #onPeerConnected: (() => void) | null = null
 
   get isMonitoring() {
     return this.#isMonitoring
@@ -84,6 +86,17 @@ export default class ConnectionMonitor {
     this.#checkInterval = setInterval(() => {
       this.#healthCheck()
     }, this.#healthCheckInterval)
+
+    // Cancel pending reconnect timers when a peer connects successfully
+    this.#onPeerConnected = () => {
+      if (this.#reconnectTimer) {
+        clearTimeout(this.#reconnectTimer)
+        this.#reconnectTimer = null
+      }
+      this.#reconnecting = false
+      this.#reconnectDelay = 5000
+    }
+    globalThis.pubsub?.subscribe('peer:connected', this.#onPeerConnected)
   }
 
   stop() {
@@ -113,6 +126,16 @@ export default class ConnectionMonitor {
         // ignore
       }
       this.#onSigcont = null
+    }
+
+    if (this.#onPeerConnected) {
+      globalThis.pubsub?.unsubscribe('peer:connected', this.#onPeerConnected)
+      this.#onPeerConnected = null
+    }
+
+    if (this.#reconnectTimer) {
+      clearTimeout(this.#reconnectTimer)
+      this.#reconnectTimer = null
     }
 
     console.log('⏹️ Connection monitor stopped')
@@ -335,7 +358,7 @@ export default class ConnectionMonitor {
           console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
         }
 
-        setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
+        this.#reconnectTimer = setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
       }
     } catch (error: any) {
       console.error('❌ Reconnection failed:', error?.message || error)
@@ -347,7 +370,7 @@ export default class ConnectionMonitor {
         this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
       }
 
-      setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
+      this.#reconnectTimer = setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
     }
   }
 }

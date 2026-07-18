@@ -4,8 +4,36 @@ import { calculateFee } from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
 
 export default class Transaction extends Protocol {
+  #pendingNonces: Map<string, Set<number>> = new Map()
+  #maxPendingNonce: Map<string, number> = new Map()
+
   constructor(config) {
     super(config)
+  }
+
+  addPendingNonce(address: string, nonce: number) {
+    if (!this.#pendingNonces.has(address)) {
+      this.#pendingNonces.set(address, new Set())
+    }
+    this.#pendingNonces.get(address)!.add(nonce)
+    const currentMax = this.#maxPendingNonce.get(address) ?? -1
+    if (nonce > currentMax) {
+      this.#maxPendingNonce.set(address, nonce)
+    }
+  }
+
+  removePendingNonce(address: string, nonce: number) {
+    if (this.#pendingNonces.has(address)) {
+      this.#pendingNonces.get(address)!.delete(nonce)
+    }
+  }
+
+  getPendingNonces(address: string): Set<number> {
+    return this.#pendingNonces.get(address) || new Set()
+  }
+
+  getMaxPendingNonce(address: string): number {
+    return this.#maxPendingNonce.get(address) ?? -1
   }
 
   /**
@@ -17,17 +45,18 @@ export default class Transaction extends Protocol {
     return new Promise(async (resolve, reject) => {
       let size = 0
       const _transactions = []
+      const MAX_BLOCK_TX_BYTES = 786432 // 750 KB
 
       const promises = await Promise.all(
         transactions.map(async (tx) => {
           tx = await new TransactionMessage(tx)
-          size += tx.encoded.length
-          if (
-            !formatBytes(size).includes('MB') ||
-            (formatBytes(size).includes('MB') && Number(formatBytes(size).split(' MB')[0]) <= 0.75)
-          )
+          const newSize = size + tx.encoded.length
+          if (newSize <= MAX_BLOCK_TX_BYTES) {
+            size = newSize
             _transactions.push({ ...tx.decoded, hash: await tx.hash() })
-          else resolve(_transactions)
+          } else {
+            resolve(_transactions)
+          }
         })
       )
 
@@ -119,18 +148,14 @@ export default class Transaction extends Protocol {
       const nonce = await this.#getNonceFallback(address)
       await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
     }
-    // todo: are those in the pool in cluded also ? they need to be included!!!
+    // Fast path: Use pending nonce index instead of full pool scan (O(1) vs O(n))
     let nonce = await globalThis.accountsStore.get(address)
-    nonce = new TextDecoder().decode(nonce)
-
-    let transactions = await globalThis.transactionPoolStore.values()
-    transactions = await this.promiseTransactions(transactions)
-    transactions = transactions.filter((tx) => tx.decoded.from === address)
-    transactions = await this.promiseTransactionsContent(transactions)
-    for (const transaction of transactions) {
-      if (transaction.nonce > nonce) nonce = transaction.nonce
+    nonce = Number(new TextDecoder().decode(nonce))
+    const maxPending = this.getMaxPendingNonce(address)
+    if (maxPending > nonce) {
+      return maxPending
     }
-    return Number(nonce)
+    return nonce
   }
 
   async validateNonce(address, nonce) {
@@ -151,14 +176,9 @@ export default class Transaction extends Protocol {
 
     if (committedNonce >= nonce) throw new Error(`a transaction with the same nonce already exists`)
 
-    // Only reject exact duplicates already in the pool (not "higher nonce" rejections)
-    let transactions = await globalThis.transactionPoolStore.values()
-    transactions = await this.promiseTransactions(transactions)
-    transactions = transactions.filter((tx) => tx.decoded.from === address)
-
-    for (const transaction of transactions) {
-      if (transaction.decoded.nonce === nonce) throw new Error(`a transaction with the same nonce already exists`)
-    }
+    // Fast check using pending nonce index instead of full pool decode
+    const pendingNonces = this.getPendingNonces(address)
+    if (pendingNonces.has(nonce)) throw new Error(`a transaction with the same nonce already exists`)
   }
 
   isTransactionMessage(message) {
@@ -211,6 +231,8 @@ export default class Transaction extends Protocol {
         }
       })
       await globalThis.transactionPoolStore.put(hash, message.encoded)
+      // Add to pending nonce index
+      this.addPendingNonce(message.decoded.from, message.decoded.nonce)
       // debug(`Added ${hash} to the transaction pool`)
       try {
         peernet.publish('add-transaction', message.encoded)
@@ -223,6 +245,7 @@ export default class Transaction extends Protocol {
       console.log('remo')
 
       await transactionPoolStore.delete(hash)
+      this.removePendingNonce(message.decoded.from, message.decoded.nonce)
       throw error
     }
   }
