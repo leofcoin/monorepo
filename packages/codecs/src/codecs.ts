@@ -158,9 +158,9 @@ const peernetCodecs = [
   },
   {
     name: 'peernet-ps',
-    codec: '707073',
+    codec: '0x707073',
     hashAlg: 'keccak-256'
-  },
+  }
   {
     name: 'peernet-response',
     codec: '0x7072',
