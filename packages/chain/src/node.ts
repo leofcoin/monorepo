@@ -2,23 +2,25 @@
 import Peernet from '@leofcoin/peernet'
 import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
-import { DEFAULT_NODE_OPTIONS } from './constants.js'
+import { DEFAULT_NODE_OPTIONS, type NodeOptions } from './constants.js'
 
 export default class Node {
   #node
   ready: Promise<this>
 
-  constructor(config, password) {
+  constructor(config: NodeOptions = {}, password?: string) {
     this.ready = this._init(config, password)
   }
 
   async _init(
-    config = {
-      autoStart: false
-    },
-    password
+    config: NodeOptions = { autoStart: false },
+    password?: string
   ) {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
+    if (config.storeNamespace && !config.root) {
+      const [network, networkVersion] = config.network.split(':')
+      config.root = `.${network}/${networkVersion || config.networkVersion}/${config.storeNamespace}`
+    }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)

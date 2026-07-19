@@ -1,16 +1,16 @@
-import { createHash, arrayBufferToHex, encrypt, decrypt } from "../crypto.js"
-const hash = '9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043'
+import assert from 'node:assert/strict'
+import test from 'node:test'
 
-const canHash = await createHash('hello')
-console.log('canHash');
-if (arrayBufferToHex(canHash) !== hash) process.exit(1)
+import { arrayBufferToHex, createHash, decrypt, encrypt } from '../crypto.js'
 
-const canEncrypt = await encrypt('hello')
-console.log('canEncrypt');
-if (!canEncrypt?.key) process.exit(1)
+test('hash, encrypt, and decrypt round-trip', async () => {
+  const expectedHash =
+    '9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7' +
+    '2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043'
+  const hash = await createHash(new TextEncoder().encode('hello'))
+  assert.equal(arrayBufferToHex(hash), expectedHash)
 
-const canDecrypt = await decrypt(canEncrypt)
-console.log('canDecrypt');
-if (canDecrypt !== 'hello') process.exit(1)
-
-process.exit(0)
+  const encrypted = await encrypt('hello')
+  assert.ok(encrypted?.key)
+  assert.equal(await decrypt(encrypted), 'hello')
+})

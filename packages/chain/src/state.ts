@@ -295,6 +295,7 @@ export default class State extends Contract {
       }
 
       this.#loaded = true
+      this.#chainState = 'loaded'
       // await this.#loadBlocks(this.#blocks)
     } catch (error) {
       console.log('e')
@@ -473,6 +474,14 @@ export default class State extends Contract {
     }
 
     try {
+      if (!(await globalThis.chainStore.has('lastBlock'))) {
+        if (this.knownBlocks.length === 0) {
+          this.#syncState = 'connectionless'
+          return
+        }
+        return this.restoreChain()
+      }
+
       const localBlock = await globalThis.chainStore.get('lastBlock')
 
       const hash = new TextDecoder().decode(localBlock)
@@ -487,12 +496,18 @@ export default class State extends Contract {
       this.#syncState = 'errored'
 
       this.#resolveErrored = true
+      if (globalThis.peernet.peers.length === 0) return
       return this.restoreChain()
       // console.log(e);
     }
   }
 
   async restoreChain() {
+    if (globalThis.peernet.peers.length === 0 && this.knownBlocks.length === 0) {
+      this.#syncState = 'connectionless'
+      return
+    }
+
     try {
       const { hash } = await this.#getLatestBlock()
       await globalThis.chainStore.put('lastBlock', hash)
@@ -504,6 +519,10 @@ export default class State extends Contract {
       this.#resolveErrored = true
       this.#resolveErrorCount += 1
       this.#resolving = false
+      if (this.#resolveErrorCount >= 3) {
+        this.#syncState = 'errored'
+        throw new ResolveError('unable to restore chain after 3 attempts', { cause: error })
+      }
       return this.restoreChain()
       // console.log(e);
     }

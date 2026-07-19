@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "",
   "private": false,
   "exports": {
@@ -252,7 +252,7 @@
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "node test",
-    "build": "rollup -c",
+    "build": "tsc -p tsconfig.json",
     "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "keywords": [],

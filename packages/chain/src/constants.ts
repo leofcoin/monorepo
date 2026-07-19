@@ -9,9 +9,14 @@ export type NodeOptions = {
   networkVersion?: string
   version?: string
   stars?: string[]
+  autoStart?: boolean
+  root?: string
+  storePrefix?: string
+  storeNamespace?: string
 }
 
 export const DEFAULT_NODE_OPTIONS = {
+  autoStart: false,
   network: 'leofcoin:peach',
   networkVersion: 'peach',
   version: PROTOCOL_VERSION,

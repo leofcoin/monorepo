@@ -15,7 +15,7 @@
   },
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "build": "rollup -c --silent error --cache true",
     "npm-check-updates": "npx npm-check-updates -u --install always"
   },

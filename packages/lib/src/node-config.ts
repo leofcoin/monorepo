@@ -40,12 +40,16 @@ export default async (
     peernet.addProto(proto.name, proto.handler)
   }
 
-  let name = `.${config.network}`
+  let name = (config as any).root || `.${config.network}`
   const parts = config.network.split(':')
-  if (parts[1]) name = `.${parts[0]}/${parts[1]}`
+  if (!(config as any).root && parts[1]) name = `.${parts[0]}/${parts[1]}`
   // optional namespace suffix to isolate multiple local nodes on same network
   // e.g., '.leofcoin/peach/dev-validator-1'
-  if (typeof (config as any).storeNamespace === 'string' && (config as any).storeNamespace.length > 0) {
+  if (
+    !(config as any).root &&
+    typeof (config as any).storeNamespace === 'string' &&
+    (config as any).storeNamespace.length > 0
+  ) {
     name = `${name}/${(config as any).storeNamespace}`
   }
   const stores = ['transactionPool', 'state', 'accounts', 'contract', { name: 'wallet', private: true }]

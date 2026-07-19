@@ -16,7 +16,7 @@
   "types": "./crypto.d.ts",
   "scripts": {
     "prettier": "prettier lib --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "keywords": [

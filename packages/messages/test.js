@@ -24,12 +24,15 @@ for (let i = 0; i <= 1; i++) {
 
 const block = {
   index: 0,
-  previousHash: 'hash',
+  previousHash: '0x0',
   timestamp: new Date().getTime(),
   reward: BigInt('0').toString(),
   fees: BigInt('0').toString(),
   transactions,
-  validators
+  validators,
+  producer: 'address',
+  producerProof: 'proof',
+  protocolVersion: '1.9.23'
 }
 
 const contractMessage = new ContractMessage({
