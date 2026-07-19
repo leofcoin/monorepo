@@ -5,67 +5,67 @@
   "private": false,
   "exports": {
     "./block": {
-      "import": "./exports/block.js",
+      "import": "./exports/messages/block.js",
       "types": "./exports/messages/block.d.ts"
     },
     "./block.js": {
-      "import": "./exports/block.js",
+      "import": "./exports/messages/block.js",
       "types": "./exports/messages/block.d.ts"
     },
     "./block.proto": {
-      "import": "./exports/block.proto.js",
+      "import": "./exports/protos/block.proto.js",
       "types": "./exports/protos/block.proto.d.ts"
     },
     "./block.proto.js": {
-      "import": "./exports/block.proto.js",
+      "import": "./exports/protos/block.proto.js",
       "types": "./exports/protos/block.proto.d.ts"
     },
     "./bw-request": {
-      "import": "./exports/bw-request.js",
+      "import": "./exports/messages/bw-request.js",
       "types": "./exports/messages/bw-request.d.ts"
     },
     "./bw-request.js": {
-      "import": "./exports/bw-request.js",
+      "import": "./exports/messages/bw-request.js",
       "types": "./exports/messages/bw-request.d.ts"
     },
     "./bw-request.proto": {
-      "import": "./exports/bw-request.proto.js",
+      "import": "./exports/protos/bw-request.proto.js",
       "types": "./exports/protos/bw-request.proto.d.ts"
     },
     "./bw-request.proto.js": {
-      "import": "./exports/bw-request.proto.js",
+      "import": "./exports/protos/bw-request.proto.js",
       "types": "./exports/protos/bw-request.proto.d.ts"
     },
     "./bw": {
-      "import": "./exports/bw.js",
+      "import": "./exports/messages/bw.js",
       "types": "./exports/messages/bw.d.ts"
     },
     "./bw.js": {
-      "import": "./exports/bw.js",
+      "import": "./exports/messages/bw.js",
       "types": "./exports/messages/bw.d.ts"
     },
     "./bw.proto": {
-      "import": "./exports/bw.proto.js",
+      "import": "./exports/protos/bw.proto.js",
       "types": "./exports/protos/bw.proto.d.ts"
     },
     "./bw.proto.js": {
-      "import": "./exports/bw.proto.js",
+      "import": "./exports/protos/bw.proto.js",
       "types": "./exports/protos/bw.proto.d.ts"
     },
     "./contract": {
-      "import": "./exports/contract.js",
+      "import": "./exports/messages/contract.js",
       "types": "./exports/messages/contract.d.ts"
     },
     "./contract.js": {
-      "import": "./exports/contract.js",
+      "import": "./exports/messages/contract.js",
       "types": "./exports/messages/contract.d.ts"
     },
     "./contract.proto": {
-      "import": "./exports/contract.proto.js",
+      "import": "./exports/protos/contract.proto.js",
       "types": "./exports/protos/contract.proto.d.ts"
     },
     "./contract.proto.js": {
-      "import": "./exports/contract.proto.js",
+      "import": "./exports/protos/contract.proto.js",
       "types": "./exports/protos/contract.proto.d.ts"
     },
     ".": {
@@ -77,147 +77,147 @@
       "types": "./exports/index.d.ts"
     },
     "./last-block-request": {
-      "import": "./exports/last-block-request.js",
+      "import": "./exports/messages/last-block-request.js",
       "types": "./exports/messages/last-block-request.d.ts"
     },
     "./last-block-request.js": {
-      "import": "./exports/last-block-request.js",
+      "import": "./exports/messages/last-block-request.js",
       "types": "./exports/messages/last-block-request.d.ts"
     },
     "./last-block-request.proto": {
-      "import": "./exports/last-block-request.proto.js",
+      "import": "./exports/protos/last-block-request.proto.js",
       "types": "./exports/protos/last-block-request.proto.d.ts"
     },
     "./last-block-request.proto.js": {
-      "import": "./exports/last-block-request.proto.js",
+      "import": "./exports/protos/last-block-request.proto.js",
       "types": "./exports/protos/last-block-request.proto.d.ts"
     },
     "./last-block": {
-      "import": "./exports/last-block.js",
+      "import": "./exports/messages/last-block.js",
       "types": "./exports/messages/last-block.d.ts"
     },
     "./last-block.js": {
-      "import": "./exports/last-block.js",
+      "import": "./exports/messages/last-block.js",
       "types": "./exports/messages/last-block.d.ts"
     },
     "./last-block.proto": {
-      "import": "./exports/last-block.proto.js",
+      "import": "./exports/protos/last-block.proto.js",
       "types": "./exports/protos/last-block.proto.d.ts"
     },
     "./last-block.proto.js": {
-      "import": "./exports/last-block.proto.js",
+      "import": "./exports/protos/last-block.proto.js",
       "types": "./exports/protos/last-block.proto.d.ts"
     },
     "./precommit": {
-      "import": "./exports/precommit.js",
+      "import": "./exports/messages/precommit.js",
       "types": "./exports/messages/precommit.d.ts"
     },
     "./precommit.js": {
-      "import": "./exports/precommit.js",
+      "import": "./exports/messages/precommit.js",
       "types": "./exports/messages/precommit.d.ts"
     },
     "./precommit.proto": {
-      "import": "./exports/precommit.proto.js",
+      "import": "./exports/protos/precommit.proto.js",
       "types": "./exports/protos/precommit.proto.d.ts"
     },
     "./precommit.proto.js": {
-      "import": "./exports/precommit.proto.js",
+      "import": "./exports/protos/precommit.proto.js",
       "types": "./exports/protos/precommit.proto.d.ts"
     },
     "./prevote": {
-      "import": "./exports/prevote.js",
+      "import": "./exports/messages/prevote.js",
       "types": "./exports/messages/prevote.d.ts"
     },
     "./prevote.js": {
-      "import": "./exports/prevote.js",
+      "import": "./exports/messages/prevote.js",
       "types": "./exports/messages/prevote.d.ts"
     },
     "./prevote.proto": {
-      "import": "./exports/prevote.proto.js",
+      "import": "./exports/protos/prevote.proto.js",
       "types": "./exports/protos/prevote.proto.d.ts"
     },
     "./prevote.proto.js": {
-      "import": "./exports/prevote.proto.js",
+      "import": "./exports/protos/prevote.proto.js",
       "types": "./exports/protos/prevote.proto.d.ts"
     },
     "./proposal": {
-      "import": "./exports/proposal.js",
+      "import": "./exports/messages/proposal.js",
       "types": "./exports/messages/proposal.d.ts"
     },
     "./proposal.js": {
-      "import": "./exports/proposal.js",
+      "import": "./exports/messages/proposal.js",
       "types": "./exports/messages/proposal.d.ts"
     },
     "./proposal.proto": {
-      "import": "./exports/proposal.proto.js",
+      "import": "./exports/protos/proposal.proto.js",
       "types": "./exports/protos/proposal.proto.d.ts"
     },
     "./proposal.proto.js": {
-      "import": "./exports/proposal.proto.js",
+      "import": "./exports/protos/proposal.proto.js",
       "types": "./exports/protos/proposal.proto.d.ts"
     },
     "./publish": {
-      "import": "./exports/publish.js",
+      "import": "./exports/messages/publish.js",
       "types": "./exports/messages/publish.d.ts"
     },
     "./publish.js": {
-      "import": "./exports/publish.js",
+      "import": "./exports/messages/publish.js",
       "types": "./exports/messages/publish.d.ts"
     },
     "./publish.proto": {
-      "import": "./exports/publish.proto.js",
+      "import": "./exports/protos/publish.proto.js",
       "types": "./exports/protos/publish.proto.d.ts"
     },
     "./publish.proto.js": {
-      "import": "./exports/publish.proto.js",
+      "import": "./exports/protos/publish.proto.js",
       "types": "./exports/protos/publish.proto.d.ts"
     },
     "./raw-transaction": {
-      "import": "./exports/raw-transaction.js",
+      "import": "./exports/messages/raw-transaction.js",
       "types": "./exports/messages/raw-transaction.d.ts"
     },
     "./raw-transaction.js": {
-      "import": "./exports/raw-transaction.js",
+      "import": "./exports/messages/raw-transaction.js",
       "types": "./exports/messages/raw-transaction.d.ts"
     },
     "./raw-transaction.proto": {
-      "import": "./exports/raw-transaction.proto.js",
+      "import": "./exports/protos/raw-transaction.proto.js",
       "types": "./exports/protos/raw-transaction.proto.d.ts"
     },
     "./raw-transaction.proto.js": {
-      "import": "./exports/raw-transaction.proto.js",
+      "import": "./exports/protos/raw-transaction.proto.js",
       "types": "./exports/protos/raw-transaction.proto.d.ts"
     },
     "./state": {
-      "import": "./exports/state.js",
+      "import": "./exports/messages/state.js",
       "types": "./exports/messages/state.d.ts"
     },
     "./state.js": {
-      "import": "./exports/state.js",
+      "import": "./exports/messages/state.js",
       "types": "./exports/messages/state.d.ts"
     },
     "./state.proto": {
-      "import": "./exports/state.proto.js",
+      "import": "./exports/protos/state.proto.js",
       "types": "./exports/protos/state.proto.d.ts"
     },
     "./state.proto.js": {
-      "import": "./exports/state.proto.js",
+      "import": "./exports/protos/state.proto.js",
       "types": "./exports/protos/state.proto.d.ts"
     },
     "./transaction": {
-      "import": "./exports/transaction.js",
+      "import": "./exports/messages/transaction.js",
       "types": "./exports/messages/transaction.d.ts"
     },
     "./transaction.js": {
-      "import": "./exports/transaction.js",
+      "import": "./exports/messages/transaction.js",
       "types": "./exports/messages/transaction.d.ts"
     },
     "./transaction.proto": {
-      "import": "./exports/transaction.proto.js",
+      "import": "./exports/protos/transaction.proto.js",
       "types": "./exports/protos/transaction.proto.d.ts"
     },
     "./transaction.proto.js": {
-      "import": "./exports/transaction.proto.js",
+      "import": "./exports/protos/transaction.proto.js",
       "types": "./exports/protos/transaction.proto.d.ts"
     },
     "./types": {
@@ -229,19 +229,19 @@
       "types": "./exports/types.d.ts"
     },
     "./validator": {
-      "import": "./exports/validator.js",
+      "import": "./exports/messages/validator.js",
       "types": "./exports/messages/validator.d.ts"
     },
     "./validator.js": {
-      "import": "./exports/validator.js",
+      "import": "./exports/messages/validator.js",
       "types": "./exports/messages/validator.d.ts"
     },
     "./validator.proto": {
-      "import": "./exports/validator.proto.js",
+      "import": "./exports/protos/validator.proto.js",
       "types": "./exports/protos/validator.proto.d.ts"
     },
     "./validator.proto.js": {
-      "import": "./exports/validator.proto.js",
+      "import": "./exports/protos/validator.proto.js",
       "types": "./exports/protos/validator.proto.d.ts"
     }
   },

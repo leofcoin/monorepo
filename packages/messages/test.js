@@ -1,4 +1,4 @@
-import BlockMessage from './exports/block.js'
+import BlockMessage from './exports/messages/block.js'
 import { ContractMessage } from './exports/index.js'
 // import { BigNumber } from '@leofcoin/utils' // BigNumber not available, using BigInt instead
 
