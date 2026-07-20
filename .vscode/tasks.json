@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Leofcoin: Build and unit tests",
+      "type": "shell",
+      "command": "npm run build && npm test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Leofcoin: Four-node E2E",
+      "type": "shell",
+      "command": "npm run test:e2e",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
