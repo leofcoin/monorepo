@@ -25,6 +25,7 @@
     "release:status": "node scripts/release-packages.js status",
     "release:prepare": "node scripts/release-packages.js prepare",
     "release:publish": "node scripts/release-packages.js publish",
+    "release:trust": "node scripts/release-packages.js trust",
     "release:dry-run": "node scripts/release-packages.js prepare --dry-run",
     "patch": "npm run release:prepare",
     "release": "npm run release:publish",
