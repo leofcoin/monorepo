@@ -8,6 +8,7 @@ const command = process.argv[2] ?? 'status'
 const flags = new Set(process.argv.slice(3))
 const jsonOutput = flags.has('--json')
 const dryRun = flags.has('--dry-run')
+const forcePublishedAt = process.env.RELEASE_FORCE_PUBLISHED_AT === '1'
 
 const run = (executable, args, options = {}) =>
   execFileSync(executable, args, {
@@ -53,11 +54,34 @@ const workspaces = readdirSync(join(root, 'packages'), { withFileTypes: true })
 
 const registryMetadata = (name) => {
   try {
-    const output = run('npm', ['view', name, 'version', 'gitHead', '--json'])
+    const fields = [
+      'version',
+      'gitHead',
+      'time',
+      'type',
+      'main',
+      'module',
+      'exports',
+      'types',
+      'typings',
+      'browser',
+      'bin',
+      'files',
+      'sideEffects',
+      'engines',
+      'dependencies',
+      'optionalDependencies',
+      'peerDependencies',
+      'peerDependenciesMeta',
+    ]
+    const output = run('npm', ['view', name, ...fields, '--json'])
     const metadata = JSON.parse(output)
+    const version = Array.isArray(metadata.version) ? metadata.version.at(-1) : metadata.version
     return {
-      version: Array.isArray(metadata.version) ? metadata.version.at(-1) : metadata.version,
+      ...metadata,
+      version,
       gitHead: Array.isArray(metadata.gitHead) ? metadata.gitHead.at(-1) : metadata.gitHead,
+      publishedAt: metadata.time?.[version],
     }
   } catch (error) {
     const stderr = error.stderr?.toString() ?? ''
@@ -72,17 +96,56 @@ const normalizeManifest = (manifest) => {
   return normalized
 }
 
-const packageChangedSince = (workspace, gitHead) => {
-  if (!gitHead) return { changed: true, files: ['<no published gitHead>'] }
+const publishedManifestFields = [
+  'type',
+  'main',
+  'module',
+  'exports',
+  'types',
+  'typings',
+  'browser',
+  'bin',
+  'files',
+  'sideEffects',
+  'engines',
+  'dependencies',
+  'optionalDependencies',
+  'peerDependencies',
+  'peerDependenciesMeta',
+]
+
+const packageManifestChanged = (local, published) =>
+  publishedManifestFields.some(
+    (field) => JSON.stringify(local[field] ?? null) !== JSON.stringify(published[field] ?? null),
+  )
+
+const commitExists = (commit) => {
+  try {
+    run('git', ['cat-file', '-e', `${commit}^{commit}`])
+    return true
+  } catch {
+    return false
+  }
+}
+
+const packageChangedSince = (workspace, registry) => {
+  if (!registry?.gitHead && !registry?.publishedAt) {
+    return { changed: true, files: ['<no published git reference>'] }
+  }
 
   const packagePath = relative(root, workspace.directory)
-  const tracked = run('git', [
-    'diff',
-    '--name-only',
-    `${gitHead}..HEAD`,
-    '--',
-    packagePath,
-  ])
+  const hasPublishedCommit =
+    !forcePublishedAt && registry.gitHead && commitExists(registry.gitHead)
+  const tracked = hasPublishedCommit
+    ? run('git', ['diff', '--name-only', `${registry.gitHead}..HEAD`, '--', packagePath])
+    : run('git', [
+        'log',
+        '--name-only',
+        '--format=',
+        `--since=${registry.publishedAt}`,
+        '--',
+        packagePath,
+      ])
   const working = run('git', ['diff', '--name-only', 'HEAD', '--', packagePath])
   const untracked = run('git', [
     'ls-files',
@@ -96,10 +159,10 @@ const packageChangedSince = (workspace, gitHead) => {
     .filter((file) => !file.endsWith('/CHANGELOG.md'))
 
   const manifestFile = `${packagePath}/package.json`
-  if (files.includes(manifestFile)) {
+  if (files.includes(manifestFile) && hasPublishedCommit) {
     try {
       const publishedManifest = JSON.parse(
-        run('git', ['show', `${gitHead}:${manifestFile}`]),
+        run('git', ['show', `${registry.gitHead}:${manifestFile}`]),
       )
       const onlyVersionChanged =
         JSON.stringify(normalizeManifest(publishedManifest)) ===
@@ -109,14 +172,23 @@ const packageChangedSince = (workspace, gitHead) => {
       // A missing historical manifest is a real package change.
     }
   }
+  if (!hasPublishedCommit) {
+    const manifestIndex = files.indexOf(manifestFile)
+    if (manifestIndex >= 0) files.splice(manifestIndex, 1)
+    if (packageManifestChanged(workspace.manifest, registry)) files.push(manifestFile)
+  }
 
-  return { changed: files.length > 0, files }
+  return {
+    changed: files.length > 0,
+    files,
+    detection: hasPublishedCommit ? 'gitHead' : 'publishedAt',
+  }
 }
 
 const inspect = () =>
   workspaces.map((workspace) => {
     const registry = registryMetadata(workspace.manifest.name)
-    const change = packageChangedSince(workspace, registry?.gitHead)
+    const change = packageChangedSince(workspace, registry)
     const comparison = registry
       ? compareVersions(workspace.manifest.version, registry.version)
       : 1
@@ -140,6 +212,7 @@ const printable = (items) =>
     published: registry?.version ?? null,
     state,
     changedFiles: change.files,
+    detection: change.detection ?? null,
   }))
 
 const print = (items) => {
@@ -149,11 +222,12 @@ const print = (items) => {
   }
 
   console.table(
-    printable(items).map(({ name, local, published, state }) => ({
+    printable(items).map(({ name, local, published, state, detection }) => ({
       package: name,
       local,
       published: published ?? '-',
       state,
+      detection: detection ?? '-',
     })),
   )
   for (const item of printable(items).filter(({ state }) => state === 'changed')) {

@@ -4,6 +4,11 @@ Package releases use npm's published `gitHead` as their source of truth. This
 lets the repository determine which workspace packages changed since their last
 actual npm publication.
 
+When an older `gitHead` is no longer reachable after a squash merge, the tool
+falls back to npm's immutable publication timestamp and compares the
+publish-relevant package manifest fields separately. This also works in a fresh
+CI checkout without relying on locally retained git objects.
+
 ## Prepare a release
 
 Run:
