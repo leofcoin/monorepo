@@ -1,6 +1,7 @@
 {
   "name": "monorepo",
   "version": "1.0.1",
+  "packageManager": "npm@11.13.0",
   "description": "",
   "main": "index.js",
   "type": "module",

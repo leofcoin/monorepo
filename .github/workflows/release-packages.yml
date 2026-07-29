@@ -30,6 +30,7 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - run: npm install --global npm@11.13.0
       - run: npm ci
       - run: npm run release:prepare
 
@@ -69,6 +70,7 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - run: npm install --global npm@11.13.0
       - run: npm ci
       - run: npm run release:publish
         env:
