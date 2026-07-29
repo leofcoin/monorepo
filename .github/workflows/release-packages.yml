@@ -1,0 +1,75 @@
+name: Release packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Prepare a version PR or publish merged versions
+        required: true
+        type: choice
+        options:
+          - prepare
+          - publish
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    if: inputs.action == 'prepare'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run release:prepare
+
+      - name: Create release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "No package versions need a patch bump."
+            exit 0
+          fi
+
+          branch="release/packages-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add package-lock.json packages/*/package.json
+          git commit -m "Prepare changed package releases"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Prepare changed package releases" \
+            --body "Automatically detected and patch-bumped packages changed since their published npm gitHead."
+
+  publish:
+    if: inputs.action == 'publish'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run release:publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
