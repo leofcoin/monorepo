@@ -347,6 +347,7 @@ const trust = () => {
         'leofcoin/monorepo',
         '--file',
         'release-packages.yml',
+        '--allow-publish',
         '--yes',
       ],
       { stdio: 'inherit' },
