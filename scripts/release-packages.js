@@ -10,12 +10,14 @@ const jsonOutput = flags.has('--json')
 const dryRun = flags.has('--dry-run')
 const forcePublishedAt = process.env.RELEASE_FORCE_PUBLISHED_AT === '1'
 
-const run = (executable, args, options = {}) =>
-  execFileSync(executable, args, {
+const run = (executable, args, options = {}) => {
+  const output = execFileSync(executable, args, {
     cwd: root,
     encoding: 'utf8',
     stdio: options.stdio ?? ['ignore', 'pipe', 'pipe'],
-  }).trim()
+  })
+  return typeof output === 'string' ? output.trim() : ''
+}
 
 const parseVersion = (version) => {
   const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version)
@@ -90,12 +92,6 @@ const registryMetadata = (name) => {
   }
 }
 
-const normalizeManifest = (manifest) => {
-  const normalized = structuredClone(manifest)
-  delete normalized.version
-  return normalized
-}
-
 const publishedManifestFields = [
   'type',
   'main',
@@ -114,10 +110,11 @@ const publishedManifestFields = [
   'peerDependenciesMeta',
 ]
 
-const packageManifestChanged = (local, published) =>
-  publishedManifestFields.some(
-    (field) => JSON.stringify(local[field] ?? null) !== JSON.stringify(published[field] ?? null),
-  )
+const packageManifestChanged = (local, published, registryFallback = false) =>
+  publishedManifestFields.some((field) => {
+    if (registryFallback && published[field] === undefined) return false
+    return JSON.stringify(local[field] ?? null) !== JSON.stringify(published[field] ?? null)
+  })
 
 const commitExists = (commit) => {
   try {
@@ -164,10 +161,9 @@ const packageChangedSince = (workspace, registry) => {
       const publishedManifest = JSON.parse(
         run('git', ['show', `${registry.gitHead}:${manifestFile}`]),
       )
-      const onlyVersionChanged =
-        JSON.stringify(normalizeManifest(publishedManifest)) ===
-        JSON.stringify(normalizeManifest(workspace.manifest))
-      if (onlyVersionChanged) files.splice(files.indexOf(manifestFile), 1)
+      if (!packageManifestChanged(workspace.manifest, publishedManifest)) {
+        files.splice(files.indexOf(manifestFile), 1)
+      }
     } catch {
       // A missing historical manifest is a real package change.
     }
@@ -175,7 +171,7 @@ const packageChangedSince = (workspace, registry) => {
   if (!hasPublishedCommit) {
     const manifestIndex = files.indexOf(manifestFile)
     if (manifestIndex >= 0) files.splice(manifestIndex, 1)
-    if (packageManifestChanged(workspace.manifest, registry)) files.push(manifestFile)
+    if (packageManifestChanged(workspace.manifest, registry, true)) files.push(manifestFile)
   }
 
   return {
