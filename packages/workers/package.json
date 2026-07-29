@@ -33,5 +33,9 @@
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.43",
     "@vandeurenglenn/easy-worker": "^1.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo"
   }
 }

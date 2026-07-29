@@ -21,5 +21,9 @@
   "types": "./index.d.ts",
   "devDependencies": {
     "@vandeurenglenn/base58": "^1.1.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo"
   }
 }
