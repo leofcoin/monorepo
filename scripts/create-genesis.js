@@ -24,7 +24,9 @@ import { join } from 'path'
   // const Chain = require('./../chain/dist/chain');
 
   const Node = (await import('../packages/chain/exports/node.js')).default
-  const password = process.env.GENESIS_PASSWORD || process.argv[2]
+  const args = process.argv.slice(2)
+  const checkIdentity = args.includes('--check-identity')
+  const password = process.env.GENESIS_PASSWORD || args.find((arg) => !arg.startsWith('--'))
   const node = new Node(
     {
       network: 'leofcoin:peach',
@@ -35,6 +37,10 @@ import { join } from 'path'
     password
   )
   await node.ready
+  if (checkIdentity) {
+    console.log(`Identity loaded successfully: ${globalThis.peernet.selectedAccount}`)
+    return
+  }
   await globalThis.blockStore.clear()
   await globalThis.transactionPoolStore.clear()
   await globalThis.contractStore.clear()
