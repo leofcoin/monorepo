@@ -100,7 +100,8 @@ export default class Machine {
         break
       }
       case 'addToWantList': {
-        this.wantList.push(data.hash)
+        if (!this.wantList.includes(data.hash)) this.wantList.push(data.hash)
+        break
       }
       case 'ask': {
         if (data.question === 'contract' || data.question === 'transaction') {
@@ -174,9 +175,11 @@ export default class Machine {
         try {
           const promises = []
           for (const address of await accountsStore.keys()) {
-            promises.push(async () => {
-              accounts[address] = await accountsStore.get(address)
-            })
+            promises.push(
+              (async () => {
+                accounts[address] = await accountsStore.get(address)
+              })()
+            )
           }
           await Promise.all(promises)
         } catch (error) {
@@ -186,9 +189,7 @@ export default class Machine {
             const { from, to, amount, nonce } = transaction.decoded.data
             if (!accounts[from]) {
               accounts[from] = nonce
-              promises.push(async () => {
-                await accountsStore.put(from, nonce)
-              })
+              promises.push(accountsStore.put(from, nonce))
             }
           }
           await Promise.all(promises)

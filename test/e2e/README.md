@@ -8,9 +8,9 @@ npm run test:e2e
 
 In GitHub Codespaces or VS Code, this is also available from **Tasks: Run Test Task** as **Leofcoin: Four-node E2E**. The repository's dev container pins Node 22 and installs dependencies during Codespace creation.
 
-This creates isolated temporary homes, starts four real node and chain processes, verifies that their identities are distinct, checks that they converge on the same empty bootstrap state, restarts one process, verifies identity persistence, and always removes the temporary data.
+This creates isolated temporary homes, starts a local discovery star plus four real node and chain processes, verifies full peer discovery and the empty bootstrap state, restarts one process, verifies identity persistence and reconnection, and always removes the temporary data.
 
-It does not claim peer-to-peer consensus coverage because the repository currently has no local discovery/star-server fixture.
+This is a lifecycle, storage-isolation, and peer-connectivity gate. It does not yet prove block production or consensus convergence.
 
 ## Remote lifecycle smoke test
 

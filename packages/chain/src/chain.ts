@@ -19,10 +19,16 @@ import {
   nativeTokenMessage,
   validatorsMessage,
   nameServiceMessage,
-  calculateFee
+  calculateFee,
+  createTransactionHash
 } from '@leofcoin/lib'
+import MultiWallet from '@leofcoin/multi-wallet'
+import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
 import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
+import { quorumThreshold } from './consensus/quorum.js'
+import { validateChainLink } from './consensus/chain-link.js'
+import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -63,6 +69,8 @@ export default class Chain extends VersionControl {
   // ── Tendermint consensus state ──────────────────────────────────────────────
   /** Current consensus round (increments when proposer is unresponsive) */
   #consensusRound: number = 0
+  /** Locally proposed block awaiting quorum; prevents duplicate proposals at one height. */
+  #proposalInFlight: { hash: string; index: number; round: number } | null = null
   /** Timer that advances #consensusRound when the proposer doesn't propose in time */
   #roundTimer: ReturnType<typeof setTimeout> | null = null
   /** prevotes collected per `height:round:blockHash` key */
@@ -71,6 +79,8 @@ export default class Chain extends VersionControl {
   #precommits: Map<string, Set<string>> = new Map()
   /** Index of the last block that reached 2f+1 precommits */
   #committedHeight: number = -1
+  /** Heights currently applying to local state; prevents duplicate concurrent commits. */
+  #committingHeights: Set<number> = new Set()
   /** Prevents casting duplicate prevote/precommit per height:round */
   #castedVotes: Set<string> = new Set()
   // ────────────────────────────────────────────────────────────────────────────
@@ -130,6 +140,23 @@ export default class Chain extends VersionControl {
     return typeof address === 'string' && this.#jail.has(address)
   }
 
+  async #signConsensusMessage(type: 'proposal' | 'prevote' | 'precommit', message): Promise<string> {
+    const identity = globalThis.peernet?.identity
+    return signConsensusMessage(addresses.validators, type, message, identity)
+  }
+
+  async #verifyConsensusMessage(
+    type: 'proposal' | 'prevote' | 'precommit',
+    message: { blockHash: unknown; index: unknown; round: unknown; from: unknown; signature?: unknown }
+  ): Promise<boolean> {
+    return verifyConsensusMessage(
+      addresses.validators,
+      type,
+      message,
+      globalThis.peernet?.network || 'leofcoin'
+    )
+  }
+
   async #getConsensusValidators(nextBlockIndex?: number): Promise<string[]> {
     const localBlock = await this.lastBlock
     const localIndex = localBlock?.index !== undefined ? Number(localBlock.index) : -1
@@ -152,7 +179,7 @@ export default class Chain extends VersionControl {
     return [...new Set(validators)].sort()
   }
 
-  #validateBlockValidators(blockMessage: BlockMessage): void {
+  async #validateBlockValidators(blockMessage: BlockMessage): Promise<void> {
     const validators = blockMessage.decoded.validators || []
 
     if (!Array.isArray(validators) || validators.length === 0) {
@@ -189,17 +216,34 @@ export default class Chain extends VersionControl {
       )
     }
 
-    const addresses = validators.map((validator) => validator.address)
-    if (addresses.some((address) => typeof address !== 'string' || address.length === 0)) {
+    const unsignedBlockMessage = new BlockMessage({ ...blockMessage.decoded, producerProof: '' })
+    const unsignedBlockHash = await unsignedBlockMessage.hash()
+    const proofPayload = await createTransactionHash({
+      from: blockMessage.decoded.producer,
+      to: addresses.validators,
+      method: 'produceBlock',
+      params: [unsignedBlockHash],
+      timestamp: Number(blockMessage.decoded.timestamp)
+    })
+    const network = globalThis.peernet?.network || 'leofcoin'
+    const verifier = new MultiWallet(network)
+    await verifier.fromAddress(blockMessage.decoded.producer, null, network)
+    const validProducerProof = await verifier.verify(fromBase58(blockMessage.decoded.producerProof), proofPayload)
+    if (!validProducerProof) {
+      throw new Error(`Block ${blockMessage.decoded.index} has an invalid producerProof`)
+    }
+
+    const validatorAddresses = validators.map((validator) => validator.address)
+    if (validatorAddresses.some((address) => typeof address !== 'string' || address.length === 0)) {
       throw new Error(`Block ${blockMessage.decoded.index} includes an invalid validator address`)
     }
 
-    const canonicalAddresses = [...addresses].sort()
-    if (canonicalAddresses.some((address, index) => address !== addresses[index])) {
+    const canonicalAddresses = [...validatorAddresses].sort()
+    if (canonicalAddresses.some((address, index) => address !== validatorAddresses[index])) {
       throw new Error(`Block ${blockMessage.decoded.index} validators are not canonically sorted`)
     }
 
-    if (new Set(addresses).size !== addresses.length) {
+    if (new Set(validatorAddresses).size !== validatorAddresses.length) {
       throw new Error(`Block ${blockMessage.decoded.index} validators contain duplicates`)
     }
 
@@ -303,7 +347,7 @@ export default class Chain extends VersionControl {
     if (!hasMore && remaining > 0) await this.#sleep(remaining)
 
     this.#runningEpoch = false
-    if (hasMore) return this.#runEpoch()
+    if (hasMore && !this.#proposalInFlight) return this.#runEpoch()
   }
 
   async #setup() {
@@ -439,10 +483,11 @@ export default class Chain extends VersionControl {
   #castVote = async (type: 'prevote' | 'precommit', blockHash: string, index: number, round: number) => {
     const voteKey = `${type}:${index}:${round}`
     if (this.#castedVotes.has(voteKey)) return
-    this.#castedVotes.add(voteKey)
 
     const from = peernet.selectedAccount
-    const voteData = { blockHash, index: BigInt(index), round: BigInt(round), from }
+    const unsignedVote = { blockHash, index: BigInt(index), round: BigInt(round), from }
+    const voteData = { ...unsignedVote, signature: await this.#signConsensusMessage(type, unsignedVote) }
+    this.#castedVotes.add(voteKey)
     const Message = type === 'prevote' ? PrevoteMessage : PrecommitMessage
     const message = new Message(voteData)
     const payload = message.encoded
@@ -451,6 +496,9 @@ export default class Chain extends VersionControl {
     } catch (e) {
       debug(`peernet publish failed: consensus:${type}`, (e as Error)?.message ?? e)
     }
+
+    if (type === 'prevote') await this.#handlePrevote(payload)
+    else await this.#handlePrecommit(payload)
   }
 
   /**
@@ -463,6 +511,11 @@ export default class Chain extends VersionControl {
       const message = new ProposalMessage(payload)
       const msg = message.decoded
       const { blockHash, index, round, from } = msg
+
+      if (!(await this.#verifyConsensusMessage('proposal', msg))) {
+        debug(`[consensus] Ignoring proposal with invalid signature from ${from}`)
+        return
+      }
 
       const validators = await this.#getConsensusValidators(Number(index))
       const expectedProposerIdx = Number((index + round) % BigInt(validators.length))
@@ -516,6 +569,11 @@ export default class Chain extends VersionControl {
       const msg = message.decoded
       const { blockHash, index, round, from } = msg
 
+      if (!(await this.#verifyConsensusMessage('prevote', msg))) {
+        debug(`[consensus] Ignoring prevote with invalid signature from ${from}`)
+        return
+      }
+
       const validators = await this.#getConsensusValidators(Number(index))
       if (!validators.includes(from)) return
 
@@ -527,7 +585,7 @@ export default class Chain extends VersionControl {
       if (!this.#prevotes.has(voteKey)) this.#prevotes.set(voteKey, new Set())
       this.#prevotes.get(voteKey)!.add(from)
 
-      const threshold = Math.ceil((2 * validators.length) / 3)
+      const threshold = quorumThreshold(validators.length)
       const voteCount = this.#prevotes.get(voteKey)!.size
       debug(`[consensus] Prevotes ${voteKey}: ${voteCount}/${validators.length} (need ${threshold})`)
 
@@ -554,6 +612,11 @@ export default class Chain extends VersionControl {
       const msg = message.decoded
       const { blockHash, index, round, from } = msg
 
+      if (!(await this.#verifyConsensusMessage('precommit', msg))) {
+        debug(`[consensus] Ignoring precommit with invalid signature from ${from}`)
+        return
+      }
+
       const validators = await this.#getConsensusValidators(Number(index))
       if (!validators.includes(from)) return
       if (index <= BigInt(this.#committedHeight)) return
@@ -562,49 +625,50 @@ export default class Chain extends VersionControl {
       if (!this.#precommits.has(voteKey)) this.#precommits.set(voteKey, new Set())
       this.#precommits.get(voteKey)!.add(from)
 
-      const threshold = Math.ceil((2 * validators.length) / 3)
+      const threshold = quorumThreshold(validators.length)
       const voteCount = this.#precommits.get(voteKey)!.size
       debug(`[consensus] Precommits ${voteKey}: ${voteCount}/${validators.length} (need ${threshold})`)
 
-      if (voteCount >= threshold && index > BigInt(this.#committedHeight)) {
-        this.#committedHeight = Number(index)
-        this.#consensusRound = 0
+      const numericIndex = Number(index)
+      if (
+        voteCount >= threshold &&
+        index > BigInt(this.#committedHeight) &&
+        !this.#committingHeights.has(numericIndex)
+      ) {
+        this.#committingHeights.add(numericIndex)
 
-        // Prune vote state for committed and older heights
-        for (const key of [...this.#prevotes.keys()]) {
-          if (BigInt(key.split(':')[0]) <= index) this.#prevotes.delete(key)
-        }
-        for (const key of [...this.#precommits.keys()]) {
-          if (BigInt(key.split(':')[0]) <= index) this.#precommits.delete(key)
-        }
-        for (const key of [...this.#castedVotes]) {
-          if (BigInt(key.split(':')[1]) <= index) this.#castedVotes.delete(key)
-        }
-
-        // Non-proposers add the block to local state now.
-        // Proposers already committed state in #createBlock() and their
-        // lastBlock.index === index, so the guard below skips them.
-        const currentBlock = await this.lastBlock
-        const currentIndex = currentBlock?.index !== undefined ? currentBlock.index : -1n
-        if (index > currentIndex) {
-          debug(`[consensus] ✅ Committing block ${blockHash} at height ${index}`)
-          try {
-            const blockData = await globalThis.peernet.get(blockHash, 'block')
-            await this.#addBlock(blockData)
-          } catch (e) {
-            debug(`[consensus] Failed to commit block ${blockHash}:`, (e as Error)?.message)
-          }
-        } else {
-          debug(`[consensus] ✅ Block ${blockHash} at height ${index} already committed (proposer path)`)
-        }
-
-        // Broadcast committed block so syncing / non-participating nodes can catch up
+        // Every validator, including the proposer, commits through this exact
+        // path. Proposals never mutate canonical chain state before quorum.
         try {
+          debug(`[consensus] ✅ Committing block ${blockHash} at height ${index}`)
           const blockData = await globalThis.peernet.get(blockHash, 'block')
+          await this.#addBlock(blockData)
+          this.#committedHeight = numericIndex
+          this.#consensusRound = 0
+          if (this.#proposalInFlight?.hash === blockHash) this.#proposalInFlight = null
+          if (this.#roundTimer) {
+            clearTimeout(this.#roundTimer)
+            this.#roundTimer = null
+          }
+
+          // Prune vote state only after the canonical state transition succeeds.
+          for (const key of [...this.#prevotes.keys()]) {
+            if (BigInt(key.split(':')[0]) <= index) this.#prevotes.delete(key)
+          }
+          for (const key of [...this.#precommits.keys()]) {
+            if (BigInt(key.split(':')[0]) <= index) this.#precommits.delete(key)
+          }
+          for (const key of [...this.#castedVotes]) {
+            if (BigInt(key.split(':')[1]) <= index) this.#castedVotes.delete(key)
+          }
+
+          // Broadcast committed block so syncing / non-participating nodes can catch up.
           globalThis.peernet.publish('add-block', blockData)
           globalThis.pubsub.publish('add-block', blockData)
         } catch (e) {
-          debug('[consensus] Failed to broadcast committed block:', (e as Error)?.message)
+          debug(`[consensus] Failed to commit block ${blockHash}:`, (e as Error)?.message)
+        } finally {
+          this.#committingHeights.delete(numericIndex)
         }
       }
     } catch (e) {
@@ -1033,37 +1097,18 @@ export default class Chain extends VersionControl {
     const hash = await blockMessage.hash()
 
     // CRITICAL: VALIDATE BEFORE TOUCHING STATE
-    // 1. Check for duplicate blocks at same height
     const blockIndex = Number(blockMessage.decoded.index)
-    const existingBlockAtHeight = this.#blocks[blockIndex]
-    if (existingBlockAtHeight) {
-      if (existingBlockAtHeight.hash !== hash) {
-        console.error(`  Local:  ${existingBlockAtHeight.hash}`)
-        console.error(`  Remote: ${hash}`)
-        throw new Error(`Block conflict detected at index ${blockIndex}`)
-      }
-      // Already have this exact block, skip
-      debug(`Block already in store: ${hash}`)
+    const linkResult = validateChainLink(await this.lastBlock, {
+      index: blockIndex,
+      hash,
+      previousHash: String(blockMessage.decoded.previousHash)
+    })
+    if (linkResult !== 'append') {
+      debug(`Ignoring ${linkResult} block ${hash} at height ${blockIndex}`)
       return
     }
 
-    // 2. Verify previous hash chain integrity
-    if (blockIndex > 0) {
-      const previousBlockInfo = this.#blocks[blockIndex - 1]
-      if (!previousBlockInfo) {
-        throw new Error(`Missing parent block at index ${blockIndex - 1}`)
-      }
-      if (previousBlockInfo.hash !== blockMessage.decoded.previousHash) {
-        throw new Error(
-          `previousHash mismatch at index ${blockIndex}: ` +
-            `expected ${previousBlockInfo.hash}, got ${blockMessage.decoded.previousHash}`
-        )
-      }
-    } else if (blockMessage.decoded.previousHash !== '0x0') {
-      throw new Error(`Genesis block (index 0) must have previousHash='0x0'`)
-    }
-
-    // 3. Verify data integrity
+    // Verify data integrity
     const canonicalEncoded = blockMessage.encoded
     const byteLengthMatch = receivedEncoded.length === canonicalEncoded.length
 
@@ -1087,7 +1132,7 @@ export default class Chain extends VersionControl {
     }
 
     console.log(`[chain] ✅ Block data integrity verified: ${hash}`)
-    this.#validateBlockValidators(blockMessage)
+    await this.#validateBlockValidators(blockMessage)
 
     // NOW SAFE TO PROCEED with transaction processing
     const transactions = await Promise.all(
@@ -1199,7 +1244,6 @@ export default class Chain extends VersionControl {
     // introduce peer-reputation
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
-    this.#participating = true
     try {
       if (!(await this.staticCall(addresses.validators, 'has', [address]))) {
         const rawTransaction = {
@@ -1212,17 +1256,17 @@ export default class Chain extends VersionControl {
         }
 
         const transaction = await signTransaction(rawTransaction, globalThis.peernet.identity)
-        try {
-          await this.sendTransaction(transaction)
-        } catch (error) {
-          console.error(error)
-        }
+        await this.sendTransaction(transaction)
+        this.#participating = false
+        return false
       }
     } catch (error) {
-      debug('Error in participate:', error.message)
-      // Continue anyway - validator check is optional
+      this.#participating = false
+      throw new Error(`validator participation failed: ${(error as Error)?.message ?? error}`)
     }
+    this.#participating = true
     if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
+    return true
   }
 
   async #handleTransaction(transaction, latestTransactions, block?) {
@@ -1269,6 +1313,7 @@ export default class Chain extends VersionControl {
 
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
+    if (this.#proposalInFlight) return
     console.log(await globalThis.transactionPoolStore.size())
 
     // vote for transactions
@@ -1280,7 +1325,7 @@ export default class Chain extends VersionControl {
 
     const timestamp = Date.now()
 
-    let block = {
+    const block: any = {
       transactions: [],
       validators: [],
       fees: BigInt(0),
@@ -1311,10 +1356,17 @@ export default class Chain extends VersionControl {
       return 0
     })
 
-    // Preserve the deterministic global order: different senders may still
-    // mutate the same contract state.
+    // A proposal only validates and publishes transaction data. Canonical
+    // execution happens in #addBlock after quorum is reached.
     for (const transaction of allTransactions) {
-      await this.#handleTransaction(transaction, latestTransactions, block)
+      await this.validateTransactionSignature(transaction)
+      const hash = await transaction.hash()
+      if (latestTransactions.includes(hash) || (await globalThis.transactionStore.has(hash))) {
+        continue
+      }
+      block.transactions.push(hash)
+      block.fees += BigInt(await calculateFee(transaction.decoded))
+      await globalThis.peernet.put(hash, transaction.encoded, 'transaction')
     }
 
     // don't add empty block
@@ -1335,6 +1387,8 @@ export default class Chain extends VersionControl {
     const canonicalValidators = (await this.staticCall(addresses.validators, 'validators')) as Validators['validators']
     const sortedValidators = [...canonicalValidators].sort()
 
+    if (sortedValidators.length === 0) throw new Error('cannot produce a block without validators')
+
     // Apply reward to all canonical validators (deterministic)
     block.validators = sortedValidators.map((validatorAddress) => ({
       address: validatorAddress,
@@ -1342,13 +1396,6 @@ export default class Chain extends VersionControl {
     }))
 
     try {
-      await Promise.all(
-        block.transactions.map(async (transaction: string) => {
-          await globalThis.transactionStore.put(transaction, await transactionPoolStore.get(transaction))
-          await globalThis.transactionPoolStore.delete(transaction)
-        })
-      )
-
       // Set producer to current account
       block.producer = globalThis.peernet.selectedAccount || ''
 
@@ -1370,22 +1417,27 @@ export default class Chain extends VersionControl {
         block.producerProof = signedProof.signature
       }
 
+      if (!block.producer || !block.producerProof) throw new Error('block producer identity is not available')
+
       let blockMessage = await new BlockMessage(block)
 
       const hash = await blockMessage.hash()
 
       await globalThis.peernet.put(hash, blockMessage.encoded, 'block')
-      await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
-      await this.updateState(blockMessage)
-      debug(`created block: ${hash} @${block.index}`)
+      this.#proposalInFlight = { hash, index: block.index, round: this.#consensusRound }
+      debug(`proposed block: ${hash} @${block.index}`)
 
       // Phase 2: announce proposal for consensus voting instead of direct add-block
       console.log(`[consensus] 📤 Proposing block #${block.index} | hash: ${hash} | round: ${this.#consensusRound}`)
-      const proposalData = {
+      const unsignedProposal = {
         blockHash: hash,
         index: BigInt(block.index),
         round: BigInt(this.#consensusRound),
         from: peernet.selectedAccount
+      }
+      const proposalData = {
+        ...unsignedProposal,
+        signature: await this.#signConsensusMessage('proposal', unsignedProposal)
       }
       const proposalMessage = new ProposalMessage(proposalData)
       const proposalPayload = proposalMessage.encoded
@@ -1396,6 +1448,17 @@ export default class Chain extends VersionControl {
       }
       // Proposer casts their own prevote immediately
       await this.#castVote('prevote', hash, block.index, this.#consensusRound)
+
+      if (!this.#roundTimer && this.#proposalInFlight?.hash === hash) {
+        this.#roundTimer = setTimeout(async () => {
+          this.#roundTimer = null
+          if (this.#proposalInFlight?.hash !== hash) return
+          this.#proposalInFlight = null
+          this.#consensusRound += 1
+          this.#runningEpoch = false
+          if (this.#participating) await this.#runEpoch()
+        }, this.#slotTime)
+      }
     } catch (error) {
       console.log(error)
 

@@ -1,50 +1,56 @@
-import BlockMessage from './exports/messages/block.js'
-import { ContractMessage } from './exports/index.js'
-// import { BigNumber } from '@leofcoin/utils' // BigNumber not available, using BigInt instead
+import assert from 'node:assert/strict'
+import test from 'node:test'
 
-const validators = [
-  {
-    address: 'address',
-    reward: BigInt(0).toString()
+import { BlockMessage, ContractMessage, PrecommitMessage, PrevoteMessage, ProposalMessage } from './exports/index.js'
+
+test('block messages round-trip all consensus fields', () => {
+  const block = {
+    index: 0n,
+    previousHash: '0x0',
+    timestamp: 1,
+    reward: 0n,
+    fees: 0n,
+    transactions: ['transaction-hash'],
+    validators: [{ address: 'validator', reward: 0n }],
+    producer: 'validator',
+    producerProof: 'producer-signature',
+    protocolVersion: '0.2.0'
   }
-]
+  const decoded = new BlockMessage(new BlockMessage(block).encoded).decoded
 
-const transactions = []
-for (let i = 0; i <= 1; i++) {
-  transactions.push({
-    timestamp: new Date().getTime(),
-    from: 'fromAddress',
-    to: 'toAddress',
-    nonce: '0',
-    method: 'getAddress',
-    params: [],
-    signature: new Uint8Array(32)
+  assert.equal(decoded.index, 0n)
+  assert.equal(decoded.previousHash, '0x0')
+  assert.deepEqual(decoded.transactions, ['transaction-hash'])
+  assert.equal(decoded.producer, 'validator')
+  assert.equal(decoded.producerProof, 'producer-signature')
+  assert.equal(decoded.protocolVersion, '0.2.0')
+})
+
+test('contract messages round-trip', () => {
+  const message = new ContractMessage({
+    creator: 'creator',
+    contract: new Uint8Array(),
+    constructorParameters: []
+  })
+  const decoded = new ContractMessage(message.encoded).decoded
+  assert.equal(decoded.creator, 'creator')
+})
+
+for (const [name, Message] of [
+  ['proposal', ProposalMessage],
+  ['prevote', PrevoteMessage],
+  ['precommit', PrecommitMessage]
+]) {
+  test(`${name} messages preserve validator signatures`, () => {
+    const decoded = new Message(
+      new Message({
+        blockHash: 'block-hash',
+        index: 1n,
+        round: 0n,
+        from: 'validator',
+        signature: 'signature'
+      }).encoded
+    ).decoded
+    assert.equal(decoded.signature, 'signature')
   })
 }
-
-const block = {
-  index: 0,
-  previousHash: '0x0',
-  timestamp: new Date().getTime(),
-  reward: BigInt('0').toString(),
-  fees: BigInt('0').toString(),
-  transactions,
-  validators,
-  producer: 'address',
-  producerProof: 'proof',
-  protocolVersion: '1.9.23'
-}
-
-const contractMessage = new ContractMessage({
-  creator: 'aaa',
-  contract: new Uint8Array(),
-  constructorParameters: []
-})
-console.time('message encoded')
-const message = await new BlockMessage(block)
-message.decode()
-console.timeEnd('message encoded')
-console.time('normal encoded')
-JSON.stringify(block)
-console.timeEnd('normal encoded')
-const contract = new ContractMessage(contractMessage.toBs32())
