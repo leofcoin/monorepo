@@ -4,9 +4,10 @@ export default class SyncController {
   #resolving: boolean
   #fullyResolved: boolean
   #fullyLoaded: boolean
-  #retryCount: number = 0
   #maxRetries: number = 3
-  #timeouts: Map<string, NodeJS.Timeout> = new Map()
+  #operationSequence: number = 0
+  #generation: number = 0
+  #timeouts: Map<string, { timeout: NodeJS.Timeout; reject: (error: Error) => void }> = new Map()
 
   get busy() {
     return this.#busy
@@ -39,49 +40,60 @@ export default class SyncController {
   /**
    * Resolves/rejects a promise or rejects on timeout with retry logic
    */
-  resolve(operation: () => Promise<any>, timeoutMs: number = 30000): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      const operationId = Math.random().toString(36)
+  async resolve(operation: () => Promise<any>, timeoutMs: number = 30000): Promise<any> {
+    const generation = this.#generation
+    let lastError: Error | undefined
 
-      const timeout = setTimeout(() => {
-        this.#timeouts.delete(operationId)
-        if (this.#retryCount < this.#maxRetries) {
-          this.#retryCount++
-          console.warn(`Operation timeout, retrying... (${this.#retryCount}/${this.#maxRetries})`)
-          this.resolve(operation, timeoutMs).then(resolve).catch(reject)
-        } else {
-          this.#retryCount = 0
-          reject(new Error(`Operation timeout after ${this.#maxRetries} retries`))
-        }
-      }, timeoutMs)
-
-      this.#timeouts.set(operationId, timeout)
+    for (let attempt = 0; attempt <= this.#maxRetries; attempt += 1) {
+      if (generation !== this.#generation) throw new Error('Operation stopped')
 
       try {
-        const result = await operation()
-        clearTimeout(timeout)
-        this.#timeouts.delete(operationId)
-        this.#retryCount = 0
-        resolve(result)
+        return await this.#runAttempt(operation, timeoutMs)
       } catch (error) {
-        clearTimeout(timeout)
-        this.#timeouts.delete(operationId)
-        if (this.#retryCount < this.#maxRetries) {
-          this.#retryCount++
-          console.warn(`Operation failed, retrying... (${this.#retryCount}/${this.#maxRetries}):`, error.message)
-          this.resolve(operation, timeoutMs).then(resolve).catch(reject)
-        } else {
-          this.#retryCount = 0
-          reject(error)
-        }
+        lastError = error instanceof Error ? error : new Error(String(error))
+        if (generation !== this.#generation) throw new Error('Operation stopped')
+        if (attempt === this.#maxRetries) break
+        console.warn(`Operation failed, retrying... (${attempt + 1}/${this.#maxRetries}):`, lastError.message)
       }
+    }
+
+    throw lastError ?? new Error(`Operation failed after ${this.#maxRetries} retries`)
+  }
+
+  #runAttempt(operation: () => Promise<any>, timeoutMs: number): Promise<any> {
+    const operationId = String(++this.#operationSequence)
+
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const settle = (callback: (value?: any) => void, value?: any) => {
+        if (settled) return
+        settled = true
+        const pending = this.#timeouts.get(operationId)
+        if (pending) clearTimeout(pending.timeout)
+        this.#timeouts.delete(operationId)
+        callback(value)
+      }
+
+      const timeout = setTimeout(
+        () => settle(reject, new Error(`Operation timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
+      this.#timeouts.set(operationId, {
+        timeout,
+        reject: (error) => settle(reject, error)
+      })
+
+      Promise.resolve()
+        .then(operation)
+        .then((result) => settle(resolve, result))
+        .catch((error) => settle(reject, error))
     })
   }
 
   stop() {
-    // Clear all timeouts
-    for (const [id, timeout] of this.#timeouts) {
-      clearTimeout(timeout)
+    this.#generation += 1
+    for (const { reject } of this.#timeouts.values()) {
+      reject(new Error('Operation stopped'))
     }
     this.#timeouts.clear()
     this.#busy = false

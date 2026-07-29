@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/contracts",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "",
   "type": "module",
   "exports": {
@@ -32,7 +32,7 @@
     "lucky-numbers": "^1.2.1"
   },
   "devDependencies": {
-    "@leofcoin/types": "^1.0.22",
+    "@leofcoin/types": "^1.0.26",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.3.0",

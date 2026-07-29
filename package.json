@@ -1,6 +1,6 @@
 {
   "name": "monorepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -11,8 +11,9 @@
   "scripts": {
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",
-    "test": "npm run test --workspaces --if-present",
-    "test:e2e": "npm run build && node --test test/e2e/*.test.mjs",
+    "test": "npm run test:core",
+    "test:core": "npm run build -w @leofcoin/messages && npm run test -w @leofcoin/messages && npm run build -w @leofcoin/chain && npm run test -w @leofcoin/chain",
+    "test:e2e": "npm run build-all && node --test test/e2e/*.test.js",
     "test:e2e:remote": "node test/e2e/remote.mjs",
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "npm run build:core",
@@ -40,7 +41,7 @@
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
     "@changesets/cli": "^2.30.0",
-    "@vandeurenglenn/doc-it": "^1.0.32",
+    "@vandeurenglenn/doc-it": "^1.0.35",
     "p-queue": "^9.1.2"
   },
   "workspaces": [

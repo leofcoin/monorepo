@@ -89,7 +89,13 @@ test('block encoding is deterministic and preserves consensus fields', async () 
 })
 
 test('proposal, prevote, and precommit messages round-trip the same vote', () => {
-  const vote = { blockHash: 'block', index: 9n, round: 2n, from: 'validator' }
+  const vote = {
+    blockHash: 'block',
+    index: 9n,
+    round: 2n,
+    from: 'validator',
+    signature: 'validator-signature'
+  }
 
   for (const Message of [ProposalMessage, PrevoteMessage, PrecommitMessage]) {
     const message = new Message(vote)
