@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.35",
+  "version": "1.0.36",
   "description": "bip39 mnemonic",
   "private": false,
   "exports": {
@@ -10,8 +10,8 @@
   "type": "module",
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c --silent error --cache true",
+    "test": "node --test",
+    "build": "tsc6 -p tsconfig.json",
     "npm-check-updates": "npx npm-check-updates -u --install always"
   },
   "keywords": [],

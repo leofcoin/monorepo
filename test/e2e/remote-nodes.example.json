@@ -1,0 +1,18 @@
+{
+  "timeoutMs": 30000,
+  "readinessAttempts": 12,
+  "nodes": [
+    {
+      "name": "validator-1",
+      "host": "leofcoin-validator-1",
+      "service": "leofcoin",
+      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready"
+    },
+    {
+      "name": "validator-2",
+      "host": "leofcoin-validator-2",
+      "service": "leofcoin",
+      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready"
+    }
+  ]
+}

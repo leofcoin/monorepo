@@ -12,7 +12,7 @@ try {
   const promises = []
 
   for (const path of dir) {
-    promises.push(unlink(join('./exports', path)))
+    if (!path.endsWith('.d.ts')) promises.push(unlink(join('./exports', path)))
   }
 
   await Promise.allSettled(promises)

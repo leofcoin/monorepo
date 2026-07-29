@@ -41,7 +41,7 @@ export default class Mnemonic {
 
     let bits = entropy + checksum
     return bits
-      .match(/(.{1,11})/g)
+      .match(/(.{1,11})/g)!
       .map((binary: string) => {
         const index = parseInt(binary, 2)
         return this.wordlist[index]
@@ -57,7 +57,7 @@ export default class Mnemonic {
     return 'mnemonic' + this.normalize(password)
   }
 
-  seedFromMnemonic(mnemonic: string, password: string, strength = 256, iterations = 2048): Promise<ArrayBuffer> {
+  seedFromMnemonic(mnemonic: string, password: string, strength = 256, iterations = 2048): Promise<Uint8Array> {
     const encoder = new TextEncoder()
     return pbkdf2(
       encoder.encode(this.salt(password)),

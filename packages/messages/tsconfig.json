@@ -6,7 +6,8 @@
     "rootDir": "src",
     "moduleResolution":"NodeNext",
     "declaration": true,
-    "declarationDir": "exports"
+    "declarationDir": "exports",
+    "skipLibCheck": true
   },
   "include": [
     "./src/**/*"

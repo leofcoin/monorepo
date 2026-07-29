@@ -1,10 +1,10 @@
-import bytecodes from './bytecodes.json'
+import bytecodes from './bytecodes.json' with { type: 'json' }
 import { ContractMessage, TransactionMessage, RawTransactionMessage } from '@leofcoin/messages'
 import { validators, contractFactory } from '@leofcoin/addresses'
 export { default as nodeConfig } from './node-config.js'
 import { formatUnits, parseUnits, toBigInt } from '@leofcoin/utils'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
-import '@vandeurenglenn/base58'
+import type { base58String } from '@vandeurenglenn/base58'
 
 declare type address = string
 
@@ -13,7 +13,7 @@ declare type rawTransaction = {
   to: address
   method: string
   params: any[]
-  timestamp: Number
+  timestamp: number
 }
 
 declare type signedTransaction = {
@@ -21,8 +21,8 @@ declare type signedTransaction = {
   to: address
   method: string
   params: any[]
-  timestamp: Number
-  signature: Base58String
+  timestamp: number
+  signature: base58String
 }
 
 declare type signable = {
@@ -84,7 +84,8 @@ export const createTransactionHash = async (
       transaction instanceof TransactionMessage ? transaction.decoded : transaction
     )
   else message = transaction
-  return (await message.peernetHash).digest
+  const hash = await message.peernetHash
+  return (hash as typeof hash & { digest: Uint8Array }).digest
 }
 
 export const signTransaction = async (transaction: rawTransaction, wallet: signable): Promise<signedTransaction> => {

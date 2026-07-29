@@ -11,6 +11,6 @@ export default class Mnemonic {
     mnemonicFromEntropy(entropyBuffer: Uint8Array): Promise<string>;
     generate(strength?: number): Promise<string>;
     salt(password: string): string;
-    seedFromMnemonic(mnemonic: string, password: string, strength?: number, iterations?: number): Promise<ArrayBuffer>;
+    seedFromMnemonic(mnemonic: string, password: string, strength?: number, iterations?: number): Promise<Uint8Array>;
 }
 export {};

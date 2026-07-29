@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.2.77",
+  "version": "1.2.78",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
@@ -31,7 +31,7 @@
   ],
   "scripts": {
     "prettier": "prettier src --config ./../../.prettierrc --write",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "build": "rollup -c",
     "npm-check-updates": "npx npm-check-updates -u --install always"
   },
@@ -40,7 +40,7 @@
   "license": "MIT",
   "dependencies": {
     "@leofcoin/addresses": "^1.0.58",
-    "@leofcoin/messages": "^1.5.2",
+    "@leofcoin/messages": "^1.5.3",
     "@leofcoin/peernet": "^1.2.21",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.42",

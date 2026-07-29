@@ -31,7 +31,7 @@ export default class BlockMessage extends FormatInterface {
     super(buffer, proto, { name })
   }
 
-  encode(decoded?): Uint8Array {
+  encode(decoded?: BlockMessage['decoded']): Uint8Array {
     decoded = decoded || this.decoded
     const validators: Uint8Array[] = []
 
@@ -46,7 +46,7 @@ export default class BlockMessage extends FormatInterface {
     })
   }
 
-  decode(encoded?) {
+  decode(encoded?: Uint8Array) {
     encoded = encoded || this.encoded
     super.decode(encoded)
     // @ts-ignore

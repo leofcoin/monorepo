@@ -25,7 +25,15 @@ import { join } from 'path'
 
   const Node = (await import('../packages/chain/exports/node.js')).default
   const password = process.env.GENESIS_PASSWORD || process.argv[2]
-  const node = new Node({ network: 'leofcoin:peach', networkVersion: 'peach' }, password)
+  const node = new Node(
+    {
+      network: 'leofcoin:peach',
+      networkVersion: 'peach',
+      autoStart: false,
+      root: process.env.LEOFCOIN_DATA_ROOT
+    },
+    password
+  )
   await node.ready
   await globalThis.blockStore.clear()
   await globalThis.transactionPoolStore.clear()

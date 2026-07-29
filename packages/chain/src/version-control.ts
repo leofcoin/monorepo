@@ -19,6 +19,10 @@ export class VersionControl extends State {
     super.init && (await super.init())
 
     try {
+      if (!(await globalThis.chainStore.has('version'))) {
+        await this.#setCurrentVersion()
+        return
+      }
       const version = await globalThis.chainStore.get('version')
 
       const storedVersion = new TextDecoder().decode(version)
