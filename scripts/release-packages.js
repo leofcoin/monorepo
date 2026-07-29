@@ -334,11 +334,33 @@ const publish = () => {
   }
 }
 
+const trust = () => {
+  for (const workspace of workspaces) {
+    console.log(`\nConfiguring trusted publishing for ${workspace.manifest.name}...`)
+    run(
+      'npm',
+      [
+        'trust',
+        'github',
+        workspace.manifest.name,
+        '--repo',
+        'leofcoin/monorepo',
+        '--file',
+        'release-packages.yml',
+        '--yes',
+      ],
+      { stdio: 'inherit' },
+    )
+  }
+}
+
 try {
   if (command === 'status') print(inspect())
   else if (command === 'prepare') prepare()
   else if (command === 'publish') publish()
-  else throw new Error(`Unknown command "${command}". Use status, prepare, or publish.`)
+  else if (command === 'trust') trust()
+  else
+    throw new Error(`Unknown command "${command}". Use status, prepare, publish, or trust.`)
 } catch (error) {
   console.error(`release-packages: ${error.message}`)
   process.exitCode = 1
