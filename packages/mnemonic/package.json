@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/mnemonic",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "description": "bip39 mnemonic",
   "private": false,
   "exports": {
@@ -24,7 +24,7 @@
     "tslib": "^2.8.1"
   },
   "dependencies": {
-    "@leofcoin/crypto": "^0.2.40"
+    "@leofcoin/crypto": "^0.2.41"
   },
   "repository": {
     "type": "git",
