@@ -35,7 +35,7 @@
     "docs": "sh ./node_modules/.bin/esdoc src/chain.js",
     "workers": "cp ./../workers/src/** ./workers",
     "demo": "jsproject --serve ./ --port 5478 --open demo",
-    "test": "node --test test/operational.test.js test/*.test.mjs",
+    "test": "node --test test/operational.test.js test/unit/*.test.js",
     "pack": "webpack",
     "build": "rollup -c --silent error",
     "npm-check-updates": "npx npm-check-updates -u --install always"

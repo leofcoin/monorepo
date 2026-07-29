@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { validateChainLink } from '../src/consensus/chain-link.ts'
+import { validateChainLink } from '../../src/consensus/chain-link.ts'
 
 test('accepts genesis and the next block using only the persisted tip', () => {
   assert.equal(

@@ -7,8 +7,8 @@ import { createServer } from 'node:net'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-const nodeScript = join(dirname(fileURLToPath(import.meta.url)), 'node-process.mjs')
-const starScript = join(dirname(fileURLToPath(import.meta.url)), 'star-process.mjs')
+const nodeScript = join(dirname(fileURLToPath(import.meta.url)), 'node-process.js')
+const starScript = join(dirname(fileURLToPath(import.meta.url)), 'star-process.js')
 
 const availablePort = () =>
   new Promise((resolve, reject) => {

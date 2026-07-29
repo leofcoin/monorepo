@@ -13,7 +13,7 @@
     "serve:docs": "jsproject --serve ./docs --port 1111",
     "test": "npm run test:core",
     "test:core": "npm run build -w @leofcoin/messages && npm run test -w @leofcoin/messages && npm run test -w @leofcoin/chain",
-    "test:e2e": "npm run build-all && node --test test/e2e/*.test.mjs",
+    "test:e2e": "npm run build-all && node --test test/e2e/*.test.js",
     "test:e2e:remote": "node test/e2e/remote.mjs",
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "npm run build:core",

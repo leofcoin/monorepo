@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import SyncController from '../src/sync-controller.ts'
+import SyncController from '../../src/sync-controller.ts'
 
 test('concurrent sync operations keep independent retry budgets', async () => {
   const controller = new SyncController()

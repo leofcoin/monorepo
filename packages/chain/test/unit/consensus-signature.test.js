@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import MultiWallet from '@leofcoin/multi-wallet'
 
-import { signConsensusMessage, verifyConsensusMessage } from '../src/consensus/signature.ts'
+import { signConsensusMessage, verifyConsensusMessage } from '../../src/consensus/signature.ts'
 
 const originalConsoleLog = console.log
 console.log = (...args) => {

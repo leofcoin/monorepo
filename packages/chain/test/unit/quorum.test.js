@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { quorumThreshold } from '../src/consensus/quorum.ts'
+import { quorumThreshold } from '../../src/consensus/quorum.ts'
 
 test('quorum requires strictly more than two thirds of validators', () => {
   assert.equal(quorumThreshold(1), 1)
