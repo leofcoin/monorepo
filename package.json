@@ -25,7 +25,7 @@
     "npm-check-updates": "npm run npm-check-updates --workspaces --if-present",
     "ncu": "npm run npm-check-updates",
     "check-dependencies": "npm run check-dependencies --ignore-path='.gitignore' --workspaces --if-present",
-    "generate-types": "tsc --emitDeclarationOnly"
+    "generate-types": "tsc6 --emitDeclarationOnly"
   },
   "repository": {
     "type": "git",
@@ -47,9 +47,11 @@
     "./packages/*"
   ],
   "devDependencies": {
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@types/node": "^25.6.0",
     "@vandeurenglenn/rage": "^1.1.2",
     "listr": "^0.14.3",
-    "ora": "^9.3.0"
+    "ora": "^9.3.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

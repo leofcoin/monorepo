@@ -41,7 +41,7 @@ export default class Mnemonic {
 
     let bits = entropy + checksum
     return bits
-      .match(/(.{1,11})/g)
+      .match(/(.{1,11})/g)!
       .map((binary: string) => {
         const index = parseInt(binary, 2)
         return this.wordlist[index]

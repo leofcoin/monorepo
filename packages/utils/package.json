@@ -19,7 +19,7 @@
     "./exports"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc6 -p tsconfig.json",
     "prettier": "prettier src --config ./../../.prettierrc --write",
     "test": "node --test",
     "npm-check-updates": "npx npm-check-updates -u --install always"
@@ -28,9 +28,9 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "ethers": "^6.16.0",
-    "typescript": "^6.0.3"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
     "@vandeurenglenn/proto-array": "^1.1.0"

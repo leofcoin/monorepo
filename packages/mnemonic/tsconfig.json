@@ -3,9 +3,11 @@
     "target": "es2022",
     "module": "NodeNext",
     "outDir": "./",
+    "rootDir": "./src",
     "moduleResolution": "NodeNext",
     "allowJs": true,
-    "declaration": true
+    "declaration": true,
+    "types": ["node"]
   },
   "include": ["./src/**/*", "@vandeurenglenn/little-pubsub", "@leofcoin/storage"],
   "exclude": ["./node_modules"]

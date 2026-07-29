@@ -3,7 +3,7 @@
     "module": "NodeNext",
     "target": "ES2022",
     "outDir": "./exports",
-    "rootDirs": ["./src"],
+    "rootDir": "./src",
     "moduleResolution":"nodenext",
     "declaration": true,
     "emitDeclarationOnly": true,
