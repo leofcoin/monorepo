@@ -28,5 +28,9 @@
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
     "rollup": "^4.62.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo"
   }
 }
