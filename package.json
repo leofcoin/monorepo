@@ -1,6 +1,6 @@
 {
   "name": "monorepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -40,7 +40,7 @@
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
     "@changesets/cli": "^2.30.0",
-    "@vandeurenglenn/doc-it": "^1.0.32",
+    "@vandeurenglenn/doc-it": "^1.0.35",
     "p-queue": "^9.1.2"
   },
   "workspaces": [
