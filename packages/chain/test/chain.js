@@ -84,7 +84,7 @@ if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
     {
       from: peernet.selectedAccount,
       to: chain.nativeToken,
-      nonce: 2,
+      nonce: nonce + 2,
       priority: true,
       method: 'mint',
       params: [peernet.selectedAccount, parseUnits('100000000000000')]
@@ -93,7 +93,7 @@ if (Object.keys(await chain.balances).length === 0 && !hasTransactionsInPool) {
       from: peernet.selectedAccount,
       to: chain.nativeToken,
       method: 'grantRole',
-      nonce: 1,
+      nonce: nonce + 1,
       priority: true,
       params: [peernet.selectedAccount, 'MINT']
     }
