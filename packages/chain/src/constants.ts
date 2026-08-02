@@ -13,6 +13,7 @@ export type NodeOptions = {
   root?: string
   storePrefix?: string
   storeNamespace?: string
+  freshIdentity?: boolean
 }
 
 export const DEFAULT_NODE_OPTIONS = {

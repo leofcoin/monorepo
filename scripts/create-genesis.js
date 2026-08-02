@@ -32,7 +32,8 @@ import { join } from 'path'
       network: 'leofcoin:peach',
       networkVersion: 'peach',
       autoStart: false,
-      root: process.env.LEOFCOIN_DATA_ROOT
+      root: process.env.LEOFCOIN_DATA_ROOT,
+      freshIdentity: !checkIdentity
     },
     password
   )
