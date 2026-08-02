@@ -131,7 +131,7 @@ console.log('Balances retrieved, continuing...')
 
 let promises = []
 
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 1; i++) {
   // contract , method, from, to, amount, (optional) nonce
   nonce += 1
   const rawTransaction = await chain.createTransaction({
