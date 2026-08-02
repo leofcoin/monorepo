@@ -29,6 +29,8 @@ import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
+import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
+import { compareTransactionNonces, pruneCanonicalTransactions } from './consensus/transaction-pool.js'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -38,6 +40,8 @@ export default class Chain extends VersionControl {
 
   #slotTime = 10000
   #blockTime = 6000 // 6 second target block time
+  /** Wall-clock time of the last local proposal attempt. */
+  #lastProposalAt = 0
   #epochLength = 10 // Blocks per epoch (enables block-based epoch boundaries)
   id
   utils = {}
@@ -286,9 +290,7 @@ export default class Chain extends VersionControl {
   async #runEpoch(): Promise<void> {
     if (this.#runningEpoch) return
     this.#runningEpoch = true
-    console.log('epoch')
     const validators = await this.#getConsensusValidators()
-    console.log({ validators })
 
     if (this.#isJailed(peernet.selectedAccount)) {
       this.#runningEpoch = false
@@ -300,10 +302,25 @@ export default class Chain extends VersionControl {
       return
     }
 
+    // Apply cadence before every attempt. The canonical timestamp prevents a
+    // newly triggered epoch from proposing too soon after the previous block;
+    // the local timestamp also throttles empty/failed proposal attempts.
+    let localBlock = await this.lastBlock
+    const delay = proposalDelay({
+      now: Date.now(),
+      lastBlockTimestamp: Number(localBlock?.timestamp ?? 0),
+      lastProposalAt: this.#lastProposalAt,
+      blockTime: this.#blockTime
+    })
+    if (delay > 0) await this.#sleep(delay)
+
+    // Re-read the canonical tip after waiting: a peer may have committed the
+    // next height and changed the deterministic proposer in the meantime.
+    localBlock = await this.lastBlock
+
     // Phase 1: Deterministic proposer selection
     // proposer = validators[(nextBlockIndex + round) % validators.length]
-    const localBlock = await this.lastBlock
-    const nextIndex = (localBlock?.index !== undefined ? Number(localBlock.index) : -1) + 1
+    const nextIndex = nextBlockIndex(localBlock?.index)
     const proposerIdx = (nextIndex + this.#consensusRound) % validators.length
     const isProposer = validators[proposerIdx] === peernet.selectedAccount
 
@@ -328,7 +345,7 @@ export default class Chain extends VersionControl {
       this.#roundTimer = null
     }
 
-    const start = Date.now()
+    this.#lastProposalAt = Date.now()
 
     try {
       await this.#createBlock()
@@ -336,15 +353,7 @@ export default class Chain extends VersionControl {
       console.error(error)
     }
 
-    const end = Date.now()
-    console.log((end - start) / 1000 + ' s')
-
-    // enforce target block time to avoid tight loops
-    const elapsed = end - start
-    const remaining = this.#blockTime - elapsed
     const hasMore = await this.hasTransactionToHandle()
-    // Only delay if there's no backlog; if backlog exists, continue immediately
-    if (!hasMore && remaining > 0) await this.#sleep(remaining)
 
     this.#runningEpoch = false
     if (hasMore && !this.#proposalInFlight) return this.#runEpoch()
@@ -903,6 +912,10 @@ export default class Chain extends VersionControl {
   }
 
   async #peerConnected(peerId) {
+    if (typeof peerId !== 'string' || !peerId.trim() || peerId === 'undefined') {
+      debug('ignored peer connection without a valid peer id')
+      return
+    }
     debug(`peer connected: ${peerId}`)
     const peer = peernet.getConnection(peerId)
 
@@ -1172,7 +1185,7 @@ export default class Chain extends VersionControl {
         return (b.decoded.priority ? 1 : 0) - (a.decoded.priority ? 1 : 0)
       }
       // Secondary: by nonce
-      const nonceDiff = (a.decoded?.nonce ?? 0) - (b.decoded?.nonce ?? 0)
+      const nonceDiff = compareTransactionNonces(a.decoded?.nonce, b.decoded?.nonce)
       if (nonceDiff !== 0) return nonceDiff
       // Tertiary: in stable order (insertion order preserved)
       return 0
@@ -1314,7 +1327,6 @@ export default class Chain extends VersionControl {
   // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
     if (this.#proposalInFlight) return
-    console.log(await globalThis.transactionPoolStore.size())
 
     // vote for transactions
     if ((await globalThis.transactionPoolStore.size()) === 0) return
@@ -1343,14 +1355,24 @@ export default class Chain extends VersionControl {
     // exclude failing tx
     transactions = await this.promiseTransactions(transactions)
 
+    // A transaction that already exists in canonical state is not pending.
+    // Prune it before signature validation so stale pools cannot repeatedly
+    // decode and validate the same transactions forever.
+    const pendingTransactions = await pruneCanonicalTransactions(
+      transactions,
+      latestTransactions,
+      (hash) => globalThis.transactionStore.has(hash),
+      (hash) => globalThis.transactionPoolStore.delete(hash)
+    )
+
     // Combine priority and normal transactions, then sort deterministically
-    const allTransactions = transactions.sort((a, b) => {
+    const allTransactions = pendingTransactions.sort((a, b) => {
       // Primary: by priority (true first)
-      if (a.decoded.priority !== b.decoded.priority) {
-        return (b.decoded.priority ? 1 : 0) - (a.decoded.priority ? 1 : 0)
+      if (a.transaction.decoded.priority !== b.transaction.decoded.priority) {
+        return (b.transaction.decoded.priority ? 1 : 0) - (a.transaction.decoded.priority ? 1 : 0)
       }
       // Secondary: by nonce
-      const nonceDiff = (a.decoded?.nonce ?? 0) - (b.decoded?.nonce ?? 0)
+      const nonceDiff = compareTransactionNonces(a.transaction.decoded?.nonce, b.transaction.decoded?.nonce)
       if (nonceDiff !== 0) return nonceDiff
       // Tertiary: in stable order (insertion order preserved)
       return 0
@@ -1358,12 +1380,8 @@ export default class Chain extends VersionControl {
 
     // A proposal only validates and publishes transaction data. Canonical
     // execution happens in #addBlock after quorum is reached.
-    for (const transaction of allTransactions) {
+    for (const { transaction, hash } of allTransactions) {
       await this.validateTransactionSignature(transaction)
-      const hash = await transaction.hash()
-      if (latestTransactions.includes(hash) || (await globalThis.transactionStore.has(hash))) {
-        continue
-      }
       block.transactions.push(hash)
       block.fees += BigInt(await calculateFee(transaction.decoded))
       await globalThis.peernet.put(hash, transaction.encoded, 'transaction')
@@ -1373,9 +1391,7 @@ export default class Chain extends VersionControl {
     if (block.transactions.length === 0) return
 
     const localBlock = await this.lastBlock
-    block.index = localBlock.index
-    if (block.index === undefined) block.index = 0
-    else block.index += 1
+    block.index = nextBlockIndex(localBlock?.index)
 
     block.previousHash = localBlock.hash || '0x0'
     // block.timestamp = Date.now()
