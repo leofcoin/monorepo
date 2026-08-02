@@ -23,7 +23,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "rollup": "^4.62.3"
+    "rollup": "^4.62.4"
   },
   "repository": {
     "type": "git",
