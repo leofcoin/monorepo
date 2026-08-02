@@ -1,5 +1,6 @@
 import { writeFile as write, readFile as read } from 'fs/promises'
 import { join } from 'path'
+import { clearGenesisState } from './genesis-state.js'
 ;(async () => {
   const { parseUnits } = await import('@leofcoin/utils')
   const { nodeConfig, createContractMessage } = await import('@leofcoin/lib')
@@ -42,11 +43,7 @@ import { join } from 'path'
     console.log(`Identity loaded successfully: ${globalThis.peernet.selectedAccount}`)
     return
   }
-  await globalThis.blockStore.clear()
-  await globalThis.transactionPoolStore.clear()
-  await globalThis.contractStore.clear()
-  await globalThis.transactionStore.clear()
-  await globalThis.accountsStore.clear()
+  await clearGenesisState()
   console.log(node)
   // console.log(peernet);
   // const chain = await new Chain()
