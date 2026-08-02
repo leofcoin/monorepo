@@ -120,6 +120,7 @@ test('isolated offline nodes initialize their chain state', async () => {
     )
     for (const { stdout, stderr } of results) {
       assert.match(stdout, /CHAIN_READY/)
+      assert.match(stdout, /MACHINE_READY/)
       assert.match(stdout, /chain: 'loaded'/)
       assert.doesNotMatch(stderr, /TypeError|CHAIN_READY_TIMEOUT/)
     }
