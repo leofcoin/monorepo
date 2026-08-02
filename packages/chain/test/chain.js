@@ -21,7 +21,7 @@ const node = new Node.default(
     network: 'leofcoin:peach',
     networkName: 'leofcoin:peach',
     networkVersion: 'peach',
-    version: '0.1.1',
+    version: '0.2.0',
     stars: networks.leofcoin.peach.stars,
     autoStart: false,
     password
