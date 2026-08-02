@@ -92,6 +92,7 @@ export default class Machine {
         break
       }
       case 'machine-ready': {
+        this.readyResolve(this)
         pubsub.publish('machine.ready', true)
         break
       }
@@ -316,7 +317,6 @@ export default class Machine {
         }
       }
       this.worker.postMessage(message)
-      this.readyResolve(this)
     })
   }
 
