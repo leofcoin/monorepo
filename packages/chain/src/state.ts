@@ -331,18 +331,22 @@ export default class State extends Contract {
   }
 
   async getAndPutBlock(hash: string): Promise<BlockMessage> {
-    // todo peernet resolves undefined blocks....
     let block = await globalThis.peernet.get(hash, 'block')
-    if (block !== undefined) {
-      if (!(block instanceof Uint8Array)) {
-        block = new Uint8Array(Object.values(block))
-      }
-      block = await new BlockMessage(block)
-
-      const { index } = block.decoded
-      if (this.#blocks[index] && this.#blocks[index].hash !== block.hash) throw `invalid block ${hash} @${index}`
-      if (!(await globalThis.peernet.has(hash))) await globalThis.peernet.put(hash, block.encoded, 'block')
+    if (block === undefined || block === null) {
+      throw new ResolveError(`block data unavailable for ${hash}`)
     }
+
+    if (!(block instanceof Uint8Array)) block = new Uint8Array(Object.values(block))
+    block = await new BlockMessage(block)
+
+    const resolvedHash = await block.hash()
+    if (resolvedHash !== hash) throw new ResolveError(`block hash mismatch: requested ${hash}, received ${resolvedHash}`)
+
+    const { index } = block.decoded
+    if (this.#blocks[index] && this.#blocks[index].hash !== resolvedHash) {
+      throw new ResolveError(`conflicting block ${resolvedHash} @${index}`)
+    }
+    if (!(await globalThis.peernet.has(hash))) await globalThis.peernet.put(hash, block.encoded, 'block')
     return block
   }
 
