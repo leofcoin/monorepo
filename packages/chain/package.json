@@ -71,7 +71,7 @@
     "@leofcoin/messages": "^1.6.1",
     "@leofcoin/multi-wallet": "^3.1.9",
     "@leofcoin/networks": "^1.1.30",
-    "@leofcoin/peernet": "^1.2.26",
+    "@leofcoin/peernet": "^1.2.27",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.45",
     "@leofcoin/workers": "^1.5.34",
