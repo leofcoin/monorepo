@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/utils",
-  "version": "1.1.44",
+  "version": "1.1.45",
   "description": "",
   "type": "module",
   "browser": "./exports/browser/utils.js",
@@ -29,11 +29,11 @@
   "license": "MIT",
   "devDependencies": {
     "@typescript/native": "npm:typescript@^7.0.2",
-    "ethers": "^6.17.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
-    "@vandeurenglenn/proto-array": "^1.1.0"
+    "@vandeurenglenn/proto-array": "^1.1.0",
+    "ethers": "^6.17.0"
   },
   "repository": {
     "type": "git",
