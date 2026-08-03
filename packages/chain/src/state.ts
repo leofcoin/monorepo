@@ -14,6 +14,7 @@ import { nativeToken } from '@leofcoin/addresses'
 import Jobber from './jobs/jobber.js'
 import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
+import { resolveLastBlockMessage } from './helpers/last-block.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -67,47 +68,6 @@ export default class State extends Contract {
 
   get resolving() {
     return this.#resolving
-  }
-
-  async #resolveLastBlockMessage(result: unknown) {
-    if (result instanceof Uint8Array) {
-      try {
-        let payload: unknown = result
-        for (let i = 0; i < 3; i += 1) {
-          try {
-            const wrapped = await new globalThis.peernet.protos['peernet-response'](payload)
-            if (wrapped?.decoded?.response === undefined) break
-            payload = wrapped.decoded.response
-          } catch {
-            break
-          }
-        }
-        if (payload !== result) return this.#resolveLastBlockMessage(payload)
-
-        return new LastBlockMessage(result)
-      } catch {
-        const candidate = new TextDecoder().decode(result)
-        if (candidate) {
-          const blockData = await globalThis.peernet.get(candidate, 'block')
-          if (blockData) return new BlockMessage(blockData)
-        }
-      }
-    }
-
-    if (typeof result === 'string') {
-      const blockData = await globalThis.peernet.get(result, 'block')
-      if (blockData) return new BlockMessage(blockData)
-    }
-
-    if (result && typeof result === 'object') {
-      const response = (result as any).decoded?.response ?? (result as any).response
-      if (response !== undefined) return this.#resolveLastBlockMessage(response)
-      if ('hash' in result && 'index' in result) {
-        return new LastBlockMessage(result)
-      }
-    }
-
-    throw new Error(`invalid lastBlock payload: ${typeof result}`)
   }
 
   get contracts() {
@@ -743,7 +703,7 @@ export default class State extends Contract {
     console.log({ promises })
     promises = await Promise.all(
       promises.map(async (item) => ({
-        value: (await this.#resolveLastBlockMessage(item.value)).decoded,
+        value: (await resolveLastBlockMessage(item.value)).decoded,
         peer: item.peer
       }))
     )

@@ -6,7 +6,6 @@ import {
   TransactionMessage,
   BlockMessage,
   BWMessage,
-  LastBlockMessage,
   StateMessage,
   PrevoteMessage,
   PrecommitMessage,
@@ -31,6 +30,7 @@ import { validateChainLink } from './consensus/chain-link.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
 import { compareTransactionNonces, pruneCanonicalTransactions } from './consensus/transaction-pool.js'
+import { resolveLastBlockMessage } from './helpers/last-block.js'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -768,48 +768,6 @@ export default class Chain extends VersionControl {
     }
   }
 
-  async #resolveLastBlockMessage(result: unknown) {
-    if (result instanceof Uint8Array) {
-      try {
-        // Unwrap nested peernet-response wrappers before attempting LastBlockMessage decode.
-        let payload: unknown = result
-        for (let i = 0; i < 3; i += 1) {
-          try {
-            const wrapped = await new globalThis.peernet.protos['peernet-response'](payload)
-            if (wrapped?.decoded?.response === undefined) break
-            payload = wrapped.decoded.response
-          } catch {
-            break
-          }
-        }
-        if (payload !== result) return this.#resolveLastBlockMessage(payload)
-
-        return new LastBlockMessage(result)
-      } catch {
-        const candidate = new TextDecoder().decode(result)
-        if (candidate) {
-          const blockData = await globalThis.peernet.get(candidate, 'block')
-          if (blockData) return new BlockMessage(blockData)
-        }
-      }
-    }
-
-    if (typeof result === 'string') {
-      const blockData = await globalThis.peernet.get(result, 'block')
-      if (blockData) return new BlockMessage(blockData)
-    }
-
-    if (result && typeof result === 'object') {
-      const response = (result as any).decoded?.response ?? (result as any).response
-      if (response !== undefined) return this.#resolveLastBlockMessage(response)
-      if ('hash' in result && 'index' in result) {
-        return new LastBlockMessage(result)
-      }
-    }
-
-    throw new Error(`invalid lastBlock payload: ${typeof result}`)
-  }
-
   async #decodeKnownBlocksResponse(response: any): Promise<{ blocks: string[] } | null> {
     if (!response) return null
 
@@ -971,7 +929,7 @@ export default class Chain extends VersionControl {
       if (lastBlockRaw === undefined || lastBlockRaw === null) {
         throw new Error(`invalid lastBlock payload: ${typeof lastBlockRaw}`)
       }
-      const lastBlockMessage = await this.#resolveLastBlockMessage(lastBlockRaw)
+      const lastBlockMessage = await resolveLastBlockMessage(lastBlockRaw)
       console.log(lastBlockMessage)
       lastBlock = lastBlockMessage.decoded
     } catch (error) {
