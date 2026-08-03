@@ -28,6 +28,7 @@ import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
+import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
 import { compareTransactionNonces, pruneCanonicalTransactions } from './consensus/transaction-pool.js'
@@ -262,6 +263,17 @@ export default class Chain extends VersionControl {
         )
       }
     }
+  }
+
+  async #resolveBlockTransactions(blockMessage: BlockMessage): Promise<TransactionMessage[]> {
+    return Promise.all(
+      blockMessage.decoded.transactions.map(async (expectedHash) => {
+        const data = await globalThis.peernet.get(expectedHash, 'transaction')
+        const transaction = await resolveTransactionReference(expectedHash, data)
+        await this.validateTransactionSignature(transaction)
+        return transaction
+      })
+    )
   }
 
   /** Check if the next block will cross an epoch boundary (block-based timing) */
@@ -549,8 +561,25 @@ export default class Chain extends VersionControl {
           debug(`[consensus] Block hash mismatch in proposal: expected ${blockHash}, got ${actualHash}`)
           return
         }
+
+        if (BigInt(blockMessage.decoded.index) !== index) {
+          debug(`[consensus] Proposal height ${index} does not match block height ${blockMessage.decoded.index}`)
+          return
+        }
+        if (blockMessage.decoded.producer !== from) {
+          debug(`[consensus] Proposal sender ${from} does not match block producer ${blockMessage.decoded.producer}`)
+          return
+        }
+
+        validateChainLink(localBlock, {
+          index: Number(blockMessage.decoded.index),
+          hash: actualHash,
+          previousHash: String(blockMessage.decoded.previousHash)
+        })
+        await this.#validateBlockValidators(blockMessage)
+        await this.#resolveBlockTransactions(blockMessage)
       } catch (e) {
-        debug(`[consensus] Cannot fetch proposed block ${blockHash}:`, (e as Error)?.message)
+        debug(`[consensus] Invalid proposed block ${blockHash}:`, (e as Error)?.message)
         return
       }
 
@@ -1148,18 +1177,9 @@ export default class Chain extends VersionControl {
     await this.#validateBlockValidators(blockMessage)
 
     // NOW SAFE TO PROCEED with transaction processing
-    const transactions = await Promise.all(
-      blockMessage.decoded.transactions
-        // @ts-ignore
-        .map(async (hash) => {
-          const data = await peernet.get(hash, 'transaction')
-          return new TransactionMessage(data)
-        })
-    )
-
-    // Authenticate every referenced transaction before storing the block or
-    // mutating the local transaction pool.
-    await Promise.all(transactions.map((transaction) => this.validateTransactionSignature(transaction)))
+    // Authenticate both the content-addressed reference and transaction sender
+    // before storing the block or mutating the local transaction pool.
+    const transactions = await this.#resolveBlockTransactions(blockMessage)
     await Promise.all(
       blockMessage.decoded.transactions.map(async (transactionHash) => {
         if (await transactionPoolStore.has(transactionHash)) await transactionPoolStore.delete(transactionHash)
