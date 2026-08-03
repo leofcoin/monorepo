@@ -96,7 +96,12 @@ class TestNode {
       const timeout = setTimeout(
         () => {
           cleanup()
-          reject(new Error(`node ${this.index} timed out waiting for ${type}\n${this.stderr}`))
+          reject(
+            new Error(
+              `node ${this.index} timed out waiting for ${type}`
+                + `\nstdout=${this.stdout.slice(-8_000)}\nstderr=${this.stderr.slice(-8_000)}`
+            )
+          )
         },
         30_000
       )
@@ -123,9 +128,17 @@ class TestNode {
   }
 
   async status() {
+    return this.command('status', 'status')
+  }
+
+  async command(command, eventType) {
     const afterIndex = this.events.length
-    this.process.stdin.write('status\n')
-    return this.waitFor('status', afterIndex)
+    this.process.stdin.write(`${command}\n`)
+    return this.waitFor(eventType, afterIndex)
+  }
+
+  appendBlock() {
+    return this.command('append-block', 'block:produced')
   }
 
   async waitForPeers(minimum, timeoutMs = 20_000) {
@@ -138,6 +151,26 @@ class TestNode {
     }
     throw new Error(
       `node ${this.index} did not reach ${minimum} connected peers; last status=${JSON.stringify(current)}`
+        + `\nstdout=${this.stdout.slice(-4_000)}\nstderr=${this.stderr.slice(-4_000)}`
+    )
+  }
+
+  async waitForTip({ hash, index }, timeoutMs = 30_000) {
+    const deadline = Date.now() + timeoutMs
+    let current
+    while (Date.now() < deadline) {
+      current = await this.status()
+      if (
+        current.lastBlock?.hash === hash &&
+        Number(current.lastBlock?.index) === Number(index) &&
+        current.chain?.sync === 'synced'
+      ) {
+        return current
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    throw new Error(
+      `node ${this.index} did not sync tip ${hash}@${index}; last status=${JSON.stringify(current)}`
         + `\nstdout=${this.stdout.slice(-4_000)}\nstderr=${this.stderr.slice(-4_000)}`
     )
   }
@@ -182,6 +215,49 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
     assert.equal(after.account, before.account)
     assert.deepEqual(after.chain, { sync: 'connectionless', chain: 'loaded' })
     await nodes[0].waitForPeers(3)
+  } finally {
+    await Promise.allSettled(nodes.map((node) => node.stop()))
+    star.kill('SIGKILL')
+    await Promise.all(homes.map((home) => rm(home, { recursive: true, force: true })))
+  }
+})
+
+test('a late node cold-syncs canonical blocks and keeps them across restart', { timeout: 90_000 }, async () => {
+  const homes = await Promise.all(
+    Array.from({ length: 2 }, (_, index) => mkdtemp(join(tmpdir(), `leofcoin-sync-e2e-${index}-`)))
+  )
+  const port = await availablePort()
+  const star = await startStar(port)
+  const starUrl = `ws://127.0.0.1:${port}`
+  const nodes = homes.map((home, index) => new TestNode(home, index, starUrl))
+
+  try {
+    await nodes[0].start()
+    const first = await nodes[0].appendBlock()
+    const tip = await nodes[0].appendBlock()
+    assert.equal(first.index, 0)
+    assert.equal(tip.index, 1)
+
+    const source = await nodes[0].status()
+    assert.equal(source.lastBlock.hash, tip.hash)
+    assert.equal(Number(source.lastBlock.index), tip.index)
+    assert.deepEqual(source.blockHashes.sort(), [first.hash, tip.hash].sort())
+
+    await nodes[1].start()
+    await waitForStarPeers(star, 2)
+    await Promise.all(nodes.map((node) => node.waitForPeers(1)))
+    const synced = await nodes[1].waitForTip(tip)
+    assert.deepEqual(synced.blockHashes, source.blockHashes)
+    assert.equal(synced.stateSnapshot, source.stateSnapshot)
+
+    await nodes[1].stop()
+    nodes[1] = new TestNode(homes[1], 1, starUrl)
+    const restarted = await nodes[1].start()
+    assert.equal(restarted.lastBlock.hash, tip.hash)
+    assert.equal(Number(restarted.lastBlock.index), tip.index)
+    assert.deepEqual(restarted.blockHashes, source.blockHashes)
+    assert.equal(restarted.stateSnapshot, source.stateSnapshot)
+    await nodes[1].waitForPeers(1)
   } finally {
     await Promise.allSettled(nodes.map((node) => node.stop()))
     star.kill('SIGKILL')

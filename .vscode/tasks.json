@@ -9,7 +9,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Leofcoin: Four-node E2E",
+      "label": "Leofcoin: Multi-node E2E",
       "type": "shell",
       "command": "npm run test:e2e",
       "group": {
