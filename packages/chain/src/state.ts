@@ -15,6 +15,7 @@ import Jobber from './jobs/jobber.js'
 import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
+import { decodeResponsePayload } from './helpers/response.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -660,21 +661,9 @@ export default class State extends Contract {
         compatiblePeerCount += 1
         const task = async () => {
           try {
-            let result = await peer.request(node.encoded)
+            const result = await peer.request(node.encoded)
             const resultType = result instanceof Uint8Array ? `bytes:${result.length}` : typeof result
             debug(`lastBlock result type: ${resultType}`)
-            console.log({ result })
-            if (result instanceof Uint8Array) {
-              for (let i = 0; i < 3; i += 1) {
-                try {
-                  const wrapped = await new globalThis.peernet.protos['peernet-response'](result)
-                  if (wrapped?.decoded?.response === undefined) break
-                  result = wrapped.decoded.response
-                } catch {
-                  break
-                }
-              }
-            }
             return { result, peer }
           } catch (error) {
             const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
@@ -730,10 +719,11 @@ export default class State extends Contract {
         })
         let node = await globalThis.peernet.prepareMessage(data)
         try {
-          let message = await peer.request(node.encoded)
-          message = await new globalThis.peernet.protos['peernet-response'](message)
+          const message = await decodeResponsePayload(await peer.request(node.encoded))
+          const blocks = (message as any)?.blocks
+          if (!Array.isArray(blocks)) throw new Error('knownBlocks response does not contain a blocks array')
           const MAX_WANTLIST_SIZE = 1000
-          const incoming = message.decoded.response.blocks.filter((block) => !this.knownBlocks.includes(block))
+          const incoming = blocks.filter((block) => !this.knownBlocks.includes(block))
           const remaining = MAX_WANTLIST_SIZE - this.wantList.length
           if (remaining > 0) this.wantList.push(...incoming.slice(0, remaining))
         } catch (error) {
@@ -865,31 +855,24 @@ export default class State extends Contract {
     return true
   }
 
-  promiseRequests(promises) {
-    return new Promise(async (resolve, reject) => {
-      const timeout = setTimeout(() => {
-        resolve([{ index: 0, hash: '0x0' }])
-        debug('sync timed out')
-      }, this.requestTimeout)
-      console.log({ promises })
-      promises = await Promise.allSettled(promises)
-      console.log({ promises })
-      promises = promises.filter(({ status }) => status === 'fulfilled')
+  async promiseRequests(promises) {
+    let timeout
+    const settled = await Promise.race([
+      Promise.allSettled(promises),
+      new Promise((resolve) => {
+        timeout = setTimeout(() => resolve(null), this.requestTimeout)
+      })
+    ])
+    clearTimeout(timeout)
 
-      clearTimeout(timeout)
+    if (settled === null) {
+      debug('sync timed out')
+      return []
+    }
 
-      if (promises.length > 0) {
-        promises = promises.map(async ({ value }) => {
-          const node = await new globalThis.peernet.protos['peernet-response'](value.result)
-          return { value: node.decoded.response, peer: value.peer }
-        })
-        promises = await Promise.all(promises)
-
-        resolve(promises)
-      } else {
-        resolve([])
-      }
-    })
+    return settled
+      .filter(({ status }) => status === 'fulfilled')
+      .map(({ value }) => ({ value: value.result, peer: value.peer }))
   }
 
   get canSync() {

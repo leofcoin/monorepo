@@ -33,4 +33,4 @@ jobs:
         run: npm test
 
       - name: Run multi-process E2E tests
-        run: node --test test/e2e/*.test.mjs
+        run: node --test test/e2e/*.test.js
