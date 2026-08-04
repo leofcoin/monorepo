@@ -2,6 +2,7 @@ import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/mes
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
+import { calculateFee, distributeTransactionFee, supportsTransactionFees } from '@leofcoin/lib'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
@@ -113,7 +114,7 @@ const runTask = async (id, taskName, input) => {
   }
 }
 
-const _executeTransaction = async (transaction) => {
+const _executeTransaction = async (transaction, validators: string[], feesEnabled: boolean) => {
   const hash = await new TransactionMessage(transaction).hash()
   if (latestTransactions.includes(hash)) {
     throw new Error(`double transaction found: ${hash}`)
@@ -123,6 +124,11 @@ const _executeTransaction = async (transaction) => {
     globalThis.msg = createMessage(from, to)
     globalThis.state = await createState()
 
+    if (feesEnabled) {
+      const fee = BigInt(await calculateFee(transaction))
+      const { payments, burned } = distributeTransactionFee(fee, hash, validators)
+      await _.collectFee({ from, payments, burned })
+    }
     await _.execute({ contract: to, method, params })
 
     worker.postMessage({
@@ -166,9 +172,11 @@ const _ = {
       })
     }
   },
-  execute: async ({ contract, method, params }) => {
+  execute: async ({ contract, method, params, sender }) => {
     try {
       let result
+
+      if (sender) globalThis.msg = createMessage(sender, contract)
 
       // don't execute the method on a proxy
       if (contracts[contract].fallback) {
@@ -209,6 +217,23 @@ const _ = {
         `
       )
     }
+  },
+  collectFee: ({ from, payments, burned = 0n }) => {
+    burned = BigInt(burned)
+    const total = payments.reduce((sum, payment) => sum + BigInt(payment.amount), burned)
+    const balance = BigInt(contracts[nativeToken].balanceOf(from) || 0n)
+    if (balance < total) throw new Error(`insufficient balance for transaction fee: need ${total}, got ${balance}`)
+
+    globalThis.msg = createMessage(from, nativeToken)
+    for (const payment of payments) {
+      const amount = BigInt(payment.amount)
+      if (amount > 0n) contracts[nativeToken].transfer(from, payment.to, amount)
+    }
+    if (burned > 0n) {
+      globalThis.msg = createMessage(contracts[nativeToken].creator, nativeToken)
+      contracts[nativeToken].burn(from, burned)
+    }
+    return total
   },
   init: async (message) => {
     let { peerid, fromState, state, info } = message
@@ -319,19 +344,15 @@ const _ = {
                   return message
                 })
               )
-              const priority = transactions
-                .filter((transaction) => transaction.priority)
-                ?.sort((a, b) => a.nonce - b.nonce)
-              if (priority.length > 0)
-                for (const transaction of priority) {
-                  await _executeTransaction(transaction)
-                }
-
-              await Promise.all(
-                transactions
-                  .filter((transaction) => !transaction.priority)
-                  .map(async (transaction) => _executeTransaction(transaction))
-              )
+              const validators = block.validators.map(({ address }) => address)
+              transactions.sort((a, b) => {
+                if (a.priority !== b.priority) return a.priority ? -1 : 1
+                const left = BigInt(a.nonce)
+                const right = BigInt(b.nonce)
+                return left < right ? -1 : left > right ? 1 : 0
+              })
+              const feesEnabled = supportsTransactionFees(block.protocolVersion)
+              for (const transaction of transactions) await _executeTransaction(transaction, validators, feesEnabled)
               block.loaded = true
               worker.postMessage({
                 type: 'debug',
@@ -394,6 +415,9 @@ worker.onmessage(({ id, type, input }) => {
       break
     case 'addLoadedBlock':
       runTask(id, 'addLoadedBlock', input)
+      break
+    case 'collectFee':
+      runTask(id, 'collectFee', input)
       break
     case 'contracts':
       respond(id, contracts)

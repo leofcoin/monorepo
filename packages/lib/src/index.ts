@@ -34,6 +34,75 @@ export const nativeTokenMessage = bytecodes.nativeToken
 export const nameServiceMessage = bytecodes.nameService
 export const validatorsMessage = bytecodes.validators
 
+export const TRANSACTION_FEE_BYTES = 1024n
+export const TRANSACTION_FEE_UNIT = 10n
+export const FEE_BURN_BASIS_POINTS = 1_000n
+export const FEE_BASIS_POINTS = 10_000n
+export const FEE_PROTOCOL_VERSION = '1.10.9'
+
+const parseProtocolVersion = (version: string): [number, number, number] | undefined => {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version)
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : undefined
+}
+
+export const supportsTransactionFees = (version: string): boolean => {
+  const actual = parseProtocolVersion(version)
+  const required = parseProtocolVersion(FEE_PROTOCOL_VERSION)!
+  if (!actual) return false
+  for (let index = 0; index < required.length; index += 1) {
+    if (actual[index] !== required[index]) return actual[index] > required[index]
+  }
+  return true
+}
+
+export type FeePayment = { to: string; amount: bigint }
+
+const feeRotationIndex = (transactionHash: string, validatorCount: number): number => {
+  let value = 0n
+  for (const character of transactionHash) value = (value * 31n + BigInt(character.charCodeAt(0))) % 4_294_967_291n
+  return Number(value % BigInt(validatorCount))
+}
+
+export const distributeTransactionFee = (
+  fee: bigint,
+  transactionHash: string,
+  validatorAddresses: string[]
+): { burned: bigint; validatorFees: Map<string, bigint>; payments: FeePayment[] } => {
+  const canonicalValidators = [...new Set(validatorAddresses)].sort()
+  if (canonicalValidators.length === 0) throw new Error('cannot distribute transaction fee without validators')
+  if (fee < 0n) throw new Error('transaction fee cannot be negative')
+
+  const burned = (fee * FEE_BURN_BASIS_POINTS) / FEE_BASIS_POINTS
+  const validatorPool = fee - burned
+  const count = BigInt(canonicalValidators.length)
+  const base = validatorPool / count
+  const remainder = Number(validatorPool % count)
+  const start = feeRotationIndex(transactionHash, canonicalValidators.length)
+  const validatorFees = new Map(canonicalValidators.map((validator) => [validator, base]))
+
+  for (let index = 0; index < remainder; index += 1) {
+    const validator = canonicalValidators[(start + index) % canonicalValidators.length]
+    validatorFees.set(validator, validatorFees.get(validator)! + 1n)
+  }
+
+  const payments = [...validatorFees.entries()]
+    .filter(([, amount]) => amount > 0n)
+    .map(([to, amount]) => ({ to, amount }))
+  return { burned, validatorFees, payments }
+}
+
+export const aggregateValidatorFees = (
+  fees: Array<{ fee: bigint; transactionHash: string }>,
+  validatorAddresses: string[]
+): Map<string, bigint> => {
+  const totals = new Map([...new Set(validatorAddresses)].sort().map((validator) => [validator, 0n]))
+  for (const entry of fees) {
+    const { validatorFees } = distributeTransactionFee(entry.fee, entry.transactionHash, validatorAddresses)
+    for (const [validator, amount] of validatorFees) totals.set(validator, totals.get(validator)! + amount)
+  }
+  return totals
+}
+
 export const createContractMessage = async (creator, contract, constructorParameters = []) => {
   return new ContractMessage({
     creator,
@@ -43,14 +112,10 @@ export const createContractMessage = async (creator, contract, constructorParame
 }
 
 export const calculateFee = async (transaction, format = false) => {
-  // excluded from fees
-  if (transaction.to === validators) return 0
   transaction = await new TransactionMessage(transaction)
-  let fee = toBigInt(String(transaction.encoded.length))
-
-  // fee per gb
-  fee /= 1073741824n
-  // fee = fee.div(1000000)
+  const encodedBytes = BigInt(transaction.encoded.length)
+  const units = (encodedBytes + TRANSACTION_FEE_BYTES - 1n) / TRANSACTION_FEE_BYTES
+  const fee = units * TRANSACTION_FEE_UNIT
 
   return format ? formatUnits(fee.toString()) : fee
 }

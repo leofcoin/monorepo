@@ -19,6 +19,9 @@ import {
   validatorsMessage,
   nameServiceMessage,
   calculateFee,
+  aggregateValidatorFees,
+  distributeTransactionFee,
+  supportsTransactionFees,
   createTransactionHash
 } from '@leofcoin/lib'
 import MultiWallet from '@leofcoin/multi-wallet'
@@ -273,11 +276,47 @@ export default class Chain extends VersionControl {
         return transaction
       })
     )
-    const calculatedFees = (
+    const feesEnabled = supportsTransactionFees(blockMessage.decoded.protocolVersion)
+    if (feesEnabled) await this.#assertFeeBurnSupported()
+    const calculatedFees = feesEnabled ? (
       await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))
-    ).reduce((total, fee) => total + BigInt(fee), 0n)
-    validateBlockEconomics(blockMessage.decoded, calculatedFees)
+    ).reduce((total, fee) => total + BigInt(fee), 0n) : 0n
+    const feeEntries = feesEnabled ? await Promise.all(
+      transactions.map(async (transaction) => ({
+        fee: BigInt(await calculateFee(transaction.decoded)),
+        transactionHash: await transaction.hash()
+      }))
+    ) : []
+    const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
+    const validatorFees = feesEnabled
+      ? aggregateValidatorFees(feeEntries, validatorAddresses)
+      : new Map(validatorAddresses.map((address) => [address, 0n]))
+    validateBlockEconomics(blockMessage.decoded, calculatedFees, validatorFees)
+
+    if (feesEnabled) {
+      const feesBySender = new Map<string, bigint>()
+      for (let index = 0; index < transactions.length; index += 1) {
+        const sender = transactions[index].decoded.from
+        feesBySender.set(sender, (feesBySender.get(sender) || 0n) + feeEntries[index].fee)
+      }
+      await Promise.all(
+        [...feesBySender].map(async ([sender, required]) => {
+          const balance = BigInt((await this.balanceOf(sender)) || 0n)
+          if (balance < required) {
+            throw new Error(`insufficient balance for transaction fees from ${sender}: need ${required}, got ${balance}`)
+          }
+        })
+      )
+    }
     return transactions
+  }
+
+  async #assertFeeBurnSupported(): Promise<void> {
+    const creator = (await this.staticCall(addresses.nativeToken, 'creator')) as string
+    const canBurn = await this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'BURN'])
+    if (!canBurn) {
+      throw new Error('native token genesis does not support protocol fee burning')
+    }
   }
 
   /** Check if the next block will cross an epoch boundary (block-based timing) */
@@ -1073,9 +1112,12 @@ export default class Chain extends VersionControl {
     return new globalThis.peernet.protos['peernet-response']({ response: this.version })
   }
 
-  async #executeTransaction({ hash, from, to, method, params, nonce }) {
+  async #executeTransaction({ hash, from, to, method, params, nonce, feePayments = { payments: [], burned: 0n } }) {
     try {
-      let result = await this.machine.execute(to, method, params)
+      if (feePayments.payments.length > 0 || feePayments.burned > 0n) {
+        await this.machine.collectFee(from, feePayments.payments, feePayments.burned)
+      }
+      let result = await this.machine.execute(to, method, params, from)
       // await accountsStore.put(to, nonce)
       // if (!result) result = this.machine.state
       globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
@@ -1178,7 +1220,12 @@ export default class Chain extends VersionControl {
     for (const transaction of allTransactions) {
       if (!contracts.includes(transaction.decoded.to)) contracts.push(transaction.decoded.to)
       this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
-      await this.#handleTransaction(transaction, [])
+      const transactionHash = await transaction.hash()
+      const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
+      const feeDistribution = supportsTransactionFees(blockMessage.decoded.protocolVersion)
+        ? distributeTransactionFee(BigInt(await calculateFee(transaction.decoded)), transactionHash, validatorAddresses)
+        : { payments: [], burned: 0n }
+      await this.#handleTransaction(transaction, [], undefined, feeDistribution)
     }
 
     // for (let transaction of transactionsMessages) {
@@ -1264,7 +1311,7 @@ export default class Chain extends VersionControl {
     return true
   }
 
-  async #handleTransaction(transaction, latestTransactions, block?) {
+  async #handleTransaction(transaction, latestTransactions, block?, feePayments = { payments: [], burned: 0n }) {
     await this.validateTransactionSignature(transaction)
     const hash = await transaction.hash()
 
@@ -1282,7 +1329,7 @@ export default class Chain extends VersionControl {
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
-      const result = await this.#executeTransaction({ ...transaction.decoded, hash })
+      const result = await this.#executeTransaction({ ...transaction.decoded, hash, feePayments })
       if (block) {
         block.transactions.push(hash)
 
@@ -1365,7 +1412,7 @@ export default class Chain extends VersionControl {
     for (const { transaction, hash } of allTransactions) {
       await this.validateTransactionSignature(transaction)
       block.transactions.push(hash)
-      block.fees += BigInt(await calculateFee(transaction.decoded))
+      if (supportsTransactionFees(this.version)) block.fees += BigInt(await calculateFee(transaction.decoded))
       await globalThis.peernet.put(hash, transaction.encoded, 'transaction')
     }
 
@@ -1386,11 +1433,22 @@ export default class Chain extends VersionControl {
     const sortedValidators = [...canonicalValidators].sort()
 
     if (sortedValidators.length === 0) throw new Error('cannot produce a block without validators')
+    if (supportsTransactionFees(this.version)) await this.#assertFeeBurnSupported()
 
-    // Apply reward to all canonical validators (deterministic)
+    const feeEntries = supportsTransactionFees(this.version) ? await Promise.all(
+      allTransactions.map(async ({ transaction, hash }) => ({
+        fee: BigInt(await calculateFee(transaction.decoded)),
+        transactionHash: hash
+      }))
+    ) : []
+    const validatorFees = supportsTransactionFees(this.version)
+      ? aggregateValidatorFees(feeEntries, sortedValidators)
+      : new Map(sortedValidators.map((address) => [address, 0n]))
+
+    // Apply the protocol reward and actually collectible validator fees.
     block.validators = sortedValidators.map((validatorAddress) => ({
       address: validatorAddress,
-      reward: block.fees / BigInt(sortedValidators.length) + block.reward / BigInt(sortedValidators.length)
+      reward: (validatorFees.get(validatorAddress) || 0n) + block.reward / BigInt(sortedValidators.length)
     }))
 
     try {
@@ -1540,7 +1598,7 @@ export default class Chain extends VersionControl {
   internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
     // globalThis.msg = this.#createMessage(sender, contract) // Debug line removed
 
-    return this.machine.execute(contract, method, parameters)
+    return this.machine.execute(contract, method, parameters, sender)
   }
 
   /**
@@ -1553,7 +1611,7 @@ export default class Chain extends VersionControl {
   call(contract: Address, method: string, parameters?: any[]) {
     // globalThis.msg = this.#createMessage(peernet.selectedAccount, contract) // Debug line removed
 
-    return this.machine.execute(contract, method, parameters)
+    return this.machine.execute(contract, method, parameters, globalThis.peernet.selectedAccount)
   }
 
   staticCall(contract: Address, method: string, parameters?: any[]) {

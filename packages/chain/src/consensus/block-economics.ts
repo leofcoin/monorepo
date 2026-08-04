@@ -27,7 +27,8 @@ export const validateBlockEconomics = (
     fees: bigint
     validators: ValidatorReward[]
   },
-  calculatedFees: bigint
+  calculatedFees: bigint,
+  validatorFees: Map<string, bigint> = new Map()
 ): void => {
   if (block.validators.length === 0) {
     throw new Error(`Block ${block.index} cannot distribute rewards without validators`)
@@ -40,8 +41,9 @@ export const validateBlockEconomics = (
   }
 
   const validatorCount = BigInt(block.validators.length)
-  const expectedReward = calculatedFees / validatorCount + BLOCK_REWARD / validatorCount
+  const baseReward = BLOCK_REWARD / validatorCount
   for (const validator of block.validators) {
+    const expectedReward = baseReward + (validatorFees.get(validator.address) || 0n)
     if (validator.reward !== expectedReward) {
       throw new Error(
         `Block ${block.index} has an invalid reward for validator ${validator.address}: ` +

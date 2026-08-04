@@ -8,6 +8,7 @@ import {
   LastBlockMessage
 } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
+import { calculateFee, distributeTransactionFee, supportsTransactionFees } from '@leofcoin/lib'
 import Contract from './contract.js'
 import Machine from './machine.js'
 import { nativeToken } from '@leofcoin/addresses'
@@ -759,9 +760,20 @@ export default class State extends Contract {
   }
 
   // todo throw error
-  async #_executeTransaction(transaction) {
+  async #_executeTransaction(transaction, validators: string[], feesEnabled: boolean) {
     try {
-      await this.#machine.execute(transaction.decoded.to, transaction.decoded.method, transaction.decoded.params)
+      const hash = await transaction.hash()
+      if (feesEnabled) {
+        const fee = BigInt(await calculateFee(transaction.decoded))
+        const { payments, burned } = distributeTransactionFee(fee, hash, validators)
+        await this.#machine.collectFee(transaction.decoded.from, payments, burned)
+      }
+      await this.#machine.execute(
+        transaction.decoded.to,
+        transaction.decoded.method,
+        transaction.decoded.params,
+        transaction.decoded.from
+      )
       // await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
       // if (transaction.decoded.to === nativeToken) {
       //   this.#nativeCalls += 1
@@ -807,10 +819,10 @@ export default class State extends Contract {
         try {
           debug(`loading block: ${Number(block.index)} ${(block as any).hash}`)
           let transactions = await this.#loadBlockTransactions(block.transactions || [])
+          const validators = block.validators.map(({ address }) => address)
           // const lastTransactions = await this.#getLastTransactions()
 
           debug(`loading transactions: ${transactions.length} for block ${block.index}`)
-          let priority = []
           for (const transaction of transactions) {
             const hash = await transaction.hash()
             // if (lastTransactions.includes(hash)) {
@@ -819,22 +831,18 @@ export default class State extends Contract {
             //   blocks.splice(block.index - 1, 1)
             //   return this.#loadBlocks(blocks)
             // }
-            if (transaction.decoded.priority) priority.push(transaction)
             if (poolTransactionKeys.has(hash)) await globalThis.transactionPoolStore.delete(hash)
           }
 
-          // prority blocks execution from the rest so result in higher fees.
-          if (priority.length > 0) {
-            debug(`executing ${priority.length} priority transactions for block ${block.index}`)
-            priority = priority.sort((a, b) => a.nonce - b.nonce)
-            for (const transaction of priority) {
-              await this.#_executeTransaction(transaction)
-            }
-          }
-
-          transactions = transactions.filter((transaction) => !transaction.decoded.priority)
+          transactions = transactions.sort((a, b) => {
+            if (a.decoded.priority !== b.decoded.priority) return a.decoded.priority ? -1 : 1
+            const left = BigInt(a.decoded.nonce)
+            const right = BigInt(b.decoded.nonce)
+            return left < right ? -1 : left > right ? 1 : 0
+          })
           debug(`executing ${transactions.length} transactions for block ${block.index}`)
-          await Promise.all(transactions.map((transaction) => this.#_executeTransaction(transaction)))
+          const feesEnabled = supportsTransactionFees(block.protocolVersion)
+          for (const transaction of transactions) await this.#_executeTransaction(transaction, validators, feesEnabled)
           this.#blocks[block.index].loaded = true
 
           debug(`executed transactions for block ${block.index}`)

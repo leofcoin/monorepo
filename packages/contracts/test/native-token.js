@@ -53,17 +53,20 @@ describe('Leofcoin', () => {
     assert.equal(token.balanceOf(otherReceiverAddress), 10000n)
   })
 
-  it('should be able to burn', async () => {
-    await token.grantRole(ownerAddress, 'BURN')
+  it('should grant the genesis owner protocol burn authority', () => {
+    assert.equal(token.hasRole(ownerAddress, 'BURN'), true)
+  })
+
+  it('should burn balance and reduce total supply', async () => {
     await token.grantRole(ownerAddress, 'MINT')
     await token.mint(ownerAddress, 100000n)
     await token.burn(ownerAddress, 10000n)
     assert.equal(token.balanceOf(ownerAddress), 90000n)
+    assert.equal(token.totalSupply, 90000n)
   })
 
   it('should not be able to burn more than balance', async () => {
     await token.grantRole(ownerAddress, 'MINT')
-    await token.grantRole(ownerAddress, 'BURN')
     await token.mint(ownerAddress, 100000n)
 
     await assert.rejects(async () => await token.burn(ownerAddress, 100001n), {
