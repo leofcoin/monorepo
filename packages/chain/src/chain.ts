@@ -27,6 +27,11 @@ import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
+import {
+  BLOCK_REWARD,
+  validateBlockEconomics,
+  validateCanonicalValidatorSet
+} from './consensus/block-economics.js'
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
@@ -252,21 +257,15 @@ export default class Chain extends VersionControl {
       throw new Error(`Block ${blockMessage.decoded.index} validators contain duplicates`)
     }
 
-    const validatorCount = BigInt(validators.length)
-    const expectedReward = blockMessage.decoded.fees / validatorCount + blockMessage.decoded.reward / validatorCount
-
-    for (const validator of validators) {
-      if (validator.reward !== expectedReward) {
-        throw new Error(
-          `Block ${blockMessage.decoded.index} has an invalid reward for validator ${validator.address}: ` +
-            `expected ${expectedReward}, got ${validator.reward}`
-        )
-      }
-    }
+    // Header membership reflects canonical contract state after the parent was
+    // executed. Vote eligibility remains parent-height scoped separately in
+    // #getConsensusValidators, allowing deterministic membership transitions.
+    const expectedValidators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+    validateCanonicalValidatorSet(blockMessage.decoded.index, expectedValidators, validators)
   }
 
   async #resolveBlockTransactions(blockMessage: BlockMessage): Promise<TransactionMessage[]> {
-    return Promise.all(
+    const transactions = await Promise.all(
       blockMessage.decoded.transactions.map(async (expectedHash) => {
         const data = await globalThis.peernet.get(expectedHash, 'transaction')
         const transaction = await resolveTransactionReference(expectedHash, data)
@@ -274,6 +273,11 @@ export default class Chain extends VersionControl {
         return transaction
       })
     )
+    const calculatedFees = (
+      await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))
+    ).reduce((total, fee) => total + BigInt(fee), 0n)
+    validateBlockEconomics(blockMessage.decoded, calculatedFees)
+    return transactions
   }
 
   /** Check if the next block will cross an epoch boundary (block-based timing) */
@@ -1321,7 +1325,7 @@ export default class Chain extends VersionControl {
       fees: BigInt(0),
       timestamp,
       previousHash: '',
-      reward: BigInt(150),
+      reward: BLOCK_REWARD,
       index: 0,
       producer: '',
       producerProof: '',
