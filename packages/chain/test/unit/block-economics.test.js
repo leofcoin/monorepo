@@ -15,7 +15,15 @@ const validators = [
 
 test('accepts the canonical validator set and recomputed block economics', () => {
   validateCanonicalValidatorSet(7n, ['c', 'a', 'b'], validators)
-  validateBlockEconomics({ index: 7n, reward: BLOCK_REWARD, fees: 3n, validators }, 3n)
+  validateBlockEconomics(
+    { index: 7n, reward: BLOCK_REWARD, fees: 3n, validators },
+    3n,
+    new Map([
+      ['a', 1n],
+      ['b', 1n],
+      ['c', 1n]
+    ])
+  )
 })
 
 test('rejects validator omission, replacement, and unexpected additions', () => {

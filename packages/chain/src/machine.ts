@@ -351,7 +351,7 @@ export default class Machine {
    * @param {Array} parameters
    * @returns Promise<message>
    */
-  async execute(contract, method, parameters): Promise<any> {
+  async execute(contract, method, parameters, sender?: string): Promise<any> {
     try {
       if (contract === contractFactory && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
@@ -394,10 +394,15 @@ export default class Machine {
           to: contract,
           contract,
           method,
-          params: parameters
+          params: parameters,
+          sender
         }
       })
     })
+  }
+
+  collectFee(from: string, payments: Array<{ to: string; amount: bigint }>, burned: bigint): Promise<bigint> {
+    return this.#askWorker('collectFee', { from, payments, burned })
   }
 
   get(contract, method, parameters?): Promise<any> {
