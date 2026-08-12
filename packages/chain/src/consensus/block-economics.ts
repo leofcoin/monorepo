@@ -1,5 +1,3 @@
-export const BLOCK_REWARD = 150n
-
 type ValidatorReward = { address: string; reward: bigint }
 
 export const validateCanonicalValidatorSet = (
@@ -28,22 +26,22 @@ export const validateBlockEconomics = (
     validators: ValidatorReward[]
   },
   calculatedFees: bigint,
-  validatorFees: Map<string, bigint> = new Map()
+  validatorFees: Map<string, bigint> = new Map(),
+  subsidyRewards: Map<string, bigint> = new Map(),
+  expectedSubsidy = [...subsidyRewards.values()].reduce((sum, reward) => sum + reward, 0n)
 ): void => {
   if (block.validators.length === 0) {
     throw new Error(`Block ${block.index} cannot distribute rewards without validators`)
   }
-  if (block.reward !== BLOCK_REWARD) {
-    throw new Error(`Block ${block.index} has invalid base reward: expected ${BLOCK_REWARD}, got ${block.reward}`)
+  if (block.reward !== expectedSubsidy) {
+    throw new Error(`Block ${block.index} has invalid base reward: expected ${expectedSubsidy}, got ${block.reward}`)
   }
   if (block.fees !== calculatedFees) {
     throw new Error(`Block ${block.index} has invalid fees: expected ${calculatedFees}, got ${block.fees}`)
   }
 
-  const validatorCount = BigInt(block.validators.length)
-  const baseReward = BLOCK_REWARD / validatorCount
   for (const validator of block.validators) {
-    const expectedReward = baseReward + (validatorFees.get(validator.address) || 0n)
+    const expectedReward = (subsidyRewards.get(validator.address) || 0n) + (validatorFees.get(validator.address) || 0n)
     if (validator.reward !== expectedReward) {
       throw new Error(
         `Block ${block.index} has an invalid reward for validator ${validator.address}: ` +

@@ -20,7 +20,7 @@ describe('Leofcoin', () => {
       }
     }
 
-    token = new Leofcoin()
+    token = new Leofcoin(1_000_000n)
   })
 
   it('should create an instance of Leofcoin', () => {
@@ -31,21 +31,26 @@ describe('Leofcoin', () => {
     assert.equal(token.name, 'Leofcoin')
     assert.equal(token.symbol, 'LFC')
     assert.equal(token.decimals, 18)
+    assert.equal(token.targetSupply, 1_000_000n)
   })
 
-  it('should grant MINT role to owner', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
+  it('should persist the immutable monetary target in state', () => {
+    token.mint(ownerAddress, 100n)
+    const restored = new Leofcoin(999n, token.state)
+    assert.equal(restored.targetSupply, 1_000_000n)
+    assert.equal(restored.totalSupply, 100n)
+  })
+
+  it('should grant protocol MINT role to owner', async () => {
     assert.equal(await token.hasRole(ownerAddress, 'MINT'), true)
   })
 
   it('should be able to mint', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
     await token.mint(ownerAddress, 100000n)
     assert.equal(token.balanceOf(ownerAddress), 100000n)
   })
 
   it('should be able to transfer', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
     await token.mint(receiverAddress, 100000n)
     msg.sender = receiverAddress
     await token.transfer(receiverAddress, otherReceiverAddress, 10000n)
@@ -58,7 +63,6 @@ describe('Leofcoin', () => {
   })
 
   it('should burn balance and reduce total supply', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
     await token.mint(ownerAddress, 100000n)
     await token.burn(ownerAddress, 10000n)
     assert.equal(token.balanceOf(ownerAddress), 90000n)
@@ -66,7 +70,6 @@ describe('Leofcoin', () => {
   })
 
   it('should not be able to burn more than balance', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
     await token.mint(ownerAddress, 100000n)
 
     await assert.rejects(async () => await token.burn(ownerAddress, 100001n), {
@@ -75,11 +78,11 @@ describe('Leofcoin', () => {
   })
 
   it('should not be able to mint if not MINT role', async () => {
+    msg.sender = receiverAddress
     assert.throws(() => token.mint(ownerAddress, 100000n), { message: 'not allowed' })
   })
 
   it('should not be able to transfer more than balance', async () => {
-    await token.grantRole(ownerAddress, 'MINT')
     await token.mint(receiverAddress, 100000n)
     msg.sender = receiverAddress
     assert.throws(() => token.transfer(receiverAddress, otherReceiverAddress, 100001n), {

@@ -28,6 +28,8 @@ import { clearGenesisState } from './genesis-state.js'
   const args = process.argv.slice(2)
   const checkIdentity = args.includes('--check-identity')
   const password = process.env.GENESIS_PASSWORD || args.find((arg) => !arg.startsWith('--'))
+  const targetSupply = process.env.LFC_TARGET_SUPPLY
+  if (!checkIdentity && !targetSupply) throw new Error('LFC_TARGET_SUPPLY is required (whole LFC, for example 100000000)')
   const node = new Node(
     {
       network: 'leofcoin:peach',
@@ -49,7 +51,9 @@ import { clearGenesisState } from './genesis-state.js'
   // const chain = await new Chain()
   // console.log(chain);
 
-  const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js')
+  const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js', [
+    parseUnits(targetSupply).toString()
+  ])
   if (!(await contractStore.has(await nativeToken.hash()))) {
     await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
   }

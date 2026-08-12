@@ -8,7 +8,15 @@ import {
   LastBlockMessage
 } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
-import { calculateFee, distributeTransactionFee, supportsTransactionFees } from '@leofcoin/lib'
+import {
+  calculateFee,
+  distributeTransactionFee,
+  supportsTransactionFees,
+  calculateMonetaryPolicy,
+  distributeAmount,
+  supportsMonetaryPolicy,
+  validateBlockResourceLimits
+} from '@leofcoin/lib'
 import Contract from './contract.js'
 import Machine from './machine.js'
 import { nativeToken } from '@leofcoin/addresses'
@@ -760,12 +768,12 @@ export default class State extends Contract {
   }
 
   // todo throw error
-  async #_executeTransaction(transaction, validators: string[], feesEnabled: boolean) {
+  async #_executeTransaction(transaction, validators: string[], feesEnabled: boolean, burnBasisPoints: bigint) {
     try {
       const hash = await transaction.hash()
       if (feesEnabled) {
         const fee = BigInt(await calculateFee(transaction.decoded))
-        const { payments, burned } = distributeTransactionFee(fee, hash, validators)
+        const { payments, burned } = distributeTransactionFee(fee, hash, validators, burnBasisPoints)
         await this.#machine.collectFee(transaction.decoded.from, payments, burned)
       }
       await this.#machine.execute(
@@ -842,7 +850,22 @@ export default class State extends Contract {
           })
           debug(`executing ${transactions.length} transactions for block ${block.index}`)
           const feesEnabled = supportsTransactionFees(block.protocolVersion)
-          for (const transaction of transactions) await this.#_executeTransaction(transaction, validators, feesEnabled)
+          const monetaryPolicyEnabled = supportsMonetaryPolicy(block.protocolVersion)
+          if (monetaryPolicyEnabled) await validateBlockResourceLimits(transactions)
+          const policy = monetaryPolicyEnabled
+            ? calculateMonetaryPolicy(
+                BigInt(await this.#machine.get(nativeToken, 'totalSupply')),
+                BigInt(await this.#machine.get(nativeToken, 'targetSupply'))
+              )
+            : { subsidy: 0n, burnBasisPoints: 1_000n }
+          for (const transaction of transactions) {
+            await this.#_executeTransaction(transaction, validators, feesEnabled, policy.burnBasisPoints)
+          }
+          if (monetaryPolicyEnabled && policy.subsidy > 0n) {
+            await this.#machine.settleRewards([
+              ...distributeAmount(policy.subsidy, validators, Number(block.index) % validators.length)
+            ])
+          }
           this.#blocks[block.index].loaded = true
 
           debug(`executed transactions for block ${block.index}`)
