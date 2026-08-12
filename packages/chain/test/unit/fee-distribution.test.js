@@ -5,9 +5,14 @@ import { TransactionMessage } from '@leofcoin/messages'
 import {
   TRANSACTION_FEE_BYTES,
   TRANSACTION_FEE_UNIT,
+  MAX_TRANSACTION_BYTES,
+  MAX_TRANSACTION_FEE,
+  MAX_BLOCK_TRANSACTIONS,
   FEE_PROTOCOL_VERSION,
   aggregateValidatorFees,
   calculateFee,
+  validateTransactionResourceLimits,
+  validateBlockResourceLimits,
   distributeTransactionFee,
   supportsTransactionFees
 } from '@leofcoin/lib'
@@ -37,6 +42,30 @@ test('charges the smallest non-zero fee per started KiB, including validator cal
   assert.ok((await calculateFee(transaction)) > 0n)
 })
 
+test('hard-caps valid transaction fees instead of using congestion pricing', async () => {
+  const oversized = new TransactionMessage({
+    from: 'sender',
+    to: 'contract',
+    method: 'call',
+    params: ['x'.repeat(MAX_TRANSACTION_BYTES)],
+    timestamp: 1,
+    nonce: 1,
+    signature: 'signature'
+  })
+  await assert.rejects(validateTransactionResourceLimits(oversized), /transaction exceeds/)
+  assert.equal(MAX_TRANSACTION_FEE, 320n)
+})
+
+test('caps transaction count per block', async () => {
+  const transaction = new TransactionMessage({
+    from: 'sender', to: 'contract', method: 'call', params: [], timestamp: 1, nonce: 1, signature: 'signature'
+  })
+  await assert.rejects(
+    validateBlockResourceLimits(Array.from({ length: MAX_BLOCK_TRANSACTIONS + 1 }, () => transaction)),
+    /transaction protocol limit/
+  )
+})
+
 test('splits the minimum fee 90/10 and preserves every atom', () => {
   const result = distributeTransactionFee(10n, 'transaction-a', ['c', 'a', 'b'])
 
@@ -44,6 +73,12 @@ test('splits the minimum fee 90/10 and preserves every atom', () => {
   assert.equal([...result.validatorFees.values()].reduce((sum, amount) => sum + amount, 0n), 9n)
   assert.equal(result.payments.reduce((sum, payment) => sum + payment.amount, result.burned), 10n)
   assert.equal(result.payments.reduce((sum, payment) => sum + payment.amount, 0n), 9n)
+})
+
+test('routes all fees to validators when monetary policy disables burning', () => {
+  const result = distributeTransactionFee(10n, 'transaction-a', ['a', 'b'], 0n)
+  assert.equal(result.burned, 0n)
+  assert.equal(result.payments.reduce((sum, payment) => sum + payment.amount, 0n), 10n)
 })
 
 test('rotates indivisible validator atoms deterministically across transaction hashes', () => {

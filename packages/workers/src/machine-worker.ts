@@ -2,7 +2,15 @@ import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/mes
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
-import { calculateFee, distributeTransactionFee, supportsTransactionFees } from '@leofcoin/lib'
+import {
+  calculateFee,
+  distributeTransactionFee,
+  supportsTransactionFees,
+  calculateMonetaryPolicy,
+  distributeAmount,
+  supportsMonetaryPolicy,
+  validateBlockResourceLimits
+} from '@leofcoin/lib'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
@@ -114,7 +122,7 @@ const runTask = async (id, taskName, input) => {
   }
 }
 
-const _executeTransaction = async (transaction, validators: string[], feesEnabled: boolean) => {
+const _executeTransaction = async (transaction, validators: string[], feesEnabled: boolean, burnBasisPoints: bigint) => {
   const hash = await new TransactionMessage(transaction).hash()
   if (latestTransactions.includes(hash)) {
     throw new Error(`double transaction found: ${hash}`)
@@ -126,7 +134,7 @@ const _executeTransaction = async (transaction, validators: string[], feesEnable
 
     if (feesEnabled) {
       const fee = BigInt(await calculateFee(transaction))
-      const { payments, burned } = distributeTransactionFee(fee, hash, validators)
+      const { payments, burned } = distributeTransactionFee(fee, hash, validators, burnBasisPoints)
       await _.collectFee({ from, payments, burned })
     }
     await _.execute({ contract: to, method, params })
@@ -234,6 +242,16 @@ const _ = {
       contracts[nativeToken].burn(from, burned)
     }
     return total
+  },
+  settleRewards: ({ rewards }) => {
+    globalThis.msg = createMessage(contracts[nativeToken].creator, nativeToken)
+    let minted = 0n
+    for (const [validator, rawAmount] of rewards) {
+      const amount = BigInt(rawAmount)
+      if (amount > 0n) contracts[nativeToken].mint(validator, amount)
+      minted += amount
+    }
+    return minted
   },
   init: async (message) => {
     let { peerid, fromState, state, info } = message
@@ -352,7 +370,22 @@ const _ = {
                 return left < right ? -1 : left > right ? 1 : 0
               })
               const feesEnabled = supportsTransactionFees(block.protocolVersion)
-              for (const transaction of transactions) await _executeTransaction(transaction, validators, feesEnabled)
+              const monetaryPolicyEnabled = supportsMonetaryPolicy(block.protocolVersion)
+              if (monetaryPolicyEnabled) await validateBlockResourceLimits(transactions)
+              const policy = monetaryPolicyEnabled
+                ? calculateMonetaryPolicy(
+                    BigInt(contracts[nativeToken].totalSupply),
+                    BigInt(contracts[nativeToken].targetSupply)
+                  )
+                : { subsidy: 0n, burnBasisPoints: 1_000n }
+              for (const transaction of transactions) {
+                await _executeTransaction(transaction, validators, feesEnabled, policy.burnBasisPoints)
+              }
+              if (monetaryPolicyEnabled && policy.subsidy > 0n) {
+                _.settleRewards({
+                  rewards: [...distributeAmount(policy.subsidy, validators, Number(block.index) % validators.length)]
+                })
+              }
               block.loaded = true
               worker.postMessage({
                 type: 'debug',
@@ -418,6 +451,9 @@ worker.onmessage(({ id, type, input }) => {
       break
     case 'collectFee':
       runTask(id, 'collectFee', input)
+      break
+    case 'settleRewards':
+      runTask(id, 'settleRewards', input)
       break
     case 'contracts':
       respond(id, contracts)

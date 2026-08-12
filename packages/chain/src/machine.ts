@@ -405,6 +405,10 @@ export default class Machine {
     return this.#askWorker('collectFee', { from, payments, burned })
   }
 
+  settleRewards(rewards: Array<[string, bigint]>): Promise<bigint> {
+    return this.#askWorker('settleRewards', { rewards })
+  }
+
   get(contract, method, parameters?): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = randombytes(20).toString()

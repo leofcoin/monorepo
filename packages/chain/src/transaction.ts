@@ -1,6 +1,12 @@
 import Protocol from './protocol.js'
 import { TransactionMessage, BlockMessage } from '@leofcoin/messages'
-import { calculateFee, createTransactionHash } from '@leofcoin/lib'
+import {
+  calculateFee,
+  createTransactionHash,
+  MAX_BLOCK_TRANSACTION_BYTES,
+  MAX_BLOCK_TRANSACTIONS,
+  MAX_TRANSACTION_BYTES
+} from '@leofcoin/lib'
 import { formatBytes } from '@leofcoin/utils'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
@@ -55,20 +61,14 @@ export default class Transaction extends Protocol {
     return new Promise(async (resolve, reject) => {
       let size = 0
       const _transactions = []
-      const MAX_BLOCK_TX_BYTES = 786432 // 750 KB
-
-      const promises = await Promise.all(
-        transactions.map(async (tx) => {
-          tx = await new TransactionMessage(tx)
-          const newSize = size + tx.encoded.length
-          if (newSize <= MAX_BLOCK_TX_BYTES) {
-            size = newSize
-            _transactions.push({ ...tx.decoded, hash: await tx.hash() })
-          } else {
-            resolve(_transactions)
-          }
-        })
-      )
+      for (const rawTransaction of transactions) {
+        const tx = await new TransactionMessage(rawTransaction)
+        if (tx.encoded.length > MAX_TRANSACTION_BYTES) continue
+        const newSize = size + tx.encoded.length
+        if (newSize > MAX_BLOCK_TRANSACTION_BYTES || _transactions.length >= MAX_BLOCK_TRANSACTIONS) break
+        size = newSize
+        _transactions.push({ ...tx.decoded, hash: await tx.hash() })
+      }
 
       return resolve(_transactions)
     })

@@ -36,9 +36,17 @@ export const validatorsMessage = bytecodes.validators
 
 export const TRANSACTION_FEE_BYTES = 1024n
 export const TRANSACTION_FEE_UNIT = 10n
-export const FEE_BURN_BASIS_POINTS = 1_000n
+export const MAX_TRANSACTION_BYTES = 32 * 1024
+export const MAX_BLOCK_TRANSACTION_BYTES = 128 * 1024
+export const MAX_BLOCK_TRANSACTIONS = 256
+export const MAX_TRANSACTION_FEE = (BigInt(MAX_TRANSACTION_BYTES) / TRANSACTION_FEE_BYTES) * TRANSACTION_FEE_UNIT
 export const FEE_BASIS_POINTS = 10_000n
 export const FEE_PROTOCOL_VERSION = '1.10.9'
+export const MONETARY_POLICY_PROTOCOL_VERSION = '1.10.10'
+export const BLOCKS_PER_YEAR = 5_256_000n
+export const ANNUAL_ISSUANCE_BASIS_POINTS = 200n
+export const SUPPLY_FLOOR_BASIS_POINTS = 9_500n
+export const MONETARY_FEE_BURN_BASIS_POINTS = 1_000n
 
 const parseProtocolVersion = (version: string): [number, number, number] | undefined => {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version)
@@ -55,6 +63,45 @@ export const supportsTransactionFees = (version: string): boolean => {
   return true
 }
 
+export const supportsMonetaryPolicy = (version: string): boolean => {
+  const actual = parseProtocolVersion(version)
+  const required = parseProtocolVersion(MONETARY_POLICY_PROTOCOL_VERSION)!
+  if (!actual) return false
+  for (let index = 0; index < required.length; index += 1) {
+    if (actual[index] !== required[index]) return actual[index] > required[index]
+  }
+  return true
+}
+
+export const calculateMonetaryPolicy = (totalSupply: bigint, targetSupply: bigint) => {
+  if (totalSupply < 0n || targetSupply <= 0n) throw new Error('invalid monetary policy supply')
+  const floorSupply = (targetSupply * SUPPLY_FLOOR_BASIS_POINTS) / FEE_BASIS_POINTS
+  if (totalSupply < floorSupply) {
+    const annualIssuance = (targetSupply * ANNUAL_ISSUANCE_BASIS_POINTS) / FEE_BASIS_POINTS
+    const scheduled = annualIssuance / BLOCKS_PER_YEAR || 1n
+    return { subsidy: scheduled < floorSupply - totalSupply ? scheduled : floorSupply - totalSupply, burnBasisPoints: 0n, floorSupply }
+  }
+  return {
+    subsidy: 0n,
+    burnBasisPoints: totalSupply >= targetSupply ? MONETARY_FEE_BURN_BASIS_POINTS : 0n,
+    floorSupply
+  }
+}
+
+export const distributeAmount = (amount: bigint, addresses: string[], rotation = 0): Map<string, bigint> => {
+  const canonical = [...new Set(addresses)].sort()
+  if (canonical.length === 0) throw new Error('cannot distribute without validators')
+  const count = BigInt(canonical.length)
+  const base = amount / count
+  const remainder = Number(amount % count)
+  const result = new Map(canonical.map((address) => [address, base]))
+  for (let index = 0; index < remainder; index += 1) {
+    const address = canonical[(rotation + index) % canonical.length]
+    result.set(address, result.get(address)! + 1n)
+  }
+  return result
+}
+
 export type FeePayment = { to: string; amount: bigint }
 
 const feeRotationIndex = (transactionHash: string, validatorCount: number): number => {
@@ -66,13 +113,15 @@ const feeRotationIndex = (transactionHash: string, validatorCount: number): numb
 export const distributeTransactionFee = (
   fee: bigint,
   transactionHash: string,
-  validatorAddresses: string[]
+  validatorAddresses: string[],
+  burnBasisPoints = 1_000n
 ): { burned: bigint; validatorFees: Map<string, bigint>; payments: FeePayment[] } => {
   const canonicalValidators = [...new Set(validatorAddresses)].sort()
   if (canonicalValidators.length === 0) throw new Error('cannot distribute transaction fee without validators')
   if (fee < 0n) throw new Error('transaction fee cannot be negative')
 
-  const burned = (fee * FEE_BURN_BASIS_POINTS) / FEE_BASIS_POINTS
+  if (burnBasisPoints < 0n || burnBasisPoints > FEE_BASIS_POINTS) throw new Error('invalid fee burn rate')
+  const burned = (fee * burnBasisPoints) / FEE_BASIS_POINTS
   const validatorPool = fee - burned
   const count = BigInt(canonicalValidators.length)
   const base = validatorPool / count
@@ -93,11 +142,12 @@ export const distributeTransactionFee = (
 
 export const aggregateValidatorFees = (
   fees: Array<{ fee: bigint; transactionHash: string }>,
-  validatorAddresses: string[]
+  validatorAddresses: string[],
+  burnBasisPoints = 1_000n
 ): Map<string, bigint> => {
   const totals = new Map([...new Set(validatorAddresses)].sort().map((validator) => [validator, 0n]))
   for (const entry of fees) {
-    const { validatorFees } = distributeTransactionFee(entry.fee, entry.transactionHash, validatorAddresses)
+    const { validatorFees } = distributeTransactionFee(entry.fee, entry.transactionHash, validatorAddresses, burnBasisPoints)
     for (const [validator, amount] of validatorFees) totals.set(validator, totals.get(validator)! + amount)
   }
   return totals
@@ -118,6 +168,27 @@ export const calculateFee = async (transaction, format = false) => {
   const fee = units * TRANSACTION_FEE_UNIT
 
   return format ? formatUnits(fee.toString()) : fee
+}
+
+export const validateTransactionResourceLimits = async (transaction): Promise<number> => {
+  const message = await new TransactionMessage(transaction)
+  const size = message.encoded.length
+  if (size > MAX_TRANSACTION_BYTES) {
+    throw new Error(`transaction exceeds ${MAX_TRANSACTION_BYTES} byte protocol limit: ${size}`)
+  }
+  return size
+}
+
+export const validateBlockResourceLimits = async (transactions): Promise<number> => {
+  if (transactions.length > MAX_BLOCK_TRANSACTIONS) {
+    throw new Error(`block exceeds ${MAX_BLOCK_TRANSACTIONS} transaction protocol limit`)
+  }
+  let size = 0
+  for (const transaction of transactions) size += await validateTransactionResourceLimits(transaction)
+  if (size > MAX_BLOCK_TRANSACTION_BYTES) {
+    throw new Error(`block transactions exceed ${MAX_BLOCK_TRANSACTION_BYTES} byte protocol limit: ${size}`)
+  }
+  return size
 }
 
 export const calculateTransactionFee = (transaction) => {

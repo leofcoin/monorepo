@@ -22,6 +22,13 @@ import {
   aggregateValidatorFees,
   distributeTransactionFee,
   supportsTransactionFees,
+  calculateMonetaryPolicy,
+  distributeAmount,
+  supportsMonetaryPolicy,
+  MAX_BLOCK_TRANSACTION_BYTES,
+  MAX_BLOCK_TRANSACTIONS,
+  MAX_TRANSACTION_BYTES,
+  validateBlockResourceLimits,
   createTransactionHash
 } from '@leofcoin/lib'
 import MultiWallet from '@leofcoin/multi-wallet'
@@ -30,11 +37,7 @@ import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
-import {
-  BLOCK_REWARD,
-  validateBlockEconomics,
-  validateCanonicalValidatorSet
-} from './consensus/block-economics.js'
+import { validateBlockEconomics, validateCanonicalValidatorSet } from './consensus/block-economics.js'
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
@@ -277,7 +280,10 @@ export default class Chain extends VersionControl {
       })
     )
     const feesEnabled = supportsTransactionFees(blockMessage.decoded.protocolVersion)
-    if (feesEnabled) await this.#assertFeeBurnSupported()
+    if (feesEnabled) await this.#assertFeeBurnSupported(blockMessage.decoded.protocolVersion)
+    const adaptivePolicy = supportsMonetaryPolicy(blockMessage.decoded.protocolVersion)
+    if (adaptivePolicy) await validateBlockResourceLimits(transactions)
+    const policy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
     const calculatedFees = feesEnabled ? (
       await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))
     ).reduce((total, fee) => total + BigInt(fee), 0n) : 0n
@@ -289,9 +295,12 @@ export default class Chain extends VersionControl {
     ) : []
     const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
     const validatorFees = feesEnabled
-      ? aggregateValidatorFees(feeEntries, validatorAddresses)
+      ? aggregateValidatorFees(feeEntries, validatorAddresses, policy.burnBasisPoints)
       : new Map(validatorAddresses.map((address) => [address, 0n]))
-    validateBlockEconomics(blockMessage.decoded, calculatedFees, validatorFees)
+    const subsidyRewards = adaptivePolicy
+      ? distributeAmount(policy.subsidy, validatorAddresses, Number(blockMessage.decoded.index) % validatorAddresses.length)
+      : new Map(validatorAddresses.map((address) => [address, policy.subsidy / BigInt(validatorAddresses.length)]))
+    validateBlockEconomics(blockMessage.decoded, calculatedFees, validatorFees, subsidyRewards, policy.subsidy)
 
     if (feesEnabled) {
       const feesBySender = new Map<string, bigint>()
@@ -311,12 +320,24 @@ export default class Chain extends VersionControl {
     return transactions
   }
 
-  async #assertFeeBurnSupported(): Promise<void> {
+  async #assertFeeBurnSupported(protocolVersion: string): Promise<void> {
     const creator = (await this.staticCall(addresses.nativeToken, 'creator')) as string
-    const canBurn = await this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'BURN'])
-    if (!canBurn) {
-      throw new Error('native token genesis does not support protocol fee burning')
+    const [canBurn, canMint] = await Promise.all([
+      this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'BURN']),
+      this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'MINT'])
+    ])
+    if (!canBurn || (supportsMonetaryPolicy(protocolVersion) && !canMint)) {
+      throw new Error('native token genesis does not support protocol monetary policy')
     }
+  }
+
+  async #monetaryPolicy(protocolVersion: string) {
+    if (!supportsMonetaryPolicy(protocolVersion)) return { subsidy: 150n, burnBasisPoints: 1_000n, floorSupply: 0n }
+    const [totalSupply, targetSupply] = await Promise.all([
+      this.staticCall(addresses.nativeToken, 'totalSupply'),
+      this.staticCall(addresses.nativeToken, 'targetSupply')
+    ])
+    return calculateMonetaryPolicy(BigInt(totalSupply), BigInt(targetSupply))
   }
 
   /** Check if the next block will cross an epoch boundary (block-based timing) */
@@ -1214,6 +1235,7 @@ export default class Chain extends VersionControl {
       // Tertiary: in stable order (insertion order preserved)
       return 0
     })
+    const monetaryPolicy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
 
     // Contract calls share global state, so every node must execute the complete
     // block in exactly the same order regardless of sender.
@@ -1223,9 +1245,13 @@ export default class Chain extends VersionControl {
       const transactionHash = await transaction.hash()
       const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
       const feeDistribution = supportsTransactionFees(blockMessage.decoded.protocolVersion)
-        ? distributeTransactionFee(BigInt(await calculateFee(transaction.decoded)), transactionHash, validatorAddresses)
+        ? distributeTransactionFee(BigInt(await calculateFee(transaction.decoded)), transactionHash, validatorAddresses, monetaryPolicy.burnBasisPoints)
         : { payments: [], burned: 0n }
       await this.#handleTransaction(transaction, [], undefined, feeDistribution)
+    }
+    if (supportsMonetaryPolicy(blockMessage.decoded.protocolVersion) && monetaryPolicy.subsidy > 0n) {
+      const validators = blockMessage.decoded.validators.map(({ address }) => address)
+      await this.machine.settleRewards([...distributeAmount(monetaryPolicy.subsidy, validators, blockIndex % validators.length)])
     }
 
     // for (let transaction of transactionsMessages) {
@@ -1372,7 +1398,7 @@ export default class Chain extends VersionControl {
       fees: BigInt(0),
       timestamp,
       previousHash: '',
-      reward: BLOCK_REWARD,
+      reward: 0n,
       index: 0,
       producer: '',
       producerProof: '',
@@ -1409,9 +1435,20 @@ export default class Chain extends VersionControl {
 
     // A proposal only validates and publishes transaction data. Canonical
     // execution happens in #addBlock after quorum is reached.
+    let blockTransactionBytes = 0
     for (const { transaction, hash } of allTransactions) {
+      const transactionBytes = transaction.encoded.length
+      if (transactionBytes > MAX_TRANSACTION_BYTES) {
+        await globalThis.transactionPoolStore.delete(hash)
+        continue
+      }
+      if (
+        block.transactions.length >= MAX_BLOCK_TRANSACTIONS ||
+        blockTransactionBytes + transactionBytes > MAX_BLOCK_TRANSACTION_BYTES
+      ) break
       await this.validateTransactionSignature(transaction)
       block.transactions.push(hash)
+      blockTransactionBytes += transactionBytes
       if (supportsTransactionFees(this.version)) block.fees += BigInt(await calculateFee(transaction.decoded))
       await globalThis.peernet.put(hash, transaction.encoded, 'transaction')
     }
@@ -1433,7 +1470,9 @@ export default class Chain extends VersionControl {
     const sortedValidators = [...canonicalValidators].sort()
 
     if (sortedValidators.length === 0) throw new Error('cannot produce a block without validators')
-    if (supportsTransactionFees(this.version)) await this.#assertFeeBurnSupported()
+    if (supportsTransactionFees(this.version)) await this.#assertFeeBurnSupported(this.version)
+    const monetaryPolicy = await this.#monetaryPolicy(this.version)
+    block.reward = monetaryPolicy.subsidy
 
     const feeEntries = supportsTransactionFees(this.version) ? await Promise.all(
       allTransactions.map(async ({ transaction, hash }) => ({
@@ -1442,13 +1481,16 @@ export default class Chain extends VersionControl {
       }))
     ) : []
     const validatorFees = supportsTransactionFees(this.version)
-      ? aggregateValidatorFees(feeEntries, sortedValidators)
+      ? aggregateValidatorFees(feeEntries, sortedValidators, monetaryPolicy.burnBasisPoints)
       : new Map(sortedValidators.map((address) => [address, 0n]))
+    const subsidyRewards = supportsMonetaryPolicy(this.version)
+      ? distributeAmount(monetaryPolicy.subsidy, sortedValidators, Number(block.index) % sortedValidators.length)
+      : new Map(sortedValidators.map((address) => [address, monetaryPolicy.subsidy / BigInt(sortedValidators.length)]))
 
     // Apply the protocol reward and actually collectible validator fees.
     block.validators = sortedValidators.map((validatorAddress) => ({
       address: validatorAddress,
-      reward: (validatorFees.get(validatorAddress) || 0n) + block.reward / BigInt(sortedValidators.length)
+      reward: (validatorFees.get(validatorAddress) || 0n) + (subsidyRewards.get(validatorAddress) || 0n)
     }))
 
     try {
