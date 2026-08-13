@@ -42,7 +42,11 @@ import { validateBlockEconomics, validateCanonicalValidatorSet } from './consens
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
-import { compareTransactionNonces, pruneCanonicalTransactions } from './consensus/transaction-pool.js'
+import {
+  compareTransactionNonces,
+  enqueueTransaction,
+  pruneCanonicalTransactions
+} from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 
 const debug = createDebugger('leofcoin/chain')
@@ -787,10 +791,7 @@ export default class Chain extends VersionControl {
   // ─────────────────────────────────────────────────────────────────────────
 
   #addTransaction = async (message) => {
-    const transaction = new TransactionMessage(message)
-    const hash = await transaction.hash()
-    // if (await transactionPoolStore.has(hash)) await transactionPoolStore.delete(hash)
-    this.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+    const hash = await this.#sendTransaction(message)
     debug(`added ${hash}`)
   }
 
@@ -1602,20 +1603,24 @@ export default class Chain extends VersionControl {
   async #sendTransaction(transaction) {
     transaction = await new TransactionMessage(transaction.encoded || transaction)
     await this.validateTransactionSignature(transaction)
-    const hash = await transaction.hash()
+    let hash: string | undefined
 
     try {
-      const has = await globalThis.transactionPoolStore.has(hash)
-
-      if (!has && !(await transactionStore.has(hash))) {
-        await globalThis.transactionPoolStore.put(hash, transaction.encoded)
-      }
+      hash = await enqueueTransaction(transaction, {
+        putToPool: (txHash, data) => globalThis.transactionPoolStore.put(txHash, data),
+        hasInPool: (txHash) => globalThis.transactionPoolStore.has(txHash),
+        hasInStore: (txHash) => globalThis.transactionStore.has(txHash),
+        addPendingNonce: (address, nonce) => this.addPendingNonce(address, nonce)
+      })
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+      return hash
     } catch (e) {
-      try {
-        globalThis.peernet.publish('invalid-transaction', hash)
-      } catch (publishError) {
-        debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
+      if (hash) {
+        try {
+          globalThis.peernet.publish('invalid-transaction', hash)
+        } catch (publishError) {
+          debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
+        }
       }
       throw new Error('invalid transaction')
     }
@@ -1629,7 +1634,7 @@ export default class Chain extends VersionControl {
     const transactionMessage = await new TransactionMessage({ ...transaction })
     const event = await super.sendTransaction(transactionMessage)
 
-    this.#sendTransaction(transactionMessage.encoded)
+    await this.#sendTransaction(transactionMessage.encoded)
     try {
       globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
     } catch (publishError) {

@@ -7,6 +7,31 @@ export interface PendingTransaction<T extends HashableTransaction> {
   hash: string
 }
 
+interface EnqueueableTransaction extends HashableTransaction {
+  encoded: Uint8Array
+  decoded: { from: string; nonce: number }
+}
+
+export interface TransactionPoolOps {
+  putToPool: (hash: string, data: Uint8Array) => Promise<unknown>
+  hasInPool: (hash: string) => Promise<boolean>
+  hasInStore: (hash: string) => Promise<boolean>
+  addPendingNonce: (address: string, nonce: number) => void
+}
+
+/** Persist a validated transaction once and index its nonce on every receiving node. */
+export const enqueueTransaction = async <T extends EnqueueableTransaction>(
+  transaction: T,
+  ops: TransactionPoolOps
+): Promise<string> => {
+  const hash = await transaction.hash()
+  if (!(await ops.hasInPool(hash)) && !(await ops.hasInStore(hash))) {
+    await ops.putToPool(hash, transaction.encoded)
+  }
+  ops.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+  return hash
+}
+
 /** Compare wire-decoded nonces without mixing number and bigint arithmetic. */
 export const compareTransactionNonces = (
   left: number | bigint | string | undefined,
