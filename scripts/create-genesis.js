@@ -2,6 +2,7 @@ import { writeFile as write, readFile as read } from 'fs/promises'
 import { join } from 'path'
 import { clearGenesisState } from './genesis-state.js'
 import { parseGenesisAllocations, validateGenesisSupply } from './genesis-allocations.js'
+import { prepareGenesisContractSource } from './genesis-contract-source.js'
 import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis-credentials.js'
 ;(async () => {
   const { parseUnits } = await import('@leofcoin/utils')
@@ -9,18 +10,9 @@ import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis
 
   const createMessage = async (src, params = []) => {
     const contract = await read(src)
-    const name = contract
-      .toString()
-      .match(/export{([A-Z])\w+|export { ([A-Z])\w+/g)[0]
-      .replace(/export {|export{/, '')
     return createContractMessage(
       peernet.selectedAccount,
-      new TextEncoder().encode(
-        contract
-          .toString()
-          .replace(/export{([A-Z])\w+ as default}|export { ([A-Z])\w+ as default }/g, `return ${name}`)
-          .replace(/\r?\n|\r/g, '')
-      ),
+      new TextEncoder().encode(prepareGenesisContractSource(contract)),
       params
     )
   }
