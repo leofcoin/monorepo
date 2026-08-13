@@ -18,6 +18,7 @@ node_modules
 
 .mnemonic
 .privatekey
+genesis-credentials/
 
 www/www/**/*.js
 www/www/*.js

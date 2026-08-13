@@ -351,7 +351,13 @@ export default class Machine {
    * @param {Array} parameters
    * @returns Promise<message>
    */
-  async execute(contract, method, parameters, sender?: string): Promise<any> {
+  async execute(
+    contract,
+    method,
+    parameters,
+    sender?: string,
+    execution?: { randomness?: string; seed?: string; timestamp?: number }
+  ): Promise<any> {
     try {
       if (contract === contractFactory && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
@@ -395,7 +401,10 @@ export default class Machine {
           contract,
           method,
           params: parameters,
-          sender
+          sender,
+          executionSeed: execution?.seed,
+          executionTimestamp: execution?.timestamp,
+          executionRandomness: execution?.randomness
         }
       })
     })

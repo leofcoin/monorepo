@@ -1,4 +1,3 @@
-import { lottery } from 'lucky-numbers'
 import Roles from '@leofcoin/standards/roles.js'
 import type { RolesState } from '@leofcoin/standards/interfaces.js'
 
@@ -142,34 +141,13 @@ export default class Validators extends Roles {
   }
 
   shuffleValidator() {
-    // todo introduce voting mechanism
-    // select amount of peers to vote & pass when 2/3 select the same peer
-    // this.vote
-    // todo only ids should be accessable
-    const _peers = state.peers
-    const peers = _peers
-      // only validators make a chance
-      .filter((peer) => this.#validators.includes(peer[0]))
-      // add up the bytes
-      .map((peer) => {
-        peer[1].totalBytes = peer[1].bw.up + peer[1].bw.down
-        return peer
-      })
-      .sort((a, b) => b[1].totalBytes - a[1].totalBytes)
-      // only return 128 best participating max
-      .splice(0, _peers.length > 128 ? 128 : _peers.length)
-
-    if (peers.length === 0) return
-
-    const luckyNumber = peers.length === 1 ? [0] : lottery(1, peers.length - 1)
-
-    let nextValidator = peers[luckyNumber[0]][0]
-    // redraw when the validator is the same
-    // but keep the net alive when only one validator is found
-    if (this.#currentValidator === nextValidator && peers.length !== 1) {
-      const luckyNumber = lottery(1, peers.length - 1)
-      nextValidator = peers[luckyNumber[0]][0]
-    }
-    this.#currentValidator = nextValidator
+    const validators = [...new Set(this.#validators)].sort()
+    if (validators.length === 0) return
+    const seed = `${state.lastBlock?.hash ?? '0x0'}:${state.lastBlock?.index ?? -1}`
+    let value = 0n
+    for (const character of seed) value = (value * 31n + BigInt(character.charCodeAt(0))) % 4_294_967_291n
+    let index = Number(value % BigInt(validators.length))
+    if (validators.length > 1 && validators[index] === this.#currentValidator) index = (index + 1) % validators.length
+    this.#currentValidator = validators[index]
   }
 }

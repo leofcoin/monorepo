@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { BlockMessage, ContractMessage, PrecommitMessage, PrevoteMessage, ProposalMessage } from './exports/index.js'
+import {
+  BeaconActivationMessage,
+  BeaconCommitmentMessage,
+  BeaconShareMessage,
+  BlockMessage,
+  ContractMessage,
+  PrecommitMessage,
+  PrevoteMessage,
+  ProposalMessage
+} from './exports/index.js'
 
 test('block messages round-trip all consensus fields', () => {
   const block = {
@@ -54,3 +63,32 @@ for (const [name, Message] of [
     assert.equal(decoded.signature, 'signature')
   })
 }
+
+test('beacon consensus messages preserve signed round data', () => {
+  const activation = new BeaconActivationMessage({
+    epoch: 3n,
+    configDigest: 'config-digest',
+    from: 'validator-2',
+    signature: 'identity-signature'
+  })
+  assert.deepEqual(new BeaconActivationMessage(activation.encoded).decoded, activation.decoded)
+  const commitment = new BeaconCommitmentMessage({
+    epoch: 3n,
+    threshold: 3n,
+    participant: 2n,
+    from: 'validator-2',
+    commitments: ['commitment-a', 'commitment-b', 'commitment-c'],
+    signature: 'identity-signature'
+  })
+  assert.deepEqual(new BeaconCommitmentMessage(commitment.encoded).decoded, commitment.decoded)
+
+  const share = new BeaconShareMessage({
+    epoch: 3n,
+    round: 8n,
+    participant: 2n,
+    from: 'validator-2',
+    signatureShare: 'threshold-signature-share',
+    signature: 'identity-signature'
+  })
+  assert.deepEqual(new BeaconShareMessage(share.encoded).decoded, share.decoded)
+})

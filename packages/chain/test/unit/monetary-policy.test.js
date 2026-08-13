@@ -37,7 +37,7 @@ test('distributes every subsidy atom deterministically', () => {
   assert.deepEqual(rewards, distributeAmount(10n, ['b', 'c', 'a'], 1))
 })
 
-test('activates adaptive policy at protocol 1.10.10', () => {
-  assert.equal(supportsMonetaryPolicy('1.10.9'), false)
-  assert.equal(supportsMonetaryPolicy('1.10.10'), true)
+test('activates adaptive policy at protocol 0.3.0', () => {
+  assert.equal(supportsMonetaryPolicy('0.2.99'), false)
+  assert.equal(supportsMonetaryPolicy('0.3.0'), true)
 })

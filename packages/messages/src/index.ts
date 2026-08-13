@@ -1,6 +1,9 @@
 declare type messageInput = Uint8Array | String | Object | ArrayBuffer
 
 export { default as BlockMessage } from './messages/block.js'
+export { default as BeaconActivationMessage } from './messages/beacon-activation.js'
+export { default as BeaconCommitmentMessage } from './messages/beacon-commitment.js'
+export { default as BeaconShareMessage } from './messages/beacon-share.js'
 export { default as BWMessage } from './messages/bw.js'
 export { default as BWRequestMessage } from './messages/bw-request.js'
 export { default as ContractMessage } from './messages/contract.js'

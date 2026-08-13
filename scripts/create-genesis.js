@@ -1,6 +1,8 @@
 import { writeFile as write, readFile as read } from 'fs/promises'
 import { join } from 'path'
 import { clearGenesisState } from './genesis-state.js'
+import { parseGenesisAllocations, validateGenesisSupply } from './genesis-allocations.js'
+import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis-credentials.js'
 ;(async () => {
   const { parseUnits } = await import('@leofcoin/utils')
   const { nodeConfig, createContractMessage } = await import('@leofcoin/lib')
@@ -27,16 +29,32 @@ import { clearGenesisState } from './genesis-state.js'
   const Node = (await import('../packages/chain/exports/node.js')).default
   const args = process.argv.slice(2)
   const checkIdentity = args.includes('--check-identity')
-  const password = process.env.GENESIS_PASSWORD || args.find((arg) => !arg.startsWith('--'))
+  const reuseIdentity = args.includes('--reuse-identity')
+  const suppliedPassword = process.env.GENESIS_PASSWORD || args.find((arg) => !arg.startsWith('--'))
   const targetSupply = process.env.LFC_TARGET_SUPPLY
-  if (!checkIdentity && !targetSupply) throw new Error('LFC_TARGET_SUPPLY is required (whole LFC, for example 100000000)')
+  const initialSupply = process.env.LFC_INITIAL_SUPPLY
+  if (!checkIdentity && (!targetSupply || !initialSupply)) {
+    throw new Error('LFC_TARGET_SUPPLY and LFC_INITIAL_SUPPLY are required as whole LFC amounts')
+  }
+  let credentials
+  let password = suppliedPassword
+  if (!checkIdentity) {
+    if (reuseIdentity && !password) {
+      throw new Error('GENESIS_PASSWORD is required with --reuse-identity')
+    }
+    credentials = await prepareGenesisCredentials({
+      directory: process.env.LFC_GENESIS_CREDENTIALS_DIR,
+      password
+    })
+    password = credentials.password
+  }
   const node = new Node(
     {
       network: 'leofcoin:peach',
       networkVersion: 'peach',
       autoStart: false,
       root: process.env.LEOFCOIN_DATA_ROOT,
-      freshIdentity: !checkIdentity
+      freshIdentity: !checkIdentity && !reuseIdentity
     },
     password
   )
@@ -45,6 +63,22 @@ import { clearGenesisState } from './genesis-state.js'
     console.log(`Identity loaded successfully: ${globalThis.peernet.selectedAccount}`)
     return
   }
+  const exportedIdentity = await globalThis.peernet.identity.export(password)
+  await writeGenesisIdentityBackup({
+    identity: exportedIdentity,
+    account: globalThis.peernet.selectedAccount,
+    paths: credentials.paths
+  })
+  const allocationConfig =
+    process.env.LFC_GENESIS_ALLOCATIONS ||
+    JSON.stringify([{ address: globalThis.peernet.selectedAccount, amount: initialSupply }])
+  const allocations = parseGenesisAllocations(allocationConfig, parseUnits)
+  const supply = validateGenesisSupply(targetSupply, initialSupply, allocations, parseUnits)
+  console.log(`Genesis account: ${globalThis.peernet.selectedAccount}`)
+  console.log(`Initial allocation: ${initialSupply} LFC`)
+  console.log(`Genesis password: ${credentials.paths.password}`)
+  console.log(`Encrypted identity backup: ${credentials.paths.identity}`)
+  console.log('Copy the complete credentials directory to encrypted offline storage.')
   await clearGenesisState()
   console.log(node)
   // console.log(peernet);
@@ -52,7 +86,9 @@ import { clearGenesisState } from './genesis-state.js'
   // console.log(chain);
 
   const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js', [
-    parseUnits(targetSupply).toString()
+    supply.target,
+    supply.initial,
+    allocations
   ])
   if (!(await contractStore.has(await nativeToken.hash()))) {
     await contractStore.put(await nativeToken.hash(), nativeToken.encoded)

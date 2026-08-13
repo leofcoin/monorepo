@@ -20,7 +20,16 @@ try {
 
 export default [
   {
-    input: ['./src/chain.ts', './src/node.ts'],
+    input: [
+      './src/chain.ts',
+      './src/node.ts',
+      './src/consensus/beacon.ts',
+      './src/consensus/beacon-wire.ts',
+      './src/consensus/beacon-envelope.ts',
+      './src/consensus/beacon-epoch.ts',
+      './src/consensus/beacon-round.ts',
+      './src/consensus/beacon-lifecycle.ts'
+    ],
     output: {
       dir: './exports',
       format: 'es'
@@ -38,6 +47,12 @@ export default [
     input: [
       './src/chain.ts',
       './src/node-browser.ts',
+      './src/consensus/beacon.ts',
+      './src/consensus/beacon-wire.ts',
+      './src/consensus/beacon-envelope.ts',
+      './src/consensus/beacon-epoch.ts',
+      './src/consensus/beacon-round.ts',
+      './src/consensus/beacon-lifecycle.ts',
       './../../node_modules/@leofcoin/storage/exports/browser-store.js'
     ],
     output: {
