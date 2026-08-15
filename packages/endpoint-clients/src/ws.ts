@@ -4,7 +4,7 @@ import ClientConnection from 'socket-request-client/connection'
 export default class Client {
   url: string
   networkVersion: string
-  client: ClientConnection
+  client!: ClientConnection
 
   constructor(url = 'ws://localhost:4040', networkVersion = 'leofcoin-peach') {
     this.url = url
