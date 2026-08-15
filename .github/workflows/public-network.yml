@@ -1,0 +1,43 @@
+name: Public network observers
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Observer runtime in minutes (maximum 60)
+        required: false
+        default: '30'
+  schedule:
+    - cron: '41 */6 * * *'
+
+concurrency:
+  group: leofcoin-public-network-observers
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build network nodes
+        run: npm run build
+
+      - name: Run two temporary public observers
+        env:
+          LEOFCOIN_REMOTE_URL: https://remote.leofcoin.org
+          LEOFCOIN_PUBLIC_STAR: wss://star.leofcoin.org
+          LEOFCOIN_SOAK_MINUTES: ${{ inputs.minutes || '30' }}
+        run: npm run test:e2e:public

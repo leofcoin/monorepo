@@ -9,11 +9,13 @@ for (const event of ['uncaughtException', 'unhandledRejection']) {
 }
 
 const { default: Node } = await import('../../packages/chain/exports/node.js')
+const network = process.env.LEOFCOIN_E2E_NETWORK || 'leofcoin:e2e'
+const networkVersion = process.env.LEOFCOIN_E2E_NETWORK_VERSION || 'e2e'
 const node = new Node(
   {
-    network: 'leofcoin:e2e',
-    networkVersion: 'e2e',
-    root: '.leofcoin/e2e',
+    network,
+    networkVersion,
+    root: process.env.LEOFCOIN_E2E_ROOT || '.leofcoin/e2e',
     stars: process.env.LEOFCOIN_E2E_STAR ? [process.env.LEOFCOIN_E2E_STAR] : [],
     autoStart: false
   },
@@ -31,7 +33,7 @@ globalThis.pubsub.subscribe('peer:connected', (peerId) => {
 })
 
 const { default: Chain } = await import('../../packages/chain/exports/chain.js')
-const chain = new Chain({ network: 'leofcoin:e2e', networkVersion: 'e2e' })
+const chain = new Chain({ network, networkVersion })
 await chain.ready
 
 const { BlockMessage } = await import('@leofcoin/messages')
