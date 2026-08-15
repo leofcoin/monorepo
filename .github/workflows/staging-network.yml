@@ -1,0 +1,45 @@
+name: Staging network
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+
+concurrency:
+  group: leofcoin-staging-network
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+
+      - name: Configure SSH
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Configure staging nodes
+        env:
+          STAGING_REMOTE_CONFIG: ${{ secrets.STAGING_REMOTE_CONFIG }}
+        run: |
+          printf '%s\n' "$STAGING_REMOTE_CONFIG" > "$RUNNER_TEMP/remote-nodes.json"
+          chmod 600 "$RUNNER_TEMP/remote-nodes.json"
+
+      - name: Verify transactions, cold-sync, and restart recovery
+        env:
+          LEOFCOIN_REMOTE_CONFIG: ${{ runner.temp }}/remote-nodes.json
+        run: npm run test:e2e:staging

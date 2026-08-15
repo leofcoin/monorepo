@@ -20,6 +20,16 @@ Copy `remote-nodes.example.json` outside the repository, configure SSH host alia
 LEOFCOIN_REMOTE_CONFIG=/secure/path/remote-nodes.json npm run test:e2e:remote -- smoke
 ```
 
-Supported actions are `start`, `stop`, `restart`, `status`, and `smoke`. Smoke mode verifies all configured nodes, restarts the first validator, waits for its service and optional health command, then verifies every node again.
+Supported actions are `start`, `stop`, `restart`, `status`, `smoke`, and `staging`. Smoke mode verifies all configured nodes, restarts the first validator, waits for its service and optional health command, then verifies every node again.
+
+The staging gate is the recommended persistent-network check:
+
+```sh
+LEOFCOIN_REMOTE_CONFIG=/secure/path/remote-nodes.json npm run test:e2e:staging
+```
+
+It requires at least three nodes. Every node must expose a `stateCommand` whose final output line is JSON containing either `{ "hash", "index" }`, `{ "tip": { ... } }`, or `{ "lastBlock": { ... } }`. The first node must also define `transactionCommand`, which submits one real, uniquely nonced staging transaction and exits only after the node accepts it.
+
+The gate asserts that all nodes initially share one canonical tip, takes the final node offline, submits a transaction, waits for the remaining nodes to advance and converge, starts the offline node and verifies cold-sync, then restarts every node one at a time and rechecks canonical hash and height after each restart. A service merely being alive is never treated as successful synchronization.
 
 SSH must be non-interactive. CI should provide the private key and known-host entries through secrets. Do not commit credentials or production host details.
