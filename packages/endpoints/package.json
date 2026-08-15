@@ -1,0 +1,52 @@
+{
+  "name": "@leofcoin/endpoints",
+  "version": "0.4.9",
+  "description": "",
+  "type": "module",
+  "exports": {
+    "./api": "./exports/api.md",
+    "./http": {
+      "import": "./exports/http.js",
+      "types": "./exports/http.d.ts"
+    },
+    "./ws": {
+      "import": "./exports/ws.js",
+      "types": "./exports/ws.d.ts"
+    }
+  },
+  "files": [
+    "./exports"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/endpoints"
+  },
+  "bugs": {
+    "url": "https://github.com/leofcoin/endpoints/issues"
+  },
+  "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/endpoints#readme",
+  "dependencies": {
+    "@koa/cors": "^5.0.0",
+    "@koa/router": "^13.1.1",
+    "@leofcoin/utils": "^1.1.45",
+    "koa": "^3.0.1",
+    "showdown": "^2.1.0",
+    "socket-request-server": "^1.6.17"
+  },
+  "devDependencies": {
+    "@leofcoin/types": "^1.0.22",
+    "@types/koa__cors": "^5.0.0",
+    "@types/koa__router": "^12.0.4",
+    "@types/node": "^24.1.0",
+    "@types/showdown": "^2.0.6",
+    "typescript": "^5.8.3"
+  }
+}
