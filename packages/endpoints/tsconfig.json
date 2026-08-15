@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "ESNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./exports",
+    "declaration": true,
+    "types": ["node", "@leofcoin/utils"]
+  },
+  "include": ["src/*.ts"],
+  "exclude": ["node_modules"]
+}
