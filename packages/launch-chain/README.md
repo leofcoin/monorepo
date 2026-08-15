@@ -1,4 +1,4 @@
-# lauch-chain
+# launch-chain
 
 > launch chain & peernet (reuses exposed transports when already running)
 
@@ -7,7 +7,10 @@
 ```js
 import launch from '@leofcoin/launch-chain'
 
-const { chain, endpoints, mode } = await launch()
+const { chain, endpoints, mode } = await launch(
+  { mode: 'direct' },
+  process.env.LEOFCOIN_PASSWORD
+)
 // chain is undefined when mode is remote
 // endpoints contain urls to connect to the desired remote
 // when mode is remote means an instance is already running
@@ -21,7 +24,7 @@ const { chain, endpoints, mode } = await launch()
 ```js
 {
   network: 'leofcoin:peach',
-  stars: ['wss://peach.leofcoin.org'],
+  stars: ['wss://star.leofcoin.org'],
   forceRemote: false, // when set to true only tries to connect to an external/local exposed node
   ws: {
     port: 4040,

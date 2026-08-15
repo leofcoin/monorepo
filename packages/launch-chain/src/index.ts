@@ -8,17 +8,17 @@ import networks from '@leofcoin/networks'
 type launchMode = 'direct' | 'remote' | 'server'
 
 type endpointReturns = {
-  http?: string[]
-  ws?: string[]
+  http: string[]
+  ws: string[]
 }
 
 type clientReturns = {
-  http?: HttpClient[]
-  ws?: WSClient[]
+  http: HttpClient[]
+  ws: WSClient[]
 }
 
 type launchReturn = {
-  chain: Chain
+  chain?: Chain
   mode: launchMode
   endpoints: endpointReturns
   clients: clientReturns
@@ -32,14 +32,17 @@ type endpointOptions = {
 type launchOptions = {
   network?: string
   networkVersion?: string
-  stars: string[]
-  forceRemote: boolean
+  stars?: string[]
+  forceRemote?: boolean
   mode?: launchMode
   ws?: endpointOptions[] | undefined
   http?: endpointOptions[] | undefined
 }
 
-const defaultOptions: launchOptions = {
+type resolvedLaunchOptions = Required<Omit<launchOptions, 'ws' | 'http'>> &
+  Pick<launchOptions, 'ws' | 'http'>
+
+const defaultOptions: resolvedLaunchOptions = {
   network: 'leofcoin:peach',
   networkVersion: 'peach',
   stars: networks.leofcoin.peach.stars,
@@ -90,7 +93,7 @@ const tryWs = (url: string, networkVersion: string): Promise<WSClient> =>
  * @param {string} networkVersion network/testnet-network sepperate by -
  * @returns Promise(boolean)
  */
-const getWS = async (url: string, networkVersion: string): Promise<WSClient> => {
+const getWS = async (url: string, networkVersion: string): Promise<WSClient | undefined> => {
   try {
     const ws = await tryWs(url, networkVersion)
     return ws
@@ -121,9 +124,8 @@ const hasClient = async (httpURL: string, wsURL: string, networkVersion: string)
  * @param {object} options { ws: boolean || {url: string, port: number}, http: boolean || {url: string, port: number}, network}
  * @returns '{ mode: string, endpoints: object, chain}'
  */
-const launch = async (options: launchOptions, password: string): Promise<launchReturn> => {
-  if (!options) options = defaultOptions
-  else options = { ...defaultOptions, ...options }
+const launch = async (input: launchOptions = {}, password: string): Promise<launchReturn> => {
+  const options: resolvedLaunchOptions = { ...defaultOptions, ...input }
 
   const clients: clientReturns = {
     http: [],
@@ -135,22 +137,28 @@ const launch = async (options: launchOptions, password: string): Promise<launchR
     ws: []
   }
 
-  let chain: Chain
+  let chain: Chain | undefined
 
   if (options.mode === 'remote') {
     if (options.http) {
       for (const endpoint of options.http) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `http://localhost:${endpoint.port}`
-        const client = await getHttp(endpoint.url, options.networkVersion)
-        if (client) endpoints.http.push(endpoint.url) && clients.http.push(client)
+        const url = endpoint.url ?? `http://localhost:${endpoint.port}`
+        const client = await getHttp(url, options.networkVersion)
+        if (client) {
+          endpoints.http.push(url)
+          clients.http.push(client)
+        }
       }
     }
 
     if (options.ws) {
       for (const endpoint of options.ws) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `ws://localhost:${endpoint.port}`
-        const client = await getWS(endpoint.url, options.networkVersion)
-        client && endpoints.ws.push(endpoint.url) && clients.ws.push(client)
+        const url = endpoint.url ?? `ws://localhost:${endpoint.port}`
+        const client = await getWS(url, options.networkVersion)
+        if (client) {
+          endpoints.ws.push(url)
+          clients.ws.push(client)
+        }
       }
     }
     if (endpoints.http.length === 0 && endpoints.ws.length === 0) throw new Error(`no remotes connected`)
@@ -169,12 +177,12 @@ const launch = async (options: launchOptions, password: string): Promise<launchR
       const wsServer = importee.default
 
       for (const endpoint of options.ws) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `ws://localhost:${endpoint.port}`
+        const url = endpoint.url ?? `ws://localhost:${endpoint.port}`
 
         await wsServer(chain, endpoint.port, options.networkVersion)
-        endpoints.ws.push(endpoint.url)
+        endpoints.ws.push(url)
 
-        const client = await getWS(endpoint.url, options.networkVersion)
+        const client = await getWS(url, options.networkVersion)
         client && clients.ws.push(client)
       }
     }
@@ -184,12 +192,12 @@ const launch = async (options: launchOptions, password: string): Promise<launchR
       const httpServer = importee.default
 
       for (const endpoint of options.http) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `http://localhost:${endpoint.port}`
+        const url = endpoint.url ?? `http://localhost:${endpoint.port}`
 
         await httpServer(chain, endpoint.port, options.networkVersion)
-        endpoints.http.push(endpoint.url)
+        endpoints.http.push(url)
 
-        const client = await getHttp(endpoint.url, options.networkVersion)
+        const client = await getHttp(url, options.networkVersion)
         client && clients.http.push(client)
       }
     }
@@ -208,9 +216,9 @@ const launch = async (options: launchOptions, password: string): Promise<launchR
       const wsServer = importee.default
 
       for (const endpoint of options.ws) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `ws://localhost:${endpoint.port}`
+        const url = endpoint.url ?? `ws://localhost:${endpoint.port}`
         await wsServer(chain, endpoint.port, options.networkVersion)
-        endpoints.ws.push(endpoint.url)
+        endpoints.ws.push(url)
       }
     }
 
@@ -219,9 +227,9 @@ const launch = async (options: launchOptions, password: string): Promise<launchR
       const httpServer = importee.default
 
       for (const endpoint of options.http) {
-        if (endpoint.port && !endpoint.url) endpoint.url = `http://localhost:${endpoint.port}`
+        const url = endpoint.url ?? `http://localhost:${endpoint.port}`
         await httpServer(chain, endpoint.port, options.networkVersion)
-        endpoints.http.push(endpoint.url)
+        endpoints.http.push(url)
       }
     }
   }

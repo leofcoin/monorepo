@@ -14,11 +14,12 @@
   "type": "module",
   "scripts": {
     "build": "rollup -c",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leofcoin/launch-chain.git"
+    "url": "https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/launch-chain"
   },
   "keywords": [],
   "author": "",
@@ -26,9 +27,9 @@
   "bugs": {
     "url": "https://github.com/leofcoin/launch-chain/issues"
   },
-  "homepage": "https://github.com/leofcoin/launch-chain#readme",
+  "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/launch-chain#readme",
   "dependencies": {
-    "@leofcoin/chain": "^1.10.9",
+    "@leofcoin/chain": "^1.10.11",
     "@leofcoin/endpoint-clients": "^0.3.15",
     "@leofcoin/endpoints": "^0.4.8",
     "@leofcoin/networks": "^1.1.30"
