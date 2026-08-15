@@ -1,0 +1,42 @@
+{
+  "name": "@leofcoin/launch-chain",
+  "version": "0.4.19",
+  "description": "",
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    }
+  },
+  "files": [
+    "exports"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leofcoin/launch-chain.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leofcoin/launch-chain/issues"
+  },
+  "homepage": "https://github.com/leofcoin/launch-chain#readme",
+  "dependencies": {
+    "@leofcoin/chain": "^1.10.9",
+    "@leofcoin/endpoint-clients": "^0.3.15",
+    "@leofcoin/endpoints": "^0.4.8",
+    "@leofcoin/networks": "^1.1.30"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.3.0",
+    "rollup": "^4.62.4",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3"
+  }
+}
