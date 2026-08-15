@@ -29,9 +29,9 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/launch-chain#readme",
   "dependencies": {
-    "@leofcoin/chain": "^1.10.11",
-    "@leofcoin/endpoint-clients": "^0.3.15",
-    "@leofcoin/endpoints": "^0.4.8",
+    "@leofcoin/chain": "^1.10.12",
+    "@leofcoin/endpoint-clients": "^0.3.16",
+    "@leofcoin/endpoints": "^0.4.9",
     "@leofcoin/networks": "^1.1.30"
   },
   "devDependencies": {
