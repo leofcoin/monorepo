@@ -9,11 +9,14 @@ import {
   calculateMonetaryPolicy,
   distributeAmount,
   supportsMonetaryPolicy,
+  MONETARY_POLICY_AUTHORITY,
   validateBlockResourceLimits
 } from '@leofcoin/lib'
 import EasyWorker from '@vandeurenglenn/easy-worker'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { DEFAULT_CONTRACT_EXECUTION_UNITS, ExecutionMeter, instrumentContractSource } from './execution-meter.js'
+import { createCryptoBridge, DeterministicCrypto } from './deterministic-crypto.js'
 
 const pubsub = new LittlePubSub()
 const worker = new EasyWorker()
@@ -38,6 +41,37 @@ let totalBlocks: bigint
 
 let blocks = []
 let contracts = {}
+let contractDefinitions = {}
+
+let activeMeter: ExecutionMeter
+let activeTimestamp: number
+let activeCrypto: DeterministicCrypto
+let activeExecution: {
+  counters: {
+    nativeBurns: bigint
+    nativeCalls: bigint
+    nativeMints: bigint
+    nativeTransfers: bigint
+    totalBurnAmount: bigint
+    totalMintAmount: bigint
+    totalTransactions: bigint
+    totalTransferAmount: bigint
+  }
+  deployed: Set<string>
+  snapshots: Map<string, any>
+  seed: string
+  timestamp: number
+  randomness?: string
+}
+
+const meterBridge = Object.freeze({
+  tick: (units = 1) => {
+    if (!activeMeter) throw new Error('contract executed outside deterministic execution context')
+    activeMeter.tick(units)
+  }
+})
+const dateBridge = Object.freeze({ now: () => activeTimestamp })
+const cryptoBridge = createCryptoBridge(() => activeCrypto)
 
 let lastBlock = { index: -1, hash: '0x0', previousHash: '0x0' }
 
@@ -45,12 +79,25 @@ const createMessage = (sender = globalThis.peerid, contract) => {
   return {
     contract,
     sender,
-    call: (params) => {
+    call: async (params) => {
       // make sure sender is set to the actual caller (iow contracts need approval to access tokens ...)
+      const previousMessage = globalThis.msg
       globalThis.msg = createMessage(contract, params.contract)
-      return _.execute(params)
+      try {
+        return await _.execute(params)
+      } finally {
+        globalThis.msg = previousMessage
+      }
     },
-    staticCall: get
+    staticCall: async (target, method, params = []) => {
+      const previousMessage = globalThis.msg
+      globalThis.msg = createMessage(contract, target)
+      try {
+        return await get({ contract: target, method, params })
+      } finally {
+        globalThis.msg = previousMessage
+      }
+    }
   }
 }
 
@@ -75,14 +122,91 @@ const has = (address) => {
   return contracts[address] ? true : false
 }
 
-const get = ({ contract, method, params }) => {
-  let result
-  if (params?.length > 0) {
-    result = contracts[contract][method](...params)
-  } else {
-    result = contracts[contract][method]
+const beginExecution = (seed: string, timestamp = Number(lastBlock.timestamp ?? 0), randomness?: string) => {
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0) throw new Error('invalid deterministic execution timestamp')
+  activeMeter = new ExecutionMeter(DEFAULT_CONTRACT_EXECUTION_UNITS)
+  activeTimestamp = timestamp
+  activeCrypto = randomness ? new DeterministicCrypto(`${randomness}:${seed}`) : undefined
+}
+
+const cloneState = (value) => structuredClone(value)
+
+const snapshotCounters = () => ({
+  nativeBurns,
+  nativeCalls,
+  nativeMints,
+  nativeTransfers,
+  totalBurnAmount,
+  totalMintAmount,
+  totalTransactions,
+  totalTransferAmount
+})
+
+const instantiateContract = async (hash: string, state?) => {
+  const definition = contractDefinitions[hash]
+  if (!definition) throw new Error(`missing contract definition for ${hash}`)
+  const params = [...definition.constructorParameters]
+  if (state !== undefined) params.push(cloneState(state))
+  globalThis.msg = createMessage(definition.creator, hash)
+  globalThis.state = await createState()
+  contracts[hash] = await new definition.Contract(...params)
+  return contracts[hash]
+}
+
+const snapshotContract = (contract: string) => {
+  if (!activeExecution || activeExecution.snapshots.has(contract)) return
+  if (!contracts[contract]) throw new Error(`contract ${contract} is not loaded`)
+  activeExecution.snapshots.set(contract, cloneState(contracts[contract].state))
+}
+
+const rollbackExecution = async () => {
+  const snapshots = [...activeExecution.snapshots.entries()]
+  for (const contract of activeExecution.deployed) {
+    delete contracts[contract]
+    delete contractDefinitions[contract]
   }
-  return result
+  ;({
+    nativeBurns,
+    nativeCalls,
+    nativeMints,
+    nativeTransfers,
+    totalBurnAmount,
+    totalMintAmount,
+    totalTransactions,
+    totalTransferAmount
+  } = activeExecution.counters)
+  beginExecution(`rollback:${activeExecution.seed}`, activeExecution.timestamp, activeExecution.randomness)
+  for (const [contract, state] of snapshots) await instantiateContract(contract, state)
+}
+
+const runAtomicMutation = async (seed: string, contract: string, callback) => {
+  if (activeExecution) return callback()
+  const timestamp = Number(lastBlock.timestamp ?? 0)
+  activeExecution = { counters: snapshotCounters(), deployed: new Set(), snapshots: new Map(), seed, timestamp }
+  beginExecution(seed, timestamp)
+  try {
+    snapshotContract(contract)
+    return await callback()
+  } catch (error) {
+    await rollbackExecution()
+    throw error
+  } finally {
+    activeExecution = undefined
+    activeMeter = undefined
+  }
+}
+
+const get = async ({ contract, method, params }) => {
+  const topLevelRead = !activeMeter
+  if (topLevelRead) beginExecution(`read:${contract}:${method}:${JSON.stringify(params ?? [], jsonStringifyBigInt)}`)
+  try {
+    if (params?.length > 0) return await contracts[contract][method](...params)
+    return contracts[contract][method]
+  } finally {
+    if (topLevelRead) {
+      activeMeter = undefined
+    }
+  }
 }
 
 const respond = (id, value) => {
@@ -122,7 +246,20 @@ const runTask = async (id, taskName, input) => {
   }
 }
 
-const _executeTransaction = async (transaction, validators: string[], feesEnabled: boolean, burnBasisPoints: bigint) => {
+let taskQueue = Promise.resolve()
+const queueTask = (id, taskName, input) => {
+  taskQueue = taskQueue.then(() => runTask(id, taskName, input))
+}
+const queueRead = (id, input) => {
+  taskQueue = taskQueue.then(async () => respond(id, await get(input)))
+}
+
+const _executeTransaction = async (
+  transaction,
+  validators: string[],
+  feesEnabled: boolean,
+  burnBasisPoints: bigint
+) => {
   const hash = await new TransactionMessage(transaction).hash()
   if (latestTransactions.includes(hash)) {
     throw new Error(`double transaction found: ${hash}`)
@@ -137,7 +274,13 @@ const _executeTransaction = async (transaction, validators: string[], feesEnable
       const { payments, burned } = distributeTransactionFee(fee, hash, validators, burnBasisPoints)
       await _.collectFee({ from, payments, burned })
     }
-    await _.execute({ contract: to, method, params })
+    await _.execute({
+      contract: to,
+      method,
+      params,
+      executionSeed: hash,
+      executionTimestamp: Number(lastBlock.timestamp ?? transaction.timestamp ?? 0)
+    })
 
     worker.postMessage({
       type: 'transactionLoaded',
@@ -159,16 +302,19 @@ const addToWantList = (hash) => {
 
 const _ = {
   runContract: async ({ decoded, hash, encoded }, state?) => {
-    const params = decoded.constructorParameters
+    const topLevelDeployment = !activeExecution
     try {
-      const func = new Function(new TextDecoder().decode(decoded.contract))
-      const Contract = func()
-
-      if (state) params.push(state)
-
-      globalThis.msg = createMessage(decoded.creator, hash)
-      globalThis.state = await createState()
-      contracts[hash] = await new Contract(...params)
+      if (topLevelDeployment) beginExecution(`deploy:${hash}`, Number(lastBlock.timestamp ?? 0))
+      const source = instrumentContractSource(new TextDecoder().decode(decoded.contract))
+      const func = new Function('__lfcMeter', 'Date', 'crypto', source)
+      const Contract = func(meterBridge, dateBridge, cryptoBridge)
+      if (activeExecution && !contractDefinitions[hash]) activeExecution.deployed.add(hash)
+      contractDefinitions[hash] = {
+        Contract,
+        constructorParameters: [...decoded.constructorParameters],
+        creator: decoded.creator
+      }
+      await instantiateContract(hash, state)
 
       debug(`loaded contract: ${hash} size: ${formatBytes(encoded.length)}`)
     } catch (e) {
@@ -178,13 +324,33 @@ const _ = {
         message: e.message,
         hash
       })
+    } finally {
+      if (topLevelDeployment) {
+        activeMeter = undefined
+        activeCrypto = undefined
+      }
     }
   },
-  execute: async ({ contract, method, params, sender }) => {
+  execute: async ({ contract, method, params, sender, executionSeed, executionTimestamp, executionRandomness }) => {
+    const topLevel = !activeExecution
     try {
+      if (topLevel) {
+        const seed = executionSeed ?? `${contract}:${method}:${JSON.stringify(params, jsonStringifyBigInt)}`
+        const timestamp = Number(executionTimestamp ?? lastBlock.timestamp ?? 0)
+        activeExecution = {
+          counters: snapshotCounters(),
+          deployed: new Set(),
+          snapshots: new Map(),
+          seed,
+          timestamp,
+          randomness: executionRandomness
+        }
+        beginExecution(seed, timestamp, executionRandomness)
+      }
       let result
 
       if (sender) globalThis.msg = createMessage(sender, contract)
+      snapshotContract(contract)
 
       // don't execute the method on a proxy
       if (contracts[contract].fallback) {
@@ -216,6 +382,7 @@ const _ = {
       // state.put(result)
       return result
     } catch (e) {
+      if (topLevel && activeExecution) await rollbackExecution()
       console.log({ e })
       throw new Error(
         `error: ${e.message}
@@ -224,34 +391,46 @@ const _ = {
         params: ${JSON.stringify(params, jsonStringifyBigInt, '\t')}
         `
       )
+    } finally {
+      if (topLevel) {
+        activeExecution = undefined
+        activeMeter = undefined
+        activeCrypto = undefined
+      }
     }
   },
-  collectFee: ({ from, payments, burned = 0n }) => {
+  collectFee: async ({ from, payments, burned = 0n }) => {
     burned = BigInt(burned)
-    const total = payments.reduce((sum, payment) => sum + BigInt(payment.amount), burned)
-    const balance = BigInt(contracts[nativeToken].balanceOf(from) || 0n)
-    if (balance < total) throw new Error(`insufficient balance for transaction fee: need ${total}, got ${balance}`)
+    const seed = `fee:${from}:${JSON.stringify(payments, jsonStringifyBigInt)}:${burned}`
+    return runAtomicMutation(seed, nativeToken, () => {
+      const total = payments.reduce((sum, payment) => sum + BigInt(payment.amount), burned)
+      const balance = BigInt(contracts[nativeToken].balanceOf(from) || 0n)
+      if (balance < total) throw new Error(`insufficient balance for transaction fee: need ${total}, got ${balance}`)
 
-    globalThis.msg = createMessage(from, nativeToken)
-    for (const payment of payments) {
-      const amount = BigInt(payment.amount)
-      if (amount > 0n) contracts[nativeToken].transfer(from, payment.to, amount)
-    }
-    if (burned > 0n) {
-      globalThis.msg = createMessage(contracts[nativeToken].creator, nativeToken)
-      contracts[nativeToken].burn(from, burned)
-    }
-    return total
+      globalThis.msg = createMessage(from, nativeToken)
+      for (const payment of payments) {
+        const amount = BigInt(payment.amount)
+        if (amount > 0n) contracts[nativeToken].transfer(from, payment.to, amount)
+      }
+      if (burned > 0n) {
+        globalThis.msg = createMessage(MONETARY_POLICY_AUTHORITY, nativeToken)
+        contracts[nativeToken].burn(from, burned)
+      }
+      return total
+    })
   },
-  settleRewards: ({ rewards }) => {
-    globalThis.msg = createMessage(contracts[nativeToken].creator, nativeToken)
-    let minted = 0n
-    for (const [validator, rawAmount] of rewards) {
-      const amount = BigInt(rawAmount)
-      if (amount > 0n) contracts[nativeToken].mint(validator, amount)
-      minted += amount
-    }
-    return minted
+  settleRewards: async ({ rewards }) => {
+    const seed = `rewards:${JSON.stringify(rewards, jsonStringifyBigInt)}`
+    return runAtomicMutation(seed, nativeToken, () => {
+      globalThis.msg = createMessage(MONETARY_POLICY_AUTHORITY, nativeToken)
+      let minted = 0n
+      for (const [validator, rawAmount] of rewards) {
+        const amount = BigInt(rawAmount)
+        if (amount > 0n) contracts[nativeToken].mint(validator, amount)
+        minted += amount
+      }
+      return minted
+    })
   },
   init: async (message) => {
     let { peerid, fromState, state, info } = message
@@ -289,18 +468,15 @@ const _ = {
 
       const entries = Object.entries(state)
       if (entries.length > 0) {
-        const promises = []
         for (const [address, value] of entries) {
-          promises.push(setState(address, value))
+          await setState(address, value)
         }
-        await Promise.all(promises)
       }
 
-      const promises = []
-      if (!contracts[addresses.contractFactory]) promises.push(setState(addresses.contractFactory))
-      if (!contracts[addresses.nameService]) promises.push(setState(addresses.nameService))
-      if (!contracts[addresses.validators]) promises.push(setState(addresses.validators))
-      if (!contracts[addresses.nativeToken]) promises.push(setState(addresses.nativeToken))
+      if (!contracts[addresses.contractFactory]) await setState(addresses.contractFactory)
+      if (!contracts[addresses.nameService]) await setState(addresses.nameService)
+      if (!contracts[addresses.validators]) await setState(addresses.validators)
+      if (!contracts[addresses.nativeToken]) await setState(addresses.nativeToken)
       // contracts = await Promise.all(
       //   contracts.map(async (contract) => {
       //     contract = await new ContractMessage(new Uint8Array(contract.split(',')))
@@ -308,14 +484,15 @@ const _ = {
       //     return contract
       //   })
       // )
-      await Promise.all(promises)
     } else {
-      await Promise.all(
-        [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage].map(async (contract) => {
-          const message: ContractMessage = await new ContractMessage(new Uint8Array(contract.split(',')))
-          return _.runContract({ decoded: message.decoded, encoded: message.encoded, hash: await message.hash() })
+      for (const contract of [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]) {
+        const contractMessage: ContractMessage = await new ContractMessage(new Uint8Array(contract.split(',')))
+        await _.runContract({
+          decoded: contractMessage.decoded,
+          encoded: contractMessage.encoded,
+          hash: await contractMessage.hash()
         })
-      )
+      }
       console.log({ blocks: message.blocks })
       if (message.blocks?.length > 0) {
         // let pre
@@ -374,8 +551,8 @@ const _ = {
               if (monetaryPolicyEnabled) await validateBlockResourceLimits(transactions)
               const policy = monetaryPolicyEnabled
                 ? calculateMonetaryPolicy(
-                    BigInt(contracts[nativeToken].totalSupply),
-                    BigInt(contracts[nativeToken].targetSupply)
+                    BigInt(await get({ contract: nativeToken, method: 'totalSupply', params: [] })),
+                    BigInt(await get({ contract: nativeToken, method: 'targetSupply', params: [] }))
                   )
                 : { subsidy: 0n, burnBasisPoints: 1_000n }
               for (const transaction of transactions) {
@@ -438,22 +615,22 @@ worker.onmessage(({ id, type, input }) => {
   }
   switch (type) {
     case 'init':
-      runTask(id, 'init', input)
+      queueTask(id, 'init', input)
       break
     case 'run':
-      runTask(id, 'runContract', input)
+      queueTask(id, 'runContract', input)
       break
     case 'execute':
-      runTask(id, 'execute', input)
+      queueTask(id, 'execute', input)
       break
     case 'addLoadedBlock':
-      runTask(id, 'addLoadedBlock', input)
+      queueTask(id, 'addLoadedBlock', input)
       break
     case 'collectFee':
-      runTask(id, 'collectFee', input)
+      queueTask(id, 'collectFee', input)
       break
     case 'settleRewards':
-      runTask(id, 'settleRewards', input)
+      queueTask(id, 'settleRewards', input)
       break
     case 'contracts':
       respond(id, contracts)
@@ -477,7 +654,7 @@ worker.onmessage(({ id, type, input }) => {
       respond(id, has(input.address))
       break
     case 'get':
-      respond(id, get(input))
+      queueRead(id, input)
       break
     case 'totalContracts':
       respond(id, Object.keys(contracts).length)

@@ -29,7 +29,8 @@ import {
   MAX_BLOCK_TRANSACTIONS,
   MAX_TRANSACTION_BYTES,
   validateBlockResourceLimits,
-  createTransactionHash
+  createTransactionHash,
+  MONETARY_POLICY_AUTHORITY
 } from '@leofcoin/lib'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
@@ -41,7 +42,11 @@ import { validateBlockEconomics, validateCanonicalValidatorSet } from './consens
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
-import { compareTransactionNonces, pruneCanonicalTransactions } from './consensus/transaction-pool.js'
+import {
+  compareTransactionNonces,
+  enqueueTransaction,
+  pruneCanonicalTransactions
+} from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 
 const debug = createDebugger('leofcoin/chain')
@@ -165,12 +170,7 @@ export default class Chain extends VersionControl {
     type: 'proposal' | 'prevote' | 'precommit',
     message: { blockHash: unknown; index: unknown; round: unknown; from: unknown; signature?: unknown }
   ): Promise<boolean> {
-    return verifyConsensusMessage(
-      addresses.validators,
-      type,
-      message,
-      globalThis.peernet?.network || 'leofcoin'
-    )
+    return verifyConsensusMessage(addresses.validators, type, message, globalThis.peernet?.network || 'leofcoin')
   }
 
   async #getConsensusValidators(nextBlockIndex?: number): Promise<string[]> {
@@ -284,21 +284,30 @@ export default class Chain extends VersionControl {
     const adaptivePolicy = supportsMonetaryPolicy(blockMessage.decoded.protocolVersion)
     if (adaptivePolicy) await validateBlockResourceLimits(transactions)
     const policy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
-    const calculatedFees = feesEnabled ? (
-      await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))
-    ).reduce((total, fee) => total + BigInt(fee), 0n) : 0n
-    const feeEntries = feesEnabled ? await Promise.all(
-      transactions.map(async (transaction) => ({
-        fee: BigInt(await calculateFee(transaction.decoded)),
-        transactionHash: await transaction.hash()
-      }))
-    ) : []
+    const calculatedFees = feesEnabled
+      ? (await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))).reduce(
+          (total, fee) => total + BigInt(fee),
+          0n
+        )
+      : 0n
+    const feeEntries = feesEnabled
+      ? await Promise.all(
+          transactions.map(async (transaction) => ({
+            fee: BigInt(await calculateFee(transaction.decoded)),
+            transactionHash: await transaction.hash()
+          }))
+        )
+      : []
     const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
     const validatorFees = feesEnabled
       ? aggregateValidatorFees(feeEntries, validatorAddresses, policy.burnBasisPoints)
       : new Map(validatorAddresses.map((address) => [address, 0n]))
     const subsidyRewards = adaptivePolicy
-      ? distributeAmount(policy.subsidy, validatorAddresses, Number(blockMessage.decoded.index) % validatorAddresses.length)
+      ? distributeAmount(
+          policy.subsidy,
+          validatorAddresses,
+          Number(blockMessage.decoded.index) % validatorAddresses.length
+        )
       : new Map(validatorAddresses.map((address) => [address, policy.subsidy / BigInt(validatorAddresses.length)]))
     validateBlockEconomics(blockMessage.decoded, calculatedFees, validatorFees, subsidyRewards, policy.subsidy)
 
@@ -312,7 +321,9 @@ export default class Chain extends VersionControl {
         [...feesBySender].map(async ([sender, required]) => {
           const balance = BigInt((await this.balanceOf(sender)) || 0n)
           if (balance < required) {
-            throw new Error(`insufficient balance for transaction fees from ${sender}: need ${required}, got ${balance}`)
+            throw new Error(
+              `insufficient balance for transaction fees from ${sender}: need ${required}, got ${balance}`
+            )
           }
         })
       )
@@ -321,10 +332,9 @@ export default class Chain extends VersionControl {
   }
 
   async #assertFeeBurnSupported(protocolVersion: string): Promise<void> {
-    const creator = (await this.staticCall(addresses.nativeToken, 'creator')) as string
     const [canBurn, canMint] = await Promise.all([
-      this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'BURN']),
-      this.staticCall(addresses.nativeToken, 'hasRole', [creator, 'MINT'])
+      this.staticCall(addresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'BURN']),
+      this.staticCall(addresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'MINT'])
     ])
     if (!canBurn || (supportsMonetaryPolicy(protocolVersion) && !canMint)) {
       throw new Error('native token genesis does not support protocol monetary policy')
@@ -781,10 +791,7 @@ export default class Chain extends VersionControl {
   // ─────────────────────────────────────────────────────────────────────────
 
   #addTransaction = async (message) => {
-    const transaction = new TransactionMessage(message)
-    const hash = await transaction.hash()
-    // if (await transactionPoolStore.has(hash)) await transactionPoolStore.delete(hash)
-    this.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+    const hash = await this.#sendTransaction(message)
     debug(`added ${hash}`)
   }
 
@@ -1133,12 +1140,24 @@ export default class Chain extends VersionControl {
     return new globalThis.peernet.protos['peernet-response']({ response: this.version })
   }
 
-  async #executeTransaction({ hash, from, to, method, params, nonce, feePayments = { payments: [], burned: 0n } }) {
+  async #executeTransaction({
+    hash,
+    from,
+    to,
+    method,
+    params,
+    nonce,
+    executionTimestamp,
+    feePayments = { payments: [], burned: 0n }
+  }) {
     try {
       if (feePayments.payments.length > 0 || feePayments.burned > 0n) {
         await this.machine.collectFee(from, feePayments.payments, feePayments.burned)
       }
-      let result = await this.machine.execute(to, method, params, from)
+      let result = await this.machine.execute(to, method, params, from, {
+        seed: hash,
+        timestamp: Number(executionTimestamp)
+      })
       // await accountsStore.put(to, nonce)
       // if (!result) result = this.machine.state
       globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
@@ -1245,13 +1264,20 @@ export default class Chain extends VersionControl {
       const transactionHash = await transaction.hash()
       const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
       const feeDistribution = supportsTransactionFees(blockMessage.decoded.protocolVersion)
-        ? distributeTransactionFee(BigInt(await calculateFee(transaction.decoded)), transactionHash, validatorAddresses, monetaryPolicy.burnBasisPoints)
+        ? distributeTransactionFee(
+            BigInt(await calculateFee(transaction.decoded)),
+            transactionHash,
+            validatorAddresses,
+            monetaryPolicy.burnBasisPoints
+          )
         : { payments: [], burned: 0n }
-      await this.#handleTransaction(transaction, [], undefined, feeDistribution)
+      await this.#handleTransaction(transaction, [], blockMessage.decoded, feeDistribution)
     }
     if (supportsMonetaryPolicy(blockMessage.decoded.protocolVersion) && monetaryPolicy.subsidy > 0n) {
       const validators = blockMessage.decoded.validators.map(({ address }) => address)
-      await this.machine.settleRewards([...distributeAmount(monetaryPolicy.subsidy, validators, blockIndex % validators.length)])
+      await this.machine.settleRewards([
+        ...distributeAmount(monetaryPolicy.subsidy, validators, blockIndex % validators.length)
+      ])
     }
 
     // for (let transaction of transactionsMessages) {
@@ -1355,7 +1381,12 @@ export default class Chain extends VersionControl {
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
-      const result = await this.#executeTransaction({ ...transaction.decoded, hash, feePayments })
+      const result = await this.#executeTransaction({
+        ...transaction.decoded,
+        hash,
+        executionTimestamp: block?.timestamp ?? transaction.decoded.timestamp,
+        feePayments
+      })
       if (block) {
         block.transactions.push(hash)
 
@@ -1445,7 +1476,8 @@ export default class Chain extends VersionControl {
       if (
         block.transactions.length >= MAX_BLOCK_TRANSACTIONS ||
         blockTransactionBytes + transactionBytes > MAX_BLOCK_TRANSACTION_BYTES
-      ) break
+      )
+        break
       await this.validateTransactionSignature(transaction)
       block.transactions.push(hash)
       blockTransactionBytes += transactionBytes
@@ -1474,12 +1506,14 @@ export default class Chain extends VersionControl {
     const monetaryPolicy = await this.#monetaryPolicy(this.version)
     block.reward = monetaryPolicy.subsidy
 
-    const feeEntries = supportsTransactionFees(this.version) ? await Promise.all(
-      allTransactions.map(async ({ transaction, hash }) => ({
-        fee: BigInt(await calculateFee(transaction.decoded)),
-        transactionHash: hash
-      }))
-    ) : []
+    const feeEntries = supportsTransactionFees(this.version)
+      ? await Promise.all(
+          allTransactions.map(async ({ transaction, hash }) => ({
+            fee: BigInt(await calculateFee(transaction.decoded)),
+            transactionHash: hash
+          }))
+        )
+      : []
     const validatorFees = supportsTransactionFees(this.version)
       ? aggregateValidatorFees(feeEntries, sortedValidators, monetaryPolicy.burnBasisPoints)
       : new Map(sortedValidators.map((address) => [address, 0n]))
@@ -1569,20 +1603,24 @@ export default class Chain extends VersionControl {
   async #sendTransaction(transaction) {
     transaction = await new TransactionMessage(transaction.encoded || transaction)
     await this.validateTransactionSignature(transaction)
-    const hash = await transaction.hash()
+    let hash: string | undefined
 
     try {
-      const has = await globalThis.transactionPoolStore.has(hash)
-
-      if (!has && !(await transactionStore.has(hash))) {
-        await globalThis.transactionPoolStore.put(hash, transaction.encoded)
-      }
+      hash = await enqueueTransaction(transaction, {
+        putToPool: (txHash, data) => globalThis.transactionPoolStore.put(txHash, data),
+        hasInPool: (txHash) => globalThis.transactionPoolStore.has(txHash),
+        hasInStore: (txHash) => globalThis.transactionStore.has(txHash),
+        addPendingNonce: (address, nonce) => this.addPendingNonce(address, nonce)
+      })
       if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+      return hash
     } catch (e) {
-      try {
-        globalThis.peernet.publish('invalid-transaction', hash)
-      } catch (publishError) {
-        debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
+      if (hash) {
+        try {
+          globalThis.peernet.publish('invalid-transaction', hash)
+        } catch (publishError) {
+          debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
+        }
       }
       throw new Error('invalid transaction')
     }
@@ -1596,7 +1634,7 @@ export default class Chain extends VersionControl {
     const transactionMessage = await new TransactionMessage({ ...transaction })
     const event = await super.sendTransaction(transactionMessage)
 
-    this.#sendTransaction(transactionMessage.encoded)
+    await this.#sendTransaction(transactionMessage.encoded)
     try {
       globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
     } catch (publishError) {

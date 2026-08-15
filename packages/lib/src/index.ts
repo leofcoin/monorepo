@@ -41,8 +41,10 @@ export const MAX_BLOCK_TRANSACTION_BYTES = 128 * 1024
 export const MAX_BLOCK_TRANSACTIONS = 256
 export const MAX_TRANSACTION_FEE = (BigInt(MAX_TRANSACTION_BYTES) / TRANSACTION_FEE_BYTES) * TRANSACTION_FEE_UNIT
 export const FEE_BASIS_POINTS = 10_000n
-export const FEE_PROTOCOL_VERSION = '1.10.9'
-export const MONETARY_POLICY_PROTOCOL_VERSION = '1.10.10'
+export const FEE_PROTOCOL_VERSION = '0.3.0'
+export const MONETARY_POLICY_PROTOCOL_VERSION = '0.3.0'
+/** Reserved VM sender; deliberately not a wallet address. */
+export const MONETARY_POLICY_AUTHORITY = 'leofcoin:protocol:monetary-policy:v1'
 export const BLOCKS_PER_YEAR = 5_256_000n
 export const ANNUAL_ISSUANCE_BASIS_POINTS = 200n
 export const SUPPLY_FLOOR_BASIS_POINTS = 9_500n

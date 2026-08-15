@@ -78,6 +78,21 @@ const blockchainCodecs = [
 
 const consensusCodecs = [
   {
+    name: 'beacon-activation-message',
+    codec: '0x62616d',
+    hashAlg: 'keccak-256'
+  },
+  {
+    name: 'beacon-commitment-message',
+    codec: '0x62636d',
+    hashAlg: 'keccak-256'
+  },
+  {
+    name: 'beacon-share-message',
+    codec: '0x62736d',
+    hashAlg: 'keccak-256'
+  },
+  {
     name: 'proposal-message',
     codec: '0x70726d',
     hashAlg: 'keccak-256'

@@ -1,6 +1,8 @@
 import networks from '@leofcoin/networks'
 
-export const PROTOCOL_VERSION = '0.2.0'
+// Consensus-breaking activation: deterministic execution, bounded resources,
+// adaptive validator issuance, and low fixed transaction fees.
+export const PROTOCOL_VERSION = '0.3.0'
 export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes
 export const REACHED_ONE_ZERO_ZERO = false // set to true when protocol reaches v1.0.0
 

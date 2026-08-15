@@ -18,4 +18,12 @@ export const clearGenesisState = async (stores = globalThis) => {
       return store.clear()
     })
   )
+
+  const walletStore = stores.walletStore
+  if (!walletStore || typeof walletStore.keys !== 'function' || typeof walletStore.delete !== 'function') {
+    throw new Error('genesis state store is unavailable: walletStore')
+  }
+  for (const key of await walletStore.keys()) {
+    if (key.startsWith('beacon/private/') || key.startsWith('beacon/public/')) await walletStore.delete(key)
+  }
 }

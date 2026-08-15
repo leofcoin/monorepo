@@ -310,7 +310,8 @@ export default class State extends Contract {
     block = await new BlockMessage(block)
 
     const resolvedHash = await block.hash()
-    if (resolvedHash !== hash) throw new ResolveError(`block hash mismatch: requested ${hash}, received ${resolvedHash}`)
+    if (resolvedHash !== hash)
+      throw new ResolveError(`block hash mismatch: requested ${hash}, received ${resolvedHash}`)
 
     const { index } = block.decoded
     if (this.#blocks[index] && this.#blocks[index].hash !== resolvedHash) {
@@ -768,7 +769,13 @@ export default class State extends Contract {
   }
 
   // todo throw error
-  async #_executeTransaction(transaction, validators: string[], feesEnabled: boolean, burnBasisPoints: bigint) {
+  async #_executeTransaction(
+    transaction,
+    validators: string[],
+    feesEnabled: boolean,
+    burnBasisPoints: bigint,
+    blockTimestamp: number
+  ) {
     try {
       const hash = await transaction.hash()
       if (feesEnabled) {
@@ -780,7 +787,8 @@ export default class State extends Contract {
         transaction.decoded.to,
         transaction.decoded.method,
         transaction.decoded.params,
-        transaction.decoded.from
+        transaction.decoded.from,
+        { seed: hash, timestamp: Number(blockTimestamp) }
       )
       // await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
       // if (transaction.decoded.to === nativeToken) {
@@ -859,7 +867,13 @@ export default class State extends Contract {
               )
             : { subsidy: 0n, burnBasisPoints: 1_000n }
           for (const transaction of transactions) {
-            await this.#_executeTransaction(transaction, validators, feesEnabled, policy.burnBasisPoints)
+            await this.#_executeTransaction(
+              transaction,
+              validators,
+              feesEnabled,
+              policy.burnBasisPoints,
+              block.timestamp
+            )
           }
           if (monetaryPolicyEnabled && policy.subsidy > 0n) {
             await this.#machine.settleRewards([

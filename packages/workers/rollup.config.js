@@ -20,7 +20,7 @@ try {
 
 export default [
   {
-    input: ['./src/machine-worker.ts', './src/block-worker.js'],
+    input: ['./src/machine-worker.ts', './src/block-worker.js', './src/execution-meter.ts', './src/deterministic-crypto.ts'],
     output: {
       dir: './exports',
       format: 'es'
@@ -39,7 +39,7 @@ export default [
   },
 
   {
-    input: ['./src/machine-worker.ts', './src/block-worker.js'],
+    input: ['./src/machine-worker.ts', './src/block-worker.js', './src/execution-meter.ts', './src/deterministic-crypto.ts'],
     output: {
       dir: './exports/browser',
       format: 'es'

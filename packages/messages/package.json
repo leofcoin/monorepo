@@ -4,6 +4,18 @@
   "description": "",
   "private": false,
   "exports": {
+    "./beacon-activation": {
+      "import": "./exports/messages/beacon-activation.js",
+      "types": "./exports/messages/beacon-activation.d.ts"
+    },
+    "./beacon-commitment": {
+      "import": "./exports/messages/beacon-commitment.js",
+      "types": "./exports/messages/beacon-commitment.d.ts"
+    },
+    "./beacon-share": {
+      "import": "./exports/messages/beacon-share.js",
+      "types": "./exports/messages/beacon-share.d.ts"
+    },
     "./block": {
       "import": "./exports/messages/block.js",
       "types": "./exports/messages/block.d.ts"

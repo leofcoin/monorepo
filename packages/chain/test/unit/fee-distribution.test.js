@@ -18,9 +18,9 @@ import {
 } from '@leofcoin/lib'
 
 test('transaction fees activate only at the protocol boundary', () => {
-  assert.equal(FEE_PROTOCOL_VERSION, '1.10.9')
-  assert.equal(supportsTransactionFees('1.10.8'), false)
-  assert.equal(supportsTransactionFees('1.10.9'), true)
+  assert.equal(FEE_PROTOCOL_VERSION, '0.3.0')
+  assert.equal(supportsTransactionFees('0.2.99'), false)
+  assert.equal(supportsTransactionFees('0.3.0'), true)
   assert.equal(supportsTransactionFees('1.11.0'), true)
   assert.equal(supportsTransactionFees('invalid'), false)
 })
