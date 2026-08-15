@@ -1,18 +1,31 @@
 {
   "timeoutMs": 30000,
-  "readinessAttempts": 12,
+  "readinessAttempts": 30,
+  "convergenceAttempts": 60,
+  "pollIntervalMs": 2000,
+  "minimumNodes": 3,
   "nodes": [
     {
       "name": "validator-1",
       "host": "leofcoin-validator-1",
       "service": "leofcoin",
-      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready"
+      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready",
+      "stateCommand": "curl --fail --silent http://127.0.0.1:8080/chain/tip",
+      "transactionCommand": "leofcoin-staging-transaction"
     },
     {
       "name": "validator-2",
       "host": "leofcoin-validator-2",
       "service": "leofcoin",
-      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready"
+      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready",
+      "stateCommand": "curl --fail --silent http://127.0.0.1:8080/chain/tip"
+    },
+    {
+      "name": "validator-3",
+      "host": "leofcoin-validator-3",
+      "service": "leofcoin",
+      "healthCommand": "curl --fail --silent http://127.0.0.1:8080/ready",
+      "stateCommand": "curl --fail --silent http://127.0.0.1:8080/chain/tip"
     }
   ]
 }
