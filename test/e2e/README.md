@@ -14,6 +14,8 @@ This is a lifecycle, storage-isolation, peer-connectivity, wire-format, cold-syn
 
 ## Remote lifecycle smoke test
 
+This is an optional, manually dispatched gate for deployments with three or more SSH-managed external nodes. The public observer workflow below does not use these credentials.
+
 Copy `remote-nodes.example.json` outside the repository, configure SSH host aliases and systemd user-service names, then run:
 
 ```sh
