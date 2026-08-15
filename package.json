@@ -1,0 +1,55 @@
+{
+  "name": "@leofcoin/endpoint-clients",
+  "version": "0.3.15",
+  "description": "",
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/types/index.d.ts"
+    },
+    "./ws": {
+      "import": "./exports/ws.js",
+      "types": "./exports/types/ws.d.ts"
+    },
+    "./http": {
+      "import": "./exports/http.js",
+      "types": "./exports/types/http.d.ts"
+    },
+    "./direct": {
+      "import": "./exports/direct.js",
+      "types": "./exports/types/direct.d.ts"
+    },
+    "./ws.js": "./exports/ws.js",
+    "./http.js": "./exports/http.js",
+    "./direct.js": "./exports/direct.js"
+  },
+  "files": [
+    "exports"
+  ],
+  "types": "./exports/types/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leofcoin/endpoint-clients.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leofcoin/endpoint-clients/issues"
+  },
+  "homepage": "https://github.com/leofcoin/endpoint-clients#readme",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.2",
+    "rollup": "^4.34.7",
+    "tslib": "^2.8.1"
+  },
+  "dependencies": {
+    "@leofcoin/utils": "^1.1.39",
+    "socket-request-client": "^2.0.9"
+  }
+}
