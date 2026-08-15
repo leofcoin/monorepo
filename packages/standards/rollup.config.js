@@ -31,8 +31,8 @@ export default [
         exportsDir: 'exports',
         defaultExports: {
           '.': {
-            import: 'exports/index.js',
-            types: 'exports/index.d.ts'
+            import: './exports/index.js',
+            types: './exports/index.d.ts'
           }
         }
       })
