@@ -5,7 +5,7 @@
     "moduleResolution": "NodeNext",
     "outDir": "./exports",
     "declaration": true,
-    "types": ["node", "@leofcoin/utils"],
+    "types": ["node"],
     "skipLibCheck": true,
     "noImplicitAny": false,
     "useUnknownInCatchVariables": false
