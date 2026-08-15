@@ -1,0 +1,131 @@
+{
+  "name": "@leofcoin/standards",
+  "version": "0.3.7",
+  "description": "Contract standards",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    },
+    "./helpers": {
+      "import": "./exports/helpers.js",
+      "types": "./exports/src/helpers.d.ts"
+    },
+    "./helpers.js": {
+      "import": "./exports/helpers.js",
+      "types": "./exports/src/helpers.d.ts"
+    },
+    "./i-public-voting": {
+      "import": "./exports/i-public-voting.js",
+      "types": "./exports/src/voting/interfaces/i-public-voting.d.ts"
+    },
+    "./i-public-voting.js": {
+      "import": "./exports/i-public-voting.js",
+      "types": "./exports/src/voting/interfaces/i-public-voting.d.ts"
+    },
+    "./index.js": {
+      "import": "./exports/index.js",
+      "types": "./exports/src/index.d.ts"
+    },
+    "./index": {
+      "import": "./exports/index.js",
+      "types": "./exports/src/index.d.ts"
+    },
+    "./interfaces": {
+      "import": "./exports/interfaces.js",
+      "types": "./exports/interfaces.d.ts"
+    },
+    "./interfaces.js": {
+      "import": "./exports/interfaces.js",
+      "types": "./exports/interfaces.d.ts"
+    },
+    "./meta": {
+      "import": "./exports/meta.js",
+      "types": "./exports/src/meta.d.ts"
+    },
+    "./meta.js": {
+      "import": "./exports/meta.js",
+      "types": "./exports/src/meta.d.ts"
+    },
+    "./private-voting": {
+      "import": "./exports/private-voting.js",
+      "types": "./exports/src/voting/private-voting.d.ts"
+    },
+    "./private-voting.js": {
+      "import": "./exports/private-voting.js",
+      "types": "./exports/src/voting/private-voting.d.ts"
+    },
+    "./public-voting": {
+      "import": "./exports/public-voting.js",
+      "types": "./exports/src/voting/public-voting.d.ts"
+    },
+    "./public-voting.js": {
+      "import": "./exports/public-voting.js",
+      "types": "./exports/src/voting/public-voting.d.ts"
+    },
+    "./roles": {
+      "import": "./exports/roles.js",
+      "types": "./exports/src/roles.d.ts"
+    },
+    "./roles.js": {
+      "import": "./exports/roles.js",
+      "types": "./exports/src/roles.d.ts"
+    },
+    "./token-receiver": {
+      "import": "./exports/token-receiver.js",
+      "types": "./exports/src/token-receiver.d.ts"
+    },
+    "./token-receiver.js": {
+      "import": "./exports/token-receiver.js",
+      "types": "./exports/src/token-receiver.d.ts"
+    },
+    "./token": {
+      "import": "./exports/token.js",
+      "types": "./exports/src/token.d.ts"
+    },
+    "./token.js": {
+      "import": "./exports/token.js",
+      "types": "./exports/src/token.d.ts"
+    },
+    "./types": {
+      "import": "./exports/types.js",
+      "types": "./exports/voting/types.d.ts"
+    },
+    "./types.js": {
+      "import": "./exports/types.js",
+      "types": "./exports/voting/types.d.ts"
+    },
+    "./voting": {
+      "import": "./exports/voting.js",
+      "types": "./exports/voting.d.ts"
+    },
+    "./voting.js": {
+      "import": "./exports/voting.js",
+      "types": "./exports/voting.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "test": "node --test ./test/**/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/standards"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leofcoin/monorepo/issues"
+  },
+  "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/standards#readme",
+  "devDependencies": {
+    "@leofcoin/global-types": "^1.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "rollup": "^4.54.0",
+    "rollup-plugin-auto-exports": "^1.1.1",
+    "tslib": "^2.8.1"
+  }
+}

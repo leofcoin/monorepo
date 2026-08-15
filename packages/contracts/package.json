@@ -18,15 +18,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/leofcoin/monorepo"
+    "url": "git+https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/contracts"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/leofcoin/contracts/issues"
+    "url": "https://github.com/leofcoin/monorepo/issues"
   },
-  "homepage": "https://github.com/leofcoin/contracts#readme",
+  "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/contracts#readme",
   "dependencies": {
     "@leofcoin/standards": "^0.3.7"
   },
