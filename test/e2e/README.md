@@ -33,3 +33,9 @@ It requires at least three nodes. Every node must expose a `stateCommand` whose 
 The gate asserts that all nodes initially share one canonical tip, takes the final node offline, submits a transaction, waits for the remaining nodes to advance and converge, starts the offline node and verifies cold-sync, then restarts every node one at a time and rechecks canonical hash and height after each restart. A service merely being alive is never treated as successful synchronization.
 
 SSH must be non-interactive. CI should provide the private key and known-host entries through secrets. Do not commit credentials or production host details.
+
+## Public observer soak test
+
+`public-network.yml` starts two temporary, non-participating nodes on a GitHub-hosted runner every six hours. They join the `peach` network through `wss://star.leofcoin.org`, compare their canonical tips with `https://remote.leofcoin.org/lastBlock` every 15 seconds, and restart one observer halfway through the run. The scheduled duration is 30 minutes and manually dispatched runs accept up to 60 minutes.
+
+These nodes do not submit transactions, participate as validators, receive rewards, or retain account material. Their temporary homes are removed at the end of every run.
