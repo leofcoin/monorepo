@@ -149,21 +149,20 @@ export default class Client {
     peers: {}[]
     accounts: number
     accountsHolding: number
-    accountsHoldingAmount: number
+    accountsHoldingAmount: string
     topHolders: any[]
   }> {
     let accountsHolding = 0
-    let accountsHoldingAmount = BigInt(0)
-    let topHolders = []
-    const balances = Object.entries(await chain.balances)
-      .map(([holder, amount]): { holder: string; amount: number } => {
-        amount = BigInt(amount)
-        return { holder, amount }
+    let accountsHoldingAmount = 0n
+    const topHolders: { holder: string; amount: string }[] = []
+    const balances = Object.entries((await chain.balances) as Record<string, bigint | number | string>)
+      .map(([holder, amount]) => {
+        return { holder, amount: BigInt(amount) }
       })
-      .sort((a, b) => formatUnits((b.amount -= a.amount)))
+      .sort((a, b) => (a.amount === b.amount ? 0 : a.amount > b.amount ? -1 : 1))
 
     for (let { holder, amount } of balances) {
-      if (amount > 0) {
+      if (amount > 0n) {
         accountsHoldingAmount += amount
         accountsHolding += 1
         topHolders.length < 100 && topHolders.push({ holder, amount: formatUnits(amount) })

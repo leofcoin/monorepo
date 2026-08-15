@@ -76,8 +76,8 @@ export default (chain, port, networkVersion, remote = false) => {
             (await globalThis.blockStore.size()) +
             (await globalThis.accountsStore.size())
         ),
-      lastBlock: async (ctx) => (ctx.body = await chain.lastBlock),
-      lastBlockHeight: async (ctx) => (ctx.body = await chain.lastBlockHeight),
+      lastBlock: async ({ send }) => send(await chain.lastBlock),
+      lastBlockHeight: async ({ send }) => send(await chain.lastBlockHeight),
       participating: async ({ send }) => send(await chain.participating),
       poolTransactions: async ({ send }) => send(await globalThis.transactionPoolStore.get()),
       transactionsInPool: async ({ send }) => send(await globalThis.transactionPoolStore.length()),
@@ -105,7 +105,7 @@ export default (chain, port, networkVersion, remote = false) => {
         }
       },
 
-      blockHashMap: async (ctx) => (ctx.body = chain.blockHashMap),
+      blockHashMap: async ({ send }) => send(await chain.blockHashMap),
 
       bootstrap: async ({ send }) => {
         send(await shared.bootstrap())
