@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/codecs",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Get/set codecs from one place - also contains all known Leofcoin codecs",
   "type": "module",
   "exports": {
