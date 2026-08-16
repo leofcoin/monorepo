@@ -45,6 +45,27 @@ or use `--no-endpoints` for a validator that should not expose an API.
 Never put the password or an identity backup in a command-line argument, service file, or Git.
 Use `leofcoin-validator --help` for all options.
 
+### send LFC from the local validator
+
+When the validator runs in a terminal it exposes a local wallet shell. Private keys never leave
+the process:
+
+```text
+leofcoin> account
+leofcoin> balance
+leofcoin> transfer YTq... 1000
+```
+
+When the validator is stopped, a one-shot transfer can start the same local identity, participate,
+finalize the transfer, and exit:
+
+```sh
+npx --package @leofcoin/launch-chain leofcoin transfer YTq... 1000 \
+  --password-file /secure/leofcoin/password
+```
+
+Do not run the daemon and one-shot command simultaneously against the same data root.
+
 ## options
 
 ### default

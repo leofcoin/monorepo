@@ -23,13 +23,15 @@ import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis
   const checkIdentity = args.includes('--check-identity')
   const reuseIdentity = args.includes('--reuse-identity')
   const suppliedPassword = process.env.GENESIS_PASSWORD || args.find((arg) => !arg.startsWith('--'))
+  const passwordFile = process.env.GENESIS_PASSWORD_FILE
   const targetSupply = process.env.LFC_TARGET_SUPPLY
   const initialSupply = process.env.LFC_INITIAL_SUPPLY
   if (!checkIdentity && (!targetSupply || !initialSupply)) {
     throw new Error('LFC_TARGET_SUPPLY and LFC_INITIAL_SUPPLY are required as whole LFC amounts')
   }
   let credentials
-  let password = suppliedPassword
+  let password = passwordFile ? (await read(passwordFile, 'utf8')).trim() : suppliedPassword
+  if (passwordFile && !password) throw new Error(`empty genesis password file: ${passwordFile}`)
   if (!checkIdentity) {
     if (reuseIdentity && !password) {
       throw new Error('GENESIS_PASSWORD is required with --reuse-identity')

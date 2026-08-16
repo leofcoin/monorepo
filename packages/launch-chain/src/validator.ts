@@ -14,6 +14,7 @@ export type ValidatorOptions = {
   registrationTimeoutMs?: number
   httpPort?: number | false
   wsPort?: number | false
+  heartbeat?: boolean
   signal?: AbortSignal
   logger?: Pick<Console, 'log' | 'warn' | 'error'>
 }
@@ -21,6 +22,7 @@ export type ValidatorOptions = {
 export type ValidatorHandle = {
   account: string
   chain: Chain
+  transfer: (to: string, amount: bigint) => Promise<string>
   stop: () => void
 }
 
@@ -105,6 +107,22 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
   }
   logger.log('validator participation active')
 
+  const transfer = async (to: string, amount: bigint): Promise<string> => {
+    if (typeof to !== 'string' || to.length === 0) throw new Error('transfer recipient is required')
+    if (amount <= 0n) throw new Error('transfer amount must be greater than zero')
+    const balance = BigInt(await chainRuntime.balanceOf(account))
+    if (balance < amount) throw new Error(`insufficient balance: have ${balance}, need at least ${amount}`)
+    const raw = await chainRuntime.createTransaction({
+      from: account,
+      to: chain.nativeToken,
+      method: 'transfer',
+      params: [account, to, amount]
+    })
+    const signed = await signTransaction(raw, peernet.identity)
+    const pending = await chainRuntime.sendTransaction(signed)
+    return pending.wait
+  }
+
   let sending = false
   const heartbeat = async () => {
     if (controller.signal.aborted || sending) return
@@ -115,15 +133,7 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
         logger.warn(`heartbeat skipped: balance ${balance} is too low`)
         return
       }
-      const raw = await chainRuntime.createTransaction({
-        from: account,
-        to: chain.nativeToken,
-        method: 'transfer',
-        params: [account, account, 1n]
-      })
-      const signed = await signTransaction(raw, peernet.identity)
-      const pending = await chainRuntime.sendTransaction(signed)
-      const hash = await pending.wait
+      const hash = await transfer(account, 1n)
       logger.log(`heartbeat transaction finalized: ${hash}`)
     } catch (error) {
       logger.error(`heartbeat transaction failed: ${(error as Error)?.message ?? error}`)
@@ -132,14 +142,14 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
     }
   }
 
-  await heartbeat()
-  const interval = setInterval(heartbeat, intervalMinutes * 60_000)
+  if (options.heartbeat !== false) await heartbeat()
+  const interval = options.heartbeat === false ? undefined : setInterval(heartbeat, intervalMinutes * 60_000)
   const stop = () => {
     if (controller.signal.aborted) return
     controller.abort(new Error('validator stopped'))
-    clearInterval(interval)
+    if (interval) clearInterval(interval)
   }
-  controller.signal.addEventListener('abort', () => clearInterval(interval), { once: true })
+  controller.signal.addEventListener('abort', () => interval && clearInterval(interval), { once: true })
 
-  return { account, chain, stop }
+  return { account, chain, transfer, stop }
 }
