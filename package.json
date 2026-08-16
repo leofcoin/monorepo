@@ -63,5 +63,8 @@
     "listr": "^0.14.3",
     "ora": "^9.4.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
+  },
+  "allowScripts": {
+    "@vandeurenglenn/wrtc@0.5.4": true
   }
 }
