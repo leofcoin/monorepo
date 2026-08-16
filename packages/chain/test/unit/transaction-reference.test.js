@@ -9,7 +9,7 @@ const transaction = {
   from: 'sender',
   to: 'receiver',
   method: 'transfer',
-  params: ['sender', 'receiver', 1n],
+  params: ['receiver', 1n],
   timestamp: 1,
   nonce: 1,
   signature: 'signature'

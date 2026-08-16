@@ -3,7 +3,11 @@ import { join } from 'path'
 import { clearGenesisState } from './genesis-state.js'
 import { parseGenesisAllocations, validateGenesisSupply } from './genesis-allocations.js'
 import { prepareGenesisContractSource } from './genesis-contract-source.js'
-import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis-credentials.js'
+import {
+  genesisCredentialPaths,
+  prepareGenesisCredentials,
+  writeGenesisIdentityBackup
+} from './genesis-credentials.js'
 ;(async () => {
   const { parseUnits } = await import('@leofcoin/utils')
   const { nodeConfig, createContractMessage } = await import('@leofcoin/lib')
@@ -36,10 +40,15 @@ import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis
     if (reuseIdentity && !password) {
       throw new Error('GENESIS_PASSWORD is required with --reuse-identity')
     }
-    credentials = await prepareGenesisCredentials({
-      directory: process.env.LFC_GENESIS_CREDENTIALS_DIR,
-      password
-    })
+    credentials = reuseIdentity
+      ? {
+          password,
+          paths: genesisCredentialPaths(process.env.LFC_GENESIS_CREDENTIALS_DIR)
+        }
+      : await prepareGenesisCredentials({
+          directory: process.env.LFC_GENESIS_CREDENTIALS_DIR,
+          password
+        })
     password = credentials.password
   }
   const node = new Node(
@@ -57,12 +66,14 @@ import { prepareGenesisCredentials, writeGenesisIdentityBackup } from './genesis
     console.log(`Identity loaded successfully: ${globalThis.peernet.selectedAccount}`)
     return
   }
-  const exportedIdentity = await globalThis.peernet.identity.export(password)
-  await writeGenesisIdentityBackup({
-    identity: exportedIdentity,
-    account: globalThis.peernet.selectedAccount,
-    paths: credentials.paths
-  })
+  if (!reuseIdentity) {
+    const exportedIdentity = await globalThis.peernet.identity.export(password)
+    await writeGenesisIdentityBackup({
+      identity: exportedIdentity,
+      account: globalThis.peernet.selectedAccount,
+      paths: credentials.paths
+    })
+  }
   const allocationConfig =
     process.env.LFC_GENESIS_ALLOCATIONS ||
     JSON.stringify([{ address: globalThis.peernet.selectedAccount, amount: initialSupply }])

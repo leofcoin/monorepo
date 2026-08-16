@@ -89,7 +89,7 @@ describe('Leofcoin', () => {
 
   it('allows allocated holders to transfer', () => {
     msg.sender = receiverAddress
-    token.transfer(receiverAddress, otherReceiverAddress, 10_000n)
+    token.transfer(otherReceiverAddress, 10_000n)
     assert.equal(token.balanceOf(receiverAddress), 390_000n)
     assert.equal(token.balanceOf(otherReceiverAddress), 10_000n)
   })

@@ -126,7 +126,7 @@ export default class Validators extends Roles {
     if (this.minimumBalance > balance)
       throw new Error(`balance to low! got: ${balance} need: ${this.#minimumBalance}`)
 
-    await msg.call(this.currency, 'transfer', [validator, msg.contract, this.#minimumBalance])
+    await msg.call(this.currency, 'transferFrom', [validator, msg.contract, this.#minimumBalance])
 
     this.#balances[validator] = this.#minimumBalance
     this.#validators.push(validator)
@@ -135,7 +135,7 @@ export default class Validators extends Roles {
   async removeValidator(validator) {
     this.#isAllowed(validator)
     if (!this.has(validator)) throw new Error('validator not found')
-    await msg.call(this.currency, 'transfer', [msg.contract, validator, this.#minimumBalance])
+    await msg.call(this.currency, 'transfer', [validator, this.#minimumBalance])
     delete this.#balances[validator]
     this.#validators.splice(this.#validators.indexOf(validator), 1)
   }

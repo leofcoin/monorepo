@@ -75,10 +75,10 @@ export default class TokenReceiver
 
   async #beforeVote(): Promise<any> {
     if (this.#voteType === 'burn')
-      return msg.staticCall(this.tokenToReceive, 'burn', [
+      return msg.call(this.tokenToReceive, 'burn', [
         this.tokenAmountToReceive
       ])
-    return msg.staticCall(this.tokenToReceive, 'transfer', [
+    return msg.call(this.tokenToReceive, 'transferFrom', [
       msg.sender,
       this.tokenReceiver,
       this.tokenAmountToReceive
@@ -94,7 +94,7 @@ export default class TokenReceiver
    * @returns {boolean} promise
    */
   async _payTokenToReceive(): Promise<boolean> {
-    return msg.staticCall(this.#tokenToReceive, 'transfer', [
+    return msg.call(this.#tokenToReceive, 'transferFrom', [
       msg.sender,
       this.#tokenReceiver,
       this.#tokenAmountToReceive
@@ -106,7 +106,7 @@ export default class TokenReceiver
    * @returns {boolean} promise
    */
   async _burnTokenToReceive(): Promise<boolean> {
-    return msg.staticCall(this.#tokenToReceive, 'burn', [
+    return msg.call(this.#tokenToReceive, 'burn', [
       this.#tokenAmountToReceive
     ])
   }
@@ -124,11 +124,7 @@ export default class TokenReceiver
   }
 
   #getTokensOut(amount: bigint, receiver: address) {
-    return msg.call(this.#tokenReceiver, 'transfer', [
-      this.#tokenReceiver,
-      receiver,
-      amount
-    ])
+    return msg.call(this.#tokenReceiver, 'transfer', [receiver, amount])
   }
 
   async changeVoteType(type: TokenReceiverState['voteType']) {
