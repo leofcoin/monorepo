@@ -204,8 +204,9 @@ const get = async ({ contract, method, params }) => {
   const topLevelRead = !activeMeter
   if (topLevelRead) beginExecution(`read:${contract}:${method}:${JSON.stringify(params ?? [], jsonStringifyBigInt)}`)
   try {
-    if (params?.length > 0) return await contracts[contract][method](...params)
-    return contracts[contract][method]
+    const member = contracts[contract][method]
+    if (typeof member === 'function') return await member.apply(contracts[contract], params ?? [])
+    return member
   } finally {
     if (topLevelRead) {
       activeMeter = undefined

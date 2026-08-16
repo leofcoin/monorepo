@@ -55,7 +55,7 @@ export default class Factory extends TokenReceiver {
   }
 
   #isCreator(address: address) {
-    return msg.staticCall(address, 'creator', [msg.sender]) as unknown as boolean
+    return msg.staticCall(address, 'creator') as unknown as boolean
   }
 
   /**

@@ -82,5 +82,53 @@ export default [
         mangle: false
       })
     ]
+  },
+  {
+    input: './src/liquidity-pool.ts',
+    output: {
+      dir: './exports',
+      format: 'es'
+    },
+    plugins: [
+      resolve({
+        mainFields: ['exports']
+      }),
+      typescript(),
+      terser({
+        mangle: false
+      })
+    ]
+  },
+  {
+    input: './src/mock-token.ts',
+    output: {
+      dir: './exports',
+      format: 'es'
+    },
+    plugins: [
+      resolve({
+        mainFields: ['exports']
+      }),
+      typescript(),
+      terser({
+        mangle: false
+      })
+    ]
+  },
+  {
+    input: './src/liquidity-pool-factory.ts',
+    output: {
+      dir: './exports',
+      format: 'es'
+    },
+    plugins: [
+      resolve({
+        mainFields: ['exports']
+      }),
+      typescript(),
+      terser({
+        mangle: false
+      })
+    ]
   }
 ]

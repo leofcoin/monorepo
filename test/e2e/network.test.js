@@ -264,3 +264,25 @@ test('a late node cold-syncs canonical blocks and keeps them across restart', { 
     await Promise.all(homes.map((home) => rm(home, { recursive: true, force: true })))
   }
 })
+
+test('deploys and trades an LFC test-token pool in the contract VM', { timeout: 60_000 }, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'leofcoin-dex-e2e-'))
+  const port = await availablePort()
+  const star = await startStar(port)
+  const node = new TestNode(home, 0, `ws://127.0.0.1:${port}`)
+
+  try {
+    await node.start()
+    const deployed = await node.command('dex-fixture', 'dex:deployed')
+    assert.equal(deployed.poolFor, deployed.pool)
+    assert.equal(deployed.quoted, deployed.received)
+    assert.ok(BigInt(deployed.received) > 0n)
+    assert.equal(deployed.reserves.length, 2)
+    assert.ok(deployed.factory)
+    assert.ok(deployed.testToken)
+  } finally {
+    await node.stop()
+    star.kill('SIGKILL')
+    await rm(home, { recursive: true, force: true })
+  }
+})

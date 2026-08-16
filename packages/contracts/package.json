@@ -8,7 +8,10 @@
     "./name-service": "./exports/name-service.js",
     "./name-token": "./exports/name-service.js",
     "./power-token": "./exports/power-token.js",
+    "./mock-token": "./exports/mock-token.js",
     "./native-token": "./exports/native-token.js",
+    "./liquidity-pool": "./exports/liquidity-pool.js",
+    "./liquidity-pool-factory": "./exports/liquidity-pool-factory.js",
     "./validators": "./exports/validators.js"
   },
   "scripts": {
