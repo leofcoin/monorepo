@@ -1,6 +1,6 @@
 import typescript from '@rollup/plugin-typescript'
 export default [{
-  input: ['./src/index.ts', './src/http.ts', './src/ws.ts', './src/direct.ts'],
+  input: ['./src/index.ts', './src/http.ts', './src/ws.ts', './src/direct.ts', './src/dex.ts'],
   output: {
     dir: './exports',
     format: 'es'

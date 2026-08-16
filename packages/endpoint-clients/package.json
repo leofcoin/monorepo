@@ -19,9 +19,14 @@
       "import": "./exports/direct.js",
       "types": "./exports/types/direct.d.ts"
     },
+    "./dex": {
+      "import": "./exports/dex.js",
+      "types": "./exports/types/dex.d.ts"
+    },
     "./ws.js": "./exports/ws.js",
     "./http.js": "./exports/http.js",
-    "./direct.js": "./exports/direct.js"
+    "./direct.js": "./exports/direct.js",
+    "./dex.js": "./exports/dex.js"
   },
   "files": [
     "exports"

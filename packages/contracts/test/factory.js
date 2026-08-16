@@ -58,9 +58,16 @@ describe('Factory', () => {
   })
 
   it('should successfully register a contract', async () => {
+    let creatorParameters
+    global.msg.staticCall = async (currency, method, args) => {
+      if (method === 'creator') creatorParameters = args
+      if (method === 'balanceOf') return BigInt(100000)
+      return true
+    }
     await factory.registerContract('0xContractAddress')
 
     assert.equal(factory.totalContracts, BigInt(1))
     assert.ok(factory.contracts.includes('0xContractAddress'))
+    assert.equal(creatorParameters, undefined)
   })
 })
