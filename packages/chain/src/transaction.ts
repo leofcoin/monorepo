@@ -10,6 +10,7 @@ import {
 import { formatBytes } from '@leofcoin/utils'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
+import { waitForCanonicalTransaction } from './transaction-finalization.js'
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
@@ -255,27 +256,7 @@ export default class Transaction extends Protocol {
     try {
       let data
 
-      const wait = new Promise(async (resolve, reject) => {
-        if (pubsub.hasSubscribers(`transaction.completed.${hash}`)) {
-          const result = pubsub.getValue(`transaction.completed.${hash}`)
-          if (result.status !== 'fulfilled') {
-            await transactionPoolStore.delete(hash)
-          }
-          result.status === 'fulfilled' ? resolve(result.hash) : reject({ hash: result.hash, error: result.error })
-        } else {
-          const completed = async (result) => {
-            if (result.status !== 'fulfilled') {
-              await transactionPoolStore.delete(hash)
-            }
-            result.status === 'fulfilled' ? resolve(result.hash) : reject({ hash: result.hash, error: result.error })
-
-            setTimeout(async () => {
-              pubsub.unsubscribe(`transaction.completed.${hash}`, completed)
-            }, 10_000)
-          }
-          pubsub.subscribe(`transaction.completed.${hash}`, completed)
-        }
-      })
+      const wait = waitForCanonicalTransaction(pubsub, transactionPoolStore, hash)
       await globalThis.transactionPoolStore.put(hash, message.encoded)
       // Add to pending nonce index
       this.addPendingNonce(message.decoded.from, message.decoded.nonce)

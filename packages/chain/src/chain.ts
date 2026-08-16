@@ -1160,7 +1160,6 @@ export default class Chain extends VersionControl {
       })
       // await accountsStore.put(to, nonce)
       // if (!result) result = this.machine.state
-      globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fulfilled', hash })
       return result || 'no state change'
     } catch (error) {
       await transactionPoolStore.delete(hash)
