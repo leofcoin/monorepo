@@ -13,6 +13,7 @@
     }
   },
   "bin": {
+    "leofcoin": "./exports/validator-cli.js",
     "leofcoin-validator": "./exports/validator-cli.js"
   },
   "files": [
