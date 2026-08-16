@@ -6,7 +6,14 @@
     ".": {
       "import": "./exports/index.js",
       "types": "./exports/index.d.ts"
+    },
+    "./validator": {
+      "import": "./exports/validator.js",
+      "types": "./exports/validator.d.ts"
     }
+  },
+  "bin": {
+    "leofcoin-validator": "./exports/validator-cli.js"
   },
   "files": [
     "exports"
@@ -29,9 +36,11 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/launch-chain#readme",
   "dependencies": {
+    "@leofcoin/addresses": "^1.0.62",
     "@leofcoin/chain": "^1.10.12",
     "@leofcoin/endpoint-clients": "^0.3.16",
     "@leofcoin/endpoints": "^0.4.9",
+    "@leofcoin/lib": "^1.3.10",
     "@leofcoin/networks": "^1.1.30"
   },
   "devDependencies": {

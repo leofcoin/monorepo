@@ -35,11 +35,13 @@ type launchOptions = {
   stars?: string[]
   forceRemote?: boolean
   mode?: launchMode
+  root?: string
   ws?: endpointOptions[] | undefined
   http?: endpointOptions[] | undefined
 }
 
-type resolvedLaunchOptions = Required<Omit<launchOptions, 'ws' | 'http'>> &
+type resolvedLaunchOptions = Required<Omit<launchOptions, 'ws' | 'http' | 'root'>> &
+  Pick<launchOptions, 'root'> &
   Pick<launchOptions, 'ws' | 'http'>
 
 const defaultOptions: resolvedLaunchOptions = {
@@ -48,6 +50,7 @@ const defaultOptions: resolvedLaunchOptions = {
   stars: networks.leofcoin.peach.stars,
   forceRemote: false,
   mode: 'direct',
+  root: undefined,
   ws: [
     {
       port: 4040
@@ -124,7 +127,7 @@ const hasClient = async (httpURL: string, wsURL: string, networkVersion: string)
  * @param {object} options { ws: boolean || {url: string, port: number}, http: boolean || {url: string, port: number}, network}
  * @returns '{ mode: string, endpoints: object, chain}'
  */
-const launch = async (input: launchOptions = {}, password: string): Promise<launchReturn> => {
+const launch = async (input: launchOptions = {}, password?: string): Promise<launchReturn> => {
   const options: resolvedLaunchOptions = { ...defaultOptions, ...input }
 
   const clients: clientReturns = {
@@ -164,7 +167,7 @@ const launch = async (input: launchOptions = {}, password: string): Promise<laun
     if (endpoints.http.length === 0 && endpoints.ws.length === 0) throw new Error(`no remotes connected`)
   } else if (options.mode === 'direct') {
     const node = new Node(
-      { network: options.network, stars: options.stars, networkVersion: options.networkVersion },
+      { network: options.network, stars: options.stars, networkVersion: options.networkVersion, root: options.root },
       password
     )
     await node.ready
@@ -203,7 +206,7 @@ const launch = async (input: launchOptions = {}, password: string): Promise<laun
     }
   } else {
     const node = new Node(
-      { network: options.network, stars: options.stars, networkVersion: options.networkVersion },
+      { network: options.network, stars: options.stars, networkVersion: options.networkVersion, root: options.root },
       password
     )
     await node.ready
