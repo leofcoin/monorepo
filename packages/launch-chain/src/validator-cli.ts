@@ -7,7 +7,10 @@ import { startValidator } from './validator.js'
 const args = process.argv.slice(2)
 const valueAfter = (name: string) => {
   const index = args.indexOf(name)
-  return index === -1 ? undefined : args[index + 1]
+  if (index === -1) return undefined
+  const value = args[index + 1]
+  if (value === undefined || value.startsWith('--')) throw new Error(`${name} requires a value`)
+  return value
 }
 
 if (args.includes('--help') || args.includes('-h')) {
@@ -43,15 +46,13 @@ const port = (name: string, fallback: number) => {
   if (!Number.isSafeInteger(value) || value < 1 || value > 65_535) throw new Error(`${name} must be a valid port`)
   return value
 }
-const controller = new AbortController()
 const handle = await startValidator({
   network: valueAfter('--network') ?? process.env.LEOFCOIN_NETWORK,
   root: valueAfter('--root') ?? process.env.LEOFCOIN_DATA_ROOT,
   password,
   intervalMinutes: intervalValue === undefined ? undefined : Number(intervalValue),
   httpPort: noEndpoints ? false : port('--http-port', 8080),
-  wsPort: noEndpoints ? false : port('--ws-port', 4040),
-  signal: controller.signal
+  wsPort: noEndpoints ? false : port('--ws-port', 4040)
 })
 
 const shutdown = (signal: string) => {

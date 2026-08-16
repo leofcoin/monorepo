@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import test from 'node:test'
 
@@ -30,7 +31,9 @@ test('exports a standalone validator runtime and CLI', async () => {
   assert.throws(() => runtime.validateIntervalMinutes(0), /at least one minute/)
   assert.equal(runtime.validateIntervalMinutes(1), 1)
 
-  const { stdout } = await run(process.execPath, [new URL('../exports/validator-cli.js', import.meta.url).pathname, '--help'])
+  const cli = fileURLToPath(new URL('../exports/validator-cli.js', import.meta.url))
+  const { stdout } = await run(process.execPath, [cli, '--help'])
   assert.match(stdout, /Usage: leofcoin-validator/)
   assert.match(stdout, /--password-file/)
+  await assert.rejects(run(process.execPath, [cli, '--password-file', '--interval', '5']), /requires a value/)
 })
