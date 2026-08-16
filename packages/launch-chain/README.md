@@ -17,6 +17,34 @@ const { chain, endpoints, mode } = await launch(
 // when mode is direct means chain is directly available and no endpoint is needed to interact with it
 ```
 
+## run a validator
+
+No monorepo checkout is required. Run the validator directly from the published package:
+
+```sh
+npx --package @leofcoin/launch-chain leofcoin-validator
+```
+
+The first run uses the normal interactive identity-password prompt. A new account must receive
+the validator contract's minimum balance before it can register. An existing validator must be
+online to finalize that registration transaction.
+
+For an unattended server, keep the password outside the repository in a mode-`0600` file:
+
+```sh
+npx --package @leofcoin/launch-chain leofcoin-validator \
+  --password-file /secure/leofcoin/password \
+  --root /var/lib/leofcoin/peach \
+  --interval 5
+```
+
+The validator also exposes the HTTP API on port `8080` and WebSocket API on port `4040`, so one
+process can replace a separate launch-chain server. Change them with `--http-port` and `--ws-port`,
+or use `--no-endpoints` for a validator that should not expose an API.
+
+Never put the password or an identity backup in a command-line argument, service file, or Git.
+Use `leofcoin-validator --help` for all options.
+
 ## options
 
 ### default
