@@ -33,7 +33,7 @@ test('transaction signatures bind the sender and canonical payload', async () =>
     from,
     to: from,
     method: 'transfer',
-    params: [from, from, 1n],
+    params: [from, 1n],
     timestamp: 1,
     nonce: 1
   }

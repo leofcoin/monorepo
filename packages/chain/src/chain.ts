@@ -1340,6 +1340,25 @@ export default class Chain extends VersionControl {
     // {bandwith: {up, down}, uptime}
     try {
       if (!(await this.staticCall(addresses.validators, 'has', [address]))) {
+        const minimumBalance = BigInt(await this.staticCall(addresses.validators, 'minimumBalance'))
+        const allowance = BigInt(
+          (await this.staticCall(addresses.nativeToken, 'allowance', [address, addresses.validators])) || 0n
+        )
+        if (allowance < minimumBalance) {
+          const approval = await signTransaction(
+            {
+              from: address,
+              to: addresses.nativeToken,
+              method: 'approve',
+              params: [addresses.validators, minimumBalance],
+              nonce: (await this.getNonce(address)) + 1,
+              timestamp: Date.now()
+            },
+            globalThis.peernet.identity
+          )
+          const pendingApproval = await this.sendTransaction(approval)
+          await pendingApproval.wait
+        }
         const rawTransaction = {
           from: address,
           to: addresses.validators,
@@ -1704,7 +1723,8 @@ export default class Chain extends VersionControl {
   }
 
   transfer(from: Address, to: Address, amount: bigint) {
-    return this.call(addresses.nativeToken, 'transfer', [from, to, amount])
+    if (from !== globalThis.peernet.selectedAccount) throw new Error('transfer sender must be the selected account')
+    return this.call(addresses.nativeToken, 'transfer', [to, amount])
   }
 
   balanceOf(address: Address): Promise<bigint> {

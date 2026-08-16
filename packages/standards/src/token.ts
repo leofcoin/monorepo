@@ -95,7 +95,12 @@ export default class Token extends Roles {
   }
 
   get approvals() {
-    return this.#approvals
+    return Object.fromEntries(
+      Object.entries(this.#approvals).map(([owner, approvals]) => [
+        owner,
+        { ...approvals }
+      ])
+    )
   }
 
   get decimals() {
@@ -104,6 +109,9 @@ export default class Token extends Roles {
 
   mint(to: address, amount: bigint) {
     if (!this.hasRole(msg.sender, 'MINT')) throw new Error('not allowed')
+    if (!to) throw new Error('address undefined')
+    amount = BigInt(amount)
+    if (amount <= 0n) throw new Error('amount must be positive')
 
     this.#totalSupply = this.#totalSupply + amount
     this.#increaseBalance(to, amount)
@@ -111,6 +119,8 @@ export default class Token extends Roles {
 
   burn(from: address, amount: bigint) {
     if (!this.hasRole(msg.sender, 'BURN')) throw new Error('not allowed')
+    amount = BigInt(amount)
+    if (amount <= 0n) throw new Error('amount must be positive')
 
     this.#totalSupply = this.#totalSupply - amount
 
@@ -120,9 +130,10 @@ export default class Token extends Roles {
 
   #beforeTransfer(from: address, to: address, amount: bigint) {
     if (!from) throw new Error('address undefined')
+    if (!to) throw new Error('address undefined')
     // if (this.#blacklist[from]) throw new Error('address blacklisted')
     // if (this.#blacklist[to]) throw new Error('address blacklisted')
-    if (amount < 0n) throw new Error('amount must be positive')
+    if (amount <= 0n) throw new Error('amount must be positive')
     if (!this.#balances[from] || this.#balances[from] < amount)
       throw new Error('amount exceeds balance')
   }
@@ -148,28 +159,51 @@ export default class Token extends Roles {
   }
 
   balance() {
-    return this.#balances[msg.sender]
+    return this.#balances[msg.sender] ?? 0n
   }
 
   balanceOf(address: address): bigint {
-    return this.#balances[address]
+    return this.#balances[address] ?? 0n
   }
 
   setApproval(operator: address, amount: bigint) {
+    return this.approve(operator, amount)
+  }
+
+  approve(operator: address, amount: bigint) {
     const owner = msg.sender
+    if (!operator) throw new Error('operator undefined')
+    amount = BigInt(amount)
+    if (amount < 0n) throw new Error('approval amount must be positive')
     if (!this.#approvals[owner]) this.#approvals[owner] = {}
-    this.#approvals[owner][operator] = BigInt(amount)
+    this.#approvals[owner][operator] = amount
   }
 
   approved(owner: address, operator: address, amount: bigint): boolean {
-    return this.#approvals[owner][operator] === amount
+    return (this.#approvals[owner]?.[operator] ?? 0n) === BigInt(amount)
   }
 
-  transfer(from: address, to: address, amount: bigint) {
-    // TODO: is bigint?
+  allowance(owner: address, operator: address): bigint {
+    return this.#approvals[owner]?.[operator] ?? 0n
+  }
+
+  #transfer(from: address, to: address, amount: bigint) {
     amount = BigInt(amount)
     this.#beforeTransfer(from, to, amount)
     this.#decreaseBalance(from, amount)
     this.#increaseBalance(to, amount)
+  }
+
+  transfer(to: address, amount: bigint) {
+    this.#transfer(msg.sender, to, amount)
+  }
+
+  transferFrom(from: address, to: address, amount: bigint) {
+    amount = BigInt(amount)
+    const operator = msg.sender
+    const allowance = this.allowance(from, operator)
+    if (allowance < amount) throw new Error('amount exceeds allowance')
+    this.#transfer(from, to, amount)
+    this.#approvals[from][operator] = allowance - amount
   }
 }

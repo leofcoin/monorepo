@@ -79,12 +79,16 @@ const createMessage = (sender = globalThis.peerid, contract) => {
   return {
     contract,
     sender,
-    call: async (params) => {
+    call: async (targetOrParams, method?, params = []) => {
+      const callParams =
+        typeof targetOrParams === 'object'
+          ? targetOrParams
+          : { contract: targetOrParams, method, params }
       // make sure sender is set to the actual caller (iow contracts need approval to access tokens ...)
       const previousMessage = globalThis.msg
-      globalThis.msg = createMessage(contract, params.contract)
+      globalThis.msg = createMessage(contract, callParams.contract)
       try {
-        return await _.execute(params)
+        return await _.execute(callParams)
       } finally {
         globalThis.msg = previousMessage
       }
@@ -370,6 +374,10 @@ const _ = {
         }
         if (method === 'transfer') {
           nativeTransfers = nativeTransfers += 1n
+          totalTransferAmount += BigInt(params[1])
+        }
+        if (method === 'transferFrom') {
+          nativeTransfers = nativeTransfers += 1n
           totalTransferAmount += BigInt(params[2])
         }
 
@@ -410,7 +418,7 @@ const _ = {
       globalThis.msg = createMessage(from, nativeToken)
       for (const payment of payments) {
         const amount = BigInt(payment.amount)
-        if (amount > 0n) contracts[nativeToken].transfer(from, payment.to, amount)
+        if (amount > 0n) contracts[nativeToken].transfer(payment.to, amount)
       }
       if (burned > 0n) {
         globalThis.msg = createMessage(MONETARY_POLICY_AUTHORITY, nativeToken)

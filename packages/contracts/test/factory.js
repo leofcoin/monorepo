@@ -40,9 +40,10 @@ describe('Factory', () => {
         return BigInt(100) // Balance too low
       } else if (method === 'creator') {
         return true
-      } else if (method === 'transfer') {
-        throw new Error('amount exceeds balance')
       }
+    }
+    global.msg.call = async (currency, method) => {
+      if (method === 'transferFrom') throw new Error('amount exceeds balance')
     }
     await assert.rejects(async () => await factory.registerContract('0xContractAddress'), {
       message: 'amount exceeds balance'

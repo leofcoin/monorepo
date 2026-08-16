@@ -116,7 +116,7 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
       from: account,
       to: chain.nativeToken,
       method: 'transfer',
-      params: [account, to, amount]
+      params: [to, amount]
     })
     const signed = await signTransaction(raw, peernet.identity)
     const pending = await chainRuntime.sendTransaction(signed)

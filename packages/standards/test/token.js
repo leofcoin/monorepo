@@ -209,3 +209,77 @@ test('Token - constructor with complex approval state', () => {
   assert.equal(approvals['0x2']['0x1'], 500n)
   assert.equal(approvals['0x2']['0x4'], 300n)
 })
+
+test('Token - transfer can only debit msg.sender', () => {
+  global.msg = { sender: '0xowner' }
+  const token = new Token('MyToken', 'MTK', 18, {
+    creator: '0xowner',
+    roles: { OWNER: ['0xowner'], MINT: [], BURN: [] },
+    balances: { '0xowner': '100', '0xvictim': '100' },
+    approvals: {},
+    holders: '2',
+    totalSupply: '200'
+  })
+
+  token.transfer('0xreceiver', 25n)
+  assert.throws(() => token.transfer('0xvictim', '0xreceiver', 25n))
+  assert.equal(token.balanceOf('0xowner'), 75n)
+  assert.equal(token.balanceOf('0xvictim'), 100n)
+  assert.equal(token.balanceOf('0xreceiver'), 25n)
+})
+
+test('Token - transferFrom requires and consumes caller allowance', () => {
+  global.msg = { sender: '0xoperator' }
+  const token = new Token('MyToken', 'MTK', 18, {
+    creator: '0xowner',
+    roles: { OWNER: ['0xowner'], MINT: [], BURN: [] },
+    balances: { '0xowner': '100' },
+    approvals: { '0xowner': { '0xoperator': '30' } },
+    holders: '1',
+    totalSupply: '100'
+  })
+
+  assert.throws(() => token.transferFrom('0xowner', '0xreceiver', 31n), {
+    message: 'amount exceeds allowance'
+  })
+  token.transferFrom('0xowner', '0xreceiver', 20n)
+  assert.equal(token.balanceOf('0xowner'), 80n)
+  assert.equal(token.balanceOf('0xreceiver'), 20n)
+  assert.equal(token.allowance('0xowner', '0xoperator'), 10n)
+})
+
+test('Token - rejects zero-value and addressless transfers', () => {
+  global.msg = { sender: '0xowner' }
+  const token = new Token('MyToken', 'MTK', 18, {
+    creator: '0xowner',
+    roles: { OWNER: ['0xowner'], MINT: [], BURN: [] },
+    balances: { '0xowner': '100' },
+    approvals: {},
+    holders: '1',
+    totalSupply: '100'
+  })
+
+  assert.throws(() => token.transfer('0xreceiver', 0n), {
+    message: 'amount must be positive'
+  })
+  assert.throws(() => token.transfer('', 1n), {
+    message: 'address undefined'
+  })
+  assert.equal(token.balanceOf('0xmissing'), 0n)
+})
+
+test('Token - approvals getter cannot mutate contract allowance state', () => {
+  global.msg = { sender: '0xowner' }
+  const token = new Token('MyToken', 'MTK', 18, {
+    creator: '0xowner',
+    roles: { OWNER: ['0xowner'], MINT: [], BURN: [] },
+    balances: { '0xowner': '100' },
+    approvals: { '0xowner': { '0xoperator': '25' } },
+    holders: '1',
+    totalSupply: '100'
+  })
+
+  const approvals = token.approvals
+  approvals['0xowner']['0xoperator'] = 100n
+  assert.equal(token.allowance('0xowner', '0xoperator'), 25n)
+})
