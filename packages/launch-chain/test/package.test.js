@@ -39,3 +39,9 @@ test('exports a standalone validator runtime and CLI', async () => {
   assert.match(stdout, /leofcoin transfer/)
   await assert.rejects(run(process.execPath, [cli, '--password-file', '--interval', '5']), /requires a value/)
 })
+
+test('does not block validator startup on heartbeat finalization', async () => {
+  const source = await readFile(new URL('../src/validator.ts', import.meta.url), 'utf8')
+  assert.match(source, /void heartbeat\(\)/)
+  assert.doesNotMatch(source, /await heartbeat\(\)/)
+})

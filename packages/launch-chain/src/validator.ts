@@ -142,7 +142,10 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
     }
   }
 
-  if (options.heartbeat !== false) await heartbeat()
+  // Startup must not wait for a transaction to finalize. In particular, the
+  // interactive wallet shell and API endpoints must remain available while a
+  // single-node validator is still trying to produce/finalize its heartbeat.
+  if (options.heartbeat !== false) void heartbeat()
   const interval = options.heartbeat === false ? undefined : setInterval(heartbeat, intervalMinutes * 60_000)
   const stop = () => {
     if (controller.signal.aborted) return
