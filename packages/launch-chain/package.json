@@ -10,10 +10,14 @@
     "./validator": {
       "import": "./exports/validator.js",
       "types": "./exports/validator.d.ts"
+    },
+    "./node": {
+      "import": "./exports/node.js",
+      "types": "./exports/node.d.ts"
     }
   },
   "bin": {
-    "leofcoin": "./exports/validator-cli.js",
+    "leofcoin": "./exports/cli.js",
     "leofcoin-validator": "./exports/validator-cli.js"
   },
   "files": [

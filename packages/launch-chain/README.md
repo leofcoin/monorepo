@@ -17,12 +17,30 @@ const { chain, endpoints, mode } = await launch(
 // when mode is direct means chain is directly available and no endpoint is needed to interact with it
 ```
 
+## command line
+
+No monorepo checkout or global install is required:
+
+```sh
+npx --package @leofcoin/launch-chain leofcoin --help
+```
+
+Run a normal syncing full node with HTTP and WebSocket endpoints:
+
+```sh
+npx --package @leofcoin/launch-chain leofcoin node
+```
+
+The same CLI exposes `node`, `validator`, `account`, `balance`, `status`, and
+`transfer` commands. `node` never registers as a validator. Only the explicit
+`validator` command checks validator eligibility and starts participation.
+
 ## run a validator
 
 No monorepo checkout is required. Run the validator directly from the published package:
 
 ```sh
-npx --package @leofcoin/launch-chain leofcoin-validator
+npx --package @leofcoin/launch-chain leofcoin validator
 ```
 
 The first run uses the normal interactive identity-password prompt. A new account must receive
@@ -43,7 +61,8 @@ process can replace a separate launch-chain server. Change them with `--http-por
 or use `--no-endpoints` for a validator that should not expose an API.
 
 Never put the password or an identity backup in a command-line argument, service file, or Git.
-Use `leofcoin-validator --help` for all options.
+The legacy `leofcoin-validator` command remains an alias for `leofcoin validator`.
+Use `leofcoin --help` for all commands and options.
 
 ### send LFC from the local validator
 
@@ -56,8 +75,8 @@ leofcoin> balance
 leofcoin> transfer YTq... 1000
 ```
 
-When the validator is stopped, a one-shot transfer can start the same local identity, participate,
-finalize the transfer, and exit:
+When the node is stopped, a one-shot transfer can start the same local identity,
+finalize the transfer, and exit. It does not register or participate as a validator:
 
 ```sh
 npx --package @leofcoin/launch-chain leofcoin transfer YTq... 1000 \
