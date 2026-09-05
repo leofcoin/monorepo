@@ -1,4 +1,4 @@
-import { sha256 } from '@noble/hashes/sha256'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { fromBase58, toBase58 } from '@vandeurenglenn/typed-array-utils'
 
 import { deriveBeaconGroupPublicKey } from './beacon.ts'

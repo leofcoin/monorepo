@@ -1,5 +1,5 @@
 import { bls12_381 as bls } from '@noble/curves/bls12-381'
-import { sha256 } from '@noble/hashes/sha256'
+import { sha256 } from '@noble/hashes/sha2.js'
 
 const encoder = new TextEncoder()
 const Fr = bls.fields.Fr
