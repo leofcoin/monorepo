@@ -18,11 +18,20 @@ try {
   await Promise.allSettled(promises)
 } catch (error) {}
 
+const browserCrypto = {
+  name: 'browser-crypto',
+  resolveId(source) {
+    if (source === 'crypto') return join(process.cwd(), 'src/browser-crypto.ts')
+    return null
+  }
+}
+
 export default [
   {
     input: [
       './src/chain.ts',
       './src/node.ts',
+      './src/connection-monitor.ts',
       './src/consensus/beacon.ts',
       './src/consensus/beacon-wire.ts',
       './src/consensus/beacon-envelope.ts',
@@ -61,6 +70,7 @@ export default [
     },
     plugins: [
       json(),
+      browserCrypto,
       nodeResolve({
         browser: true,
         preferBuiltins: false,

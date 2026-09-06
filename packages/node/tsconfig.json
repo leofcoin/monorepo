@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": false,
+    "useDefineForClassFields": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

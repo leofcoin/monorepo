@@ -1,12 +1,35 @@
 import Peer from '@netpeer/swarm/peer'
 
+const INITIAL_RECONNECT_DELAY = 5000
+const MAX_RECONNECT_DELAY = 30000
+
+export const isSendablePeer = (peer: unknown): peer is Peer => {
+  if (!peer || typeof peer !== 'object') return false
+  const candidate = peer as Record<string, unknown>
+  if (typeof candidate.send !== 'function') return false
+  if (candidate.connected === true) return true
+  return typeof candidate.once === 'function' && typeof candidate.removeListener === 'function'
+}
+
+export const guardPeerMessages = (peernet) => {
+  const sendMessage = peernet.sendMessage.bind(peernet)
+  peernet.sendMessage = (peer, ...args) => {
+    if (isSendablePeer(peer)) return sendMessage(peer, ...args)
+
+    for (const [peerId, connection] of Object.entries(peernet.connections || {})) {
+      if (connection === peer) delete peernet.connections[peerId]
+    }
+    return Promise.resolve(undefined)
+  }
+}
+
 /**
  * Connection Monitor - Monitors peer connections and handles reconnection logic
  */
 export default class ConnectionMonitor {
   #isMonitoring: boolean = false
   #checkInterval: NodeJS.Timeout | null = null
-  #reconnectDelay: number = 5000
+  #reconnectDelay: number = INITIAL_RECONNECT_DELAY
   #reconnectTimer: NodeJS.Timeout | null = null
   #healthCheckInterval: number = 60000
   #version: string
@@ -38,6 +61,18 @@ export default class ConnectionMonitor {
 
   get disconnectedPeers() {
     return Object.values(globalThis.peernet?.connections || {}).filter((peer) => !peer.connected)
+  }
+
+  #pruneInvalidConnections() {
+    const connections = globalThis.peernet?.connections
+    if (!connections) return
+
+    for (const [peerId, peer] of Object.entries(connections)) {
+      if (!isSendablePeer(peer)) {
+        delete connections[peerId]
+        console.warn(`Removed invalid peer connection: ${peerId}`)
+      }
+    }
   }
 
   start(version) {
@@ -94,7 +129,7 @@ export default class ConnectionMonitor {
         this.#reconnectTimer = null
       }
       this.#reconnecting = false
-      this.#reconnectDelay = 5000
+      this.#reconnectDelay = INITIAL_RECONNECT_DELAY
     }
     globalThis.pubsub?.subscribe('peer:connected', this.#onPeerConnected)
   }
@@ -142,6 +177,8 @@ export default class ConnectionMonitor {
   }
 
   async #healthCheck() {
+    this.#pruneInvalidConnections()
+
     const now = Date.now()
     const expectedNext = this.#lastHealthCheckAt + this.#healthCheckInterval
     const drift = now - expectedNext
@@ -165,10 +202,10 @@ export default class ConnectionMonitor {
     // If we have no connections or none are compatible, try to reconnect.
     // Don't trigger reconnection if peers are still in WebRTC ICE negotiation (disconnectedPeers > 0) —
     // reinit() would tear down the in-flight handshake.
-    if (connectedPeers.length === 0 && disconnectedPeers.length === 0) {
+    if (connectedPeers.length === 0 && disconnectedPeers.length === 0 && !this.#reconnectTimer) {
       console.warn('⚠️ No peer connections detected — attempting reconnection')
       await this.#attemptReconnection()
-    } else if (compatiblePeers.length === 0 && connectedPeers.length > 0) {
+    } else if (compatiblePeers.length === 0 && connectedPeers.length > 0 && !this.#reconnectTimer) {
       console.warn('⚠️ No compatible peers found — attempting reconnection')
       await this.#attemptReconnection()
     }
@@ -303,6 +340,8 @@ export default class ConnectionMonitor {
       // Give it a moment to establish connections
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
+      this.#pruneInvalidConnections()
+
       const connectedAfter = this.connectedPeers.length
       console.log(`🔄 Restoration complete. Connected peers: ${connectedAfter}`)
     } catch (error: any) {
@@ -345,32 +384,30 @@ export default class ConnectionMonitor {
       const hasConnections = this.connectedPeers.length > 0 || this.disconnectedPeers.length > 0
       if (hasConnections) {
         console.log('✅ Reconnection successful, resetting backoff delay')
-        this.#reconnectDelay = 5000
+        this.#reconnectDelay = INITIAL_RECONNECT_DELAY
       } else {
         console.warn('⚠️ Reconnection attempt completed but no peers connected')
-        // Schedule retry with backoff
-        if (this.#reconnectDelay >= 30000) {
-          console.warn('⚠️ Reconnection delay reached maximum, resetting to 5 seconds')
-          this.#reconnectDelay = 5000
-        } else {
-          // exponential-ish backoff
-          this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
-          console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
-        }
-
-        this.#reconnectTimer = setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
+        this.#scheduleReconnect()
       }
     } catch (error: any) {
       console.error('❌ Reconnection failed:', error?.message || error)
-
-      // Schedule retry with backoff
-      if (this.#reconnectDelay >= 30000) {
-        this.#reconnectDelay = 5000
-      } else {
-        this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, 30000)
-      }
-
-      this.#reconnectTimer = setTimeout(() => this.#attemptReconnection(), this.#reconnectDelay)
+      this.#scheduleReconnect()
     }
+  }
+
+  #scheduleReconnect() {
+    if (!this.#isMonitoring || this.#reconnectTimer) return
+
+    if (this.#reconnectDelay >= MAX_RECONNECT_DELAY) {
+      console.warn('⚠️ No peers available; automatic retries paused until the next health check or network event')
+      return
+    }
+
+    this.#reconnectDelay = Math.min(this.#reconnectDelay * 1.5, MAX_RECONNECT_DELAY)
+    console.warn(`⚠️ Increasing reconnection delay to ${this.#reconnectDelay} ms`)
+    this.#reconnectTimer = setTimeout(() => {
+      this.#reconnectTimer = null
+      void this.#attemptReconnection()
+    }, this.#reconnectDelay)
   }
 }

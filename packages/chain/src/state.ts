@@ -561,6 +561,13 @@ export default class State extends Contract {
       const remoteIndex = Number(lastBlock.index)
       const remoteBlockHash = lastBlock.hash
 
+      globalThis.pubsub.publish('sync-progress', {
+        phase: 'syncing',
+        startIndex: localIndex,
+        localIndex,
+        targetIndex: remoteIndex
+      })
+
       // Get the local state hash from chainStore
       let localStateHash = '0x0'
       try {
@@ -647,6 +654,13 @@ export default class State extends Contract {
       } else {
         debug(`Block already in local state. Remote hash: ${remoteBlockHash} matches local state`)
       }
+
+      globalThis.pubsub.publish('sync-progress', {
+        phase: 'synced',
+        startIndex: localIndex,
+        localIndex: remoteIndex,
+        targetIndex: remoteIndex
+      })
     } catch (error) {
       console.log(error)
 

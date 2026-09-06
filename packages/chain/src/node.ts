@@ -3,6 +3,7 @@ import Peernet from '@leofcoin/peernet'
 import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
 import { DEFAULT_NODE_OPTIONS, type NodeOptions } from './constants.js'
+import { guardPeerMessages } from './connection-monitor.js'
 
 export default class Node {
   #node
@@ -12,10 +13,7 @@ export default class Node {
     this.ready = this._init(config, password)
   }
 
-  async _init(
-    config: NodeOptions = { autoStart: false },
-    password?: string
-  ) {
+  async _init(config: NodeOptions = { autoStart: false }, password?: string) {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
     if (config.storeNamespace && !config.root) {
       const [network, networkVersion] = config.network.split(':')
@@ -24,6 +22,7 @@ export default class Node {
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)
+    guardPeerMessages(this.#node)
     await nodeConfig(config)
 
     globalThis.pubsub.subscribe('chain:ready', async () => {
