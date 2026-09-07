@@ -9,6 +9,7 @@
     "build:monaco": "rollup -c rollup.monaco.config.js",
     "watch": "cross-env NODE_ENV=development rollup -c rollup.dev.config.js -w",
     "build": "cross-env NODE_ENV=production rollup -c",
+    "validate:static": "node ./scripts/validate-static-build.js",
     "test": "node --test"
   },
   "keywords": [],

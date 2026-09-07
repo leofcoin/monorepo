@@ -246,7 +246,8 @@ export class LoginScreen extends LiteElement {
   async #spawnChain(password) {
     console.time('loading chain')
     let importee
-    importee = await import('/chain/node-browser.js')
+    const nodeBrowserUrl = new URL('./chain/node-browser.js', document.baseURI).href
+    importee = await import(nodeBrowserUrl)
     await new importee.default(
       {
         network: 'leofcoin:peach',
@@ -261,7 +262,8 @@ export class LoginScreen extends LiteElement {
     importee = await import('@leofcoin/lib/node-config')
     const config = await importee.default()
 
-    importee = await import('/chain/chain.js')
+    const chainUrl = new URL('./chain/chain.js', document.baseURI).href
+    importee = await import(chainUrl)
     globalThis.chain = await new importee.default({ resolveTimeout: 30_000 })
     console.log(chain)
     console.timeEnd('loading chain')
