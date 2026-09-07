@@ -9,6 +9,13 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'packages/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/node-pages.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/**'
 
 permissions:
   contents: read
@@ -31,6 +38,7 @@ jobs:
           cache: npm
 
       - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
 
       - name: Install dependencies
@@ -49,11 +57,13 @@ jobs:
         run: npm run validate:static -w @leofcoin/node
 
       - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: packages/node/www
 
   deploy:
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
