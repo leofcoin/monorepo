@@ -19,6 +19,9 @@ const { chain, endpoints, mode } = await launch(
 
 ## command line
 
+Requires Node.js 24.15.0 or newer. The default native WebRTC backend is
+`@vandeurenglenn/wrtc` 0.7.2 or newer.
+
 No monorepo checkout or global install is required:
 
 ```sh
@@ -122,13 +125,14 @@ no prebuild are provided since the esm switch, everything is written with the br
 ### rollup
 
 ```js
-external: ['@koush/wrtc', '@leofcoin/endpoints/ws', '@leofcoin/endpoints/http']
+external: ['@vandeurenglenn/wrtc', '@koush/wrtc', '@leofcoin/endpoints/ws', '@leofcoin/endpoints/http']
 ```
 
 ### webpack
 
 ```js
 externals: {
+  '@vandeurenglenn/wrtc': false,
   '@koush/wrtc': false,
   '@leofcoin/endpoints/ws': false,
   '@leofcoin/endpoints/http': false

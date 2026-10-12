@@ -15,6 +15,14 @@ export default class Node {
 
   async _init(config: NodeOptions = { autoStart: false }, password?: string) {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
+    // Load the chain's supported native version before swarm starts discovery.
+    // Swarm otherwise resolves its own older optional dependency.
+    const backend = (config as any).transport?.webrtc?.backend ||
+      process.env.NETPEER_SWARM_WRTC_BACKEND || 'vandeurenglenn'
+    if (backend === 'vandeurenglenn' && !globalThis.RTCPeerConnection && !globalThis.wrtc) {
+      globalThis.wrtc = await import('@vandeurenglenn/wrtc')
+      globalThis.__swarmWrtcImpl = backend
+    }
     if (config.storeNamespace && !config.root) {
       const [network, networkVersion] = config.network.split(':')
       config.root = `.${network}/${networkVersion || config.networkVersion}/${config.storeNamespace}`

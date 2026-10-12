@@ -6,7 +6,7 @@ Run the local four-process bootstrap and restart gate with:
 npm run test:e2e
 ```
 
-In GitHub Codespaces or VS Code, this is also available from **Tasks: Run Test Task** as **Leofcoin: Multi-node E2E**. The repository's dev container pins Node 22 and installs dependencies during Codespace creation.
+In GitHub Codespaces or VS Code, this is also available from **Tasks: Run Test Task** as **Leofcoin: Multi-node E2E**. The repository's dev container uses Node 24 and installs dependencies during Codespace creation. Node 24.15.0 or newer is required for the default WebRTC backend.
 
 This creates isolated temporary homes and a local discovery star. It verifies the existing four-node bootstrap/restart lifecycle and a two-node chain-sync flow where a late node discovers a source node, requests `lastBlock` and `knownBlocks` through the real transport, fetches two canonical fixture blocks, converges on the same persisted state snapshot, and retains that state after restart. Temporary data is always removed.
 
