@@ -2,6 +2,7 @@ import { html, css, LiteElement, property, customElement, map } from '@vandeuren
 import { render } from 'lit-html'
 import generateAccount from '@leofcoin/generate-account'
 import IdentityController from '../controllers/identity.js'
+import { bindWalletToNode } from '../controllers/wallet-bootstrap.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
 import QrScanner from 'qr-scanner'
@@ -270,6 +271,12 @@ export class LoginScreen extends LiteElement {
 
   async #spawnChain(password) {
     console.time('loading chain')
+    if (!globalThis.accountStore) {
+      const Storage = (await import('@leofcoin/storage')).default
+      globalThis.accountStore = new Storage('account', '.leofcoin/peach')
+      await globalThis.accountStore.init()
+    }
+    await bindWalletToNode(document.querySelector('app-shell').wallet, globalThis.walletStore, globalThis.accountStore)
     let importee
     const nodeBrowserUrl = new URL('./chain/node-browser.js', document.baseURI).href
     importee = await import(nodeBrowserUrl)

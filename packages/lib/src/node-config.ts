@@ -20,7 +20,7 @@ declare global {
 }
 
 export default async (
-  config = {
+  config: { network: string; networkVersion?: string; root?: string; storeNamespace?: string } = {
     network: 'leofcoin:peach',
     networkVersion: 'v1.0.0'
   }

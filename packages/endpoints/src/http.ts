@@ -11,9 +11,6 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const api = new koa()
-const router = new Router()
-
 const converter = new Showdown.Converter()
 const apiFile = await readFile(join(__dirname, './api.md'))
 
@@ -22,6 +19,8 @@ const apiFile = await readFile(join(__dirname, './api.md'))
  * ensure remote is set to false when serving on a server
  */
 export default (chain, port, networkVersion, remote: boolean = false) => {
+  const api = new koa()
+  const router = new Router()
   // api routes
   router.get('/', (ctx) => {
     ctx.body = converter.makeHtml(apiFile.toString())
@@ -180,6 +179,13 @@ export default (chain, port, networkVersion, remote: boolean = false) => {
 
   // todo finish ...
   api.use(cors({ origin: '*' }))
+  api.use(async (ctx, next) => {
+    await next()
+    if (ctx.body !== null && typeof ctx.body === 'object') {
+      ctx.body = JSON.stringify(ctx.body, jsonStringifyBigInt)
+      ctx.type = 'application/json'
+    }
+  })
   api.use(router.routes())
-  api.listen(port)
+  return api.listen(port)
 }

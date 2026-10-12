@@ -16,6 +16,7 @@ export default {
     },
 
     peach: {
+      faucet: 'https://remote.leofcoin.org/faucet',
       port: 44444,
       description: 'Main testnet: latest step before merging into main',
       versionHash: '1',
