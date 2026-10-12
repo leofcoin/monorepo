@@ -58,6 +58,7 @@ class AppShell extends LiteElement {
 
   @property({ type: String, provides: true })
   accessor nodeStartError = ''
+  #networkTimer: ReturnType<typeof setInterval>
 
   @property({ type: Number, provides: true })
   accessor syncStartIndex = 0
@@ -113,7 +114,7 @@ class AppShell extends LiteElement {
 
   #nodeReady = new Promise((resolve) => {
     pubsub.subscribe('node:ready', () => {
-      this.isNodeReady = true
+      this.isNodeReady = globalThis.chain?.state?.sync === 'synced'
       resolve(true)
     })
   })
@@ -191,20 +192,13 @@ class AppShell extends LiteElement {
       this.totalLoaded += 1
       this.lastBlockIndex = Number(block.index)
     })
-    try {
-      let importee
-      importee = await import('@leofcoin/endpoint-clients/ws')
-      globalThis.client = await new importee.default('wss://ws-remote.leofcoin.org', 'peach')
-      console.log(client)
-
-      // @ts-ignore
-      globalThis.client.init && (await globalThis.client.init())
-      console.log('client init')
-    } catch (error) {
-      console.error(error)
-    }
-
-    this.#login()
+    this.#login().catch((error) => {
+      this.nodeStartError = error instanceof Error ? error.message : String(error)
+    })
+    this.#networkTimer = setInterval(() => {
+      const connected = Object.values(globalThis.peernet?.connections || {}).some((peer: any) => peer.connected)
+      this.isNodeReady = Boolean(connected && globalThis.chain?.state?.sync === 'synced')
+    }, 3000)
     import('./integrations/nfc.js')
     // await this.init()
     // globalThis.walletStorage = new Storage('wallet')
@@ -212,9 +206,13 @@ class AppShell extends LiteElement {
     // lo
   }
 
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    clearInterval(this.#networkTimer)
+  }
+
   async #login() {
     if (!globalThis.walletStore) {
-      const importee = await import('@leofcoin/storage')
       // todo: race condition introduced?
       // for some reason walletStore can't find current wallet
       globalThis.walletStore = globalThis.walletStore || (await new Storage('wallet', '.leofcoin/peach'))

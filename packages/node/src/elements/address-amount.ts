@@ -4,7 +4,15 @@ import { state } from '../state/state.js'
 
 export class AddressAmount extends LiteElement {
   @property({ type: String, reflect: true }) accessor address
-  @property({ type: String, reflect: true }) accessor amount
+  @property({ type: String, reflect: true }) accessor amount = '—'
+  connectedCallback() {
+    super.connectedCallback()
+    globalThis.pubsub.subscribe('block-processed', this.#updateAmount)
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    globalThis.pubsub.unsubscribe('block-processed', this.#updateAmount)
+  }
 
   onChange(propertyKey: string, value: any): void {
     propertyKey === 'address' && value !== undefined && this.#updateAmount()
@@ -30,7 +38,7 @@ export class AddressAmount extends LiteElement {
         console.error('Error fetching balance:', error)
       }
     }
-    this.amount = formatUnits(BigInt(amount)).toLocaleString()
+    this.amount = amount === undefined ? 'Unavailable' : formatUnits(BigInt(amount ?? 0n))
   }
 
   static styles = [

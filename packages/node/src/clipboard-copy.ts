@@ -12,7 +12,7 @@ export default customElements.define(
 
     set value(value) {
       this.#value = value
-      this.innerHTML = value
+      this.textContent = value
     }
 
     get value() {

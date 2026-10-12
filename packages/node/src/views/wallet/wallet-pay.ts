@@ -1,6 +1,7 @@
 import { LiteElement, html, css, property, customElement } from '@vandeurenglenn/lite'
 import { formatUnits, parseUnits } from '@leofcoin/utils'
-import { calculateFee, signTransaction } from '@leofcoin/lib'
+import { prepareTransfer, submitTransfer, errorMessage } from '../../controllers/transfer.js'
+import { saveActivity } from '../../controllers/activity.js'
 import './../../elements/hero.js'
 import '@vandeurenglenn/lite-elements/typography.js'
 import { StyleList } from '@vandeurenglenn/lite/element'
@@ -154,17 +155,15 @@ export class WalletPay extends LiteElement {
       const currentBalance = BigInt(balanceRaw)
       const sendAmount = this.#amountBaseValue()
 
-      const token = (await client.nativeToken()) as unknown as string
-      const nonce = (await client.getNonce(account)) as number
-      const rawTransaction = {
-        timestamp: Date.now(),
+      const prepared = await prepareTransfer({
+        chain,
+        peernet: globalThis.peernet,
+        identity: globalThis.identityController,
         from: account,
-        to: token,
-        method: 'transfer',
-        nonce: nonce + 1,
-        params: [account, this.to || account, sendAmount.toString()]
-      }
-      const estimatedFeeBase = this.#toBigIntFee(await calculateFee(rawTransaction, false))
+        to: this.to,
+        amount: this.amount
+      })
+      const estimatedFeeBase = parseUnits(prepared.fee)
 
       this.availableBalance = this.#formatBaseValue(currentBalance)
       this.estimatedFee = estimatedFeeBase !== null ? `${this.#formatBaseValue(estimatedFeeBase)} LFC` : 'Unavailable'
@@ -205,8 +204,8 @@ export class WalletPay extends LiteElement {
     const querySource = inlineHashbang
       ? input.slice('#!/wallet/pay?'.length)
       : hashbangIndex > -1
-        ? input.slice(hashbangIndex + '#!/wallet/pay?'.length)
-        : ''
+      ? input.slice(hashbangIndex + '#!/wallet/pay?'.length)
+      : ''
 
     if (querySource) {
       const params = new URLSearchParams(querySource)
@@ -271,6 +270,7 @@ export class WalletPay extends LiteElement {
   }
 
   #accept = async () => {
+    if (this.submitting || this.paymentState === 'submitted' || this.paymentState === 'confirmed') return
     if (!this.to || !this.amount) {
       this.validationError = 'Recipient and amount are required before you can pay.'
       return
@@ -283,34 +283,27 @@ export class WalletPay extends LiteElement {
 
     this.submitting = true
     this.validationError = ''
-    let from = this.wallet.selectedAccount
-    console.log({ from })
-    const token = (await client.nativeToken()) as unknown as string
-
-    const nonce = (await client.getNonce(from)) as number
-    const rawTransaction = {
-      timestamp: Date.now(),
-      from,
-      to: token,
-      method: 'transfer',
-      nonce: nonce + 1,
-      params: [from, this.to, parseUnits(this.amount).toString()]
-    }
-    const transaction = await signTransaction(rawTransaction, globalThis.identityController)
-    console.log(transaction)
     try {
-      const transactionEvent = await client.sendTransaction(transaction)
-      console.log(transactionEvent)
-      this.txHash = transactionEvent.hash || ''
-      this.paymentState = 'submitted'
+      const prepared = await prepareTransfer({
+        chain,
+        peernet: globalThis.peernet,
+        identity: globalThis.identityController,
+        from: this.wallet?.selectedAccount,
+        to: this.to,
+        amount: this.amount
+      })
+      await submitTransfer(chain, prepared, (event) => {
+        this.txHash = event.hash || this.txHash
+        this.paymentState =
+          event.phase === 'pending' ? 'submitted' : event.phase === 'confirmed' ? 'confirmed' : 'review'
+        if (event.hash)
+          saveActivity({ ...prepared, signed: undefined, hash: event.hash, phase: event.phase, timestamp: Date.now() })
+      })
       this.submitting = false
-
-      await transactionEvent.wait
-      this.paymentState = 'confirmed'
     } catch (error) {
       this.submitting = false
       this.paymentState = 'failed'
-      this.validationError = 'Payment submission failed. Please try again.'
+      this.validationError = errorMessage(error)
     }
   }
 
@@ -462,14 +455,14 @@ export class WalletPay extends LiteElement {
         this.paymentState === 'submitted'
           ? 'Payment submitted'
           : this.paymentState === 'confirmed'
-            ? 'Payment confirmed'
-            : 'Payment failed'
+          ? 'Payment confirmed'
+          : 'Payment failed'
       const subline =
         this.paymentState === 'submitted'
           ? 'Waiting for chain confirmation...'
           : this.paymentState === 'confirmed'
-            ? 'Your transaction is confirmed.'
-            : 'Please review details and try again.'
+          ? 'Your transaction is confirmed.'
+          : 'Please review details and try again.'
 
       return html`
         <hero-element .headline=${headline} .subline=${subline}>

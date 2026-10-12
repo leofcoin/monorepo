@@ -59,16 +59,20 @@ export class WalletReceive extends LitElement {
 
     const params = new URLSearchParams({
       to: this.address,
-      protocol: 'url'
+      protocol: 'url',
+      network: 'leofcoin:peach'
     })
 
     if (this.amount) params.set('amount', this.amount)
     if (this.note) params.set('description', this.note)
 
-    this.requestUrl = `#!/wallet/pay?${params.toString()}`
+    this.requestUrl = `${new URL(document.baseURI).origin}${
+      new URL(document.baseURI).pathname
+    }#!/wallet/pay?${params.toString()}`
     this.requestText = JSON.stringify(
       {
         action: 'pay',
+        network: 'leofcoin:peach',
         to: this.address,
         amount: this.amount || undefined,
         description: this.note || undefined,
