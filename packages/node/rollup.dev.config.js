@@ -125,11 +125,7 @@ export default [
       format: 'es'
     },
     external: [
-      './identity.js',
-      './../../monaco/monaco-loader.js',
-      '@monaco-import',
-      '/chain/node-browser.js',
-      '/chain/chain.js'
+      './identity.js'
       // '@leofcoin/storage',
       // './storage.js'
     ],
@@ -160,7 +156,6 @@ export default [
       modify({
         '@build': BUILD,
         '@version': packagesJSON.version,
-        '@monaco-import': './../../monaco/monaco-loader.js',
         // '@leofcoin/storage': './storage.js',
         './exports/browser/workers/machine-worker.js': 'workers/machine-worker.js'
       })

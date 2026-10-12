@@ -37,7 +37,8 @@ export default customElements.define(
 
     async #loadMonaco() {
       if (!globalThis.monaco) {
-        const importee = await import('@monaco-import')
+        const monacoUrl = new URL('./monaco/monaco-loader.js', document.baseURI).href
+        const importee = await import(monacoUrl)
 
         globalThis.monaco = importee.default
       }

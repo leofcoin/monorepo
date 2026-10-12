@@ -34,5 +34,6 @@ www/www/*.js
 packages/messages/exports
 packages/**/www/**/*.js
 packages/**/www/**/index.html
+packages/**/www/manifest.json
 
 packages/**/www/**/*.ts

@@ -10,8 +10,9 @@ test('uses the monorepo chain browser bundle', async () => {
   await access(`../chain/${browserNode}`)
 
   const login = await readFile('src/screens/login.ts', 'utf8')
-  assert.match(login, /import\('\/chain\/node-browser\.js'\)/)
-  assert.match(login, /import\('\/chain\/chain\.js'\)/)
+  assert.match(login, /new URL\('\.\/chain\/node-browser\.js', document\.baseURI\)/)
+  assert.match(login, /new URL\('\.\/chain\/chain\.js', document\.baseURI\)/)
+  assert.doesNotMatch(login, /import\('\/chain\//)
 })
 
 test('keeps the browser crypto shim inside the node workspace', async () => {

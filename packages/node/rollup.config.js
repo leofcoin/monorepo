@@ -47,8 +47,8 @@ if (env.NODE_ENV === 'development') {
     `<script type="module">
     if ("serviceWorker" in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
+        const registration = await navigator.serviceWorker.register("./sw.js", {
+          scope: "./",
         });
         if (registration.installing) {
           console.log("Service worker installing");
@@ -62,7 +62,7 @@ if (env.NODE_ENV === 'development') {
       }
     }
   </script>
-  <link rel="manifest" href="/manifest.json">`
+  <link rel="manifest" href="./manifest.json">`
   )
 }
 
@@ -98,6 +98,10 @@ try {
   }
 } catch (error) {}
 
+await Promise.all([
+  cp('src/manifest.json', 'www/manifest.json'),
+  cp('src/sw.js', 'www/sw.js')
+])
 await cp(chainBrowserExports, 'www/chain', { recursive: true })
 
 export default [
@@ -108,11 +112,7 @@ export default [
       format: 'es'
     },
     external: [
-      './identity.js',
-      './../../monaco/monaco-loader.js',
-      '@monaco-import',
-      '/chain/node-browser.js',
-      '/chain/chain.js'
+      './identity.js'
     ],
     plugins: [
       alias({
@@ -145,7 +145,6 @@ export default [
       modify({
         '@build': BUILD,
         '@version': packagesJSON.version,
-        '@monaco-import': './../../monaco/monaco-loader.js',
         './exports/browser/workers/machine-worker.js': 'workers/machine-worker.js'
       })
     ]
