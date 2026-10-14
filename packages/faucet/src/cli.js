@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { unlinkSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
