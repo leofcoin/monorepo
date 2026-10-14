@@ -87,7 +87,10 @@ describe('LiquidityPool', () => {
     assert.equal(balanceOf(token1, bob), 80_000n)
   })
 
-  it('swaps with a constant-product fee and enforces slippage', async () => {
+  it('swaps with a constant-product fee and enforces slippage', async (t) => {
+    // Contract VM time is fixed for a transaction. Do not race a wall-clock
+    // deadline against the async lock before the slippage check.
+    t.mock.method(Date, 'now', () => 1_700_000_000_000)
     await pool.addLiquidity(10_000n, 10_000n)
     global.msg.sender = bob
 
@@ -105,7 +108,8 @@ describe('LiquidityPool', () => {
     assert.equal(balanceOf(token1, bob), 100_906n)
   })
 
-  it('rejects expired swaps', async () => {
+  it('rejects expired swaps', async (t) => {
+    t.mock.method(Date, 'now', () => 1_700_000_000_000)
     await pool.addLiquidity(10_000n, 10_000n)
     await assert.rejects(pool.swapExactTokensForTokens(token0, 1_000n, 1n, alice, Date.now() - 1), {
       message: 'swap expired'
