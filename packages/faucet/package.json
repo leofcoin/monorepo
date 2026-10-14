@@ -1,7 +1,16 @@
 {
   "name": "@leofcoin/faucet",
   "version": "0.1.0",
-  "private": true,
+  "description": "Operator-funded faucet for the Leofcoin Peach testnet",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/faucet"
+  },
+  "publishConfig": { "access": "public" },
+  "bin": { "leofcoin-faucet": "./src/cli.js" },
+  "files": ["src/cli.js", "src/server.js", "src/service.js", "deploy", "README.md"],
   "type": "module",
   "engines": { "node": ">=24.15.0" },
   "scripts": { "start": "node src/cli.js", "test": "node --test test/*.test.js" },

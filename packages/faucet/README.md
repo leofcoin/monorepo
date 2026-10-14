@@ -17,6 +17,19 @@ process is no longer running. Never share the directory across machines.
 
 ## Run locally
 
+After the package and its updated runtime dependencies are published to npm,
+no monorepo checkout is needed:
+
+```sh
+FAUCET_DATA_DIR=/absolute/private/faucet-directory npx --yes --package @leofcoin/faucet leofcoin-faucet
+```
+
+This starts a persistent signing service, not a validator. Its data directory
+must remain private and outside the package installation directory. For a
+production service, install and pin a reviewed package version rather than
+downloading a changing version at every boot. Deployment templates are included
+in the package's `deploy` directory.
+
 Requires Node >=24.15.0. From the monorepo root:
 
 ```sh
