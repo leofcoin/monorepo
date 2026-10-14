@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/chain",
-  "version": "1.10.14",
+  "version": "1.10.15",
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
@@ -106,8 +106,6 @@
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.45",
     "@leofcoin/workers": "^1.5.38",
-    "@noble/curves": "^1.2.0",
-    "@noble/hashes": "^2.3.0",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/easy-worker": "^1.0.3",
     "@vandeurenglenn/typed-array-utils": "^1.2.0",
