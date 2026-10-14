@@ -68,6 +68,7 @@ export default [
       dir: './exports/browser',
       format: 'es'
     },
+    external: ['@vandeurenglenn/wrtc', '@koush/wrtc'],
     plugins: [
       json(),
       browserCrypto,

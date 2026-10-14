@@ -47,7 +47,10 @@
     "@leofcoin/endpoints": "^0.4.9",
     "@leofcoin/lib": "^1.3.10",
     "@leofcoin/networks": "^1.1.30",
-    "@vandeurenglenn/wrtc": "^0.5.5"
+    "@vandeurenglenn/wrtc": "^0.7.2"
+  },
+  "engines": {
+    "node": ">=24.15.0"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",

@@ -216,6 +216,7 @@ const status = async () => ({
   peers: globalThis.peernet.peers.length,
   connectedPeers: Object.values(globalThis.peernet.connections || {}).filter((peer) => peer.connected).length,
   clientStarted: Boolean(globalThis.peernet.client),
+  supportedWebrtcBackend: globalThis.wrtc === await import('@vandeurenglenn/wrtc'),
   stars: globalThis.peernet.stars,
   discoveryEvents: discoveryEvents.length,
   discoverySubscribers: globalThis.pubsub.subscriberCount('peer:joined'),
