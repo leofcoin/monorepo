@@ -19,7 +19,7 @@ const remoteTip = async () => {
   const response = await fetch(`${remoteUrl}/lastBlock`, { signal: AbortSignal.timeout(10_000) })
   if (!response.ok) throw new Error(`remote lastBlock returned HTTP ${response.status}`)
   const value = await response.json()
-  const tip = { hash: value.hash, index: Number(value.index) }
+  const tip = { hash: value.hash, index: Number(value.index?.$bigint ?? value.index) }
   if (typeof tip.hash !== 'string' || !Number.isSafeInteger(tip.index)) throw new Error('remote returned invalid tip')
   return tip
 }

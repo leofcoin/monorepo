@@ -32,5 +32,8 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Test durable faucet payouts and HTTP limits
+        run: npm test -w @leofcoin/faucet
+
       - name: Run multi-process E2E tests
         run: node --test test/e2e/*.test.js

@@ -171,7 +171,7 @@ const launch = async (input: launchOptions = {}, password?: string): Promise<lau
       password
     )
     await node.ready
-    await nodeConfig({ network: options.network, networkVersion: options.networkVersion })
+    await nodeConfig({ network: options.network, networkVersion: options.networkVersion, root: options.root })
 
     chain = new Chain({ network: options.network, stars: options.stars, networkVersion: options.networkVersion })
     await chain.ready
@@ -210,7 +210,7 @@ const launch = async (input: launchOptions = {}, password?: string): Promise<lau
       password
     )
     await node.ready
-    await nodeConfig({ network: options.network, networkVersion: options.networkVersion })
+    await nodeConfig({ network: options.network, networkVersion: options.networkVersion, root: options.root })
 
     chain = new Chain({ network: options.network, stars: options.stars, networkVersion: options.networkVersion })
     await chain.ready

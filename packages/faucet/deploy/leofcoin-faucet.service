@@ -1,0 +1,26 @@
+[Unit]
+Description=Leofcoin Peach testnet faucet
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=leofcoin-faucet
+Group=leofcoin-faucet
+WorkingDirectory=/opt/leofcoin-monorepo
+EnvironmentFile=/etc/leofcoin-faucet.env
+ExecStart=/usr/bin/node /opt/leofcoin-monorepo/packages/faucet/src/cli.js
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=leofcoin-faucet
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/leofcoin-faucet
+
+[Install]
+WantedBy=multi-user.target

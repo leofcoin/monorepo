@@ -1,0 +1,15 @@
+{
+  "name": "@leofcoin/faucet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.15.0" },
+  "scripts": { "start": "node src/cli.js", "test": "node --test test/*.test.js" },
+  "dependencies": {
+    "@leofcoin/launch-chain": "^0.4.23",
+    "@leofcoin/lib": "^1.3.12",
+    "@leofcoin/multi-wallet": "^3.1.9",
+    "@leofcoin/utils": "^1.1.45",
+    "@vandeurenglenn/wrtc": "^0.7.2"
+  }
+}

@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js'
 import { formatUnits } from '@leofcoin/utils'
 import { prepareTransfer, submitTransfer, networkStatus, errorMessage } from '../../controllers/transfer.js'
 import { saveActivity } from '../../controllers/activity.js'
+import '../../elements/testnet-faucet.js'
 
 @customElement('wallet-send')
 export class WalletSend extends LitElement {
@@ -222,10 +223,9 @@ export class WalletSend extends LitElement {
         <p class="network" ?data-ready=${this.status.ready} role="status">
           ${this.status.label} · ${this.status.peers} peers
         </p>
-        <p class="muted">
-          Test LFC has no monetary value. Use Receive to share your address with a testnet operator for funding.
-        </p>
+        <p class="muted">Test LFC has no monetary value. Use the faucet below to fund your test wallet.</p>
       </section>
+      <section class="card"><testnet-faucet .address=${this.wallet?.selectedAccount || ''}></testnet-faucet></section>
       <section class="card">
         <h2>Send LFC</h2>
         ${this.phase === 'review'

@@ -47,6 +47,7 @@
     "@leofcoin/generate-account": "^2.0.3",
     "@leofcoin/lib": "^1.3.12",
     "@leofcoin/networks": "^1.1.30",
+    "@leofcoin/peernet": "^1.2.29",
     "@vandeurenglenn/base58": "^1.1.9",
     "@leofcoin/chain": "^1.9.15",
     "@leofcoin/codec-format-interface": "^1.8.2",
