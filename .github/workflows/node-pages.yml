@@ -47,6 +47,9 @@ jobs:
       - name: Build browser-node dependencies
         run: npm run build
 
+      - name: Test wallet signing and transaction flow
+        run: npm test -w @leofcoin/node
+
       - name: Build Monaco editor
         run: npm run build:monaco -w @leofcoin/node
 

@@ -1,86 +1,289 @@
-import { CSSResultGroup, LitElement, css, html } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { LitElement, html, css } from 'lit'
+import { customElement, property, state } from 'lit/decorators.js'
+import { formatUnits } from '@leofcoin/utils'
+import { prepareTransfer, submitTransfer, networkStatus, errorMessage } from '../../controllers/transfer.js'
+import { saveActivity } from '../../controllers/activity.js'
 
 @customElement('wallet-send')
 export class WalletSend extends LitElement {
-  @property()
-  accessor amount = ''
-
-  @property()
-  accessor to = ''
-
-  static styles?: CSSResultGroup = [
-    css`
-      :host {
-        width: 100%;
-        height: 100%;
-        align-items: center;
-        justify-content: center;
-        display: flex;
-        flex-direction: column;
-      }
-      flex-row {
-        width: 100%;
-      }
-      .container {
-        border-radius: 24px;
-        padding: 24px;
-        box-sizing: border-box;
-        background: var(--secondary-background);
-        color: var(--font-color);
-        border: 1px solid var(--border-color);
-        font-size: 18px;
-        width: 100%;
-        max-width: 320px;
-      }
-      input {
-        margin-top: 12px;
-        margin-bottom: 24px;
-        box-sizing: border-box;
-        width: 100%;
-      }
-      select,
-      input,
-      button {
-        pointer-events: auto;
-        background: var(--md-sys-color-surface-container-highest);
-        border: 1px solid var(--border-color);
-        font-size: 14px;
-        color: var(--md-sys-color-on-surface-container-highest);
-        border-radius: 24px;
-        padding: 6px 12px;
-      }
-      select,
-      button {
-        cursor: pointer;
-      }
-
-      label {
-        width: 100%;
-      }
-    `
-  ]
-
-  protected render() {
-    return html`
-      <hero-element>
-        <flex-row>
-          <label for=".amount">send</label>
-          <flex-it></flex-it>
-          <select>
-            <option>LFC</option>
-          </select>
-        </flex-row>
-        <input class="amount" placeholder="1" value=${this.amount} />
-        <label for=".to">to</label>
-        <input class="to" placeholder="address" value=${this.to} />
-        <flex-it></flex-it>
-        <flex-row>
-          <custom-button data-action="cancel" label="cancel">cancel</custom-button>
-          <flex-it></flex-it>
-          <custom-button data-action="requestSend" label="send" type="tonal"></custom-button>
-        </flex-row>
-      </hero-element>
-    `
+  @property({ type: Object }) accessor wallet: any
+  @property() accessor amount = ''
+  @property() accessor to = ''
+  @state() accessor balance = '—'
+  @state() accessor status = { ready: false, label: 'Unlock your wallet to start the node.', peers: 0 }
+  @state() accessor phase = 'entry'
+  @state() accessor error = ''
+  @state() accessor hash = ''
+  @state() accessor prepared: any
+  #timer: ReturnType<typeof setInterval>
+  #refreshing = false
+  get busy() {
+    return ['preparing', 'submitting', 'pending'].includes(this.phase)
+  }
+  connectedCallback() {
+    super.connectedCallback()
+    this.#refresh()
+    this.#timer = setInterval(() => this.#refresh(), 3000)
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    clearInterval(this.#timer)
+  }
+  updated(changed) {
+    if (changed.has('wallet')) this.#refresh()
+  }
+  async #refresh() {
+    if (this.#refreshing) return
+    this.#refreshing = true
+    try {
+      this.status = networkStatus(globalThis.chain, globalThis.peernet)
+      const from = this.wallet?.selectedAccount
+      this.balance = from && globalThis.chain ? formatUnits(BigInt((await chain.balanceOf(from)) ?? 0n)) : '—'
+    } catch {
+      this.balance = 'Unavailable'
+    } finally {
+      this.#refreshing = false
+    }
+  }
+  #reset = () => {
+    if (this.busy) return
+    this.phase = 'entry'
+    this.prepared = undefined
+    this.error = ''
+    this.hash = ''
+  }
+  #review = async () => {
+    if (this.busy) return
+    this.phase = 'preparing'
+    this.error = ''
+    this.hash = ''
+    try {
+      this.prepared = await prepareTransfer({
+        chain: globalThis.chain,
+        peernet: globalThis.peernet,
+        identity: globalThis.identityController,
+        from: this.wallet?.selectedAccount,
+        to: this.to,
+        amount: this.amount
+      })
+      this.phase = 'review'
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.phase = 'entry'
+    }
+  }
+  #send = async () => {
+    if (this.phase !== 'review') return
+    if (this.wallet?.selectedAccount !== this.prepared.from) {
+      this.error = 'Your selected account changed. Review the transfer again.'
+      this.phase = 'entry'
+      return
+    }
+    if (!networkStatus(chain, globalThis.peernet).ready) {
+      this.error = 'The node lost its connection. Wait for sync before sending.'
+      return
+    }
+    this.phase = 'submitting'
+    this.error = ''
+    try {
+      await submitTransfer(chain, this.prepared, (event) => {
+        this.phase = event.phase
+        this.hash = event.hash || this.hash
+        if (event.hash)
+          saveActivity({
+            ...this.prepared,
+            signed: undefined,
+            hash: event.hash,
+            phase: event.phase,
+            timestamp: Date.now()
+          })
+      })
+      this.amount = ''
+      this.to = ''
+      await this.#refresh()
+    } catch (error) {
+      this.error = errorMessage(error)
+      this.phase = 'failed'
+      if (this.hash)
+        saveActivity({ ...this.prepared, signed: undefined, hash: this.hash, phase: 'failed', timestamp: Date.now() })
+    }
+  }
+  static styles = css`
+    :host {
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      color: var(--md-sys-color-on-surface, #eee);
+      box-sizing: border-box;
+      padding: 24px 16px;
+    }
+    main {
+      width: 100%;
+      max-width: 560px;
+      margin: auto;
+      display: grid;
+      gap: 18px;
+    }
+    header,
+    p,
+    h1 {
+      margin: 0;
+    }
+    h1 {
+      font-size: 28px;
+    }
+    .muted {
+      opacity: 0.75;
+      font-size: 14px;
+    }
+    .card {
+      border: 1px solid var(--md-sys-color-outline, #45505d);
+      border-radius: 20px;
+      padding: 22px;
+      background: var(--md-sys-color-surface-container-high, #192029);
+      display: grid;
+      gap: 16px;
+    }
+    .balance {
+      font-size: 28px;
+      overflow-wrap: anywhere;
+    }
+    .address,
+    .hash {
+      overflow-wrap: anywhere;
+      font-size: 13px;
+    }
+    label {
+      display: grid;
+      gap: 8px;
+    }
+    input,
+    button {
+      font: inherit;
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-color, #45505d);
+      color: inherit;
+      background: transparent;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    button {
+      cursor: pointer;
+      background: var(--md-sys-color-primary, #93b4ff);
+      color: var(--md-sys-color-on-primary, #101b30);
+      font-weight: 600;
+    }
+    button.secondary {
+      background: transparent;
+      color: inherit;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+    }
+    .error {
+      color: #ffb4ab;
+    }
+    dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+    }
+    dd {
+      margin: 0;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+    .network {
+      font-size: 14px;
+      border-left: 3px solid #f7c873;
+      padding-left: 10px;
+    }
+    .network[data-ready] {
+      border-color: #80d6a5;
+    }
+  `
+  render() {
+    return html`<main>
+      <header>
+        <p class="muted">PEACH TEST NETWORK</p>
+        <h1>Your wallet</h1>
+      </header>
+      <section class="card">
+        <span class="muted">Available balance</span><strong class="balance">${this.balance} LFC</strong>
+        <span class="address">${this.wallet?.selectedAccount || 'Wallet locked'}</span>
+        <p class="network" ?data-ready=${this.status.ready} role="status">
+          ${this.status.label} · ${this.status.peers} peers
+        </p>
+        <p class="muted">
+          Test LFC has no monetary value. Use Receive to share your address with a testnet operator for funding.
+        </p>
+      </section>
+      <section class="card">
+        <h2>Send LFC</h2>
+        ${this.phase === 'review'
+          ? html`<p>Check your transfer before signing and sending.</p>
+              <dl>
+                <dt>Recipient</dt>
+                <dd>${this.prepared.to}</dd>
+                <dt>Amount</dt>
+                <dd>${this.prepared.amount} LFC</dd>
+                <dt>Network fee</dt>
+                <dd>${this.prepared.fee} LFC</dd>
+                <dt>Total</dt>
+                <dd>${this.prepared.total} LFC</dd>
+              </dl>
+              <div class="actions">
+                <button class="secondary" @click=${this.#reset}>Back</button
+                ><button @click=${this.#send}>Confirm and send</button>
+              </div>`
+          : this.phase === 'pending' || this.phase === 'submitting'
+          ? html`<p role="status">
+                ${this.phase === 'submitting'
+                  ? 'Submitting to your node…'
+                  : 'Accepted by your node. Waiting for canonical confirmation…'}
+              </p>
+              <p class="muted">
+                Confirmation requires active validators. Do not resend while this transaction is pending.
+              </p>`
+          : this.phase === 'confirmed'
+          ? html`<p role="status">Transaction confirmed on the chain.</p>
+              <button @click=${this.#reset}>New transfer</button>`
+          : html`<label
+                >Recipient address<input
+                  autocomplete="off"
+                  .value=${this.to}
+                  @input=${(e) => {
+                    this.to = e.target.value
+                    this.prepared = undefined
+                  }}
+                  ?disabled=${this.busy}
+              /></label>
+              <label
+                >Amount in LFC<input
+                  inputmode="decimal"
+                  autocomplete="off"
+                  placeholder="0.00"
+                  .value=${this.amount}
+                  @input=${(e) => {
+                    this.amount = e.target.value
+                    this.prepared = undefined
+                  }}
+                  ?disabled=${this.busy}
+              /></label>
+              <button @click=${this.#review} ?disabled=${!this.status.ready || this.busy}>
+                ${this.phase === 'preparing' ? 'Checking transfer…' : 'Review transfer'}
+              </button>`}
+        ${this.hash ? html`<p class="hash">Transaction: ${this.hash}</p>` : ''}
+        ${this.error ? html`<p role="alert" class="error">${this.error}</p>` : ''}
+      </section>
+    </main>`
   }
 }

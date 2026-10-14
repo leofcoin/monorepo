@@ -1,45 +1,45 @@
-import { html, LitElement } from "lit";
+import { html, LitElement } from 'lit'
 import '../clipboard-copy.js'
 
-export default customElements.define('export-screen', class ExportScreen extends LitElement {
-  static properties = {
-    shown: {
-      type: 'boolean',
-      reflect: true
-    },
-    qrcode: {
-      type: 'string'
-    },
-    exported: {
-      type: 'string'
+export default customElements.define(
+  'export-screen',
+  class ExportScreen extends LitElement {
+    static properties = {
+      shown: {
+        type: 'boolean',
+        reflect: true
+      },
+      qrcode: {
+        type: 'string'
+      },
+      exported: {
+        type: 'string'
+      }
     }
-  }
 
-  constructor() {
-    super()
-    this.addEventListener('click', this.#click.bind(this))
-  }
+    constructor() {
+      super()
+      this.addEventListener('click', this.#click.bind(this))
+    }
 
-  #click(event) {
-    const target = event.composedPath()[0]
-    console.log(target.tagName);
-    if (target.tagName === 'EXPORT-SCREEN' || target.tagName === 'CUSTOM-SVG-ICON') this.#close()
+    #click(event) {
+      const target = event.composedPath()[0]
+      console.log(target.tagName)
+      if (target.tagName === 'EXPORT-SCREEN' || target.tagName === 'CUSTOM-SVG-ICON') this.#close()
+    }
 
+    show(qr, exported) {
+      this.qrcode = qr
+      this.exported = exported
+      this.shown = true
+    }
 
-  }
+    #close() {
+      this.shown = false
+    }
 
-  show(qr, exported) {
-    this.qrcode = qr
-    this.renderRoot.querySelector('clipboard-copy').value = exported
-    this.shown = true
-  }
-
-  #close() {
-    this.shown = false
-  }
-
-  render() {
-    return html`
+    render() {
+      return html`
     <style>
       :host {
         display: flex;
@@ -56,7 +56,7 @@ export default customElements.define('export-screen', class ExportScreen extends
         cursor: pointer;
       }
 
-      :host([shown="true"]) {
+      :host([shown]) {
         opacity: 1;
         pointer-events: auto;
         z-index: 1000;
@@ -114,10 +114,19 @@ export default customElements.define('export-screen', class ExportScreen extends
       </flex-row>
 
       <img src=${this.qrcode}></img>
-      <strong>click copy to login on the same device</strong>
-      <small>NOTE: never share/send to/with/on anyone or app</small>
-      <clipboard-copy>copy</clipboard-copy>
+      <strong>Your encrypted wallet backup</strong>
+      <small>Keep this backup and its password safely. Never share either.</small>
+      <clipboard-copy .value=${this.exported}>copy</clipboard-copy>
+      <button style="pointer-events:auto" @click=${() => {
+        const url = URL.createObjectURL(new Blob([this.exported], { type: 'text/plain' }))
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'leofcoin-peach-wallet-backup.txt'
+        link.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }}>Download encrypted backup</button>
     </flex-column>
     `
+    }
   }
-})
+)

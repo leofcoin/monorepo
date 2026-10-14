@@ -78,7 +78,7 @@ export default class Router {
         await previousRoute.select(route)
         previousRoute = previousRoute.pages?.querySelector('.custom-selected')
 
-        if (route === 'blocks' || route === 'transactions') {
+        if (previousRoute?.tagName.startsWith('EXPLORER-') && (route === 'blocks' || route === 'transactions')) {
           const task = async () => {
             const blocks = await Promise.all(
               (

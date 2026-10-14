@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wallet UI test fixture</title>
+    <style>
+      body {
+        margin: 0;
+        font: 16px system-ui;
+        background: #10161f;
+        color: #e4edf7;
+        --md-sys-color-on-surface: #e4edf7;
+        --md-sys-color-surface-container-high: #1b2533;
+        --md-sys-color-outline: #44556e;
+      }
+      header {
+        padding: 12px;
+        background: #2a3547;
+      }
+      button {
+        padding: 10px;
+        margin: 4px;
+      }
+      wallet-send {
+        height: calc(100vh - 70px);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      UI fixture · simulated chain · no real transactions <button id="confirm">Finalize simulated transaction</button
+      ><button id="offline">Disconnect</button>
+    </header>
+    <wallet-send></wallet-send><wallet-transactions></wallet-transactions>
+    <script type="module">
+      import './wallet-send.js'
+      import './wallet-transactions.js'
+      const account = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
+      let resolve,
+        balance = 100000000000000000000n
+      globalThis.peernet = { connections: { test: { connected: true } } }
+      globalThis.chain = {
+        state: { sync: 'synced' },
+        nativeToken: account,
+        balanceOf: async () => balance,
+        createTransaction: async (tx) => ({ ...tx, nonce: 1, timestamp: Date.now() }),
+        sendTransaction: async (tx) => ({
+          hash: 'fixture-hash',
+          wait: new Promise((r) => {
+            resolve = () => {
+              balance -= BigInt(tx.params[1])
+              r('fixture-hash')
+            }
+          })
+        })
+      }
+      globalThis.identityController = { signer: async () => ({ sign: async () => new Uint8Array(64) }) }
+      const wallet = { selectedAccount: account, selectedAccountIndex: 0, accounts: [['test', account, account]] }
+      document.querySelector('wallet-send').wallet = wallet
+      document.querySelector('wallet-transactions').wallet = wallet
+      document.querySelector('#confirm').onclick = () => resolve?.()
+      document.querySelector('#offline').onclick = () => {
+        peernet.connections.test.connected = false
+      }
+    </script>
+  </body>
+</html>

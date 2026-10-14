@@ -36,6 +36,8 @@ export class LoginScreen extends LiteElement {
   accessor headline
   @property()
   accessor subline
+  @property() accessor loginError = ''
+  @property({ type: Boolean }) accessor busy = false
 
   @property()
   accessor decodedMnemonic: string
@@ -68,7 +70,9 @@ export class LoginScreen extends LiteElement {
   }
 
   _keydown({ key, code, keyCode, ctrlKey, altKey, shiftKey }) {
-    if (key === 'Enter') this.shadowRoot.querySelector('[data-route-action="login"]').click()
+    if (key === 'Enter' && !this.busy) {
+      this.shadowRoot.querySelector(`[data-route-action="${this.hasWallet ? 'login' : 'create'}"]`)?.click()
+    }
   }
 
   async requestLogin(hasWallet) {
@@ -83,40 +87,59 @@ export class LoginScreen extends LiteElement {
         this.headline = 'Welcome!'
         this.subline = 'Create a wallet or import one to continue'
       }
-      this.shadowRoot.querySelector('input').focus()
-      this.addEventListener('click', async (event) => {
-        const target = event.composedPath()[0]
-        const routeAction = target.dataset.routeAction
+      await this.requestRender()
+      this.shadowRoot.querySelector('input')?.focus()
+      const onClick = async (event) => {
+        const target = event.composedPath().find((element: any) => element?.dataset?.routeAction) as HTMLElement
+        const routeAction = target?.dataset.routeAction
+        if (!routeAction || this.busy) return
         const password = this.shadowRoot.querySelector('input').value
         try {
+          this.busy = true
+          this.loginError = ''
           if (routeAction) {
-            console.log(routeAction)
-
+            if (routeAction !== 'login' && password.length < 8)
+              throw new Error('Use a password with at least 8 characters.')
             if (routeAction === 'create') await this.#handleCreate(password)
             if (routeAction === 'import') await this.#handleImport(password)
             if (routeAction === 'login') await this.#handleLogin(password)
+            this.removeEventListener('click', onClick)
             resolve()
           }
-        } catch {}
-      })
+        } catch (error) {
+          this.loginError =
+            error instanceof Error ? error.message : 'Could not unlock the wallet. Check your password or backup.'
+        } finally {
+          this.busy = false
+        }
+      }
+      this.addEventListener('click', onClick)
     })
   }
 
   async requestPassword(hasWallet) {
-    return new Promise(async (resolve, reject) => {
-      this.addEventListener('keydown', this._keydown)
-      this.shown = true
-      this.shadowRoot.querySelector('input').focus()
-      this.addEventListener('click', async (event) => {
-        const target = event.composedPath()[0]
-        const routeAction = target.dataset.routeAction
-        const password = this.shadowRoot.querySelector('input').value
-        try {
-          if (routeAction) {
-            resolve(password)
-          }
-        } catch {}
-      })
+    this.headline = 'Encrypt your backup'
+    this.subline = 'Keep this password and the encrypted backup safely. Both are needed to restore.'
+    this.shown = true
+    await this.requestRender()
+    this.#pages.select('backup')
+    const section = this.shadowRoot.querySelector('[data-route="backup"]')
+    const input = section.querySelector('input')
+    input.focus()
+    return new Promise((resolve) => {
+      const button = section.querySelector('button')
+      button.onclick = () => {
+        if (input.value.length < 8) {
+          this.loginError = 'Use a password with at least 8 characters.'
+          return
+        }
+        const password = input.value
+        input.value = ''
+        this.shown = false
+        this.loginError = ''
+        button.onclick = null
+        resolve(password)
+      }
     })
   }
 
@@ -127,10 +150,10 @@ export class LoginScreen extends LiteElement {
 
     if (!this.hasWallet && !this.importing) {
       wallet = await generateAccount(password, 'leofcoin:peach')
-      globalThis.walletStore.put('identity', JSON.stringify(wallet.identity))
-      globalThis.walletStore.put('accounts', JSON.stringify(wallet.accounts))
-      globalThis.walletStore.put('selectedAccount', wallet.accounts[0][1])
-      globalThis.walletStore.put('selectedAccountIndex', '0')
+      await globalThis.walletStore.put('identity', JSON.stringify(wallet.identity))
+      await globalThis.walletStore.put('accounts', JSON.stringify(wallet.accounts))
+      await globalThis.walletStore.put('selectedAccount', wallet.accounts[0][1])
+      await globalThis.walletStore.put('selectedAccountIndex', '0')
     } else if (this.hasWallet) {
       const identity = JSON.parse(await new TextDecoder().decode(await globalThis.walletStore.get('identity')))
       const accounts = JSON.parse(await new TextDecoder().decode(await globalThis.walletStore.get('accounts')))
@@ -140,6 +163,8 @@ export class LoginScreen extends LiteElement {
       )
       wallet = { identity, accounts, selectedAccount, selectedAccountIndex }
     }
+    wallet.selectedAccountIndex = Number.isInteger(wallet.selectedAccountIndex) ? wallet.selectedAccountIndex : 0
+    wallet.selectedAccount = wallet.selectedAccount || wallet.accounts[wallet.selectedAccountIndex][1]
     globalThis.identityController = new IdentityController('leofcoin:peach', wallet)
     return wallet
   }
@@ -176,7 +201,6 @@ export class LoginScreen extends LiteElement {
 
   async #handleCreate(password) {
     const wallet = await this.#handleBeforeLogin(password)
-    console.log({ wallet })
 
     this.headline = 'Created Wallet!'
     this.subline = 'Make sure to backup your password and mnemonic'
@@ -201,19 +225,16 @@ export class LoginScreen extends LiteElement {
       const _onImport = (result) => {
         resolve(importSection.querySelector('input').value)
 
-        importSection.querySelector('md-elevated-button').removeEventListener('click', _onImport)
+        importSection.querySelector('custom-button').removeEventListener('click', _onImport)
       }
-      importSection.querySelector('md-elevated-button').addEventListener('click', _onImport)
-      new QrScanner(this.shadowRoot.querySelector('video'), (decoded) => {
-        importSection.querySelector('input').value = decoded
-      })
+      importSection.querySelector('custom-button').addEventListener('click', _onImport)
     })
 
   async #handleImport(password) {
     this.importing = true
     this.#pages.select('import')
     this.headline = 'Import Wallet!'
-    this.subline = 'Scan qr code or putin multiWIF'
+    this.subline = 'Paste your encrypted identity backup to restore the wallet'
     const encrypted = await this.#waitForKey()
     try {
       const identityController = new IdentityController('leofcoin:peach')
@@ -233,13 +254,17 @@ export class LoginScreen extends LiteElement {
         },
         accounts: [['main account', externalAddress, internalAddress]]
       }
-      globalThis.walletStore.put('identity', JSON.stringify(wallet.identity))
-      globalThis.walletStore.put('accounts', JSON.stringify(wallet.accounts))
-      globalThis.walletStore.put('selectedAccount', wallet.accounts[0][1])
-      globalThis.walletStore.put('selectedAccountIndex', '0')
+      await globalThis.walletStore.put('identity', JSON.stringify(wallet.identity))
+      await globalThis.walletStore.put('accounts', JSON.stringify(wallet.accounts))
+      await globalThis.walletStore.put('selectedAccount', wallet.accounts[0][1])
+      await globalThis.walletStore.put('selectedAccountIndex', '0')
+      this.importing = false
+      await this.#handleLogin(password)
     } catch (error) {
       console.error(error)
-      alert(error)
+      this.importing = false
+      this.#pages.select('login')
+      throw error
     }
   }
 
@@ -265,7 +290,17 @@ export class LoginScreen extends LiteElement {
     const chainUrl = new URL('./chain/chain.js', document.baseURI).href
     importee = await import(chainUrl)
     globalThis.chain = await new importee.default({ resolveTimeout: 30_000 })
-    console.log(chain)
+    let timer
+    try {
+      await Promise.race([
+        globalThis.chain.ready,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('Browser node startup timed out. Reload to try again.')), 30_000)
+        })
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
     console.timeEnd('loading chain')
     await this.#spawnEndpoint()
     // await globalThis.client.init()
@@ -293,7 +328,8 @@ export class LoginScreen extends LiteElement {
     } catch (error) {
       console.log(error)
       pubsub.publish('node:start-error', error instanceof Error ? error.message : String(error))
-      this.#spawnEndpoint(false)
+      // A remote client cannot stand in for this wallet's local signer,
+      // state and canonical confirmation handle. Keep the error visible.
     }
   }
 
@@ -493,10 +529,11 @@ export class LoginScreen extends LiteElement {
     const dialog = document.createElement('dialog')
     document.body.appendChild(dialog)
     dialog.innerHTML = `
-        <p>${password}</p>
+        <p></p>
         <custom-button label="confirm"></custom-button>
       `
 
+    dialog.querySelector('p').textContent = password
     dialog.setAttribute('id', 'dialog')
     dialog.setAttribute('popover', '')
     dialog.showPopover()
@@ -515,6 +552,8 @@ export class LoginScreen extends LiteElement {
   render() {
     return html`
       <hero-element .headline=${this.headline} .subline=${this.subline}>
+        ${this.loginError ? html`<p role="alert" style="color:#ffb4ab">${this.loginError}</p>` : ''}
+        ${this.busy ? html`<p role="status">Working…</p>` : ''}
         <custom-pages attr-for-selected="data-route">
           <flex-column data-route="login" center>
             <flex-it flex="2"></flex-it>
@@ -555,13 +594,15 @@ export class LoginScreen extends LiteElement {
           </flex-column>
 
           <flex-column data-route="import">
-            <flex-column data-route="qr">
-              <video></video>
-            </flex-column>
+            <flex-column data-route="qr"> </flex-column>
 
             <input type="password" placeholder="multiwif" tabindex="0" autofocus autocomplete="new-password" />
 
             <custom-button type="outlined" label="import"></custom-button>
+          </flex-column>
+          <flex-column data-route="backup">
+            <label>Backup password<input type="password" autocomplete="new-password" /></label>
+            <button type="button">Export encrypted backup</button>
           </flex-column>
         </custom-pages>
       </hero-element>
