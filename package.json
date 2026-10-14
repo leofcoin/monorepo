@@ -57,6 +57,7 @@
     "./packages/*"
   ],
   "devDependencies": {
+    "@vandeurenglenn/wrtc": "^0.7.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@types/node": "^26.1.2",
     "@vandeurenglenn/rage": "^1.1.2",
@@ -64,7 +65,10 @@
     "ora": "^9.4.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "allowScripts": {
-    "@vandeurenglenn/wrtc@0.5.5": true
+    "@vandeurenglenn/wrtc@0.7.2": true
   }
 }

@@ -47,6 +47,9 @@
     "./workers/machine-worker": "./exports/workers/machine-worker.js"
   },
   "type": "module",
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "files": [
     "./exports",
     "./types",
@@ -87,6 +90,7 @@
     "tslib": "^2.8.1"
   },
   "dependencies": {
+    "@vandeurenglenn/wrtc": "^0.7.2",
     "@noble/curves": "^1.2.0",
     "@noble/hashes": "^2.3.0",
     "@leofcoin/addresses": "^1.0.62",

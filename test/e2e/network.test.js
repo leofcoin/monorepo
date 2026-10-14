@@ -199,6 +199,7 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
     assert.equal(new Set(ready.map(({ identity }) => identity)).size, 4)
     assert.equal(new Set(ready.map(({ account }) => account)).size, 4)
     for (const state of ready) {
+      assert.equal(state.supportedWebrtcBackend, true, 'node must use the chain-supported native backend')
       assert.deepEqual(state.chain, { sync: 'connectionless', chain: 'loaded' })
       assert.equal(state.lastBlock.hash, '0x0')
       assert.equal(Number(state.lastBlock.index), -1)
