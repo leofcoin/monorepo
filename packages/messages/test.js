@@ -35,6 +35,49 @@ test('block messages round-trip all consensus fields', () => {
   assert.equal(decoded.protocolVersion, '0.2.0')
 })
 
+test('binary validator framing preserves the pre-migration block bytes and hash', async () => {
+  const block = {
+    index: 7n,
+    previousHash: '0x0',
+    timestamp: 1700000000000,
+    reward: 150n,
+    fees: 10n,
+    transactions: ['tx-hash'],
+    validators: [
+      { address: 'validator-a', reward: 150n },
+      { address: 'validator-b', reward: 1000000000000000000n }
+    ],
+    producer: 'validator-a',
+    producerProof: 'proof',
+    protocolVersion: '0.3.0'
+  }
+  const hex =
+    'edc4010137033078300d31373030303030303030303030033135300231300b5b2274782d68617368225d3813edec010b76616c696461746f722d610331353023edec010b76616c696461746f722d6213313030303030303030303030303030303030300b76616c696461746f722d610570726f6f6605302e332e30'
+  const message = new BlockMessage(block)
+  assert.equal(Buffer.from(message.encoded).toString('hex'), hex)
+  assert.equal(await message.hash(), 'BA5XCACGLXGXMA5YT2H3YRYWIQMX5KQGFSODANJZ337OV3XLTMBVLV6XZS')
+  assert.deepEqual(new BlockMessage(new Uint8Array(Buffer.from(hex, 'hex'))).decoded.validators, block.validators)
+})
+
+test('block messages preserve empty and large validator lists without recursive framing', () => {
+  for (const count of [0, 10000]) {
+    const block = {
+      index: 0n,
+      previousHash: '0x0',
+      timestamp: 1,
+      reward: 0n,
+      fees: 0n,
+      transactions: [],
+      validators: Array.from({ length: count }, (_, index) => ({ address: `validator-${index}`, reward: 0n })),
+      producer: 'validator',
+      producerProof: 'proof',
+      protocolVersion: '0.3.0'
+    }
+    const message = new BlockMessage(block)
+    assert.deepEqual(new BlockMessage(message.encoded).decoded.validators, block.validators)
+  }
+})
+
 test('contract messages round-trip', () => {
   const message = new ContractMessage({
     creator: 'creator',

@@ -13,7 +13,7 @@
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",
     "test": "npm run test:core",
-    "test:core": "npm run build -w @leofcoin/standards && npm run test -w @leofcoin/standards && npm run build -w @leofcoin/contracts && npm run test -w @leofcoin/contracts && npm run build -w @leofcoin/messages && npm run test -w @leofcoin/messages && npm run build -w @leofcoin/workers && npm run test -w @leofcoin/workers && npm run build -w @leofcoin/chain && npm run test -w @leofcoin/chain && npm run build -w @leofcoin/endpoints && npm run test -w @leofcoin/endpoints && npm run build -w @leofcoin/endpoint-clients && npm run test -w @leofcoin/endpoint-clients && npm run build -w @leofcoin/launch-chain && npm run test -w @leofcoin/launch-chain",
+    "test:core": "npm run build -w @leofcoin/codecs && npm run test -w @leofcoin/codecs && npm run build -w @leofcoin/standards && npm run test -w @leofcoin/standards && npm run build -w @leofcoin/contracts && npm run test -w @leofcoin/contracts && npm run build -w @leofcoin/messages && npm run test -w @leofcoin/messages && npm run build -w @leofcoin/workers && npm run test -w @leofcoin/workers && npm run build -w @leofcoin/chain && npm run test -w @leofcoin/chain && npm run build -w @leofcoin/endpoints && npm run test -w @leofcoin/endpoints && npm run build -w @leofcoin/launch-chain && npm run test -w @leofcoin/launch-chain",
     "test:e2e": "npm run build-all && node --test test/e2e/*.test.js",
     "test:e2e:remote": "node test/e2e/remote.mjs",
     "test:e2e:staging": "node test/e2e/remote.mjs staging",

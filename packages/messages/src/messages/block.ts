@@ -2,8 +2,7 @@ import proto from '../protos/block.proto.js'
 import { FormatInterface } from '@leofcoin/codec-format-interface'
 import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
-import smartConcat from '@vandeurenglenn/typed-array-smart-concat'
-import smartDeconcat from '@vandeurenglenn/typed-array-smart-deconcat'
+import { encodeFrames, decodeFrames } from '@leofcoin/codecs/binary'
 import { messageInput } from '../types.js'
 
 export default class BlockMessage extends FormatInterface {
@@ -42,7 +41,7 @@ export default class BlockMessage extends FormatInterface {
 
     return super.encode({
       ...decoded,
-      validators: smartConcat(validators)
+      validators: encodeFrames(validators)
     })
   }
 
@@ -50,7 +49,9 @@ export default class BlockMessage extends FormatInterface {
     encoded = encoded || this.encoded
     super.decode(encoded)
     // @ts-ignore
-    this.decoded.validators = smartDeconcat(this.decoded.validators as Uint8Array).map(
+    // Preserve historical acceptance of padded length prefixes. Tightening
+    // canonical protocol validation is a separate, versioned decision.
+    this.decoded.validators = decodeFrames(this.decoded.validators as Uint8Array, 0, { canonical: false }).map(
       (validator) => new ValidatorMessage(validator).decoded
     )
     return this.decoded
