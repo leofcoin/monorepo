@@ -104,7 +104,8 @@ export class BinaryWriter {
   }
   finish(copy = false): Uint8Array {
     const result = this.#buffer.subarray(0, this.#position)
-    return copy ? result.slice() : result
+    // Buffer.slice() aliases memory; this constructor copies every Uint8Array subtype.
+    return copy ? new Uint8Array(result) : result
   }
 }
 
