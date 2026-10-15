@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/binary",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Dependency-free binary Reader/Writer, unsigned varints and byte framing",
   "type": "module",
   "license": "MIT",
@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc6 -p tsconfig.json",
+    "prepack": "npm run build",
     "test": "node --test"
   },
   "devDependencies": {
