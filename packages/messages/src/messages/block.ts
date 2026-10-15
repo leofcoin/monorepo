@@ -2,7 +2,7 @@ import proto from '../protos/block.proto.js'
 import { FormatInterface } from '@leofcoin/codec-format-interface'
 import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
-import { encodeFrames, decodeFrames } from '@leofcoin/codecs/binary'
+import { encodeFrames, decodeFrames } from '@leofcoin/binary'
 import { messageInput } from '../types.js'
 
 export default class BlockMessage extends FormatInterface {

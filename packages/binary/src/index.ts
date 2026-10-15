@@ -1,4 +1,4 @@
-/** Dependency-free, unsigned base-128 framing. No process-global byte counters. */
+/** @leofcoin/binary: dependency-free unsigned framing, with no global byte counters. */
 const MAX_BIGINT = (1n << 256n) - 1n
 
 function size(value: number): void {

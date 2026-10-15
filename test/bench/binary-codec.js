@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { performance } from 'node:perf_hooks'
-import { encodeFrames, decodeFrames } from '@leofcoin/codecs/binary'
+import { encodeFrames, decodeFrames } from '@leofcoin/binary'
 import legacyEncode from '@vandeurenglenn/typed-array-smart-concat'
 import legacyDecode from '@vandeurenglenn/typed-array-smart-deconcat'
 

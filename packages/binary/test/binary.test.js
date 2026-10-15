@@ -8,13 +8,19 @@ import {
   varBigIntLength,
   encodeFrames,
   decodeFrames
-} from '../exports/binary.js'
+} from '@leofcoin/binary'
 
-test('shared binary codec ships as a public subpath without runtime dependencies', async () => {
+test('binary is a standalone package without runtime dependencies or codec-registry exports', async () => {
   const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  assert.equal(manifest.name, '@leofcoin/binary')
+  assert.notEqual(manifest.private, true)
+  assert.equal(manifest.publishConfig.access, 'public')
   assert.deepEqual(manifest.dependencies || {}, {})
-  assert.equal(manifest.exports['./binary'].import, './exports/binary.js')
-  assert.equal(manifest.exports['./binary'].types, './exports/binary.d.ts')
+  assert.equal(manifest.exports['.'].import, './exports/index.js')
+  assert.equal(manifest.exports['.'].types, './exports/index.d.ts')
+  const registry = JSON.parse(await readFile(new URL('../../codecs/package.json', import.meta.url), 'utf8'))
+  assert.equal(registry.exports['./binary'], undefined)
+  assert.equal(registry.dependencies?.['@leofcoin/binary'], undefined)
 })
 
 function reference(value) {

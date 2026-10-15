@@ -280,7 +280,7 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
-    "@leofcoin/codecs": "^1.2.0",
+    "@leofcoin/binary": "^1.0.0",
     "@leofcoin/codec-format-interface": "^1.8.2",
     "@leofcoin/utils": "^1.1.45"
   },

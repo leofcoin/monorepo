@@ -1,12 +1,15 @@
-# Binary Reader/Writer
+# @leofcoin/binary
 
-`@leofcoin/codecs/binary` is a dependency-free shared implementation of unsigned
+`@leofcoin/binary` is a dependency-free shared implementation of unsigned
 base-128 integers and length-prefixed byte frames. Numeric values retain the
 existing wire bytes. No chain field, codec identifier, hash algorithm or supply
 representation changes as part of this migration.
 
+It is independent of `@leofcoin/codecs`, which remains the registry of codec
+identifiers. This package does not import or re-export that registry.
+
 ```js
-import { BinaryReader, BinaryWriter, varUintLength } from '@leofcoin/codecs/binary'
+import { BinaryReader, BinaryWriter, varUintLength } from '@leofcoin/binary'
 
 const signature = new Uint8Array(64)
 const writer = new BinaryWriter(varUintLength(1) + varUintLength(129) + signature.length)
@@ -39,7 +42,7 @@ decision. Overflow and truncated fields still fail closed. `decodeFrames` accept
 an optional `maxFrames` policy; network size/membership limits remain the caller's
 responsibility. BigInt support does not automatically migrate existing fields.
 
-Checks: `npm test -w @leofcoin/codecs`, `npm test -w @leofcoin/messages`.
+Checks: `npm test -w @leofcoin/binary`, `npm test -w @leofcoin/messages`.
 Benchmark: `node test/bench/binary-codec.js`. It compares the actual installed
 legacy framing packages and verifies equal bytes before measuring. Results are
 local CPU timings, not blockchain throughput or transport latency claims.
