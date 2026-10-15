@@ -1,0 +1,33 @@
+{
+  "name": "@leofcoin/binary",
+  "version": "1.0.0",
+  "description": "Dependency-free binary Reader/Writer, unsigned varints and byte framing",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "types": "./exports/index.d.ts"
+    }
+  },
+  "files": [
+    "exports",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc6 -p tsconfig.json",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/binary"
+  }
+}
