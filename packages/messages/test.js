@@ -35,7 +35,7 @@ test('block messages round-trip all consensus fields', () => {
   assert.equal(decoded.protocolVersion, '0.2.0')
 })
 
-test('binary validator framing preserves the pre-migration block bytes and hash', async () => {
+test('binary validator framing preserves message bytes with the canonical codec-first hash', async () => {
   const block = {
     index: 7n,
     previousHash: '0x0',
@@ -55,7 +55,7 @@ test('binary validator framing preserves the pre-migration block bytes and hash'
     'edc4010137033078300d31373030303030303030303030033135300231300b5b2274782d68617368225d3813edec010b76616c696461746f722d610331353023edec010b76616c696461746f722d6213313030303030303030303030303030303030300b76616c696461746f722d610570726f6f6605302e332e30'
   const message = new BlockMessage(block)
   assert.equal(Buffer.from(message.encoded).toString('hex'), hex)
-  assert.equal(await message.hash(), 'BA5XCACGLXGXMA5YT2H3YRYWIQMX5KQGFSODANJZ337OV3XLTMBVLV6XZS')
+  assert.equal(await message.hash(), 'HNYQASAGLXGXMA5YT2H3YRYWIQMX5KQGFSODANJZ337OV3XLTMBVLV6XZS')
   assert.deepEqual(new BlockMessage(new Uint8Array(Buffer.from(hex, 'hex'))).decoded.validators, block.validators)
 })
 
