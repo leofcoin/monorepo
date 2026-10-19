@@ -32,6 +32,7 @@ export default [
       './src/chain.ts',
       './src/node.ts',
       './src/connection-monitor.ts',
+      './src/helpers/hash-format-state.ts',
       './src/consensus/beacon.ts',
       './src/consensus/beacon-wire.ts',
       './src/consensus/beacon-envelope.ts',

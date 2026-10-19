@@ -48,6 +48,7 @@ import {
   pruneCanonicalTransactions
 } from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
+import { assertHashFormatState } from './helpers/hash-format-state.js'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -108,13 +109,15 @@ export default class Chain extends VersionControl {
 
   #connectionMonitor: ConnectionMonitor
   readyResolve: (value: boolean | PromiseLike<boolean>) => void
-  ready = new Promise<boolean>((resolve) => {
+  readyReject: (reason: unknown) => void
+  ready = new Promise<boolean>((resolve, reject) => {
     this.readyResolve = resolve
+    this.readyReject = reject
   })
 
   constructor(config) {
     super(config)
-    this.#init()
+    this.#init().catch((error) => this.readyReject(error))
   }
 
   get nativeToken() {
@@ -465,19 +468,21 @@ export default class Chain extends VersionControl {
       }
     ]
 
-    await Promise.all(
+    const prepared = await Promise.all(
       contracts.map(async ({ address, message }) => {
         // @ts-ignore
         message = await new ContractMessage(Uint8Array.from(message.split(',').map((string) => Number(string))))
-        // @ts-ignore
-        await globalThis.contractStore.put(address, message.encoded as ContractMessage['encoded'])
+        if (await message.hash() !== address) throw new Error(`genesis contract hash mismatch for ${address}`)
+        return { address, encoded: message.encoded }
       })
     )
+    await Promise.all(prepared.map(({ address, encoded }) => globalThis.contractStore.put(address, encoded)))
     console.log('handle native contracts')
     // handle native contracts
   }
 
   async #init() {
+    await assertHashFormatState(globalThis.chainStore, globalThis.stateStore)
     // this.node = await new Node()
     this.#participants = []
     this.#participating = false
