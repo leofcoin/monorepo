@@ -19,13 +19,13 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "rollup": "^4.62.4",
+    "rollup": "^4.64.12",
     "rollup-plugin-copy": "^3.5.0",
     "tslib": "^2.8.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
-    "globby": "^16.2.2"
+    "globby": "^16.2.4"
   },
   "repository": {
     "type": "git",

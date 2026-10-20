@@ -1,7 +1,7 @@
 {
   "name": "monorepo",
   "version": "1.0.1",
-  "packageManager": "npm@12.0.2",
+  "packageManager": "npm@12.2.0",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -49,9 +49,9 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo#readme",
   "dependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "@vandeurenglenn/doc-it": "^1.0.35",
-    "p-queue": "^9.3.3"
+    "p-queue": "^10.0.0"
   },
   "workspaces": [
     "./packages/*"
@@ -59,7 +59,7 @@
   "devDependencies": {
     "@vandeurenglenn/wrtc": "^0.7.2",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.6.5",
     "@vandeurenglenn/rage": "^1.1.2",
     "listr": "^0.14.3",
     "ora": "^9.4.1",

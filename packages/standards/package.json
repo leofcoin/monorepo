@@ -24,21 +24,13 @@
       "import": "./exports/i-public-voting.js",
       "types": "./exports/src/voting/interfaces/i-public-voting.d.ts"
     },
-    "./index.js": {
-      "import": "./exports/index.js",
-      "types": "./exports/src/index.d.ts"
-    },
     "./index": {
       "import": "./exports/index.js",
       "types": "./exports/src/index.d.ts"
     },
-    "./interfaces": {
-      "import": "./exports/interfaces.js",
-      "types": "./exports/interfaces.d.ts"
-    },
-    "./interfaces.js": {
-      "import": "./exports/interfaces.js",
-      "types": "./exports/interfaces.d.ts"
+    "./index.js": {
+      "import": "./exports/index.js",
+      "types": "./exports/src/index.d.ts"
     },
     "./meta": {
       "import": "./exports/meta.js",
@@ -87,22 +79,6 @@
     "./token.js": {
       "import": "./exports/token.js",
       "types": "./exports/src/token.d.ts"
-    },
-    "./types": {
-      "import": "./exports/types.js",
-      "types": "./exports/voting/types.d.ts"
-    },
-    "./types.js": {
-      "import": "./exports/types.js",
-      "types": "./exports/voting/types.d.ts"
-    },
-    "./voting": {
-      "import": "./exports/voting.js",
-      "types": "./exports/voting.d.ts"
-    },
-    "./voting.js": {
-      "import": "./exports/voting.js",
-      "types": "./exports/voting.d.ts"
     }
   },
   "scripts": {
