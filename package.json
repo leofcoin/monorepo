@@ -23,6 +23,7 @@
     "build": "npm run build:core",
     "build:core": "npm run build -w @leofcoin/binary && npm run build -w @leofcoin/addresses && npm run build -w @leofcoin/codecs && npm run build -w @leofcoin/standards && npm run build -w @leofcoin/contracts && npm run build -w @leofcoin/errors && npm run build -w @leofcoin/messages && npm run build -w @leofcoin/mnemonic && npm run build -w @leofcoin/networks && npm run build -w @leofcoin/utils && npm run build -w @leofcoin/wallet && npm run build -w @leofcoin/lib && npm run build -w @leofcoin/workers && npm run build -w @leofcoin/chain && npm run build -w @leofcoin/endpoints && npm run build -w @leofcoin/endpoint-clients && npm run build -w @leofcoin/launch-chain",
     "build-all": "rage --build --all --log",
+    "build:workspaces": "rage build --log",
     "clean": "node scripts/clean.js",
     "flush": "node scripts/flush.js",
     "release:status": "node scripts/release-packages.js status",
@@ -60,7 +61,7 @@
     "@vandeurenglenn/wrtc": "^0.7.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@types/node": "^26.6.5",
-    "@vandeurenglenn/rage": "^1.1.2",
+    "@vandeurenglenn/rage": "^1.2.0",
     "listr": "^0.14.3",
     "ora": "^9.4.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
