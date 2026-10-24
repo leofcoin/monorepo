@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/wallet",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "",
   "main": "dist/wallet.js",
   "module": "src/wallet.js",
