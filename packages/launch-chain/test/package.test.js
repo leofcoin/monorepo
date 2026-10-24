@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -65,6 +67,28 @@ test('parses commands and common node options in any order', async () => {
   })
   assert.throws(() => parseCliOptions(['node', '--http-port', '70000']), /valid port/)
   assert.throws(() => parseCliOptions(['wat']), /unknown command/)
+})
+
+test('CLI executes through a symlink, including npm bin entry points', async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'leofcoin-cli-link-'))
+  try {
+    const link = join(temporary, 'leofcoin')
+    await symlink(fileURLToPath(new URL('../exports/cli.js', import.meta.url)), link)
+    const { stdout } = await run(process.execPath, [link, '--help'])
+    assert.match(stdout, /leofcoin node \[options\]/)
+  } finally {
+    await rm(temporary, { recursive: true, force: true })
+  }
+})
+
+test('CLI can be imported by an embedding process with a non-file argv', async () => {
+  const url = new URL('../exports/cli.js', import.meta.url).href
+  const { stdout } = await run(process.execPath, [
+    '--input-type=module', '-e',
+    `const { runCli } = await import(${JSON.stringify(url)}); console.log(typeof runCli)`,
+    'not-a-cli-file'
+  ])
+  assert.equal(stdout.trim(), 'function')
 })
 
 test('one-shot wallet commands use a normal node rather than validator participation', async () => {

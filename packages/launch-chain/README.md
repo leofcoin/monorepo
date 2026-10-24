@@ -22,6 +22,32 @@ const { chain, endpoints, mode } = await launch(
 Requires Node.js 24.15.0 or newer. The default native WebRTC backend is
 `@vandeurenglenn/wrtc` 0.7.2 or newer.
 
+### automatic peer transports
+
+Launch-chain 0.4.25 requires chain 1.10.17 and lib 1.3.15, using published
+peernet 3 / swarm 0.10. Peers discover an available WebTransport relay through
+their configured star; clients do not need a relay URL, shared secret or TLS
+configuration. WebRTC and circuit fallback remain available when no relay is
+advertised. HTTP/3 needs reachable UDP and a correctly configured public star.
+Node's HTTP/3 backend also needs the optional native QUIC package's installation
+hook. This repository approves its exact reviewed version in `allowScripts`.
+Standalone installations using npm's script-blocking policy must review/approve
+that native package as well; the launcher never bypasses that policy.
+
+The star operator must also deploy swarm 0.10. Its `npm start` starts the star
+and relay together, creates the private relay secret, and discovers an existing
+matching Let's Encrypt certificate. Multiple certificate names require a one-time
+hostname selection. This does not issue certificates or change DNS/firewalls.
+See the [relay operator guide](https://github.com/netpeer/swarm/blob/main/docs/webtransport-relay.md).
+
+This dependency update does not change the Peach genesis, protocol version,
+account identities, passwords or data directory. Do not delete existing stores.
+Stop the existing process before upgrading and restart using the same data root.
+
+For development, after building, `npm run test:package -w @leofcoin/launch-chain`
+checks a clean tarball install, npm CLI entry and real-genesis offline startup
+using temporary storage. It is not proof of public peer sync or validator finality.
+
 No monorepo checkout or global install is required:
 
 ```sh

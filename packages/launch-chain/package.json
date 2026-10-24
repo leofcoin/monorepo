@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/launch-chain",
-  "version": "0.4.24",
+  "version": "0.4.25",
   "description": "",
   "exports": {
     ".": {
@@ -26,7 +26,8 @@
   "type": "module",
   "scripts": {
     "build": "rollup -c",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:package": "node test/standalone-install.js"
   },
   "repository": {
     "type": "git",
@@ -41,11 +42,11 @@
   },
   "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/launch-chain#readme",
   "dependencies": {
-    "@leofcoin/addresses": "^1.0.62",
-    "@leofcoin/chain": "^1.10.12",
+    "@leofcoin/addresses": "^1.0.64",
+    "@leofcoin/chain": "^1.10.17",
     "@leofcoin/endpoint-clients": "^0.3.16",
     "@leofcoin/endpoints": "^0.4.9",
-    "@leofcoin/lib": "^1.3.10",
+    "@leofcoin/lib": "^1.3.15",
     "@leofcoin/networks": "^1.1.30",
     "@vandeurenglenn/wrtc": "^0.7.2"
   },
