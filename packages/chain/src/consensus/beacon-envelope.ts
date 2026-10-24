@@ -1,4 +1,4 @@
-import { secp256k1 } from '@noble/curves/secp256k1'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 
@@ -19,7 +19,7 @@ const context = (network: string, epoch: bigint, sender: string, recipient: stri
 }
 
 const scalarBytes = (share: bigint) => {
-  if (share <= 0n || share >= secp256k1.CURVE.n) throw new RangeError('invalid beacon secret share')
+  if (share <= 0n || share >= secp256k1.Point.Fn.ORDER) throw new RangeError('invalid beacon secret share')
   const output = new Uint8Array(SCALAR_BYTES)
   let value = share
   for (let index = output.length - 1; index >= 0; index -= 1) {
@@ -33,12 +33,12 @@ const bytesScalar = (bytes: Uint8Array) => {
   if (bytes.length !== SCALAR_BYTES) throw new Error('invalid decrypted beacon share length')
   let value = 0n
   for (const byte of bytes) value = (value << 8n) | BigInt(byte)
-  if (value <= 0n || value >= secp256k1.CURVE.n) throw new Error('invalid decrypted beacon share')
+  if (value <= 0n || value >= secp256k1.Point.Fn.ORDER) throw new Error('invalid decrypted beacon share')
   return value
 }
 
 const encryptionKey = (privateKey: Uint8Array, publicKey: Uint8Array, aad: Uint8Array) => {
-  if (!secp256k1.utils.isValidPrivateKey(privateKey)) throw new Error('invalid beacon encryption private key')
+  if (!secp256k1.utils.isValidSecretKey(privateKey)) throw new Error('invalid beacon encryption private key')
   const sharedSecret = secp256k1.getSharedSecret(privateKey, publicKey, true)
   return hkdf(sha256, sharedSecret, sha256(aad), aad, 32)
 }
@@ -46,9 +46,9 @@ const encryptionKey = (privateKey: Uint8Array, publicKey: Uint8Array, aad: Uint8
 const importAesKey = (key: Uint8Array, usage: KeyUsage) =>
   globalThis.crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, [usage])
 
-export const createBeaconEncryptionKey = (randomPrivateKey = () => secp256k1.utils.randomPrivateKey()) => {
+export const createBeaconEncryptionKey = (randomPrivateKey = () => secp256k1.utils.randomSecretKey()) => {
   const privateKey = randomPrivateKey()
-  if (!secp256k1.utils.isValidPrivateKey(privateKey)) throw new Error('invalid generated beacon encryption key')
+  if (!secp256k1.utils.isValidSecretKey(privateKey)) throw new Error('invalid generated beacon encryption key')
   return { privateKey, publicKey: secp256k1.getPublicKey(privateKey, true) }
 }
 

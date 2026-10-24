@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import MultiWallet from '@leofcoin/multi-wallet'
-import { bls12_381 as bls } from '@noble/curves/bls12-381'
+import { bls12_381 as bls } from '@noble/curves/bls12-381.js'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
+import { signBeaconRound } from '../../src/consensus/beacon.ts'
 
 import {
   signBeaconActivationMessage,
@@ -30,7 +31,7 @@ test('authenticates every public DKG commitment field', async () => {
     threshold: 2n,
     participant: 1n,
     from: await signer.address,
-    commitments: [toBase58(bls.getPublicKey(11n)), toBase58(bls.getPublicKey(13n))]
+    commitments: [11n, 13n].map(value => toBase58(bls.G1.Point.BASE.multiply(value).toBytes(true)))
   }
   const signature = await signBeaconCommitmentMessage('validators', message, signer)
   assert.equal(await verifyBeaconCommitmentMessage('validators', { ...message, signature }, 'leofcoin'), true)
@@ -47,7 +48,7 @@ test('authenticates and bounds threshold signature shares', async () => {
     round: 9n,
     participant: 1n,
     from: await signer.address,
-    signatureShare: toBase58(bls.sign(new Uint8Array([1, 2, 3]), 11n))
+    signatureShare: toBase58(signBeaconRound(11n, new Uint8Array([1, 2, 3])))
   }
   const signature = await signBeaconShareMessage('validators', message, signer)
   assert.equal(await verifyBeaconShareMessage('validators', { ...message, signature }, 'leofcoin'), true)

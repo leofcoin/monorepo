@@ -21,6 +21,16 @@ const scalars = [11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n, 43n, 47n, 53n]
 let scalarIndex = 0
 const randomScalar = () => scalars[scalarIndex++]
 
+test('Noble 2 preserves the established compressed BLS key and signature bytes', () => {
+  // Fixed vector captured from Noble 1, not recomputed by the new implementation.
+  const publicKey = Uint8Array.from(Buffer.from('80fd75ebcc0a21649e3177bcce15426da0e4f25d6828fbf4038d4d7ed3bd4421de3ef61d70f794687b12b2d571971a55', 'hex'))
+  const signature = Uint8Array.from(Buffer.from('a1a1e604a80c69bf4423b0e841b30aafd7c8c94a772764ee3f7727b344e633d93c25e677e262c1649de0737c486ccea313e83699d1152546e04b8ac2f512a64dde2e7cc756d4d3a733841c559a610c559c8353db236347d856f378a74db0819b', 'hex'))
+  const message = Uint8Array.of(1, 2, 3)
+  assert.deepEqual(signBeaconRound(11n, message), signature)
+  assert.equal(verifyBeaconProof(signature, message, publicKey), true)
+  assert.equal(verifyBeaconProof(signature, Uint8Array.of(1, 2, 4), publicKey), false)
+})
+
 const ceremony = () => {
   scalarIndex = 0
   const dealers = participants.map(() => createBeaconContribution(participants, threshold, randomScalar))
