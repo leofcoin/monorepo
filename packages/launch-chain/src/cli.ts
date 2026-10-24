@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile } from 'node:fs/promises'
+import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -156,7 +157,18 @@ export const runCli = async (args = process.argv.slice(2)) => {
   setTimeout(() => process.exit(0), 100)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// npm's bin entry and macOS temporary directories can both be symlinks. Node
+// canonicalizes import.meta.url, so compare it with the canonical argv path too.
+const isCliEntry = () => {
+  try {
+    return Boolean(process.argv[1]) && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
+  } catch {
+    // Imported from an eval/embedding process whose argv is not a file path.
+    return false
+  }
+}
+
+if (isCliEntry()) {
   runCli().catch((error) => {
     process.stderr.write(`leofcoin: ${(error as Error)?.message ?? error}\n`)
     process.exitCode = 1

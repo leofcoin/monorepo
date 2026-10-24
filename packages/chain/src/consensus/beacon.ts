@@ -1,10 +1,11 @@
-import { bls12_381 as bls } from '@noble/curves/bls12-381'
+import { bls12_381 as bls } from '@noble/curves/bls12-381.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 
 const encoder = new TextEncoder()
 const Fr = bls.fields.Fr
-const G1 = bls.G1.ProjectivePoint
-const G2 = bls.G2.ProjectivePoint
+const G1 = bls.G1.Point
+const G2 = bls.G2.Point
+const signatures = bls.longSignatures
 
 export type BeaconDealerContribution = {
   commitments: Uint8Array[]
@@ -45,7 +46,7 @@ const evaluateCommitments = (commitments: Uint8Array[], x: bigint) => {
   let result = G1.ZERO
   let power = 1n
   for (const encoded of commitments) {
-    const commitment = G1.fromHex(encoded)
+    const commitment = G1.fromBytes(encoded)
     commitment.assertValidity()
     result = result.add(commitment.multiply(power))
     power = Fr.mul(power, x)
@@ -56,7 +57,7 @@ const evaluateCommitments = (commitments: Uint8Array[], x: bigint) => {
 const sumPoints = (points: Uint8Array[]) => {
   let result = G1.ZERO
   for (const encoded of points) {
-    const point = G1.fromHex(encoded)
+    const point = G1.fromBytes(encoded)
     point.assertValidity()
     result = result.add(point)
   }
@@ -88,7 +89,7 @@ export const createBeaconContribution = (
     return scalar
   })
   return {
-    commitments: coefficients.map((coefficient) => G1.BASE.multiply(coefficient).toRawBytes(true)),
+    commitments: coefficients.map((coefficient) => G1.BASE.multiply(coefficient).toBytes(true)),
     shares: new Map(participants.map((participant) => [participant, evaluatePolynomial(coefficients, participant)]))
   }
 }
@@ -115,8 +116,8 @@ export const deriveBeaconPublicShare = (participant: bigint, dealerCommitments: 
   assertParticipant(participant)
   if (dealerCommitments.length < 2) throw new Error('at least two dealer commitments are required')
   return sumPoints(
-    dealerCommitments.map((commitments) => evaluateCommitments(commitments, participant).toRawBytes(true))
-  ).toRawBytes(true)
+    dealerCommitments.map((commitments) => evaluateCommitments(commitments, participant).toBytes(true))
+  ).toBytes(true)
 }
 
 /** The DKG group public key is the sum of every accepted dealer's constant commitment. */
@@ -124,7 +125,7 @@ export const deriveBeaconGroupPublicKey = (dealerCommitments: Uint8Array[][]): U
   if (dealerCommitments.length < 2 || dealerCommitments.some((commitments) => commitments.length < 2)) {
     throw new Error('invalid beacon dealer commitments')
   }
-  return sumPoints(dealerCommitments.map((commitments) => commitments[0])).toRawBytes(true)
+  return sumPoints(dealerCommitments.map((commitments) => commitments[0])).toBytes(true)
 }
 
 export const beaconMessage = (network: string, epoch: bigint, round: bigint, previousProof: Uint8Array) => {
@@ -137,7 +138,7 @@ export const beaconMessage = (network: string, epoch: bigint, round: bigint, pre
 }
 
 export const signBeaconRound = (secretShare: bigint, message: Uint8Array): Uint8Array =>
-  bls.sign(message, Fr.create(secretShare))
+  signatures.Signature.toBytes(signatures.sign(signatures.hash(message), Fr.toBytes(Fr.create(secretShare))))
 
 export const verifyBeaconSignatureShare = (
   signature: Uint8Array,
@@ -145,7 +146,7 @@ export const verifyBeaconSignatureShare = (
   publicShare: Uint8Array
 ): boolean => {
   try {
-    return bls.verify(signature, message, publicShare)
+    return signatures.verify(signature, signatures.hash(message), publicShare)
   } catch {
     return false
   }
@@ -162,16 +163,16 @@ export const reconstructBeaconSignature = (rawShares: BeaconSignatureShare[], th
 
   let signature = G2.ZERO
   for (const share of selected) {
-    const point = bls.Signature.fromHex(share.signature)
+    const point = signatures.Signature.fromBytes(share.signature)
     point.assertValidity()
     signature = signature.add(point.multiply(lagrangeAtZero(share.participant, participants)))
   }
-  return bls.Signature.toRawBytes(signature)
+  return signatures.Signature.toBytes(signature)
 }
 
 export const verifyBeaconProof = (proof: Uint8Array, message: Uint8Array, groupPublicKey: Uint8Array): boolean => {
   try {
-    return bls.verify(proof, message, groupPublicKey)
+    return signatures.verify(proof, signatures.hash(message), groupPublicKey)
   } catch {
     return false
   }

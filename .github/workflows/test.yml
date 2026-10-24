@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Test packed launcher with registry transports and real genesis
+        run: npm run test:package -w @leofcoin/launch-chain
+
       - name: Test durable faucet payouts and HTTP limits
         run: npm test -w @leofcoin/faucet
 

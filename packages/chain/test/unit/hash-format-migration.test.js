@@ -11,12 +11,16 @@ const store = (values = {}) => ({
   get: async (key) => new TextEncoder().encode(values[key])
 })
 
-test('monorepo resolves a single registry codec and peernet 2.x graph', async () => {
+test('monorepo resolves one canonical codec and automatic-transport peernet graph', async () => {
   const lock = JSON.parse(await readFile(new URL('../../../../package-lock.json', import.meta.url), 'utf8'))
-  for (const dependency of ['@leofcoin/codec-format-interface', '@leofcoin/peernet']) {
+  for (const [dependency, version] of Object.entries({
+    '@leofcoin/codec-format-interface': '2.0.0',
+    '@leofcoin/peernet': '3.0.0',
+    '@netpeer/swarm': '0.10.0'
+  })) {
     const entries = Object.entries(lock.packages).filter(([name]) => name.endsWith(`/node_modules/${dependency}`) || name === `node_modules/${dependency}`)
     assert.equal(entries.length, 1, dependency)
-    assert.equal(entries[0][1].version, '2.0.0', dependency)
+    assert.equal(entries[0][1].version, version, dependency)
     assert.ok(entries[0][1].resolved.startsWith('https://registry.npmjs.org/'), dependency)
   }
   for (const [name, entry] of Object.entries(lock.packages)) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { bls12_381 as bls } from '@noble/curves/bls12-381'
+import { bls12_381 as bls } from '@noble/curves/bls12-381.js'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
 
 import {
@@ -14,7 +14,7 @@ import {
 } from '../../src/consensus/beacon-epoch.ts'
 
 const validators = ['validator-c', 'validator-a', 'validator-b', 'validator-d']
-const commitment = (value) => toBase58(bls.getPublicKey(BigInt(value)))
+const commitment = (value) => toBase58(bls.G1.Point.BASE.multiply(BigInt(value)).toBytes(true))
 const config = {
   epoch: 2n,
   threshold: 3,

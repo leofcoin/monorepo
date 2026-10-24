@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { bls12_381 as bls } from '@noble/curves/bls12-381'
+import { bls12_381 as bls } from '@noble/curves/bls12-381.js'
 import { toBase58 } from '@vandeurenglenn/typed-array-utils'
 
 import {
@@ -41,7 +41,7 @@ const config = (epoch) => ({
   validators,
   dealers: validators.map((validator, index) => ({
     validator,
-    commitments: [2, 3, 5].map((offset) => toBase58(bls.getPublicKey(BigInt(index * 10 + offset))))
+    commitments: [2, 3, 5].map((offset) => toBase58(bls.G1.Point.BASE.multiply(BigInt(index * 10 + offset)).toBytes(true)))
   }))
 })
 const active = (epoch) => {
