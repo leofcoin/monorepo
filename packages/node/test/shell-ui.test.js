@@ -8,7 +8,9 @@ import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 
 // Opt in after `npm run build`; uses only a local fixture and native CDP.
-// CHROME_BIN="/path/to/chrome" node --test test/shell-ui.test.js
+// RUN_SHELL_UI_TESTS=1 CHROME_BIN="/path/to/chrome" node --test test/shell-ui.test.js
+const runShellUiTests = process.env.RUN_SHELL_UI_TESTS === '1' && Boolean(process.env.CHROME_BIN)
+
 async function createShellFixture(t) {
   const root = resolve('www')
   const fixture = new URL('./shell-ui-fixture.html', import.meta.url)
@@ -105,7 +107,7 @@ async function createShellFixture(t) {
 }
 
 test('removed manager route returns to wallet without loading a manager view', {
-  skip: !process.env.CHROME_BIN, timeout: 15000
+  skip: !runShellUiTests, timeout: 15000
 }, async t => {
   const { evaluate, waitFor, errors } = await createShellFixture(t)
   await evaluate(`location.hash = '#!/manager'`)
@@ -117,7 +119,7 @@ test('removed manager route returns to wallet without loading a manager view', {
 })
 
 test('responsive shell, wallet navigation and notification lifecycle', {
-  skip: !process.env.CHROME_BIN, timeout: 45000
+  skip: !runShellUiTests, timeout: 45000
 }, async t => {
   const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.isDesktop`), true)
@@ -320,7 +322,7 @@ test('responsive shell, wallet navigation and notification lifecycle', {
 })
 
 test('wallet-required views automatically open the unlock dialog and preserve deep links', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, errors } = await createShellFixture(t)
   await evaluate(`globalThis.lockedFixtureWallet = shell.wallet; shell.wallet = undefined;
@@ -355,7 +357,7 @@ test('wallet-required views automatically open the unlock dialog and preserve de
 })
 
 test('faucet has its own testnet-only route and never mounts on mainnet', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('aside testnet-faucet') === null`), true)
@@ -394,7 +396,7 @@ test('faucet has its own testnet-only route and never mounts on mainnet', {
 })
 
 test('identity refresh covers every subview, account copying, export and reduced motion', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, call, errors } = await createShellFixture(t)
   await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] })
@@ -465,7 +467,7 @@ test('identity refresh covers every subview, account copying, export and reduced
 })
 
 test('validator refresh shows registry, explicit participation, failures and responsive motion', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, call, errors } = await createShellFixture(t)
   await evaluate(`globalThis.participationCalls = 0; globalThis.lookupReads = 0;
@@ -534,7 +536,7 @@ test('validator refresh shows registry, explicit participation, failures and res
 })
 
 test('explorer dashboard wires holder rankings and responsive activity cards', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
   await evaluate(`globalThis.fixtureClient = client;
@@ -599,7 +601,7 @@ test('explorer dashboard wires holder rankings and responsive activity cards', {
 })
 
 test('explorer block details show encoded size, transactions, recovery and latest selection', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { BlockMessage } = await import('@leofcoin/messages')
   const block = {
@@ -667,7 +669,7 @@ test('explorer block details show encoded size, transactions, recovery and lates
 })
 
 test('node activity dashboard shows real observed traffic, filters and sync status', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
   await evaluate(`shell.shadowRoot.querySelector('a[data-route="stats"]').click()`)
@@ -717,7 +719,7 @@ test('node activity dashboard shows real observed traffic, filters and sync stat
 })
 
 test('bottom status bar shows sync, peers and blocks across views and screen sizes', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, call, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('header .sync-status-pill') === null`), true)
@@ -766,7 +768,7 @@ test('bottom status bar shows sync, peers and blocks across views and screen siz
 })
 
 test('drawer address book CRUD and searchable recipient dialog', {
-  skip: !process.env.CHROME_BIN, timeout: 30000
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
   await evaluate(`globalThis.walletView = shell.shadowRoot.querySelector('wallet-view');
