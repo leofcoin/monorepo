@@ -63,6 +63,7 @@ export default class Router {
 
     if (route) {
       await this.#host.select(route)
+      if (this.#host.requiresWallet) return
       let previousRoute = this.#host.pages?.querySelector('.custom-selected') as Selectable
       for (let attempt = 0; !previousRoute && attempt < 10; attempt += 1) {
         await new Promise(requestAnimationFrame)

@@ -1,8 +1,21 @@
 import { parseUnits, formatUnits } from '@leofcoin/utils'
 import { calculateFee, signTransaction } from '@leofcoin/lib'
 import MultiWallet from '@leofcoin/multi-wallet'
+import { getSelectedNetwork } from '../network-selection.js'
 
 export const errorMessage = (error) => error?.error?.message || error?.error || error?.message || String(error)
+
+export async function validateRecipientAddress(address) {
+  address = String(address || '').trim()
+  if (!/^[1-9A-HJ-NP-Za-km-z]{40,100}$/.test(address)) throw new Error('Enter a valid Leofcoin address.')
+  try {
+    const network = getSelectedNetwork().network
+    await new MultiWallet(network).fromAddress(address, null, network)
+  } catch {
+    throw new Error('Recipient address has an invalid checksum or public key.')
+  }
+  return address
+}
 
 export function networkStatus(chain, peernet) {
   const peers = Object.values(peernet?.connections || {}).filter((peer) => peer.connected).length
@@ -24,13 +37,7 @@ export function networkStatus(chain, peernet) {
 export async function prepareTransfer({ chain, peernet, identity, from, to, amount }) {
   if (!networkStatus(chain, peernet).ready)
     throw new Error('Wait until your node is connected and synced before sending.')
-  to = String(to || '').trim()
-  if (!/^[1-9A-HJ-NP-Za-km-z]{40,100}$/.test(to)) throw new Error('Enter a valid Leofcoin address.')
-  try {
-    await new MultiWallet('leofcoin:peach').fromAddress(to, null, 'leofcoin:peach')
-  } catch {
-    throw new Error('Recipient address has an invalid checksum or public key.')
-  }
+  to = await validateRecipientAddress(to)
   const value = String(amount || '').trim()
   if (!/^\d+(\.\d{1,18})?$/.test(value)) throw new Error('Enter a positive amount with at most 18 decimal places.')
   const units = parseUnits(value)

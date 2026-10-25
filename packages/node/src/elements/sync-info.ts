@@ -1,6 +1,7 @@
 import { LiteElement, css, html, property, query } from '@vandeurenglenn/lite'
 import '@vandeurenglenn/lite-elements/pane.js'
 import { CustomPane } from '@vandeurenglenn/lite-elements/pane.js'
+import { getSelectedNetwork } from '../network-selection.js'
 export class SyncInfo extends LiteElement {
   @property({ type: Boolean })
   accessor open: boolean
@@ -49,7 +50,7 @@ export class SyncInfo extends LiteElement {
     if (this.nodeStartError) return `Node could not start: ${this.nodeStartError}`
     if (!this.nodeStarted) return 'Unlock your wallet to start the browser node.'
     if (this.isNodeReady) return 'Node synced and ready.'
-    if (!this.syncTargetIndex) return 'Connecting to the Peach network...'
+    if (!this.syncTargetIndex) return `Connecting to ${getSelectedNetwork().label}...`
     return `Syncing chain data (${this.progress}%).`
   }
 

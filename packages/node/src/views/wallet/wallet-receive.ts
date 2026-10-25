@@ -1,11 +1,9 @@
 import { LitElement, css, html } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
-import '@material/web/iconbutton/icon-button.js'
-import '@material/web/button/outlined-button.js'
-import '@material/web/button/filled-tonal-button.js'
 import './../../elements/hero.js'
 import * as qrcode from 'qrcode'
 import { write, NFC_SUPPORT } from './../../integrations/nfc.js'
+import { getSelectedNetwork } from '../../network-selection.js'
 
 type WalletState = {
   selectedAccount?: string
@@ -38,6 +36,11 @@ export class WalletReceive extends LitElement {
 
   @state()
   accessor shareSupported = Boolean(navigator.share)
+  @state()
+  accessor message = ''
+  @state()
+  accessor qrError = ''
+  #requestRevision = 0
 
   protected willUpdate(changedProperties: Map<string, unknown>) {
     if (changedProperties.has('wallet')) {
@@ -50,17 +53,19 @@ export class WalletReceive extends LitElement {
   }
 
   async #buildRequest() {
+    const revision = ++this.#requestRevision
     if (!this.address) {
       this.requestUrl = ''
       this.requestText = ''
       this.qrCodeDataUrl = ''
+      this.qrError = ''
       return
     }
 
     const params = new URLSearchParams({
       to: this.address,
       protocol: 'url',
-      network: 'leofcoin:peach'
+      network: getSelectedNetwork().network
     })
 
     if (this.amount) params.set('amount', this.amount)
@@ -72,7 +77,7 @@ export class WalletReceive extends LitElement {
     this.requestText = JSON.stringify(
       {
         action: 'pay',
-        network: 'leofcoin:peach',
+        network: getSelectedNetwork().network,
         to: this.address,
         amount: this.amount || undefined,
         description: this.note || undefined,
@@ -82,21 +87,23 @@ export class WalletReceive extends LitElement {
       2
     )
 
-    this.qrCodeDataUrl = await qrcode.toDataURL(this.requestUrl)
+    try {
+      const qrCodeDataUrl = await qrcode.toDataURL(this.requestUrl)
+      if (revision === this.#requestRevision) {
+        this.qrCodeDataUrl = qrCodeDataUrl
+        this.qrError = ''
+      }
+    } catch {
+      if (revision === this.#requestRevision) {
+        this.qrCodeDataUrl = ''
+        this.qrError = 'The payment QR code could not be generated. You can still copy your address or request link.'
+      }
+    }
   }
 
   #syncAddressFromWallet() {
-    if (this.wallet?.selectedAccount) {
-      this.address = this.wallet.selectedAccount
-      return
-    }
-
-    if (
-      typeof this.wallet?.selectedAccountIndex === 'number' &&
-      this.wallet.accounts?.[this.wallet.selectedAccountIndex]
-    ) {
-      this.address = this.wallet.accounts[this.wallet.selectedAccountIndex][1]
-    }
+    const account = this.wallet?.selectedAccount || this.wallet?.accounts?.[this.wallet.selectedAccountIndex || 0]?.[1] || ''
+    this.address = account
   }
 
   static styles = [
@@ -115,13 +122,15 @@ export class WalletReceive extends LitElement {
       h1 { margin: 0; font-size: clamp(28px, 4vw, 36px); letter-spacing: -.035em; }
       .intro { margin: 0 0 20px; color: var(--md-sys-color-on-surface-variant, #ccc); }
       .card {
+        display: grid;
+        gap: 16px;
         padding: clamp(18px, 3vw, 26px); border-radius: 22px;
         border: 1px solid var(--lfc-glass-border, #51474e);
         background: var(--lfc-glass-surface, #242126);
         backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
       }
-      label { display: grid; gap: 8px; font-size: 14px; }
-      input:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
+      label { display: grid; gap: 8px; font-size: 14px; color: var(--md-sys-color-on-surface-variant, #ccc); }
+      input:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px; }
 
       flex-column {
         gap: 12px;
@@ -158,7 +167,7 @@ export class WalletReceive extends LitElement {
       .qr-empty svg {
         width: 112px;
         height: 112px;
-        color: var(--md-sys-color-primary, #f4a77f);
+        color: var(--md-sys-color-primary, #3477d2);
       }
 
       .qr-empty strong {
@@ -206,32 +215,68 @@ export class WalletReceive extends LitElement {
         font-size: 12px;
       }
 
-      md-icon-button,
-      md-filled-tonal-button,
-      md-outlined-button {
+      button {
+        min-height: 44px;
+        padding: 10px 14px;
+        border: 1px solid var(--lfc-glass-border, #51474e);
+        border-radius: 12px;
+        color: var(--md-sys-color-on-surface, #eee);
+        background: rgb(255 255 255 / 4%);
+        font: inherit;
         cursor: pointer;
-        pointer-events: auto;
+      }
+      button:hover:not(:disabled) { background: var(--md-sys-color-surface-container-high); }
+      button:disabled { opacity: .45; cursor: default; }
+      button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .actions button { flex: 1 1 140px; }
+      .message {
+        color: var(--md-sys-color-primary, #3477d2);
+        font-size: 13px;
+      }
+      .error {
+        color: var(--md-sys-color-error, #ffb4ab);
+        font-size: 13px;
       }
     `
   ]
 
   async #copyAddress() {
     if (!this.address) return
-    await navigator.clipboard.writeText(this.address)
+    try {
+      await navigator.clipboard.writeText(this.address)
+      this.message = 'Address copied'
+    } catch {
+      this.message = 'Could not copy the address. Select and copy it manually.'
+    }
   }
 
   async #copyRequest() {
     if (!this.requestUrl) return
-    await navigator.clipboard.writeText(this.requestUrl)
+    try {
+      await navigator.clipboard.writeText(this.requestUrl)
+      this.message = 'Payment request copied'
+    } catch {
+      this.message = 'Could not copy the request. Try sharing it instead.'
+    }
   }
 
   async #shareRequest() {
     if (!this.requestUrl || !this.shareSupported) return
-    await navigator.share({
-      title: 'Payment Request',
-      text: this.requestText,
-      url: this.requestUrl
-    })
+    try {
+      await navigator.share({
+        title: 'Payment Request',
+        text: this.requestText,
+        url: this.requestUrl
+      })
+      this.message = 'Payment request shared'
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') this.message = 'Could not share the payment request.'
+    }
   }
 
   render() {
@@ -254,6 +299,7 @@ export class WalletReceive extends LitElement {
                   <span>Your address and payment QR will appear here when the wallet is ready.</span>
                 </div>`}
           </div>
+          ${this.qrError ? html`<p class="error" role="alert">${this.qrError}</p>` : ''}
 
           <div class="address">${this.address || 'No address available yet'}</div>
 
@@ -276,21 +322,21 @@ export class WalletReceive extends LitElement {
 
           <span class="hint">Share this QR or link to request a payment.</span>
 
-          <flex-row>
-            <md-outlined-button ?disabled=${!this.address} @click=${this.#copyAddress}>Copy address</md-outlined-button>
-            <md-outlined-button ?disabled=${!this.requestUrl} @click=${this.#copyRequest}>Copy request</md-outlined-button>
-          </flex-row>
+          <div class="actions">
+            <button ?disabled=${!this.address} @click=${this.#copyAddress}>Copy address</button>
+            <button ?disabled=${!this.requestUrl} @click=${this.#copyRequest}>Copy request</button>
+          </div>
 
-          <flex-row>
-            <md-filled-tonal-button ?disabled=${!this.shareSupported || !this.requestUrl} @click=${this.#shareRequest}
-              >Share request</md-filled-tonal-button
+          <div class="actions">
+            <button ?disabled=${!this.shareSupported || !this.requestUrl} @click=${this.#shareRequest}
+              >Share request</button
             >
             ${NFC_SUPPORT
-              ? html`<md-icon-button aria-label="Share request using NFC" ?disabled=${!this.address} @click=${() => write({ amount: this.amount, to: this.address })}
-                  ><custom-icon icon="share"></custom-icon
-                ></md-icon-button>`
+              ? html`<button aria-label="Share request using NFC" ?disabled=${!this.address} @click=${() => write({ amount: this.amount, to: this.address })}
+                  >Share with NFC</button>`
               : ''}
-          </flex-row>
+          </div>
+          ${this.message ? html`<p class="message" role="status">${this.message}</p>` : ''}
         </flex-column>
       </main>
     `

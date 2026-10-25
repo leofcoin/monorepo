@@ -1,7 +1,9 @@
-const key = 'leofcoin:peach:wallet-activity:v1'
+import { getSelectedNetwork } from '../network-selection.js'
+
+const key = () => `${getSelectedNetwork().network}:wallet-activity:v1`
 export function readActivity(account) {
   try {
-    const entries = JSON.parse(localStorage.getItem(key) || '[]')
+    const entries = JSON.parse(localStorage.getItem(key()) || '[]')
     return Array.isArray(entries)
       ? entries.filter((entry) => entry.from === account && typeof entry.hash === 'string')
       : []
@@ -11,10 +13,10 @@ export function readActivity(account) {
 }
 export function saveActivity(entry) {
   try {
-    const entries = JSON.parse(localStorage.getItem(key) || '[]')
+    const entries = JSON.parse(localStorage.getItem(key()) || '[]')
     const previous = Array.isArray(entries) ? entries : []
     localStorage.setItem(
-      key,
+      key(),
       JSON.stringify([entry, ...previous.filter((item) => item.hash !== entry.hash)].slice(0, 100))
     )
   } catch {

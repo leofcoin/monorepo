@@ -24,14 +24,14 @@ export class NotificationChild extends LitElement {
       box-sizing: border-box; overflow-wrap: anywhere;
     }
     .heading { display: flex; align-items: start; gap: 10px; }
-    .kind { color: var(--md-sys-color-primary, #f4a77f); padding-top: 2px; }
+    .kind { color: var(--md-sys-color-primary, #3477d2); padding-top: 2px; }
     :host([type='error']) .kind { color: var(--md-sys-color-error, #ffb4ab); }
     :host([type='warning']) .kind { color: #f7c873; }
     strong { flex: 1; font-size: 14px; line-height: 24px; }
     p { margin: 8px 0 0 34px; line-height: 1.6; color: var(--md-sys-color-on-surface-variant, #ccc); white-space: pre-wrap; }
     button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; margin: -10px -10px -6px 0; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
     button:hover { background: var(--md-sys-color-surface-container-high, #383139); }
-    button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
+    button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px; }
   `
 
   render() {

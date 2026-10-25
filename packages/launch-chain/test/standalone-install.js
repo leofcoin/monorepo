@@ -35,10 +35,10 @@ try {
     if (artifacts.has(path)) continue
     assert.ok(!entry.link, `unexpected workspace link: ${path}`)
     assert.ok(!/^(git\+|git:|github:|file:)/.test(entry.resolved ?? ''), `not from registry: ${path}`)
-    if (path.endsWith('/@leofcoin/peernet')) assert.equal(entry.version, '3.0.0')
+    if (path.endsWith('/@leofcoin/peernet')) assert.equal(entry.version, '3.1.0')
     if (path.endsWith('/@netpeer/swarm')) assert.equal(entry.version, '0.10.0')
   }
-  assert.equal(lock.packages['node_modules/@leofcoin/peernet'].version, '3.0.0')
+  assert.equal(lock.packages['node_modules/@leofcoin/peernet'].version, '3.1.0')
   assert.equal(lock.packages['node_modules/@netpeer/swarm'].version, '0.10.0')
   const cli = join(temporary, 'node_modules/@leofcoin/launch-chain/exports/cli.js')
   assert.match(run(process.execPath, [cli, '--help'], temporary), /leofcoin node/)
@@ -49,7 +49,7 @@ try {
   const output = run(process.execPath, [smokePath], temporary, 30_000)
   assert.match(output, /STANDALONE_LAUNCH_READY/)
   console.log(output.trim())
-  console.log('PASS: packed launcher starts a real-genesis offline node with registry peernet 3 / swarm 0.10')
+  console.log('PASS: packed launcher starts a real-genesis offline node with registry peernet 3.1 / swarm 0.10')
 } catch (error) {
   // Preserve useful subprocess diagnostics without ever inspecting real stores.
   if (error.stdout) process.stderr.write(error.stdout)

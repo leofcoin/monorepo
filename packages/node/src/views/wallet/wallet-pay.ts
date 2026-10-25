@@ -6,10 +6,13 @@ import './../../elements/hero.js'
 import '@vandeurenglenn/lite-elements/typography.js'
 import { StyleList } from '@vandeurenglenn/lite/element'
 import QrScanner from 'qr-scanner'
+import { getSelectedNetwork } from '../../network-selection.js'
 
 @customElement('wallet-pay')
 export class WalletPay extends LiteElement {
-  static expectedNetwork = 'leofcoin:peach'
+  static get expectedNetwork() {
+    return getSelectedNetwork().network
+  }
 
   @property({ consumer: true })
   accessor wallet
@@ -341,7 +344,7 @@ export class WalletPay extends LiteElement {
         color: inherit; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
       }
       input:focus-visible, textarea:focus-visible, button:focus-visible {
-        outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px;
+        outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px;
       }
       button { min-height: 44px; font: inherit; }
       button:disabled { opacity: .45; cursor: default; }

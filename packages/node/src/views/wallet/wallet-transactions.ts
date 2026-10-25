@@ -57,7 +57,7 @@ export class WalletTransactions extends LitElement {
     }
     h1 { margin: 0; font-size: clamp(28px, 4vw, 36px); letter-spacing: -.035em; }
     .empty { text-align: center; padding: 40px 24px; }
-    .empty svg { display: block; width: 124px; height: 96px; margin: 0 auto 20px; color: var(--md-sys-color-primary, #f4a77f); }
+    .empty svg { display: block; width: 124px; height: 96px; margin: 0 auto 20px; color: var(--md-sys-color-primary, #3477d2); }
     .empty strong { font-size: 16px; }
     .empty p { max-width: 340px; margin: 8px auto 0; color: var(--md-sys-color-on-surface-variant, #ccc); }
   `

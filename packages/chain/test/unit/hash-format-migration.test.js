@@ -15,7 +15,7 @@ test('monorepo resolves one canonical codec and automatic-transport peernet grap
   const lock = JSON.parse(await readFile(new URL('../../../../package-lock.json', import.meta.url), 'utf8'))
   for (const [dependency, version] of Object.entries({
     '@leofcoin/codec-format-interface': '2.0.0',
-    '@leofcoin/peernet': '3.0.0',
+    '@leofcoin/peernet': '3.1.0',
     '@netpeer/swarm': '0.10.0'
   })) {
     const entries = Object.entries(lock.packages).filter(([name]) => name.endsWith(`/node_modules/${dependency}`) || name === `node_modules/${dependency}`)

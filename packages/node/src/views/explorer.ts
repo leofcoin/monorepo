@@ -4,6 +4,7 @@ import '../elements/explorer/info-container.js'
 import '../elements/navigation-bar.js'
 import Router from './../router.js'
 import type { CustomPages } from '@vandeurenglenn/lite-elements/pages.js'
+import { getSelectedNetwork } from '../network-selection.js'
 
 @customElement('explorer-view')
 export class ExplorerView extends LiteElement {
@@ -36,7 +37,7 @@ export class ExplorerView extends LiteElement {
   get syncStatus() {
     if (this.nodeStartError) return 'Explorer unavailable.'
     if (!this.nodeStarted) return 'Unlock your wallet to start Explorer.'
-    if (!this.syncTargetIndex) return 'Connecting Explorer to the Peach network...'
+    if (!this.syncTargetIndex) return `Connecting Explorer to ${getSelectedNetwork().label}...`
     return `Explorer is syncing to block ${this.syncTargetIndex}.`
   }
 

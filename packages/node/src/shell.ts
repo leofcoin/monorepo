@@ -10,6 +10,11 @@ import './screens/login.js'
 import './notification/controller.js'
 import './notification/child.js'
 import './elements/account-select.js'
+import './elements/leofcoin-mark.js'
+import { chainNameForId } from './chain-names.js'
+import { getSelectedNetwork, setSelectedNetwork, SUPPORTED_NETWORKS } from './network-selection.js'
+import { nodeActivity } from './controllers/node-activity.js'
+import type { NodeStatus } from './views/stats.js'
 import '@vandeurenglenn/lite-elements/icon-set.js'
 import '@vandeurenglenn/lite-elements/icon.js'
 import '@vandeurenglenn/lite-elements/dropdown-menu.js'
@@ -26,14 +31,16 @@ import { NotificationController } from './notification/controller.js'
 
 const navigation = [
   { route: 'wallet', label: 'Wallet', icon: 'wallet' },
+  { route: 'address-book', label: 'Address book', icon: 'contacts' },
   { route: 'identity', label: 'Identity', icon: 'account_circle' },
   { route: 'explorer', label: 'Explorer', icon: 'travel_explore' },
   { route: 'validator', label: 'Validator', icon: 'gavel' },
-  { route: 'manager', label: 'Chain manager', icon: 'construction' },
   { route: 'editor', label: 'Contracts', icon: 'edit_note' },
   { route: 'chat', label: 'Chat', icon: 'chat' },
-  { route: 'stats', label: 'Statistics', icon: 'analytics' }
+  { route: 'stats', label: 'Node activity', icon: 'analytics' },
+  { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop' }
 ]
+const walletRoutes = ['wallet', 'identity', 'chat', 'validator', 'faucet', 'explorer']
 
 interface SyncProgress {
   phase: 'syncing' | 'synced'
@@ -45,6 +52,7 @@ interface SyncProgress {
 interface CachedView extends HTMLElement {
   wallet?: unknown
   isDesktop?: boolean
+  nodeStatus?: NodeStatus
 }
 
 interface LoginScreenElement extends HTMLElement {
@@ -85,11 +93,25 @@ class AppShell extends LiteElement {
 
   @property({ type: Boolean, provides: true })
   accessor nodeStarted = false
+  @property({ type: Number }) accessor connectedPeers = 0
 
   @property({ type: String, provides: true })
   accessor nodeStartError = ''
+  @property({ type: String })
+  accessor chainId = ''
+  @property({ type: String })
+  accessor chainName = 'Detecting chain…'
+  @property({ type: String })
+  accessor selectedNetworkKey = getSelectedNetwork().key
   #networkTimer: ReturnType<typeof setInterval>
+  #chainIdentityRequest = false
+  #chainIdentitySource: unknown
   #loginRequested = false
+  #lockedRoute = false
+
+  get requiresWallet() {
+    return !this.wallet && walletRoutes.includes(this.currentRoute)
+  }
   #viewHistory = new Map<string, CachedView>()
   #screenHistory = new Map<string, HTMLElement>()
 
@@ -111,6 +133,7 @@ class AppShell extends LiteElement {
   @property({ type: Boolean }) accessor exportOpen = false
   @property({ type: Boolean }) accessor passwordPromptOpen = false
   @property({ type: Boolean }) accessor syncInfoOpen = false
+  @property({ type: Boolean }) accessor loginOpen = false
   #media: MediaQueryList
 
   router: Router
@@ -127,6 +150,14 @@ class AppShell extends LiteElement {
   totalResolvedtimeout: number
 
   onChange(name) {
+    if (name === 'wallet') {
+      this.#applyViewData('chat')
+      this.#applyViewData('faucet')
+      if (this.wallet && this.#lockedRoute) {
+        this.#lockedRoute = false
+        void this.rendered.then(() => globalThis.dispatchEvent(new HashChangeEvent('hashchange')))
+      }
+    }
     if (name === 'totalResolved' || name === 'totalLoaded') {
       if (this.totalResolved === 0) return
       this.syncAnimating = true
@@ -135,7 +166,6 @@ class AppShell extends LiteElement {
         this.syncAnimating = false
       }, 1000)
     }
-    if (name === 'wallet') this.#applyViewData('manager')
   }
 
   get nodeReady() {
@@ -152,6 +182,7 @@ class AppShell extends LiteElement {
   get syncLabel() {
     if (this.nodeStartError) return 'Node unavailable'
     if (!this.nodeStarted) return 'Wallet locked'
+    if (!this.connectedPeers) return 'Waiting for peers'
     if (this.isNodeReady) return 'Node synced'
     if (!this.syncTargetIndex) return 'Connecting...'
     return `Syncing ${this.syncPercent}%`
@@ -159,10 +190,18 @@ class AppShell extends LiteElement {
 
   #nodeReady = new Promise((resolve) => {
     pubsub.subscribe('node:ready', () => {
-      this.isNodeReady = globalThis.chain?.state?.sync === 'synced'
+      this.#refreshNodeStatus()
       resolve(true)
     })
   })
+
+  #refreshNodeStatus() {
+    nodeActivity.refreshPeers(globalThis.peernet)
+    this.connectedPeers = Object.values(globalThis.peernet?.connections || {})
+      .filter((peer: { connected?: boolean }) => peer.connected).length
+    this.isNodeReady = Boolean(this.connectedPeers && globalThis.chain?.state?.sync === 'synced')
+    this.#applyViewData('stats')
+  }
 
   get notificationController() {
     return this.shadowRoot.querySelector('notification-controller') as NotificationController
@@ -198,6 +237,7 @@ class AppShell extends LiteElement {
       element = document.createElement(screen)
       if (screen === 'export-screen') element.addEventListener('export-close', this.#closeExport)
       if (screen === 'sync-info') element.addEventListener('sync-info-close', this.#closeSyncInfo)
+      if (screen === 'login-screen') element.addEventListener('login-dismiss', this.#closeLogin)
       this.#screenHistory.set(screen, element)
     }
     return element
@@ -209,6 +249,87 @@ class AppShell extends LiteElement {
 
   #closeSyncInfo = () => {
     this.syncInfoOpen = false
+  }
+
+  #closeLogin = () => {
+    this.loginOpen = false
+  }
+
+  #openWallet = async () => {
+    this.loginOpen = true
+    await this.rendered
+    if (!this.#loginRequested) {
+      this.#loginRequested = true
+      void this.#login().catch(error => {
+        this.#loginRequested = false
+        this.loginOpen = false
+        this.notificationController.createNotification({
+          title: 'Could not open wallet',
+          message: error instanceof Error ? error.message : String(error),
+          type: 'error'
+        })
+      })
+    } else {
+      const login = this.#screenHistory.get('login-screen') as LoginScreenElement
+      login.shown = true
+    }
+  }
+
+  #changeNetwork = (event: Event) => {
+    const select = event.currentTarget as HTMLSelectElement
+    const key = select.value
+    if (key === this.selectedNetworkKey) return
+    const next = SUPPORTED_NETWORKS[key]
+    if (!next) {
+      select.value = this.selectedNetworkKey
+      this.nodeStartError = `Unsupported network: ${key}`
+      return
+    }
+    if (!window.confirm(`Switch to ${next.label}? The browser node will restart and unsaved work will be lost. Finish or note any pending transactions first. Your wallet is shared; chain data stays separate.`)) {
+      select.value = this.selectedNetworkKey
+      return
+    }
+    try {
+      setSelectedNetwork(key)
+      window.location.reload()
+    } catch (error) {
+      select.value = this.selectedNetworkKey
+      this.nodeStartError = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  async #refreshChainIdentity() {
+    const chain = globalThis.chain
+    if (!chain) {
+      this.#chainIdentitySource = undefined
+      this.chainId = ''
+      this.chainName = getSelectedNetwork().label
+      return
+    }
+    if (this.#chainIdentitySource !== chain) {
+      this.#chainIdentitySource = chain
+      this.chainId = ''
+      this.chainName = getSelectedNetwork().label
+    }
+    if (typeof chain.getChainIdentity !== 'function') {
+      this.chainName = getSelectedNetwork().label
+      return
+    }
+    if (this.#chainIdentityRequest) return
+    this.#chainIdentityRequest = true
+    try {
+      const identity = await chain.getChainIdentity()
+      if (globalThis.chain !== chain) return
+      this.chainId = identity.chainId
+      this.chainName = chainNameForId(identity.chainId) || getSelectedNetwork().label
+    } catch (error) {
+      if (globalThis.chain === chain) {
+        console.warn('Could not load the active chain identity:', error)
+        this.chainName = 'Chain identity unavailable'
+      }
+    } finally {
+      this.#chainIdentityRequest = false
+    }
   }
 
   #toggleSyncInfo() {
@@ -243,35 +364,56 @@ class AppShell extends LiteElement {
   #applyViewData(view: string) {
     const page = this.#viewHistory.get(view)
     if (!page || this.currentRoute !== view) return
-    if (view === 'manager') page.wallet = this.wallet
-    if (view === 'chat') page.isDesktop = this.isDesktop
+    if (view === 'chat') {
+      page.isDesktop = this.isDesktop
+      page.wallet = this.wallet
+    }
+    if (view === 'address-book' || view === 'faucet') page.wallet = this.wallet
+    if (view === 'stats') page.nodeStatus = {
+      label: this.syncLabel,
+      ready: this.isNodeReady,
+      started: this.nodeStarted,
+      error: this.nodeStartError,
+      progress: this.syncPercent,
+      local: this.lastBlockIndex,
+      target: this.syncTargetIndex,
+      resolved: this.totalResolved,
+      loaded: this.totalLoaded,
+      peers: Object.entries(globalThis.peernet?.connections || {})
+        .filter(([, peer]: [string, { connected?: boolean }]) => peer.connected).map(([id]) => id)
+    }
   }
 
   async #select(selected: string) {
-    if (!customElements.get(`${selected}-view`)) await import(`./${selected}.js`)
     let pages = this.#pages
     for (let attempt = 0; !pages && attempt < 10; attempt += 1) {
       await new Promise(requestAnimationFrame)
       pages = this.#pages
     }
     if (!pages) throw new Error('application navigation did not render')
+    if (!navigation.some((item) => item.route === selected) || (selected === 'faucet' && getSelectedNetwork().key !== 'peach')) {
+      this.notificationController.createNotification({
+        title: 'Page unavailable',
+        message: selected === 'manager' ? 'Chain manager is now a separate app.' : selected === 'faucet' ? 'The faucet is only available on testnet.' : `Unknown page: ${selected}`,
+        type: 'info'
+      })
+      location.hash = '#!/wallet'
+      return
+    }
+    this.#lockedRoute = !this.wallet && walletRoutes.includes(selected)
+    if (!this.#lockedRoute && !customElements.get(`${selected}-view`)) await import(`./${selected}.js`)
     this.currentRoute = selected
+    const cachedLogin = this.#screenHistory.get('login-screen')
+    const walletSetupInProgress =
+      this.loginOpen && Boolean(this.wallet) && Boolean(cachedLogin?.hasAttribute('shown'))
+    this.loginOpen = walletSetupInProgress || this.requiresWallet
     await this.rendered
     pages.select(selected)
     this.#applyViewData(selected)
     if (this.drawerOpen) await this.#setDrawer(false)
     const login = this.shadowRoot?.querySelector<LoginScreenElement>('login-screen')
-    if (login && !this.wallet) {
-      const needsWallet = selected === 'wallet' || selected === 'identity'
-      if (needsWallet && !this.#loginRequested) {
-        this.#loginRequested = true
-        this.#login().catch((error) => {
-          this.#loginRequested = false
-          this.nodeStartError = error instanceof Error ? error.message : String(error)
-        })
-      }
-      login.shown = needsWallet
-    }
+    if (this.requiresWallet) await this.#openWallet()
+    else if (login && !this.wallet) login.shown = false
     const monacoContainer = document.querySelector('.container')
     if (monacoContainer) {
       if (selected === 'editor') monacoContainer.classList.add('custom-selected')
@@ -327,6 +469,9 @@ class AppShell extends LiteElement {
 
   async connectedCallback() {
     super.connectedCallback()
+    nodeActivity.start()
+    pubsub.subscribe('peer:connected', this.#observePeers)
+    pubsub.subscribe('peer:left', this.#observePeers)
     this.router = new Router(this, 'wallet')
     this.#media = window.matchMedia('(min-width: 960px)')
     this.#matchMedia(this.#media)
@@ -349,10 +494,12 @@ class AppShell extends LiteElement {
       this.totalLoaded += 1
       this.lastBlockIndex = Number(block.index)
     })
+    this.#refreshNodeStatus()
     this.#networkTimer = setInterval(() => {
-      const connected = Object.values(globalThis.peernet?.connections || {}).some((peer: any) => peer.connected)
-      this.isNodeReady = Boolean(connected && globalThis.chain?.state?.sync === 'synced')
+      this.#refreshNodeStatus()
+      void this.#refreshChainIdentity()
     }, 3000)
+    void this.#refreshChainIdentity()
     import('./integrations/nfc.js')
     // await this.init()
     // globalThis.walletStorage = new Storage('wallet')
@@ -363,14 +510,19 @@ class AppShell extends LiteElement {
   disconnectedCallback() {
     super.disconnectedCallback()
     clearInterval(this.#networkTimer)
+    nodeActivity.stop()
+    pubsub.unsubscribe('peer:connected', this.#observePeers)
+    pubsub.unsubscribe('peer:left', this.#observePeers)
     this.#media?.removeEventListener('change', this.#matchMedia)
   }
+
+  #observePeers = () => this.#refreshNodeStatus()
 
   async #login() {
     if (!globalThis.walletStore) {
       // todo: race condition introduced?
       // for some reason walletStore can't find current wallet
-      globalThis.walletStore = globalThis.walletStore || (await new Storage('wallet', '.leofcoin/peach'))
+      globalThis.walletStore = globalThis.walletStore || (await new Storage('wallet', '.leofcoin/wallet'))
       await walletStore.init()
     }
 
@@ -385,7 +537,7 @@ class AppShell extends LiteElement {
     const pending = login.requestLogin(hasWallet)
     // Navigation may have changed while the wallet store was opening.
     const route = Router.debang(location.hash).split('/')[0]
-    login.shown = route === 'wallet' || route === 'identity'
+    login.shown = this.loginOpen && walletRoutes.includes(route)
     await pending
   }
 
@@ -414,8 +566,10 @@ class AppShell extends LiteElement {
       }
 
       .container {
-        position: absolute;
-        inset: 0px;
+        position: relative;
+        flex: 1;
+        width: 100%;
+        min-height: 0;
       }
 
       .main {
@@ -428,7 +582,7 @@ class AppShell extends LiteElement {
         background:
           radial-gradient(
             ellipse at 82% 0%,
-            color-mix(in srgb, var(--md-sys-color-primary, #f4a77f) 8%, transparent),
+            color-mix(in srgb, var(--md-sys-color-primary, #3477d2) 8%, transparent),
             transparent 42%
           ),
           var(--md-sys-background);
@@ -529,7 +683,7 @@ class AppShell extends LiteElement {
       }
       a:focus-visible,
       button:focus-visible {
-        outline: 2px solid var(--md-sys-color-primary, #f4a77f);
+        outline: 2px solid var(--md-sys-color-primary, #3477d2);
         outline-offset: 3px;
       }
       .notification-dot {
@@ -539,7 +693,7 @@ class AppShell extends LiteElement {
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: var(--md-sys-color-primary, #f4a77f);
+        background: var(--md-sys-color-primary, #3477d2);
       }
       .skip-link {
         position: fixed;
@@ -553,15 +707,17 @@ class AppShell extends LiteElement {
       }
 
       .brand-mark {
-        width: 32px;
-        height: 32px;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
         display: grid;
         place-items: center;
-        border-radius: var(--md-sys-shape-corner-medium);
-        background: var(--md-sys-color-primary);
-        color: var(--md-sys-color-on-primary);
-        font-size: 15px;
-        font-weight: 800;
+        padding: 5px;
+        box-sizing: border-box;
+        border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
+        border-radius: 13px;
+        background: color-mix(in srgb, var(--md-sys-color-primary) 12%, var(--md-sys-color-surface-container-high));
+        color: var(--md-sys-color-primary);
       }
 
       :host([sync-animating]) custom-icon-button[icon='sync'] {
@@ -606,7 +762,7 @@ class AppShell extends LiteElement {
 
       a[aria-current='page'] {
         background: color-mix(in srgb, var(--md-sys-color-primary-container, #684536) 78%, transparent);
-        border-color: color-mix(in srgb, var(--md-sys-color-primary, #f4a77f) 24%, transparent);
+        border-color: color-mix(in srgb, var(--md-sys-color-primary, #3477d2) 24%, transparent);
         color: var(--md-sys-color-on-primary-container);
         --svg-icon-color: var(--md-sys-color-on-primary-container);
         box-shadow:
@@ -635,18 +791,21 @@ class AppShell extends LiteElement {
       .extra-nav-rail p {
         margin: 0;
       }
+      .extra-nav-rail code {
+        overflow-wrap: anywhere;
+        font-size: 11px;
+      }
 
       .sync-status-pill {
         display: flex;
         align-items: center;
         gap: 6px;
         font-size: 12px;
-        border-radius: 999px;
-        border: 1px solid var(--border-color);
-        background: var(--md-sys-color-surface-container-high);
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
         color: var(--md-sys-color-on-surface);
         padding: 6px 10px;
-        margin-right: 12px;
         cursor: pointer;
         min-height: 44px;
         font: inherit;
@@ -655,12 +814,31 @@ class AppShell extends LiteElement {
         backdrop-filter: blur(14px) saturate(1.25);
       }
 
-      .sync-status-pill[data-state='syncing'] {
-        border-color: var(--md-sys-color-primary);
-      }
-
       .sync-status-pill[data-state='ready'] {
-        border-color: var(--md-sys-color-secondary);
+        color: var(--md-sys-color-secondary, #80d6a5);
+      }
+      .sync-status-pill[data-state='error'] { color: var(--md-sys-color-error, #ffb4ab); }
+      .sync-status-pill:hover { background: var(--md-sys-color-surface-container-high); }
+      .sync-status-pill:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+      .node-status-bar {
+        flex: 0 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-height: 44px;
+        padding: 0 16px env(safe-area-inset-bottom);
+        border-top: 1px solid var(--lfc-glass-border);
+        background: var(--lfc-glass-surface);
+        color: var(--md-sys-color-on-surface-variant);
+        font-size: 12px;
+      }
+      .node-status-bar .peer-status { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+      .node-status-bar .block-status { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      @media (max-width: 480px) {
+        .node-status-bar { padding-left: 8px; padding-right: 8px; gap: 8px; font-size: 11px; }
+        .node-status-bar .sync-status-pill { font-size: 11px; }
       }
 
       header {
@@ -682,6 +860,28 @@ class AppShell extends LiteElement {
         align-items: center;
         gap: 10px;
         margin-left: auto;
+      }
+      .network-switcher {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--md-sys-color-on-surface-variant);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .network-switcher select {
+        min-height: 40px;
+        max-width: 170px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--md-sys-color-surface-container-high);
+        color: var(--md-sys-color-on-surface);
+        padding: 0 10px;
+        font: inherit;
+      }
+      .network-switcher select:focus-visible {
+        outline: 2px solid var(--md-sys-color-primary);
+        outline-offset: 2px;
       }
       account-select {
         max-width: 250px;
@@ -764,10 +964,6 @@ class AppShell extends LiteElement {
           flex: 1 0 100%;
           gap: 8px;
         }
-        .sync-status-pill {
-          margin-right: auto;
-          padding: 6px 8px;
-        }
         account-select {
           min-width: 0;
           width: auto;
@@ -838,6 +1034,7 @@ class AppShell extends LiteElement {
           <span name="gavel">@symbol-gavel</span>
           <span name="edit_note">@symbol-edit_note</span>
           <span name="analytics">@symbol-analytics</span>
+          <span name="contacts">@symbol-contacts</span>
           <span name="chat">@symbol-chat</span>
           <span name="database">@symbol-database</span>
           <span name="history">@symbol-history</span>
@@ -868,6 +1065,7 @@ class AppShell extends LiteElement {
           <span name="analytics">@symbol-analytics</span>
           <span name="construction">@symbol-construction</span>
           <span name="contract">@symbol-contract</span>
+          <span name="water_drop">@symbol-water_drop</span>
         </template>
       </custom-icon-set>
       <custom-theme load-symbols="false"></custom-theme>
@@ -895,7 +1093,7 @@ class AppShell extends LiteElement {
           ?inert=${!this.isDesktop && !this.drawerOpen}
           @keydown=${this.#drawerKeydown}>
           <div class="brand">
-            <span class="brand-mark" aria-hidden="true">L</span>
+            <leofcoin-mark class="brand-mark" aria-hidden="true"></leofcoin-mark>
             <span>Leofcoin<small>Browser node</small></span>
             <button
               class="icon-button drawer-close"
@@ -906,7 +1104,7 @@ class AppShell extends LiteElement {
           </div>
           <nav class="primary-nav" aria-label="Workspace">
             <span class="nav-section">Workspace</span>
-            ${navigation.map(
+            ${navigation.filter(item => item.route !== 'faucet' || getSelectedNetwork().key === 'peach').map(
               ({ route, label, icon }, index) => html`
                 ${index === 5 ? html`<span class="nav-section">Tools & community</span>` : ''}
                 <a
@@ -924,8 +1122,10 @@ class AppShell extends LiteElement {
           </nav>
 
           <flex-column class="extra-nav-rail">
-            <strong>Peach test network</strong>
-            <p>Test tokens only · No monetary value</p>
+            <strong>${this.chainName}</strong>
+            ${getSelectedNetwork().key === 'peach'
+              ? html`<p>Test tokens only · No monetary value</p>`
+              : ''}
           </flex-column>
         </aside>
 
@@ -957,17 +1157,13 @@ class AppShell extends LiteElement {
               ${this.unreadNotifications ? html`<span class="notification-dot" aria-hidden="true"></span>` : ''}
             </button>
             <div class="header-actions">
-              <button
-                class="sync-status-pill"
-                title="View node sync details"
-                aria-label=${`${this.syncLabel}. View sync details`}
-                @click=${() => this.#toggleSyncInfo()}
-                data-state=${this.nodeStartError ? 'error' : this.isNodeReady ? 'ready' : 'syncing'}>
-                <custom-icon
-                  aria-hidden="true"
-                  icon=${this.nodeStartError ? 'error' : this.isNodeReady ? 'check_box' : 'sync'}></custom-icon>
-                ${this.syncLabel}
-              </button>
+              <label class="network-switcher">
+                <span>Network</span>
+                <select aria-label="Switch blockchain network" @change=${this.#changeNetwork}>
+                  ${Object.values(SUPPORTED_NETWORKS).map(network =>
+                    html`<option value=${network.key} ?selected=${network.key === this.selectedNetworkKey}>${network.label}</option>`)}
+                </select>
+              </label>
               ${this.wallet ? html`<account-select></account-select>` : ''}
             </div>
           </header>
@@ -977,14 +1173,32 @@ class AppShell extends LiteElement {
             tabindex="-1"
             aria-label=${navigation.find((item) => item.route === this.currentRoute)?.label || 'Node console'}
             attr-for-selected="data-route">
-                ${this.viewWithOrWithoutHistory(this.currentRoute)}
+                ${this.requiresWallet
+                  ? html`<div data-route=${this.currentRoute}></div>`
+                  : this.viewWithOrWithoutHistory(this.currentRoute)}
               </custom-pages>
         </flex-column>
       </flex-row>
+          <footer class="node-status-bar" aria-label="Node status" ?inert=${!this.isDesktop && this.drawerOpen}>
+            <button
+              class="sync-status-pill"
+              title=${this.nodeStartError || 'View node sync details'}
+              aria-label=${`${this.syncLabel}. View sync details`}
+              aria-expanded=${String(this.syncInfoOpen)}
+              @click=${() => this.#toggleSyncInfo()}
+              data-state=${this.nodeStartError ? 'error' : this.isNodeReady ? 'ready' : 'syncing'}>
+              <custom-icon aria-hidden="true"
+                icon=${this.nodeStartError ? 'error' : this.isNodeReady ? 'check_box' : 'sync'}></custom-icon>
+              <span role="status">${this.syncLabel}</span>
+            </button>
+            <span class="peer-status">
+              <custom-icon icon="groups" aria-hidden="true"></custom-icon>
+              ${this.connectedPeers} ${this.connectedPeers === 1 ? 'peer' : 'peers'}
+            </span>
+            <span class="block-status" title="Latest local block">#${this.lastBlockIndex}</span>
+          </footer>
 
-      ${(!this.wallet && (this.currentRoute === 'wallet' || this.currentRoute === 'identity')) ||
-      this.passwordPromptOpen ||
-      this.#screenHistory.get('login-screen')?.hasAttribute('shown')
+      ${this.loginOpen || this.passwordPromptOpen
         ? this.screenWithOrWithoutHistory('login-screen')
         : ''}
       ${this.exportOpen ? this.screenWithOrWithoutHistory('export-screen') : ''}

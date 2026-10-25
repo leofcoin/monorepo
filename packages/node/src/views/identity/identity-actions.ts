@@ -1,73 +1,60 @@
-// import { nativeToken } from './../../../node_modules/@leofcoin/addresses/src/addresses'
-import { parseUnits } from '@leofcoin/utils'
 import { LitElement, html } from 'lit'
+import { customElement, state } from 'lit/decorators.js'
 import * as qrcode from 'qrcode'
+import { viewHeader, viewPolish } from '../view-polish.js'
+import { errorMessage } from '../../controllers/transfer.js'
 
-export default customElements.define(
-  'identity-actions',
-  class IdentityActions extends LitElement {
-    static properties = {
-      accounts: {
-        type: 'object'
-      }
-    }
+@customElement('identity-actions')
+export class IdentityActions extends LitElement {
+  @state() accessor exporting = false
+  @state() accessor error = ''
+  @state() accessor message = ''
 
-    constructor() {
-      super()
-    }
+  static styles = viewPolish
 
-    async #export() {
-      const shell = document.querySelector<
-        HTMLElement & {
-          requestWalletPassword(): Promise<string>
-          showExport(qrcode: string, exported: string): void
-        }
-      >('app-shell')
-      if (!shell) throw new Error('application shell is unavailable')
+  async #export() {
+    if (this.exporting) return
+    this.exporting = true
+    this.error = ''
+    this.message = ''
+    try {
+      const shell = document.querySelector<HTMLElement & {
+        requestWalletPassword(): Promise<string>
+        showExport(qrcode: string, exported: string): void
+      }>('app-shell')
+      if (!shell) throw new Error('Application shell is unavailable.')
       const password = await shell.requestWalletPassword()
-      const exported = await globalThis.identityController.export(password)
+      const controller = (globalThis as typeof globalThis & { identityController: { export(password: string): Promise<string> } }).identityController
+      const exported = await controller.export(password)
       const qr = await qrcode.toDataURL(exported)
       shell.showExport(qr, exported)
-      console.log(qr)
-    }
-    render() {
-      return html`
-        <style>
-          * {
-            pointer-events: none;
-          }
-
-          :host {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            padding: 24px;
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-          }
-          .account-container {
-            padding: 12px;
-            box-sizing: border-box;
-          }
-
-          hero-element {
-            height: auto;
-            max-height: none;
-            max-width: 720px;
-          }
-        </style>
-        <hero-element>
-          <flex-row>
-            <flex-one></flex-one>
-            <button-element>view mnemonic</button-element>
-            <flex-two></flex-two>
-            <button-element @click=${this.#export}>export</button-element>
-            <flex-one></flex-one>
-          </flex-row>
-        </hero-element>
-      `
+      this.message = 'Backup ready. Store it securely before closing the export screen.'
+    } catch (error) {
+      this.error = errorMessage(error)
+    } finally {
+      this.exporting = false
     }
   }
-)
+
+  render() {
+    return html`<main>
+      ${viewHeader('backup', 'BACKUP & SECURITY', 'Keep your identity safe', 'Your wallet, your responsibility. Create an encrypted backup so you can recover your accounts when you need them.')}
+      <section class="card">
+        <div class="section-title"><span class="avatar" aria-hidden="true">↓</span><h2>Encrypted wallet backup</h2><span class="badge">Password protected</span></div>
+        <p class="muted">Choose a password to encrypt your backup, then save it from the export screen. Keep both the backup and its password safe.</p>
+        <div class="actions"><button @click=${this.#export} ?disabled=${this.exporting} aria-busy=${this.exporting}>
+          ${this.exporting ? 'Preparing backup...' : 'Export encrypted backup'}<span aria-hidden="true">↗</span>
+        </button></div>
+        <p class="feedback" role="status">${this.message}</p>
+        ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : ''}
+      </section>
+      <section class="card security-note">
+        <h2>Before you back up</h2>
+        <p class="muted">Store a copy offline, away from your everyday device. Anyone with the backup and password can access your wallet.</p>
+        <details><summary class="row"><span class="row-info">A few good habits</span><span class="chevron" aria-hidden="true">›</span></summary>
+          <div class="detail-body muted"><p>Use a unique password and keep it separate from the backup.</p><p>Never paste backup contents into chat or send them to someone offering support.</p><p>Check that your saved backup is readable before relying on it.</p></div>
+        </details>
+      </section>
+    </main>`
+  }
+}

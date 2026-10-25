@@ -20,9 +20,9 @@
   --md-sys-color-background: var(--md-sys-color-background-light);
   --md-sys-color-on-background: var(--md-sys-color-on-background-light);
   --md-sys-color-surface: var(--md-sys-color-surface-light);
-  --md-sys-color-surface-container: #f6f3f1;
-  --md-sys-color-surface-container-high: #eee9e6;
-  --md-sys-color-surface-container-highest: #e7e1dd;
+  --md-sys-color-surface-container: #f2f6fb;
+  --md-sys-color-surface-container-high: #e9f0f8;
+  --md-sys-color-surface-container-highest: #dfe8f3;
   --md-sys-color-on-surface: var(--md-sys-color-on-surface-light);
   --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-light);
   --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-light);

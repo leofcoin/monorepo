@@ -5,7 +5,6 @@ const root = join(import.meta.dirname, '..', 'www')
 const requiredFiles = [
   'index.html',
   'shell.js',
-  'manager.js',
   'sw.js',
   'manifest.json',
   'chain/node-browser.js',

@@ -130,7 +130,7 @@ export class NotificationController extends LitElement {
     button { font: inherit; color: inherit; border: 1px solid var(--lfc-glass-border, #51474e); border-radius: 12px; background: transparent; min-height: 44px; padding: 0 16px; cursor: pointer; }
     .close { width: 44px; padding: 0; display: grid; place-items: center; }
     button:hover:not(:disabled) { background: var(--md-sys-color-surface-container-high, #383139); }
-    button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 3px; }
+    button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 3px; }
     button:disabled { opacity: .45; cursor: default; }
     @media (max-width: 639px) {
       .recents { top: 132px; right: 16px; max-height: calc(100dvh - 156px); }

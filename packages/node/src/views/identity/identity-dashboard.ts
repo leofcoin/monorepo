@@ -1,69 +1,33 @@
-// import { nativeToken } from './../../../node_modules/@leofcoin/addresses/src/addresses'
-import { parseUnits } from '@leofcoin/utils'
 import { LitElement, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import { map } from 'lit/directives/map.js'
-import '@vandeurenglenn/flex-elements/wrap-evenly.js'
+import { viewHeader, viewIllustration, viewPolish, type IdentityAccount } from '../view-polish.js'
 
 @customElement('identity-dashboard')
 export class IdentityDashboard extends LitElement {
-  @property({ type: Object })
-  accessor accounts
+  @property({ type: Array }) accessor accounts: IdentityAccount[] = []
+
+  static styles = viewPolish
 
   render() {
-    return html`
-      <style>
-        * {
-          pointer-events: none;
-        }
-
-        :host {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          padding: 24px;
-          box-sizing: border-box;
-        }
-        flex-row {
-          display: flex;
-          flex-direction: column;
-          box-sizing: border-box;
-          background: var(--secondary-background);
-          border: 1px solid var(--border-color);
-          border-radius: 24px;
-          padding: 12px 24px;
-          max-width: 240px;
-          max-height: 54px;
-          width: 100%;
-          height: 100%;
-          justify-content: center;
-          margin-bottom: 12px;
-        }
-
-        hero-element {
-          height: auto;
-          max-height: none;
-          max-width: 720px;
-        }
-      </style>
-      <hero-element>
-        <flex-wrap-evenly>
-          <flex-row>
-            <strong>transactions</strong>
-            <flex-it></flex-it>
-            <span>${this.accounts?.totalTransactions || 0}</span>
-          </flex-row>
-
-          <flex-row>
-            <strong>total amount</strong>
-            <flex-it></flex-it>
-            <span>${this.accounts?.totalValue || 0}</span>
-          </flex-row>
-        </flex-wrap-evenly>
-      </hero-element>
-    `
+    const accounts = this.accounts ?? []
+    const addresses = new Set(accounts.flatMap(([, external, internal]) => [external, internal]).filter(Boolean))
+    return html`<main>
+      ${viewHeader('identity', 'YOUR WALLET IDENTITY', 'Make it yours', 'Your accounts and public addresses, together in one place. Keep your backup safe and your identity in your hands.')}
+      <section class="metrics" aria-label="Identity overview">
+        <article class="card metric">${viewIllustration('accounts')}<span class="muted">Wallet accounts</span><strong>${accounts.length}</strong></article>
+        <article class="card metric">${viewIllustration('identity')}<span class="muted">Public addresses</span><strong>${addresses.size}</strong></article>
+      </section>
+      <section class="card">
+        <div class="section-title"><span class="avatar" aria-hidden="true">ID</span><h2>Your accounts</h2><span class="badge">${accounts.length}</span></div>
+        ${accounts.length ? html`<p class="muted">Explore your external and internal addresses, or copy them to share.</p>
+          <div class="actions"><a class="button" href="#!/identity/accounts">Explore accounts <span aria-hidden="true">→</span></a></div>`
+          : html`<div class="empty">${viewIllustration('accounts')}<h3>No accounts available</h3><p class="muted">Unlock your wallet to see your accounts.</p></div>`}
+      </section>
+      <section class="card security-note">
+        <h2>A little backup goes a long way</h2>
+        <p class="muted">Export a password-protected backup and store it somewhere private. Never share your backup or password.</p>
+        <div class="actions"><a class="button secondary" href="#!/identity/actions">Backup &amp; security <span aria-hidden="true">→</span></a></div>
+      </section>
+    </main>`
   }
 }

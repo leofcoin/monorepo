@@ -7,6 +7,7 @@ import Showdown from 'showdown'
 import shared from './shared.js'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
+import { managerMiddleware } from './manager.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -190,6 +191,7 @@ export default (chain, port, networkVersion, remote: boolean = false) => {
       ctx.type = 'application/json'
     }
   })
+  api.use(managerMiddleware(chain))
   api.use(router.routes())
   return api.listen(port)
 }

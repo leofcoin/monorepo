@@ -123,9 +123,10 @@ export class TestnetFaucet extends LitElement {
       font: inherit;
       border-radius: 12px;
       padding: 12px;
-      border: 1px solid var(--md-sys-color-outline);
-      background: var(--md-sys-color-primary);
-      color: var(--md-sys-color-on-primary);
+      border: 1px solid transparent;
+      background: var(--lfc-action, #1d64d8);
+      color: var(--lfc-on-action, #ffffff);
+      font-weight: 700;
       cursor: pointer;
     }
     button:disabled {

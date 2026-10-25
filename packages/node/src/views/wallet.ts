@@ -116,10 +116,10 @@ export class WalletView extends LiteElement {
         }
         a:hover { background: var(--md-sys-color-surface-container-high); }
         a[aria-current='page'] {
-          background: var(--md-sys-color-primary-container, #684536);
-          color: var(--md-sys-color-on-primary-container, #ffdbca);
+          background: var(--md-sys-color-primary);
+          color: var(--md-sys-color-on-primary);
         }
-        a:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
+        a:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
         @media (max-width: 420px) {
           .wallet-nav { align-self: stretch; margin: 8px 12px max(12px, env(safe-area-inset-bottom)); }
           a { flex: 1; min-width: 0; padding: 0 8px; }

@@ -25,3 +25,14 @@ test('signs with the selected derived account and restores the encrypted backup'
   await assert.rejects(controller.unlock('wrong-test-password'), /Check your password/)
   await assert.rejects(controller.signer(from), /Unlock your wallet/)
 })
+
+test('restores the same encrypted wallet address for Mainnet and Peach', async () => {
+  const password = 'local-network-switch-test-only'
+  const wallet = await generateAccount(password, 'leofcoin:peach')
+  globalThis.walletStore = { get: async () => new TextEncoder().encode(JSON.stringify(wallet.accounts)) }
+  const peach = new IdentityController('leofcoin:peach', wallet)
+  await peach.unlock(password)
+  const backup = await peach.export(password)
+  const mainnet = await new IdentityController('leofcoin:mainnet').import(password, backup)
+  assert.equal(await (await mainnet.account(1).external(1)).address, wallet.accounts[0][1])
+})

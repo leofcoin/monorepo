@@ -1,10 +1,10 @@
 {
   "name": "Leofcoin Node",
   "short_name": "Leofcoin",
-  "description": "Leofcoin browser node, wallet and explorer",
+  "description": "Connected to the world.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111"
+  "background_color": "#1c1b1f",
+  "theme_color": "#155db5"
 }

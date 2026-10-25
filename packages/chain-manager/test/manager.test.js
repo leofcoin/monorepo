@@ -3,17 +3,19 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import { transform } from 'esbuild'
 import * as planner from '@leofcoin/lib/genesis-plan'
+import { checkChainPresence } from '../dist/presence.js'
+import { generateGenesisBundle } from '../dist/genesis.js'
 
 // Run the actual component logic with inert rendering/decorators. No browser,
 // wallet, node or database is needed for this controller-boundary test.
-const source = readFileSync(new URL('../src/views/manager.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../src/manager.ts', import.meta.url), 'utf8')
 const body = source.replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '').replace(/export class/, 'class')
 const { code } = await transform(body, { loader: 'ts', target: 'es2022', tsconfigRaw: {
   compilerOptions: { experimentalDecorators: false, useDefineForClassFields: true }
 } })
 const decorator = () => () => undefined
 const bindings = {
-  ...planner, LitElement: class {}, customElement: () => value => value,
+  ...planner, checkChainPresence, generateGenesisBundle, LitElement: class {}, customElement: () => value => value,
   property: decorator, state: decorator, css: () => '', html: () => ''
 }
 const Manager = new Function(...Object.keys(bindings), `${code}; return ManagerView`)(...Object.values(bindings))
@@ -46,8 +48,15 @@ const handlers = (instance, overrides = {}) => {
     const functions = captured.filter(value => typeof value === 'function')
     if (label === 'next' || label === 'download') return functions.at(-1)
     if (label === 'import') return functions.at(-2)
-    if (label === 'presence') return templates.find(template => template.strings.join('').includes('Already announced?'))
-      ?.values.find(value => typeof value === 'function')
+    if (label === 'presence') {
+      const template = templates.find(template => template.strings.join('').includes('Already announced?'))
+      return template?.values[template.strings.findIndex(value => value.endsWith('@click='))]
+    }
+    if (label === 'generate') {
+      const template = templates.find(template => template.strings.join('').includes('Generate genesis bundle'))
+      return template?.values[template.strings.findIndex((value, index) =>
+        value.endsWith('@click=') && template.strings[index + 1]?.includes('Generate genesis bundle'))]
+    }
     throw new Error('Unknown handler')
   }
   return { manager, find }
@@ -68,18 +77,22 @@ test('wizard validates before advancing and never exports an unreviewed draft', 
   assert.equal(manager.notice, '')
 })
 
-test('network check remains unknown offline and reports an actual connected-node result', async () => {
-  const {manager,find} = handlers(fixture())
+test('network check remains unknown offline and reports endpoint results', async () => {
+  const checked = []
+  const {manager,find} = handlers(fixture(), {
+    checkChainPresence: async (endpoint, chainId) => {
+      checked.push({ endpoint, chainId })
+      return { status: endpoint ? 'found' : 'unknown' }
+    }
+  })
   await find('next')()
   await find('next')()
   await find('presence')()
   assert.equal(manager.presence.status, 'unknown')
-  globalThis.chain = { findChain: async chainId => ({ chainId, status: 'found', foundViaLocalNode: true }) }
-  try {
-    await find('presence')()
-    assert.equal(manager.presence.status, 'found')
-    assert.equal(manager.presence.chainId, manager.plan.chainId)
-  } finally { delete globalThis.chain }
+  manager.endpoint = 'http://localhost:3030'
+  await find('presence')()
+  assert.equal(manager.presence.status, 'found')
+  assert.deepEqual(checked.at(-1), { endpoint: manager.endpoint, chainId: manager.plan.chainId })
 })
 
 test('invalid supply keeps the wizard at entry and clears its busy state', async () => {
@@ -142,11 +155,37 @@ test('imports validate public schema, reset consent and reject secret-bearing JS
   assert.equal(bad.manager.plan, undefined)
 })
 
-test('manager is a navigation route and wallet login is lazy rather than required at shell startup', () => {
-  const shell = readFileSync(new URL('../src/shell.ts', import.meta.url), 'utf8')
-  assert.match(shell, /href="#!\/manager"/)
-  assert.match(shell, /<manager-view data-route="manager"/)
-  assert.match(shell, /if \(needsWallet && !this\.#loginRequested\)/)
-  const connected = shell.slice(shell.indexOf('async connectedCallback()'), shell.indexOf('disconnectedCallback()'))
-  assert.doesNotMatch(connected, /this\.#login\(/)
+test('failed endpoint checks show an explicit error without blocking offline export', async () => {
+  const { manager, find } = handlers(fixture(), {
+    checkChainPresence: async () => { throw new Error('Endpoint unavailable') }
+  })
+  await find('next')()
+  await find('next')()
+  await find('presence')()
+  assert.equal(manager.presence.status, 'unknown')
+  assert.equal(manager.error, 'Endpoint unavailable')
+  assert.equal(manager.checking, false)
+  assert.ok(manager.plan)
+})
+
+test('genesis generation requires review consent and downloads actual bytecodes', async () => {
+  let blob
+  const downloads = []
+  const { manager, find } = handlers(fixture(), {
+    URL: { createObjectURL: value => { blob = value; return 'blob:genesis' }, revokeObjectURL: () => {} },
+    document: { createElement: () => ({ click() { downloads.push(this.download) } }) },
+    setTimeout: callback => callback()
+  })
+  await find('next')()
+  await find('next')()
+  await find('generate')()
+  assert.equal(downloads.length, 0)
+  manager.acknowledged = true
+  await find('generate')()
+  assert.equal(manager.error, '')
+  assert.deepEqual(downloads, ['leofcoin-genesis-bundle.json'])
+  const bundle = JSON.parse(await blob.text())
+  assert.equal(bundle.identity.chainId, manager.plan.chainId)
+  assert.equal(Object.keys(bundle.bytecodes).length, 4)
+  assert.equal(manager.busy, false)
 })

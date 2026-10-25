@@ -6,6 +6,12 @@ import '@vandeurenglenn/flex-elements/wrap-around.js'
 import { BlockMessage } from '@leofcoin/messages'
 import { state } from '../../state/state.js'
 import './../../elements/explorer/dashboard-section.js'
+import './../../elements/explorer/dashboard-charts.js'
+import type { DashboardBlockPoint } from '../../elements/explorer/dashboard-charts.js'
+import { getSelectedNetwork } from '../../network-selection.js'
+import '../../elements/explorer/dashboard-rankings.js'
+import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
+import { errorMessage } from '../../controllers/transfer.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -21,8 +27,19 @@ export default customElements.define(
     @property({ type: String, consumes: true }) accessor nodeStartError = ''
 
     #clientSubscribed = false
+    #updating = false
 
     updateInfo = async () => {
+      if (this.#updating) return
+      this.#updating = true
+      try {
+        await this.#updateInfo()
+      } finally {
+        this.#updating = false
+      }
+    }
+
+    async #updateInfo() {
       const promises = []
 
       const lookupValidators = await client.lookup('LeofcoinValidators')
@@ -73,20 +90,64 @@ export default customElements.define(
       ).length
 
       const tpeses = []
+      const chartBlocks: DashboardBlockPoint[] = []
+      let previousTimestamp: number | undefined
 
+      const chartMessages: BlockMessage[] = []
+      const rankingBlocks = []
       let blocks = await client.blocks(-128)
       for (let block of blocks) {
-        block = new BlockMessage(new Uint8Array(Object.values(block))).decoded
+        const message = new BlockMessage(new Uint8Array(Object.values(block)))
+        chartMessages.push(message)
+        block = message.decoded
+        rankingBlocks.push(block)
+        const transactions = block.transactions ?? []
         block.tps = 0
 
-        let start = block.transactions[0].timestamp
-        for (const transaction of block.transactions) {
+        let start = transactions[0]?.timestamp
+        for (const transaction of transactions) {
           if (start - transaction.timestamp <= 1000) {
             block.tps += 1
           }
         }
 
         tpeses.push(block.tps)
+
+        const timestamp = Number(block.timestamp)
+        chartBlocks.push({
+          index: Number(block.index),
+          transactions: transactions.length,
+          timestamp: Number.isFinite(timestamp) ? timestamp : undefined,
+          validators: block.validators?.length ?? 0,
+          fees: block.fees !== undefined ? formatUnits(block.fees) : undefined,
+          blockTime:
+            previousTimestamp !== undefined && Number.isFinite(timestamp)
+              ? Math.max(0, (timestamp - previousTimestamp) / 1000)
+              : undefined
+        })
+        if (Number.isFinite(timestamp)) previousTimestamp = timestamp
+      }
+      const recent = chartBlocks.slice(-48)
+      const recentMessages = chartMessages.slice(-48)
+      await Promise.all(
+        recent.map(async (point, i) => {
+          try {
+            point.hash = await recentMessages[i].hash()
+          } catch {
+            point.hash = undefined
+          }
+        })
+      )
+      this.chartBlocks = recent
+      this.activityRankings = rankActivity(rankingBlocks)
+      try {
+        this.holderRankings = rankHolders(await client.balances())
+        this.holderError = ''
+      } catch (error) {
+        this.holderRankings = undefined
+        this.holderError = `Holder ranking unavailable: ${errorMessage(error)}`
+      } finally {
+        this.holdersLoading = false
       }
 
       const median = (arr) => {
@@ -112,6 +173,11 @@ export default customElements.define(
     @property({ type: String }) accessor transactionPoolSize: string
     @property({ type: Number }) accessor peers: number
     @property({ type: Number }) accessor tps: number
+    @property({ type: Array }) accessor chartBlocks: DashboardBlockPoint[] = []
+    @property({ type: Object }) accessor activityRankings = rankActivity([])
+    @property({ type: Object }) accessor holderRankings: ReturnType<typeof rankHolders> | undefined
+    @property({ type: String }) accessor holderError = ''
+    @property({ type: Boolean }) accessor holdersLoading = true
 
     async beforeRender() {
       await state.ready
@@ -123,7 +189,10 @@ export default customElements.define(
         this.#subscribeClient()
         await this.updateInfo()
       })
-      if (globalThis.chain && globalThis.client) await this.updateInfo()
+      if (globalThis.chain && globalThis.client) {
+        this.#subscribeClient()
+        await this.updateInfo()
+      }
     }
 
     #subscribeClient() {
@@ -184,62 +253,45 @@ export default customElements.define(
             }
           }
         </style>
+        ${this.nodeStarted && this.nativeMints && !this.isNodeReady
+          ? html`<p>Node is syncing. Rankings reflect the current local chain, not necessarily the network tip.</p>` : ''}
         ${this.nodeStartError
           ? html`<h3>Dashboard unavailable: ${this.nodeStartError}</h3>`
           : !this.nodeStarted
           ? html`<h3>Unlock your wallet to start the dashboard.</h3>`
           : !this.isNodeReady
-          ? html`<h3>Connecting dashboard to the Peach network...</h3>`
+          ? html`<h3>Connecting dashboard to ${getSelectedNetwork().label}...</h3>`
           : this.nativeMints
-          ? html` <explorer-dashboard-section
+          ? html` <explorer-dashboard-charts
+                .blocks=${this.chartBlocks}
+                .height=${this.lastBlockHeight}
+                .totalTransactions=${this.totalTransactions}
+                .totalSize=${this.totalSize}
+                .peers=${this.peers}
+                .tps=${this.tps}
+                .totalValidators=${this.totalValidators}
+                .onlineValidators=${this.onlineValidators}
+                .native=${{
+                  transfers: this.nativeTransfers,
+                  calls: this.nativeCalls,
+                  mints: this.nativeMints,
+                  burns: this.nativeBurns
+                }}></explorer-dashboard-charts>
+
+              <explorer-dashboard-rankings
+                .activity=${this.activityRankings}
+                .holders=${this.holderRankings}
+                .holderError=${this.holderError}
+                .loading=${this.holdersLoading}></explorer-dashboard-rankings>
+
+              <explorer-dashboard-section
                 .items=${[
-                  {
-                    title: 'Basic Info',
-                    icon: 'analytics',
-                    items: [
-                      {
-                        title: 'blocks',
-                        value: this.lastBlockHeight,
-                        icon: 'content_copy'
-                      },
-                      { title: 'size', value: this.totalSize, icon: 'storage' },
-                      { title: 'transactions', value: this.totalTransactions, icon: 'list' }
-                    ]
-                  },
-                  {
-                    title: 'Validators',
-                    icon: 'construction',
-                    items: [
-                      {
-                        title: 'total',
-                        value: this.totalValidators,
-                        icon: 'check_box_outline_blank'
-                      },
-                      { title: 'online', value: this.onlineValidators, icon: 'check_box' }
-                    ]
-                  },
                   {
                     title: 'Contracts',
                     icon: 'contract',
                     items: [
-                      {
-                        title: 'total',
-                        value: this.totalContracts,
-                        icon: 'content_copy'
-                      },
+                      { title: 'total', value: this.totalContracts, icon: 'content_copy' },
                       { title: 'registered', value: this.registeredContracts, icon: 'storage' }
-                    ]
-                  },
-                  {
-                    title: 'Network',
-                    icon: 'network_check',
-                    items: [
-                      {
-                        title: 'peers',
-                        value: this.peers,
-                        icon: 'groups'
-                      },
-                      { title: 'tps', value: this.tps, icon: 'speed' }
                     ]
                   },
                   {
@@ -247,29 +299,7 @@ export default customElements.define(
                     icon: 'pool',
                     items: [
                       { title: 'size', value: this.transactionPoolSize, icon: 'storage' },
-                      {
-                        title: 'transactions',
-                        value: this.transactionsInPool,
-                        icon: 'list'
-                      }
-                    ]
-                  }
-                ]}></explorer-dashboard-section>
-
-              <explorer-dashboard-section
-                .items=${[
-                  {
-                    title: 'Leofcoin',
-                    img: 'https://leofcoin.org/sources/leofcoin.svg',
-                    items: [
-                      { title: 'mints', value: this.nativeMints, icon: 'playing_cards' },
-                      { title: 'burns', value: this.nativeBurns, icon: 'mode_heat' },
-                      { title: 'calls', value: this.nativeCalls, icon: 'published_with_changes' },
-                      {
-                        title: 'transactions',
-                        value: this.nativeTransfers,
-                        icon: 'list'
-                      }
+                      { title: 'transactions', value: this.transactionsInPool, icon: 'list' }
                     ]
                   }
                 ]}></explorer-dashboard-section>`

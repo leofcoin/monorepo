@@ -80,7 +80,7 @@ export class AccountSelect extends LiteElement {
         font: inherit; cursor: pointer;
       }
       .account-trigger:hover { background: var(--md-sys-color-surface-container-high); }
-      button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
+      button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px; }
       .account-trigger custom-icon { flex-shrink: 0; --custom-icon-size: 18px; }
       .account-trigger p { flex: 1; min-width: 0; margin: 0; padding-left: 6px; text-transform: none; }
       .account-trigger address-amount { flex-shrink: 0; }
