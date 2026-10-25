@@ -80,6 +80,13 @@ export default class Machine {
         break
       }
 
+      case 'addLoadedBlockError':
+      case 'collectFeeError':
+      case 'settleRewardsError': {
+        pubsub.publish(data.id, { error: new Error(data.message) })
+        break
+      }
+
       case 'debug': {
         // debug(data.message)
         if (data.message.includes('loaded transactions for block:')) {
@@ -132,9 +139,9 @@ export default class Machine {
     }
   }
 
-  async updateState() {
+  async updateState(strict = false) {
     try {
-      const lastBlock = await this.lastBlock
+      const lastBlock = strict ? await this.getCanonicalTip() : await this.lastBlock
       const lastBlockIndex = Number(lastBlock.index)
       const statesLastBlockIndex = Number(this.states.lastBlock.index)
       if (
@@ -207,7 +214,7 @@ export default class Machine {
         }
 
         const tasks = [
-          stateStore.put('lastBlock', sortedStringify(await this.lastBlock, jsonStringifyBigInt)),
+          stateStore.put('lastBlock', sortedStringify(lastBlock, jsonStringifyBigInt)),
           stateStore.put('states', sortedStringify(state, jsonStringifyBigInt)),
           stateStore.put('accounts', sortedStringify(accounts, jsonStringifyBigInt)),
           stateStore.put(
@@ -235,6 +242,7 @@ export default class Machine {
       }
     } catch (error) {
       console.error(error)
+      if (strict) throw error
     }
   }
 
@@ -547,6 +555,10 @@ export default class Machine {
       debug('lastBlock fallback after worker timeout:', (error as Error)?.message ?? error)
       return this.states.lastBlock
     })
+  }
+
+  getCanonicalTip(): Promise<any> {
+    return this.#askWorker('lastBlock')
   }
 
   get lastBlockHeight() {

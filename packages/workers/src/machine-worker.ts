@@ -598,11 +598,25 @@ const _ = {
   addLoadedBlock: (block) => {
     const size = formatBytes(block.length)
     block = JSON.parse(block, jsonParseBigInt)
-    // if (block.decoded) block = { ...block.decoded, hash: await new BlockMessage(block).hash() }
-    // if (blocks[block.index - 1]) {
-    //   console.warn(`block ${block.index} already loaded, skipping`)
-    //   return false
-    // }
+    const index = Number(block.index)
+    const tipIndex = Number(lastBlock.index)
+    if (
+      !['number', 'bigint'].includes(typeof block.index) ||
+      !Number.isSafeInteger(index) || index < 0 || typeof block.hash !== 'string' || !block.hash
+    ) {
+      throw new Error('Invalid loaded block identity')
+    }
+    if (lastBlock.hash !== '0x0') {
+      if (index < tipIndex) return false
+      if (index === tipIndex) {
+        if (block.hash === lastBlock.hash) return false
+        throw new Error(`Loaded block conflict at index ${index}`)
+      }
+    }
+    const expectedIndex = lastBlock.hash === '0x0' ? 0 : tipIndex + 1
+    if (index !== expectedIndex || block.previousHash !== lastBlock.hash) {
+      throw new Error(`Loaded block does not extend canonical tip at index ${index}`)
+    }
     blocks[block.index.toString()] = block
     lastBlock = blocks[blocks.length - 1]
     totalBlocks += 1n

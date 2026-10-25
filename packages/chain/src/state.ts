@@ -25,6 +25,8 @@ import { BlockHash, BlockInMemory, RawBlock } from './types.js'
 import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { decodeResponsePayload } from './helpers/response.js'
+import { CanonicalStateQueue, type CanonicalTransition } from './consensus/canonical-state-queue.js'
+import { validateChainLink } from './consensus/chain-link.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -47,6 +49,18 @@ export default class State extends Contract {
   knownBlocks: BlockHash[] = []
   #totalSize: number = 0
   #machine: Machine
+  #canonicalStateQueue = new CanonicalStateQueue()
+
+  protected withCanonicalState<T>(operation: (transition: CanonicalTransition) => Promise<T>): Promise<T> {
+    return this.#canonicalStateQueue.run(operation)
+  }
+
+  protected canonicalTip() {
+    // Status reads may fall back to a snapshot; financial decisions must not.
+    return this.#machine
+      ? this.#machine.getCanonicalTip()
+      : Promise.resolve({ index: -1, hash: '0x0', previousHash: '0x0' })
+  }
 
   #loaded: boolean = false
   jobber: Jobber
@@ -261,7 +275,7 @@ export default class State extends Contract {
       const lastBlock = await this.#machine.lastBlock
 
       if (lastBlock.hash !== '0x0') {
-        this.updateState(new BlockMessage(lastBlock))
+        await this.updateState(new BlockMessage(lastBlock))
       }
 
       this.#loaded = true
@@ -289,9 +303,10 @@ export default class State extends Contract {
         await machine.ready
         this.#machine = machine
       }
-      await this.#machine.updateState()
+      await this.#machine.updateState(true)
     } catch (error) {
       console.error(error)
+      throw error
     }
   }
 
@@ -521,12 +536,17 @@ export default class State extends Contract {
 
     if (!lastBlock) lastBlock = await this.#getLatestBlock()
 
-    if (globalThis.peernet.peers.length === 0) return 'connectionless'
+    if (globalThis.peernet.peers.length === 0) {
+      this.#chainSyncing = false
+      this.#syncState = 'connectionless'
+      return this.#syncState
+    }
 
     try {
-      await this.#syncChain(lastBlock)
+      await this.withCanonicalState((transition) => this.#syncChain(lastBlock, transition))
     } catch (error) {
       this.#syncErrorCount += 1
+      this.#chainSyncing = false
       if (this.#syncErrorCount < 3) return this.syncChain(lastBlock)
       this.#syncErrorCount = 0
       this.#chainSyncing = false
@@ -541,7 +561,7 @@ export default class State extends Contract {
     return this.#syncState
   }
 
-  async #syncChain(lastBlock) {
+  async #syncChain(lastBlock, transition: CanonicalTransition) {
     try {
       // if (this.knownBlocks?.length === Number(lastBlock.index) + 1) {
       //   let promises = []
@@ -556,7 +576,7 @@ export default class State extends Contract {
       //   await Promise.allSettled(promises.map(({ value }) => this.getAndPutBlock(value.address)))
       // }
 
-      const localBlock = await this.lastBlock
+      const localBlock = await this.canonicalTip()
       const localIndex = localBlock ? Number(localBlock.index) : -1
       const remoteIndex = Number(lastBlock.index)
       const remoteBlockHash = lastBlock.hash
@@ -583,6 +603,10 @@ export default class State extends Contract {
       if (remoteBlockHash === '0x0') {
         debug(`Remote block hash is 0x0, skipping sync`)
         return
+      }
+
+      if (localBlock?.hash !== '0x0' && localIndex === remoteIndex && localBlock.hash !== remoteBlockHash) {
+        throw new Error(`Block conflict detected at index ${remoteIndex}`)
       }
 
       // Skip if local machine is already ahead of remote; also guard against DoS via deep reorgs
@@ -644,11 +668,16 @@ export default class State extends Contract {
         debug(`Loading blocks from index ${localIndex + 1} to ${remoteIndex}`)
         const start = localIndex + 1
         if (this.#machine && blocks.length > start) {
-          await this.#loadBlocks(blocks.slice(start))
+          await this.#loadBlocks(blocks.slice(start), transition)
         }
 
         // Update state with the latest block
         if (blocks.length > 0) {
+          const appliedTip = await this.canonicalTip()
+          if (appliedTip.hash !== remoteBlockHash || Number(appliedTip.index) !== remoteIndex) {
+            throw new Error(`Sync did not apply canonical target ${remoteBlockHash} at index ${remoteIndex}`)
+          }
+          transition.markMutating()
           await this.updateState(new BlockMessage(blocks[blocks.length - 1]))
         }
       } else {
@@ -829,14 +858,14 @@ export default class State extends Contract {
       }
 
       console.log(error)
-      return false
+      throw error
     }
   }
   /**
    *
    * @param {Block[]} blocks
    */
-  async #loadBlocks(blocks: BlockInMemory[]): Promise<boolean> {
+  async #loadBlocks(blocks: BlockInMemory[], transition: CanonicalTransition): Promise<boolean> {
     this.#chainState = 'loading'
     if (blocks.some((block) => !block)) {
       throw new Error('missing block data during load; chain resolution incomplete')
@@ -847,12 +876,23 @@ export default class State extends Contract {
     for (const block of blocks) {
       if (block && !block.loaded) {
         try {
+          const link = validateChainLink(await this.canonicalTip(), {
+            index: Number(block.index),
+            hash: (block as any).hash,
+            previousHash: String(block.previousHash)
+          })
+          if (link !== 'append') {
+            this.#blocks[block.index].loaded = true
+            debug(`Ignoring ${link} loaded block ${(block as any).hash} at height ${block.index}`)
+            continue
+          }
           debug(`loading block: ${Number(block.index)} ${(block as any).hash}`)
           let transactions = await this.#loadBlockTransactions(block.transactions || [])
           const validators = block.validators.map(({ address }) => address)
           // const lastTransactions = await this.#getLastTransactions()
 
           debug(`loading transactions: ${transactions.length} for block ${block.index}`)
+          transition.markMutating()
           for (const transaction of transactions) {
             const hash = await transaction.hash()
             // if (lastTransactions.includes(hash)) {
@@ -894,11 +934,11 @@ export default class State extends Contract {
               ...distributeAmount(policy.subsidy, validators, Number(block.index) % validators.length)
             ])
           }
-          this.#blocks[block.index].loaded = true
-
           debug(`executed transactions for block ${block.index}`)
+          const registered = await this.#machine.addLoadedBlock({ ...block, loaded: true })
+          if (registered !== true) throw new Error(`Loaded block registration failed after execution: ${block.hash}`)
+          this.#blocks[block.index].loaded = true
           if (Number(block.index) === 0) this.#loaded = true
-          await this.#machine.addLoadedBlock(block)
           // @ts-ignore
           debug(`loaded block: ${(block as any).hash} @${Number(block.index)}`)
           globalThis.pubsub.publish('block-loaded', { ...block })
@@ -907,6 +947,7 @@ export default class State extends Contract {
           for (const transaction of block.transactions) {
             this.wantList.push(transaction as unknown as string)
           }
+          throw error
         }
       }
     }

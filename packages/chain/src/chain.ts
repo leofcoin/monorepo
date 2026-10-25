@@ -38,6 +38,7 @@ import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
+import type { CanonicalTransition } from './consensus/canonical-state-queue.js'
 import { validateBlockEconomics, validateCanonicalValidatorSet } from './consensus/block-economics.js'
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
@@ -372,7 +373,11 @@ export default class Chain extends VersionControl {
 
     // If we're participating as a validator, trigger immediate epoch to determine new proposer
     if (this.#participating && !this.#runningEpoch) {
-      await this.#runEpoch()
+      // A single validator can commit its next proposal synchronously. Never
+      // await that commit while this block still owns the canonical writer.
+      void this.#runEpoch().catch((error) => {
+        debug(`epoch scheduling failed: ${(error as Error)?.message ?? error}`)
+      })
     }
   }
 
@@ -1179,6 +1184,10 @@ export default class Chain extends VersionControl {
   }
 
   async #addBlock(block) {
+    return this.withCanonicalState((transition) => this.#applyBlock(block, transition))
+  }
+
+  async #applyBlock(block, transition: CanonicalTransition) {
     // Store the original received encoded bytes for validation
     const receivedEncoded = block instanceof BlockMessage ? block.encoded : block
 
@@ -1188,7 +1197,7 @@ export default class Chain extends VersionControl {
 
     // CRITICAL: VALIDATE BEFORE TOUCHING STATE
     const blockIndex = Number(blockMessage.decoded.index)
-    const linkResult = validateChainLink(await this.lastBlock, {
+    const linkResult = validateChainLink(await this.canonicalTip(), {
       index: blockIndex,
       hash,
       previousHash: String(blockMessage.decoded.previousHash)
@@ -1228,6 +1237,7 @@ export default class Chain extends VersionControl {
     // Authenticate both the content-addressed reference and transaction sender
     // before storing the block or mutating the local transaction pool.
     const transactions = await this.#resolveBlockTransactions(blockMessage)
+    transition.markMutating()
     await Promise.all(
       blockMessage.decoded.transactions.map(async (transactionHash) => {
         if (await transactionPoolStore.has(transactionHash)) await transactionPoolStore.delete(transactionHash)
@@ -1241,10 +1251,6 @@ export default class Chain extends VersionControl {
       hash,
       ...blockMessage.decoded
     }
-
-    debug(`added block: ${hash}`)
-    let promises = []
-    let contracts: any[] = []
 
     // Combine and sort all transactions deterministically
     const allTransactions = transactions.sort((a, b) => {
@@ -1263,7 +1269,6 @@ export default class Chain extends VersionControl {
     // Contract calls share global state, so every node must execute the complete
     // block in exactly the same order regardless of sender.
     for (const transaction of allTransactions) {
-      if (!contracts.includes(transaction.decoded.to)) contracts.push(transaction.decoded.to)
       this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
       const transactionHash = await transaction.hash()
       const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
@@ -1284,55 +1289,42 @@ export default class Chain extends VersionControl {
       ])
     }
 
-    // for (let transaction of transactionsMessages) {
-    //   // await transactionStore.put(transaction.hash, transaction.encoded)
-    //   if (!contracts.includes(transaction.to)) {
-    //     contracts.push(transaction.to)
-    //   }
-    //   // Todo: go trough all accounts
-    //   //@ts-ignore
-    //   promises.push(this.#executeTransaction(transaction))
-    // }
-    try {
-      promises = await Promise.allSettled(promises)
-      const noncesByAddress = {}
-      for (let transaction of transactions) {
-        globalThis.pubsub.publish('transaction-processed', transaction.encoded)
-        if (transaction.decoded.to === globalThis.peernet.selectedAccount)
-          globalThis.pubsub.publish('account-transaction-processed', transaction.encoded)
-        if (
-          !noncesByAddress[transaction.decoded.from] ||
-          noncesByAddress?.[transaction.decoded.from] < transaction.decoded.nonce
-        ) {
-          noncesByAddress[transaction.decoded.from] = transaction.decoded.nonce
-        }
+    const noncesByAddress = {}
+    for (let transaction of transactions) {
+      globalThis.pubsub.publish('transaction-processed', transaction.encoded)
+      if (transaction.decoded.to === globalThis.peernet.selectedAccount)
+        globalThis.pubsub.publish('account-transaction-processed', transaction.encoded)
+      if (
+        !noncesByAddress[transaction.decoded.from] ||
+        noncesByAddress?.[transaction.decoded.from] < transaction.decoded.nonce
+      ) {
+        noncesByAddress[transaction.decoded.from] = transaction.decoded.nonce
       }
-      await Promise.all(
-        Object.entries(noncesByAddress).map(([from, nonce]) => globalThis.accountsStore.put(from, String(nonce)))
-      )
-
-      if ((await this.lastBlock).index < Number(blockMessage.decoded.index)) {
-        await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash: await blockMessage.hash() })
-
-        // Record validator snapshot at this block height for future consensus queries
-        try {
-          await this.call(addresses.validators, 'recordValidatorSnapshot', [blockMessage.decoded.index])
-        } catch (snapshotError) {
-          debug(`failed to record validator snapshot: ${(snapshotError as Error)?.message ?? snapshotError}`)
-        }
-
-        // Check if this block crosses epoch boundary and handle transition
-        await this.#handleEpochBoundary(Number(blockMessage.decoded.index))
-
-        await this.updateState(blockMessage)
-      }
-      globalThis.pubsub.publish('block-processed', blockMessage.decoded)
-    } catch (error) {
-      console.log(error.hash)
-      console.log('errrrr')
-
-      await transactionPoolStore.delete(error.hash)
     }
+    await Promise.all(
+      Object.entries(noncesByAddress).map(([from, nonce]) => globalThis.accountsStore.put(from, String(nonce)))
+    )
+
+    if (validateChainLink(await this.canonicalTip(), {
+      index: blockIndex, hash, previousHash: String(blockMessage.decoded.previousHash)
+    }) !== 'append') {
+      throw new Error(`Canonical tip changed during block application: ${hash}`)
+    }
+    const registered = await this.machine.addLoadedBlock({ ...blockMessage.decoded, loaded: true, hash })
+    if (registered !== true) throw new Error(`Block registration failed after execution: ${hash}`)
+
+    // Record validator snapshot at this block height for future consensus queries
+    try {
+      await this.call(addresses.validators, 'recordValidatorSnapshot', [blockMessage.decoded.index])
+    } catch (snapshotError) {
+      debug(`failed to record validator snapshot: ${(snapshotError as Error)?.message ?? snapshotError}`)
+    }
+
+    await this.updateState(blockMessage)
+    debug(`added block: ${hash}`)
+    globalThis.pubsub.publish('block-processed', blockMessage.decoded)
+    // Start follow-up production only once this block has a persisted snapshot.
+    await this.#handleEpochBoundary(blockIndex)
   }
 
   async participate(address) {
@@ -1410,11 +1402,8 @@ export default class Chain extends VersionControl {
         executionTimestamp: block?.timestamp ?? transaction.decoded.timestamp,
         feePayments
       })
-      if (block) {
-        block.transactions.push(hash)
-
-        block.fees = block.fees += await calculateFee(transaction.decoded)
-      }
+      // A received block already contains its canonical transactions and fees.
+      // Never append to or otherwise mutate its signed/hash-addressed header.
 
       await globalThis.accountsStore.put(
         transaction.decoded.from,
@@ -1430,6 +1419,7 @@ export default class Chain extends VersionControl {
       peernet.publish('invalid-transaction', hash)
 
       await globalThis.transactionPoolStore.delete(e.hash)
+      if (block) throw e
     }
   }
 
