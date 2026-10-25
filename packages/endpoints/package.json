@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/endpoints",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "",
   "type": "module",
   "exports": {
