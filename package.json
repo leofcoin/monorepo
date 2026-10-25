@@ -10,6 +10,7 @@
     "lib": "lib"
   },
   "scripts": {
+    "genesis:validate": "node scripts/validate-genesis-plan.js",
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",
     "test": "npm run test:core",

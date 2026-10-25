@@ -207,6 +207,10 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
 
     const connected = await Promise.all(nodes.map((node) => node.waitForPeers(3)))
     assert.ok(connected.every(({ connectedPeers }) => connectedPeers >= 3))
+    assert.equal(new Set(connected.map(({chainId}) => chainId)).size, 1)
+    const identities = await nodes[0].command('chain-identity', 'chain:identity')
+    assert.ok(identities.responses.length >= 3)
+    assert.ok(identities.responses.every(identity => identity.chainId === connected[0].chainId))
 
     const before = ready[0]
     await nodes[0].stop()
@@ -214,6 +218,7 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
     const after = await nodes[0].start()
     assert.equal(after.identity, before.identity)
     assert.equal(after.account, before.account)
+    assert.equal(after.chainId, before.chainId)
     assert.deepEqual(after.chain, { sync: 'connectionless', chain: 'loaded' })
     await nodes[0].waitForPeers(3)
   } finally {
@@ -248,6 +253,7 @@ test('a late node cold-syncs canonical blocks and keeps them across restart', { 
     await waitForStarPeers(star, 2)
     await Promise.all(nodes.map((node) => node.waitForPeers(1)))
     const synced = await nodes[1].waitForTip(tip)
+    assert.equal(synced.chainId, source.chainId)
     assert.deepEqual(synced.blockHashes, source.blockHashes)
     assert.equal(synced.stateSnapshot, source.stateSnapshot)
 

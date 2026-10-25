@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Test shared genesis planner and browser controllers
+        run: npm test -w @leofcoin/lib -w @leofcoin/node
+
       - name: Test packed launcher with registry transports and real genesis
         run: npm run test:package -w @leofcoin/launch-chain
 

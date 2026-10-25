@@ -3,7 +3,6 @@ import { map } from 'lit/directives/map.js'
 import './very-short-string.js'
 import './address-amount.js'
 import './../animations/busy.js'
-import '@vandeurenglenn/lite-elements/icon-button.js'
 import '@vandeurenglenn/lite-elements/icon.js'
 
 @customElement('account-select')
@@ -19,37 +18,25 @@ export class AccountSelect extends LiteElement {
   }
 
   get #iconElement() {
-    return this.shadowRoot.querySelector('custom-icon-button') as HTMLElement
+    return this.shadowRoot.querySelector('.account-trigger custom-icon') as HTMLElement
   }
 
-  // async connectedCallback() {
-  //   pubsub.subscribe('identity-change', this.#identityChange.bind(this))
-  // }
+  #outside = (event: Event) => {
+    if (!event.composedPath().includes(this)) this.selecting = false
+  }
 
-  // /**
-  //  *
-  //  * @param {Array} accounts
-  //  * @param {Number} selectedAaccount
-  //  */
-  // async #identityChange({ accounts, selectedAccountIndex }) {
-  //   this.accounts = accounts
-  //   this.selected = accounts[selectedAccountIndex]
-  //   this.title = this.selected[1]
-  //   // if (!this.selected)
-  //   console.log({ accounts, selectedAccountIndex })
-  // }
+  connectedCallback() {
+    super.connectedCallback()
+    document.addEventListener('pointerdown', this.#outside)
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    document.removeEventListener('pointerdown', this.#outside)
+  }
 
   select = async () => {
-    if (this.selecting) {
-      this.selecting = false
-      return
-    }
-    this.selecting = true
-
-    await this.requestRender()
-    const { top, left, width } = this.getBoundingClientRect()
-    this.shadowRoot.querySelector('.accounts-container').style.top = `${top + 48}px`
-    // this.shadowRoot.querySelector('.accounts-container').style.left = `${left - width / 2 + 40}px`
+    if (this.wallet) this.selecting = !this.selecting
   }
 
   static styles = [
@@ -57,46 +44,17 @@ export class AccountSelect extends LiteElement {
       :host {
         display: block;
         flex-direction: column;
-        min-width: 210px;
-        height: 100%;
+        min-width: 0;
         max-width: 320px;
         width: 100%;
         position: relative;
         box-sizing: border-box;
       }
-      .hover {
-        position: absolute;
-        inset: 0;
-        background-color: var(--md-sys-color-primary);
-        opacity: 0;
-        transition: opacity 200ms;
-        border-radius: var(--md-sys-shape-corner-medium);
-      }
-
-      :host(:focus) .hover,
-      :host(:hover) .hover {
-        opacity: 0.1;
-      }
-
-      :host(:active) .hover {
-        opacity: 0.2;
-      }
-
-      custom-icon-button {
-        transition: transform ease-in-out 0.25s;
-      }
-
-      :host([selecting]) custom-icon-button {
-        transform: rotate(180deg);
-        transition: transform ease-in-out 0.25s;
-      }
-
       flex-row {
         width: 100%;
         justify-content: space-between;
         align-items: center;
         min-height: 100%;
-        cursor: pointer;
       }
       custom-svg-icon {
         pointer-events: auto;
@@ -114,24 +72,41 @@ export class AccountSelect extends LiteElement {
         box-sizing: border-box;
         padding: 4px;
       }
-
-      .seperator {
-        display: flex;
-        height: 12px;
+      .account-trigger {
+        display: flex; gap: 8px; width: 100%; min-height: 44px;
+        border: 1px solid var(--lfc-glass-border, #51474e);
+        color: var(--md-sys-color-on-surface, #eee);
+        background: var(--lfc-glass-surface, #242126);
+        font: inherit; cursor: pointer;
       }
+      .account-trigger:hover { background: var(--md-sys-color-surface-container-high); }
+      button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
+      .account-trigger custom-icon { flex-shrink: 0; --custom-icon-size: 18px; }
+      .account-trigger p { flex: 1; min-width: 0; margin: 0; padding-left: 6px; text-transform: none; }
+      .account-trigger address-amount { flex-shrink: 0; }
+      .copy-button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: inherit; cursor: pointer; }
+      .copy-button:hover { background: var(--md-sys-color-surface-container-highest); }
 
       .accounts-container {
         margin-top: 12px;
         position: absolute;
-        background: var(--md-sys-color-surface-container-high);
-        color: var(--md-sys-color-on-surface-container-high);
-        border-radius: 24px;
+        background: var(--lfc-glass-surface, #242126);
+        color: var(--md-sys-color-on-surface, #eee);
+        border: 1px solid var(--lfc-glass-border, #51474e);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        box-shadow: 0 16px 40px rgb(0 0 0 / 20%);
+        border-radius: 20px;
         box-sizing: border-box;
         padding: 6px 12px 6px 6px;
         z-index: 10001;
         right: 0;
         left: auto;
         max-width: 320px;
+        width: min(320px, calc(100vw - 24px));
+        top: 100%;
+        max-height: min(420px, 60dvh);
+        overflow: auto;
       }
 
       .account-container {
@@ -141,18 +116,11 @@ export class AccountSelect extends LiteElement {
         border-radius: 12px;
         box-sizing: border-box;
         margin: 6px 0;
-        cursor: pointer;
         align-items: center;
       }
 
       very-short-string {
         padding: 0 12px;
-      }
-
-      custom-icon-button {
-        color: var(--md-sys-color-on-surface);
-        --custom-icon-size: 18px;
-        margin-left: 6px;
       }
 
       p {
@@ -174,6 +142,7 @@ export class AccountSelect extends LiteElement {
   #copy(e, text) {
     e.stopPropagation()
     navigator.clipboard.writeText(text)
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
     this.#iconElement.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }, { transform: 'scale(1)' }], {
       duration: 300,
       easing: 'ease-in-out',
@@ -183,24 +152,30 @@ export class AccountSelect extends LiteElement {
 
   render() {
     return html`
-      <flex-row class="selected-container" @click=${() => this.select()}>
-        <div class="hover"></div>
+      <button class="selected-container account-trigger" aria-label="View wallet accounts" aria-expanded=${String(Boolean(this.selecting))}
+        aria-controls="wallet-accounts" @click=${() => this.select()}
+        @keydown=${(event: KeyboardEvent) => { if (event.key === 'Escape') this.selecting = false }}>
         ${this.selectedAccount
           ? html`
               <p>${this.selectedAccount[1]}</p>
 
-              <flex-it></flex-it>
               <address-amount .address=${this.selectedAccount[1]}></address-amount>
             `
           : html`<busy-animation></busy-animation>`}
 
-        <custom-icon-button icon="arrow_drop_down"></custom-icon-button>
-      </flex-row>
+        <custom-icon icon=${this.selecting ? 'arrow_drop_up' : 'arrow_drop_down'} aria-hidden="true"></custom-icon>
+      </button>
 
       ${this.selecting
         ? html`
-            <span class="seperator"></span>
-            <flex-column class="accounts-container">
+            <flex-column class="accounts-container" id="wallet-accounts" role="region" aria-label="Wallet accounts"
+              @keydown=${(event: KeyboardEvent) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation()
+                  this.selecting = false
+                  this.shadowRoot.querySelector<HTMLElement>('.account-trigger')?.focus()
+                }
+              }}>
               ${map(
                 this.wallet.accounts,
                 (item) => html`
@@ -212,9 +187,8 @@ export class AccountSelect extends LiteElement {
                     </flex-row>
                     <flex-row>
                       <address-amount .address=${item[1]}></address-amount>
-                      <custom-icon-button
-                        icon="content_copy"
-                        @click=${(e) => this.#copy(e, item[1])}></custom-icon-button>
+                      <button class="copy-button" aria-label=${`Copy address for ${item[0]}`}
+                        @click=${(e) => this.#copy(e, item[1])}><custom-icon icon="content_copy" aria-hidden="true"></custom-icon></button>
                     </flex-row>
                   </flex-column>
                 `

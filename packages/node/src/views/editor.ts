@@ -10,6 +10,7 @@ export default customElements.define(
   class editorView extends LiteElement {
     #editor
     #enterAmount = 0
+    #setupPromise?: Promise<void>
     editorStore: Storage
 
     dependencies = ['@leofcoin:standards']
@@ -90,7 +91,11 @@ export default customElements.define(
 
     async connectedCallback() {
       super.connectedCallback()
+      this.#setupPromise ??= this.#initialize()
+      return this.#setupPromise
+    }
 
+    async #initialize() {
       try {
         await this.setupStore()
         await this.#loadMonaco()
@@ -217,6 +222,7 @@ export default customElements.define(
 
         this.shadowRoot.querySelector('button').addEventListener('click', this.deploy.bind(this))
       } catch (error) {
+        this.#setupPromise = undefined
         console.error('Error during editor setup:', error)
       }
     }

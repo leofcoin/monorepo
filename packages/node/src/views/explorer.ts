@@ -1,12 +1,15 @@
-import { css, html, LiteElement, property, query, customElement } from '@vandeurenglenn/lite'
+import { css, html, LiteElement, property, customElement } from '@vandeurenglenn/lite'
 import '../elements/latest.js'
 import '../elements/explorer/info-container.js'
 import '../elements/navigation-bar.js'
 import Router from './../router.js'
+import type { CustomPages } from '@vandeurenglenn/lite-elements/pages.js'
 
 @customElement('explorer-view')
 export class ExplorerView extends LiteElement {
-  @property() accessor selected
+  #viewHistory = new Map<string, HTMLElement>()
+
+  @property() accessor selected = 'dashboard'
 
   @property({ type: Boolean, consumes: true }) accessor isNodeReady = false
 
@@ -71,15 +74,33 @@ export class ExplorerView extends LiteElement {
     ]
   }
 
-  @query('custom-pages')
-  accessor pages
+  get pages(): CustomPages {
+    const pages = this.shadowRoot?.querySelector<CustomPages>('custom-pages')
+    if (!pages) throw new Error('explorer navigation did not render')
+    return pages
+  }
 
-  async select(selected) {
+  viewWithOrWithoutHistory(view: string): HTMLElement {
+    const routes = ['dashboard', 'blocks', 'block', 'block-transactions', 'transactions', 'transaction', 'pool']
+    if (!routes.includes(view)) throw new Error(`Unknown explorer view: ${view}`)
+    let page = this.#viewHistory.get(view)
+    if (!page) {
+      page = document.createElement(`explorer-${view}`)
+      page.dataset.route = view
+      this.#viewHistory.set(view, page)
+    }
+    return page
+  }
+
+  async select(selected: string) {
     console.log(selected)
-    this.selected = selected
     if (!customElements.get(`explorer-${selected}`)) await import(`./explorer-${selected}.js`)
+    this.selected = selected
+    await this.rendered
     this.pages.select(selected)
-    this.shadowRoot.querySelector('navigation-bar')?.select(selected)
+    this.shadowRoot
+      .querySelector<HTMLElement & { select(route: string): void }>('navigation-bar')
+      ?.select(selected)
   }
 
   #customSelect({ detail }) {
@@ -97,13 +118,7 @@ export class ExplorerView extends LiteElement {
           </div>`}
 
       <custom-pages attr-for-selected="data-route">
-        <explorer-dashboard data-route="dashboard"></explorer-dashboard>
-        <explorer-blocks data-route="blocks"></explorer-blocks>
-        <explorer-block data-route="block"></explorer-block>
-        <explorer-block-transactions data-route="block-transactions"></explorer-block-transactions>
-        <explorer-transactions data-route="transactions"></explorer-transactions>
-        <explorer-transaction data-route="transaction"></explorer-transaction>
-        <explorer-pool data-route="pool"></explorer-pool>
+        ${this.viewWithOrWithoutHistory(this.selected)}
       </custom-pages>
 
       ${this.selected === 'transactions' ||

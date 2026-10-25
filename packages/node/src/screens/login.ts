@@ -13,7 +13,6 @@ import type Chain from '@leofcoin/chain/chain'
 import Router from '../router.js'
 import './../elements/hero.js'
 import '@vandeurenglenn/lite-elements/button.js'
-import '@vandeurenglenn/lite-elements/toggle-button.js'
 import '@vandeurenglenn/lite-elements/tabs.js'
 import '@vandeurenglenn/lite-elements/pages.js'
 import '@vandeurenglenn/lite-elements/tab.js'
@@ -173,16 +172,6 @@ export class LoginScreen extends LiteElement {
   async #handleAfterLogin(wallet) {
     document.querySelector('app-shell').wallet = wallet
 
-    if (!customElements.get('identity-view')) await import('../views/identity.js')
-    const identityView = document.querySelector('app-shell').shadowRoot.querySelector('identity-view')
-    identityView.identity = wallet.identity
-    identityView.accounts = wallet.accounts
-    identityView.selectedAccount = wallet.selectedAccount
-    identityView.selectedAccountIndex = isNaN(Number(wallet.selectedAccountIndex))
-      ? wallet.accounts.filter(([name, external, internal]) => external === wallet.selectedAccount)[0]
-      : wallet.selectedAccountIndex
-
-    // this.hasWallet = await this._hasWallet()
     this.removeEventListener('keydown', this._keydown)
 
     if (!this.hasWallet) {
@@ -203,15 +192,15 @@ export class LoginScreen extends LiteElement {
   async #handleCreate(password) {
     const wallet = await this.#handleBeforeLogin(password)
 
-    this.headline = 'Created Wallet!'
-    this.subline = 'Make sure to backup your password and mnemonic'
-    this.#pages.select('create')
     try {
       await globalThis.identityController.unlock(password)
-      await this.#handleAfterLogin(wallet)
       this.mnemonic = wallet.identity.mnemonic
       this.decodedMnemonic = await decrypt(password, base58.decode(wallet.identity.mnemonic))
       this.#viewPassword = () => this.#viewPasswordMethod(password)
+      this.headline = 'Wallet created'
+      this.subline = 'Back up your recovery phrase and password before continuing.'
+      this.#pages.select('create')
+      await this.#handleAfterLogin(wallet)
       this.loadChain(password)
     } catch (e) {
       console.error(e)
@@ -383,22 +372,45 @@ export class LoginScreen extends LiteElement {
       :host {
         display: flex;
         flex-direction: column;
+        position: fixed;
         inset: 0;
-        position: absolute;
         align-items: center;
         justify-content: center;
         pointer-events: none;
         opacity: 0;
-        background: #1116;
-        transition: 0.25s;
+        background: rgb(10 12 17 / 72%);
+        backdrop-filter: blur(10px);
+        transition: opacity 180ms ease, background 180ms ease;
         z-index: -1;
       }
 
       :host([shown]) {
         opacity: 1;
         pointer-events: auto;
-        z-index: 1002;
-        transition: 0.25s;
+        z-index: 1200;
+      }
+
+      hero-element {
+        width: min(420px, calc(100vw - 32px));
+        height: auto;
+        max-width: 420px;
+        max-height: calc(100vh - 32px);
+        min-height: min(380px, calc(100vh - 32px));
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: 28px;
+        border-radius: 28px;
+        border-color: rgb(255 255 255 / 18%);
+        background:
+          radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 12%), transparent 55%),
+          color-mix(in srgb, var(--md-sys-color-surface-container-high, #29262a) 76%, transparent);
+        -webkit-backdrop-filter: blur(28px) saturate(1.4);
+        backdrop-filter: blur(28px) saturate(1.4);
+        box-shadow: 0 24px 80px rgb(0 0 0 / 42%), inset 0 1px rgb(255 255 255 / 12%);
+      }
+
+      hero-element custom-pages {
+        height: 100%;
       }
 
       input,
@@ -411,7 +423,13 @@ export class LoginScreen extends LiteElement {
       }
 
       input {
+        width: 100%;
+        max-width: 320px;
         font-size: 16px;
+      }
+
+      flex-row {
+        gap: 12px;
       }
 
       button {
@@ -432,42 +450,94 @@ export class LoginScreen extends LiteElement {
         height: 100%;
       }
 
-      span[data-route='login'] {
+      flex-column[data-route='login'] {
         display: flex;
         width: 100%;
-        height: 100%;
+        min-height: 220px;
         align-items: center;
         justify-content: center;
       }
 
       [data-route='create'] {
-        align-items: flex-end;
+        min-height: 270px;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 4px;
       }
 
       flex-row {
         width: 100%;
+        align-items: center;
+        justify-content: space-between;
       }
 
       custom-button[type='text'] {
         --custom-button-color: aqua;
       }
 
-      custom-toggle-button {
-        pointer-events: none !important;
+      .create-item {
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
       }
 
-      .create-item {
-        align-items: flex-end;
+      .step-marker {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        place-items: center;
+        border: 1px solid rgb(255 255 255 / 24%);
+        border-radius: 50%;
+        color: var(--md-sys-color-primary, #f4a77f);
       }
 
-      .create-item {
-        pointer-events: auto;
-        cursor: pointer;
+      .step-marker[data-complete] {
+        color: #17231b;
+        background: #9bd8ae;
+        border-color: #9bd8ae;
+      }
+
+      .backup-guide {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        align-items: center;
+        gap: 10px;
+        margin: 2px 0 8px;
+        padding: 10px;
+        border: 1px solid rgb(255 255 255 / 12%);
+        border-radius: 16px;
+        background: rgb(255 255 255 / 4%);
+      }
+
+      .backup-guide svg {
+        width: 48px;
+        height: 48px;
+        color: var(--md-sys-color-primary, #f4a77f);
+      }
+
+      .backup-guide p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 480px) {
+        hero-element {
+          padding: 20px;
+          border-radius: 22px;
+        }
       }
     `
   ]
 
   #viewMnemonic() {
+    const words = this.decodedMnemonic?.trim().split(/\s+/).filter(Boolean)
+    if (!words?.length) {
+      this.loginError = 'The recovery phrase is unavailable. Unlock the wallet and try again.'
+      return
+    }
+
     const dialog = document.createElement('dialog')
     document.body.appendChild(dialog)
     dialog.innerHTML = `
@@ -479,7 +549,7 @@ export class LoginScreen extends LiteElement {
       <custom-pages attr-for-selected="data-route">
         <flex-wrap-between data-route="json">
           ${map(
-            this.decodedMnemonic?.split(' '),
+            words,
             (word, index) =>
               `<flex-row class="word">
                 <strong>${index + 1}</strong>
@@ -498,38 +568,50 @@ export class LoginScreen extends LiteElement {
         </flex-column>
       </custom-pages>
 
-      <custom-button label="scroll down"></custom-button>
+      <button type="button">scroll down</button>
     `
 
-    dialog.querySelector('custom-pages')
-    dialog.setAttribute('id', 'dialog')
-    dialog.setAttribute('popover', '')
-    dialog.showPopover()
-    dialog.dataset.id = crypto.randomUUID()
+    dialog.style.cssText =
+      'position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:0;box-sizing:border-box;padding:24px;border:1px solid rgb(255 255 255 / 18%);border-radius:24px;color:#f5f0f3;background:rgb(33 29 35 / 96%);box-shadow:0 24px 80px rgb(0 0 0 / 48%)'
+    dialog.dataset.walletBackup = 'recovery-phrase'
+    dialog.showModal()
 
     const container = dialog.querySelector('custom-pages').querySelector('flex-wrap-between')
-    const viewportHeight = container.getBoundingClientRect().height
+    const confirmButton = dialog.querySelector('button')
+    confirmButton.style.cssText =
+      'display:block;margin:16px auto 0;padding:10px 20px;border:1px solid rgb(255 255 255 / 28%);border-radius:999px;color:inherit;background:transparent;font:inherit;cursor:pointer'
+    container.style.maxHeight = 'min(60vh, 320px)'
+    container.style.overflowY = 'auto'
+    container.style.overscrollBehavior = 'contain'
+    container.tabIndex = 0
+    container.setAttribute('aria-label', 'Recovery phrase')
+    const isAtEnd = () => container.scrollTop + container.clientHeight >= container.scrollHeight - 1
+    const updateConfirmLabel = () => {
+      if (isAtEnd()) confirmButton.textContent = 'confirm'
+    }
+    container.addEventListener('scroll', updateConfirmLabel, { passive: true })
+    const removeDialog = () => {
+      dialog.removeEventListener('close', removeDialog)
+      container.removeEventListener('scroll', updateConfirmLabel)
+      confirmButton.onclick = null
+      dialog.remove()
+    }
     const ondialogClick = () => {
-      if (container.scrollTop + viewportHeight === container.scrollHeight) {
-        dialog.close()
+      if (isAtEnd()) {
         this.mnemonicShowed = true
-        dialog.removeEventListener('click', ondialogClick)
-        dialog.remove()
+        dialog.close()
+        removeDialog()
       } else {
-        container.scrollBy({
-          top: viewportHeight - 8,
-          behavior: 'smooth'
-        })
-
-        container.onscrollend = () => {
-          if (container.scrollTop + viewportHeight === container.scrollHeight) {
-            dialog.querySelector('custom-button').label = 'confirm'
-          }
-        }
+        container.scrollTop = Math.min(
+          container.scrollTop + Math.max(1, container.clientHeight - 8),
+          container.scrollHeight
+        )
+        updateConfirmLabel()
       }
     }
 
-    dialog.querySelector('custom-button').addEventListener('click', ondialogClick)
+    dialog.addEventListener('close', removeDialog, { once: true })
+    confirmButton.onclick = ondialogClick
   }
 
   #viewPasswordMethod = (password: string) => {
@@ -537,23 +619,32 @@ export class LoginScreen extends LiteElement {
     document.body.appendChild(dialog)
     dialog.innerHTML = `
         <p></p>
-        <custom-button label="confirm"></custom-button>
+        <button type="button">confirm</button>
       `
 
+    dialog.style.cssText =
+      'position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:0;box-sizing:border-box;padding:24px;border:1px solid rgb(255 255 255 / 18%);border-radius:24px;color:#f5f0f3;background:rgb(33 29 35 / 96%);box-shadow:0 24px 80px rgb(0 0 0 / 48%)'
     dialog.querySelector('p').textContent = password
-    dialog.setAttribute('id', 'dialog')
-    dialog.setAttribute('popover', '')
-    dialog.showPopover()
-    dialog.dataset.id = crypto.randomUUID()
+    dialog.querySelector('p').style.cssText = 'overflow-wrap:anywhere;user-select:text'
+    dialog.dataset.walletBackup = 'password'
+    dialog.showModal()
 
+    const confirmButton = dialog.querySelector('button')
+    confirmButton.style.cssText =
+      'display:block;margin:16px auto 0;padding:10px 20px;border:1px solid rgb(255 255 255 / 28%);border-radius:999px;color:inherit;background:transparent;font:inherit;cursor:pointer'
     const ondialogClick = () => {
-      dialog.close()
       this.passwordShowed = true
-      dialog.removeEventListener('click', ondialogClick)
-      dialog.remove()
+      dialog.close()
+      removeDialog()
     }
 
-    dialog.querySelector('custom-button').addEventListener('click', ondialogClick)
+    const removeDialog = () => {
+      dialog.removeEventListener('close', removeDialog)
+      confirmButton.onclick = null
+      dialog.remove()
+    }
+    dialog.addEventListener('close', removeDialog, { once: true })
+    confirmButton.onclick = ondialogClick
   }
 
   render() {
@@ -568,31 +659,31 @@ export class LoginScreen extends LiteElement {
           </flex-column>
 
           <flex-column data-route="create">
-            <flex-it></flex-it>
-            <flex-row class="create-item" @click=${() => this.#viewMnemonic()}>
-              <custom-toggle-button
-                .togglers=${['check_box_outline_blank', 'check_box']}
-                .active=${this.mnemonicShowed ? 1 : 0}
-                @active=${({ detail }) => (this.mnemonicShowed = detail === 1)}></custom-toggle-button>
-
+            <div class="backup-guide">
+              <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <path d="M32 5 53 13v16c0 13-8.7 23.8-21 30C19.7 52.8 11 42 11 29V13L32 5Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="m23 31 6 6 13-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 15h22" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+              </svg>
+              <p>Keep both recovery details somewhere private. You’ll need them to restore access to this wallet.</p>
+            </div>
+            <flex-row class="create-item">
+              <span class="step-marker" data-complete=${this.mnemonicShowed} aria-hidden="true">
+                ${this.mnemonicShowed ? '✓' : '1'}
+              </span>
               <custom-button
                 @click=${() => this.#viewMnemonic()}
-                label="view mnemonic"
-                popovertarget="dialog"></custom-button>
+                label="view recovery phrase"></custom-button>
             </flex-row>
 
-            <flex-row class="create-item" @click=${() => this.#viewPassword()}>
-              <custom-toggle-button
-                .togglers=${['check_box_outline_blank', 'check_box']}
-                .active=${this.passwordShowed ? 1 : 0}
-                @active=${({ detail }) => (this.passwordShowed = detail === 1)}></custom-toggle-button>
-
+            <flex-row class="create-item">
+              <span class="step-marker" data-complete=${this.passwordShowed} aria-hidden="true">
+                ${this.passwordShowed ? '✓' : '2'}
+              </span>
               <custom-button
                 @click=${() => this.#viewPassword()}
-                label="view password"
-                popovertarget="dialog"></custom-button>
+                label="view wallet password"></custom-button>
             </flex-row>
-            <flex-it></flex-it>
             <custom-button
               type="outlined"
               label="I Understand"

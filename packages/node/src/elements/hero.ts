@@ -1,7 +1,6 @@
 import { CSSResultGroup, LitElement, css, html } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { property } from 'lit/decorators.js'
 import '@vandeurenglenn/lite-elements/typography.js'
-@customElement('hero-element')
 export class HeroElement extends LitElement {
   @property()
   accessor headline
@@ -39,3 +38,5 @@ export class HeroElement extends LitElement {
     `
   }
 }
+
+if (!customElements.get('hero-element')) customElements.define('hero-element', HeroElement)

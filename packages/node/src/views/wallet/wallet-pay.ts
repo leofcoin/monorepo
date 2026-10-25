@@ -325,13 +325,27 @@ export class WalletPay extends LiteElement {
   static styles?: StyleList = [
     css`
       :host {
-        display: flex;
-        flex-direction: column;
-        position: absolute;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        box-sizing: border-box;
+        padding: 24px 16px;
+        color: var(--md-sys-color-on-surface, #eee);
       }
+      hero-element {
+        width: 100%; max-width: var(--lfc-page-width, 720px); margin: auto;
+        height: auto; max-height: none; padding: clamp(18px, 3vw, 26px);
+        border: 1px solid var(--lfc-glass-border, #51474e); border-radius: 22px;
+        background: var(--lfc-glass-surface, #242126);
+        color: inherit; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      }
+      input:focus-visible, textarea:focus-visible, button:focus-visible {
+        outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px;
+      }
+      button { min-height: 44px; font: inherit; }
+      button:disabled { opacity: .45; cursor: default; }
+      flex-column { gap: 12px; }
 
       input,
       textarea,
@@ -345,7 +359,7 @@ export class WalletPay extends LiteElement {
 
       textarea,
       input {
-        font-size: 14px;
+        font-size: 16px;
         width: 100%;
         background: var(--md-sys-color-surface-container-highest);
         color: var(--md-sys-color-on-surface);
@@ -380,6 +394,8 @@ export class WalletPay extends LiteElement {
 
       flex-row {
         width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .protocol {
@@ -387,8 +403,8 @@ export class WalletPay extends LiteElement {
         display: block;
         border: 1px solid var(--border-color);
         border-radius: 24px;
-        position: absolute;
-        bottom: 24px;
+        width: fit-content;
+        margin: 0 auto 16px;
         background-color: var(--md-sys-color-surface-container-high);
       }
 
@@ -406,7 +422,11 @@ export class WalletPay extends LiteElement {
         justify-content: space-between;
         gap: 8px;
         padding: 6px 0;
+        align-items: center;
+        overflow-wrap: anywhere;
       }
+      .summary-row input { width: 60%; }
+      @media (prefers-reduced-motion: reduce) { button:hover { transition: none; } }
 
       .summary-row + .summary-row {
         border-top: 1px solid var(--border-color);
@@ -501,6 +521,7 @@ export class WalletPay extends LiteElement {
               : html`<button @click=${this.#startScanner}>Scan QR</button>`}
 
             <textarea
+              aria-label="Payment request or recipient address"
               rows="5"
               placeholder="Paste request URL, JSON payload, or recipient address"
               .value=${this.requestInput}
@@ -535,6 +556,8 @@ export class WalletPay extends LiteElement {
             <div class="summary-row">
               <custom-typography type="body" size="small">Amount</custom-typography>
               <input
+                aria-label="Payment amount in LFC"
+                inputmode="decimal"
                 placeholder="Amount"
                 .value=${this.amount || ''}
                 @input=${(event: Event) => {

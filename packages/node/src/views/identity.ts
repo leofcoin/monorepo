@@ -5,35 +5,68 @@ import '../elements/button.js'
 import '../elements/navigation-bar.js'
 import './../elements/hero.js'
 import type { CustomPages } from '@vandeurenglenn/lite-elements/pages.js'
+import { CustomTabs } from '@vandeurenglenn/lite-elements/tabs.js'
 import '@vandeurenglenn/lite-elements/icon.js'
 import Router from '../router.js'
 
 @customElement('identity-view')
 export class IdentityView extends LiteElement {
+  #viewHistory = new Map<string, HTMLElement & { accounts?: unknown }>()
+
   @property({ type: Object, consumer: true })
   accessor wallet
 
   @property({ type: Array })
   accessor accounts
 
-  get pages(): CustomPages {
-    return this.shadowRoot.querySelector('custom-pages')
+  @property({ type: String })
+  accessor selectedRoute = 'dashboard'
+
+  viewWithOrWithoutHistory(view: string): HTMLElement {
+    const routes = ['dashboard', 'accounts', 'account', 'actions']
+    if (!routes.includes(view)) throw new Error(`Unknown identity view: ${view}`)
+    let page = this.#viewHistory.get(view)
+    if (!page) {
+      page = document.createElement(`identity-${view}`)
+      page.dataset.route = view
+      this.#viewHistory.set(view, page)
+    }
+    return page
   }
 
-  get navigation(): CustomPages {
-    return this.shadowRoot.querySelector('navigation-bar')
+  get pages(): CustomPages | null {
+    return this.shadowRoot?.querySelector<CustomPages>('custom-pages') ?? null
   }
 
-  async select(selected) {
+  get navigation(): CustomTabs | null {
+    return this.shadowRoot?.querySelector<CustomTabs>('custom-tabs') ?? null
+  }
+
+  async select(selected: string) {
     if (!customElements.get(`identity-${selected}`)) await import(`./identity-${selected}.js`)
 
-    this.pages.select(selected)
-    this.navigation.select(selected)
+    this.selectedRoute = selected
+    await this.rendered
+    const page = this.#viewHistory.get(selected)
+    if (page && customElements.get(page.localName)) page.accounts = this.accounts
+    let pages = this.pages
+    let navigation = this.navigation
+    for (let attempt = 0; (!pages || !navigation) && attempt < 10; attempt += 1) {
+      await new Promise(requestAnimationFrame)
+      pages = this.pages
+      navigation = this.navigation
+    }
+    if (!pages || !navigation) throw new Error('identity navigation did not render')
+
+    pages.select(selected)
+    navigation.select(selected)
   }
 
-  async onChange(propertyKey) {
-    if (propertyKey === 'wallet') {
+  async onChange(propertyKey: string) {
+    if (propertyKey === 'wallet' && this.wallet) {
       this.accounts = this.wallet.accounts
+      const page = this.#viewHistory.get(this.selectedRoute)
+      if (page && customElements.get(page.localName)) page.accounts = this.accounts
     }
   }
 
@@ -110,11 +143,8 @@ export class IdentityView extends LiteElement {
       </style>
 
       <flex-column class="main">
-        <custom-pages attr-for-selected="data-route" selected="dashboard">
-          <identity-dashboard data-route="dashboard" .accounts=${this.accounts}></identity-dashboard>
-          <identity-accounts data-route="accounts" .accounts=${this.accounts}></identity-accounts>
-          <identity-account data-route="account" .accounts=${this.accounts}></identity-account>
-          <identity-actions data-route="actions" .accounts=${this.accounts}></identity-actions>
+        <custom-pages attr-for-selected="data-route">
+          ${this.viewWithOrWithoutHistory(this.selectedRoute)}
         </custom-pages>
         <custom-tabs
           round

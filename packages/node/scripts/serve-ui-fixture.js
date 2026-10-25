@@ -4,6 +4,8 @@ import { resolve, sep, extname } from 'node:path'
 
 const root = resolve('www')
 const fixture = resolve('test/wallet-ui-fixture.html')
+const managerFixture = resolve('test/manager-ui-fixture.html')
+const port = Number(process.env.UI_FIXTURE_PORT || 9556)
 const types = {
   '.js': 'text/javascript',
   '.html': 'text/html; charset=utf-8',
@@ -15,8 +17,8 @@ const types = {
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname)
-    const target = pathname === '/' ? fixture : resolve(root, pathname.replace(/^\/+/, ''))
-    if (target !== fixture && !target.startsWith(root + sep)) {
+    const target = pathname === '/' ? fixture : pathname === '/manager' ? managerFixture : resolve(root, pathname.replace(/^\/+/, ''))
+    if (target !== fixture && target !== managerFixture && !target.startsWith(root + sep)) {
       response.writeHead(403)
       response.end()
       return
@@ -31,6 +33,6 @@ createServer(async (request, response) => {
     response.writeHead(404)
     response.end('Not found')
   }
-}).listen(9556, '127.0.0.1', () =>
-  console.log('Simulated wallet UI test: http://127.0.0.1:9556 (no real transactions)')
+}).listen(port, '127.0.0.1', () =>
+  console.log(`UI fixtures: http://127.0.0.1:${port} · manager: /manager (no real node or transactions)`)
 )

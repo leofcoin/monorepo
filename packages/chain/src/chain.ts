@@ -50,6 +50,7 @@ import {
 } from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
+import { createChainIdentity, findChainPresence, assertChainId } from '@leofcoin/lib/chain-identity'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -123,6 +124,30 @@ export default class Chain extends VersionControl {
 
   get nativeToken() {
     return addresses.nativeToken
+  }
+
+  /** Immutable bundled genesis identity, independent of the current chain tip. */
+  getChainIdentity() {
+    return createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+  }
+
+  async findChain(chainId: string) {
+    assertChainId(chainId)
+    const local = await this.getChainIdentity()
+    if (local.chainId === chainId) return {
+      chainId, status: 'found', foundViaLocalNode: true,
+      checkedPeers: 0, respondedPeers: 0, unavailablePeers: 0, matchingPeers: [],
+      scope: 'local node; not proof of a globally available or finalized chain'
+    }
+    const peers = Object.entries(globalThis.peernet?.connections || {})
+      .filter(([, peer]: [string, any]) => peer.connected && typeof peer.request === 'function')
+    return {
+      ...await findChainPresence(chainId, peers.map(([id]) => id), async (id) => {
+        const peer = peers.find(([peerId]) => peerId === id)?.[1]
+        return this.#makeRequest(peer, 'chainIdentity')
+      }),
+      foundViaLocalNode: false
+    }
   }
 
   get validators() {
@@ -521,6 +546,9 @@ export default class Chain extends VersionControl {
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('chainIdentity', async () =>
+      new globalThis.peernet.protos['peernet-response']({ response: await this.getChainIdentity() })
+    )
     await globalThis.peernet.addRequestHandler('stateInfo', async () => {
       const lastblock = (await this.lastBlock) || { index: 0, hash: '0x0', previousHash: '0x0' }
       const values = this.machine?.states?.info || {}

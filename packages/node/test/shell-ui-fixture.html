@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shell UI fixture · simulated node</title>
+    <style>html, body { margin: 0; height: 100%; background: #161316; }</style>
+  </head>
+  <body>
+    <script type="module">
+      // UI only: no wallet storage, real node, peers or transactions.
+      history.replaceState(null, '', '#!/wallet/send')
+      const address = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
+      globalThis.chain = { state: { sync: 'synced' }, balanceOf: async () => 100000000000000000000n }
+      globalThis.peernet = { connections: { fixture: { connected: true } } }
+      globalThis.client = { peers: async () => [], peerId: async () => 'fixture' }
+      await import('/shell.js')
+      const shell = document.createElement('app-shell')
+      shell.wallet = { selectedAccount: address, selectedAccountIndex: 0, accounts: [['Test account', address, address]] }
+      shell.nodeStarted = true
+      shell.isNodeReady = true
+      document.body.append(shell)
+      globalThis.shell = shell
+      globalThis.fixtureReady = true
+    </script>
+  </body>
+</html>

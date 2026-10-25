@@ -112,14 +112,24 @@ export class SyncInfo extends LiteElement {
     `
   ]
 
-  firstRender(): void {
-    document.addEventListener('custom-pane-close', ({ detail }) => {
-      console.log({ detail })
+  #paneClose = (event: Event) => {
+    if (event instanceof CustomEvent && event.detail === this.id) this.#close()
+  }
 
-      if (detail === this.id) {
-        this.open = false
-      }
-    })
+  connectedCallback() {
+    super.connectedCallback()
+    document.addEventListener('custom-pane-close', this.#paneClose)
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    document.removeEventListener('custom-pane-close', this.#paneClose)
+  }
+
+  #close = () => {
+    if (!this.open) return
+    this.open = false
+    this.dispatchEvent(new CustomEvent('sync-info-close', { bubbles: true, composed: true }))
   }
 
   render() {
@@ -130,7 +140,7 @@ export class SyncInfo extends LiteElement {
         left
         icon="close"
         title="Sync Info"
-        @custom-pane-close=${() => (this.open = false)}>
+        @custom-pane-close=${this.#close}>
         <main slot="content">
           <p class="status">${this.status}</p>
           <div

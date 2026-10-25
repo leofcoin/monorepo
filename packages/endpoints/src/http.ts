@@ -32,6 +32,10 @@ export default (chain, port, networkVersion, remote: boolean = false) => {
     }
   })
 
+  router.get('/chainIdentity', async (ctx) => {
+    ctx.body = await chain.getChainIdentity()
+  })
+
   router.get('/networkStats', async (ctx) => {
     ctx.body = await shared.networkStats(chain, networkVersion)
   })

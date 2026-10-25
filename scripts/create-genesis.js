@@ -10,16 +10,8 @@ import {
 } from './genesis-credentials.js'
 ;(async () => {
   const { parseUnits } = await import('@leofcoin/utils')
-  const { nodeConfig, createContractMessage } = await import('@leofcoin/lib')
-
-  const createMessage = async (src, params = []) => {
-    const contract = await read(src)
-    return createContractMessage(
-      peernet.selectedAccount,
-      new TextEncoder().encode(prepareGenesisContractSource(contract)),
-      params
-    )
-  }
+  const { buildGenesisContracts } = await import('@leofcoin/lib/genesis-plan')
+  const { createChainIdentity } = await import('@leofcoin/lib/chain-identity')
   // const Chain = require('./../chain/dist/chain');
 
   const Node = (await import('../packages/chain/exports/node.js')).default
@@ -84,56 +76,23 @@ import {
   console.log(`Genesis password: ${credentials.paths.password}`)
   console.log(`Encrypted identity backup: ${credentials.paths.identity}`)
   console.log('Copy the complete credentials directory to encrypted offline storage.')
+  const sources = {}
+  for (const [name, filename] of Object.entries({
+    nativeToken: 'native-token.js', contractFactory: 'factory.js', validators: 'validators.js', nameService: 'name-service.js'
+  })) {
+    sources[name] = new TextEncoder().encode(prepareGenesisContractSource(
+      await read(join('node_modules/@leofcoin/contracts/exports', filename))
+    ))
+  }
+  const { messages, contracts: addresses } = await buildGenesisContracts(
+    globalThis.peernet.selectedAccount, supply.target, supply.initial, allocations, sources
+  )
+  const identity = await createChainIdentity('leofcoin:peach', addresses)
+  console.log('Chain ID:', identity.chainId)
+  // Build and hash everything before the explicitly requested reset.
   await clearGenesisState()
-  console.log(node)
-  // console.log(peernet);
-  // const chain = await new Chain()
-  // console.log(chain);
-
-  const nativeToken = await createMessage('./node_modules/@leofcoin/contracts/exports/native-token.js', [
-    supply.target,
-    supply.initial,
-    allocations
-  ])
-  if (!(await contractStore.has(await nativeToken.hash()))) {
-    await contractStore.put(await nativeToken.hash(), nativeToken.encoded)
-  }
-
-  const factory = await createMessage('./node_modules/@leofcoin/contracts/exports/factory.js', [
-    await nativeToken.hash(),
-    parseUnits('1000').toString()
-  ])
-
-  if (!(await contractStore.has(await factory.hash()))) {
-    await contractStore.put(await factory.hash(), factory.encoded)
-  }
-
-  const validators = await createMessage('./node_modules/@leofcoin/contracts/exports/validators.js', [
-    await nativeToken.hash()
-  ])
-
-  if (!(await contractStore.has(await validators.hash()))) {
-    await contractStore.put(await validators.hash(), validators.encoded)
-  }
-
-  const nameService = await createMessage('./node_modules/@leofcoin/contracts/exports/name-service.js', [
-    await factory.hash(),
-    await nativeToken.hash(),
-    await validators.hash(),
-    parseUnits('1000').toString()
-  ])
-
-  if (!(await contractStore.has(await nameService.hash()))) {
-    await contractStore.put(await nameService.hash(), nameService.encoded)
-  }
-
-  const addresses = {
-    contractFactory: await factory.hash(),
-    nativeToken: await nativeToken.hash(),
-    nameService: await nameService.hash(),
-    validators: await validators.hash()
-  }
-
+  for (const message of Object.values(messages)) await contractStore.put(await message.hash(), message.encoded)
+  const { nativeToken, contractFactory: factory, validators, nameService } = messages
   console.log({ addresses })
 
   const bytecodes = {

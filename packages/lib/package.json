@@ -9,6 +9,10 @@
     "node": ">=24.15.0"
   },
   "exports": {
+    "./chain-identity": {
+      "import": "./exports/chain-identity.js",
+      "types": "./exports/chain-identity.d.ts"
+    },
     ".": {
       "import": "./exports/index.js",
       "types": "./exports/index.d.ts"
@@ -16,6 +20,10 @@
     "./node-config": {
       "import": "./exports/node-config.js",
       "types": "./exports/node-config.d.ts"
+    },
+    "./genesis-plan": {
+      "import": "./exports/genesis-plan.js",
+      "types": "./exports/genesis-plan.d.ts"
     },
     "./node-config.js": {
       "import": "./exports/node-config.js",
@@ -42,6 +50,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@leofcoin/multi-wallet": "^3.1.11",
     "@leofcoin/addresses": "^1.0.64",
     "@leofcoin/messages": "^1.6.5",
     "@leofcoin/peernet": "^3.0.0",

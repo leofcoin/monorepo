@@ -17,13 +17,17 @@ export default customElements.define(
     }
 
     async #export() {
-      const password = await document
-        .querySelector('app-shell')
-        .shadowRoot.querySelector('login-screen')
-        .requestPassword()
+      const shell = document.querySelector<
+        HTMLElement & {
+          requestWalletPassword(): Promise<string>
+          showExport(qrcode: string, exported: string): void
+        }
+      >('app-shell')
+      if (!shell) throw new Error('application shell is unavailable')
+      const password = await shell.requestWalletPassword()
       const exported = await globalThis.identityController.export(password)
       const qr = await qrcode.toDataURL(exported)
-      document.querySelector('app-shell').shadowRoot.querySelector('export-screen').show(qr, exported)
+      shell.showExport(qr, exported)
       console.log(qr)
     }
     render() {

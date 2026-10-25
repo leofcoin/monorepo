@@ -48,8 +48,8 @@ export class AddressAmount extends LiteElement {
         box-sizing: border-box;
         text-overflow: ellipsis;
         overflow: hidden;
-        background: #7986cb;
-        color: #fff;
+        background: var(--md-sys-color-secondary-container, #433b42);
+        color: var(--md-sys-color-on-secondary-container, #f4ddea);
         box-sizing: border-box;
         border-radius: 24px;
         padding: 6px 12px;

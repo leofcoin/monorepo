@@ -104,17 +104,24 @@ export class WalletReceive extends LitElement {
       :host {
         width: 100%;
         height: 100%;
-        align-items: center;
-        justify-content: center;
-        display: flex;
-        flex-direction: column;
+        display: block;
+        overflow: auto;
+        box-sizing: border-box;
+        padding: 24px 16px;
+        color: var(--md-sys-color-on-surface, #eee);
       }
 
-      hero-element {
-        max-height: none;
-        max-width: 420px;
-        width: 100%;
+      main { max-width: var(--lfc-page-width, 720px); margin: auto; }
+      h1 { margin: 0; font-size: clamp(28px, 4vw, 36px); letter-spacing: -.035em; }
+      .intro { margin: 0 0 20px; color: var(--md-sys-color-on-surface-variant, #ccc); }
+      .card {
+        padding: clamp(18px, 3vw, 26px); border-radius: 22px;
+        border: 1px solid var(--lfc-glass-border, #51474e);
+        background: var(--lfc-glass-surface, #242126);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
       }
+      label { display: grid; gap: 8px; font-size: 14px; }
+      input:focus-visible { outline: 2px solid var(--md-sys-color-primary, #f4a77f); outline-offset: 2px; }
 
       flex-column {
         gap: 12px;
@@ -139,6 +146,31 @@ export class WalletReceive extends LitElement {
         object-fit: contain;
       }
 
+      .qr-empty {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        max-width: 280px;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .qr-empty svg {
+        width: 112px;
+        height: 112px;
+        color: var(--md-sys-color-primary, #f4a77f);
+      }
+
+      .qr-empty strong {
+        font-size: 15px;
+      }
+
+      .qr-empty span {
+        color: var(--md-sys-color-on-surface-variant, #ccc);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
       .address {
         width: 100%;
         box-sizing: border-box;
@@ -154,6 +186,7 @@ export class WalletReceive extends LitElement {
       flex-row {
         width: 100%;
         gap: 8px;
+        flex-wrap: wrap;
       }
 
       input {
@@ -162,7 +195,7 @@ export class WalletReceive extends LitElement {
         pointer-events: auto;
         background: var(--md-sys-color-surface-container-highest);
         border: 1px solid var(--border-color);
-        font-size: 14px;
+        font-size: 16px;
         color: var(--md-sys-color-on-surface-container-highest);
         border-radius: 12px;
         padding: 10px 12px;
@@ -203,37 +236,49 @@ export class WalletReceive extends LitElement {
 
   render() {
     return html`
-      <hero-element headline="Receive">
-        <flex-column>
+      <main>
+        <h1>Receive</h1>
+        <p class="intro">Share your address or create a payment request.</p>
+        <flex-column class="card">
           <div class="qr-container">
             ${this.qrCodeDataUrl
               ? html`<img class="qr" src=${this.qrCodeDataUrl} alt="Payment QR code" />`
-              : html`<custom-typography type="body">Waiting for wallet address...</custom-typography>`}
+              : html`<div class="qr-empty" role="status">
+                  <svg viewBox="0 0 120 120" fill="none" aria-hidden="true">
+                    <rect x="19" y="24" width="82" height="72" rx="18" stroke="currentColor" stroke-width="3"/>
+                    <path d="M34 44h52M34 57h31" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+                    <circle cx="79" cy="75" r="15" fill="var(--md-sys-color-surface-container-high, #29262a)" stroke="currentColor" stroke-width="3"/>
+                    <path d="M79 66v18M73 70h9a4 4 0 0 1 0 8h-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                  </svg>
+                  <strong>Unlock your wallet to receive</strong>
+                  <span>Your address and payment QR will appear here when the wallet is ready.</span>
+                </div>`}
           </div>
 
           <div class="address">${this.address || 'No address available yet'}</div>
 
-          <input
+          <label>Amount <span class="hint">Optional · LFC</span><input
             class="amount"
+            inputmode="decimal"
             placeholder="Amount (optional)"
             .value=${this.amount}
             @input=${(event: Event) => {
               this.amount = (event.target as HTMLInputElement).value
-            }} />
+            }} /></label>
 
-          <input
+          <label>Note <span class="hint">Optional</span><input
             class="note"
             placeholder="Note (optional)"
             .value=${this.note}
             @input=${(event: Event) => {
               this.note = (event.target as HTMLInputElement).value
-            }} />
+            }} /></label>
 
           <span class="hint">Share this QR or link to request a payment.</span>
 
           <flex-row>
-            <md-outlined-button @click=${this.#copyAddress}>Copy address</md-outlined-button>
-            <md-outlined-button @click=${this.#copyRequest}>Copy request</md-outlined-button>
+            <md-outlined-button ?disabled=${!this.address} @click=${this.#copyAddress}>Copy address</md-outlined-button>
+            <md-outlined-button ?disabled=${!this.requestUrl} @click=${this.#copyRequest}>Copy request</md-outlined-button>
           </flex-row>
 
           <flex-row>
@@ -241,13 +286,13 @@ export class WalletReceive extends LitElement {
               >Share request</md-filled-tonal-button
             >
             ${NFC_SUPPORT
-              ? html`<md-icon-button @click=${() => write({ amount: this.amount, to: this.address })}
+              ? html`<md-icon-button aria-label="Share request using NFC" ?disabled=${!this.address} @click=${() => write({ amount: this.amount, to: this.address })}
                   ><custom-icon icon="share"></custom-icon
                 ></md-icon-button>`
               : ''}
           </flex-row>
         </flex-column>
-      </hero-element>
+      </main>
     `
   }
 }

@@ -121,10 +121,11 @@ export class WalletSend extends LitElement {
     }
     main {
       width: 100%;
-      max-width: 560px;
+      max-width: var(--lfc-page-width, 720px);
       margin: auto;
       display: grid;
-      gap: 18px;
+      gap: 16px;
+      align-content: start;
     }
     header,
     p,
@@ -132,22 +133,33 @@ export class WalletSend extends LitElement {
       margin: 0;
     }
     h1 {
-      font-size: 28px;
+      font-size: clamp(28px, 4vw, 36px);
+      letter-spacing: -0.035em;
     }
     .muted {
       opacity: 0.75;
       font-size: 14px;
     }
     .card {
-      border: 1px solid var(--md-sys-color-outline, #45505d);
-      border-radius: 20px;
-      padding: 22px;
-      background: var(--md-sys-color-surface-container-high, #192029);
+      border: 1px solid var(--lfc-glass-border, #51474e);
+      border-radius: 22px;
+      padding: clamp(18px, 3vw, 26px);
+      background: var(--lfc-glass-surface, #242126);
       display: grid;
       gap: 16px;
+      box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
+      -webkit-backdrop-filter: blur(18px) saturate(1.25);
+      backdrop-filter: blur(18px) saturate(1.25);
+    }
+    .card:first-of-type {
+      background:
+        radial-gradient(ellipse at 100% 0%, rgb(255 255 255 / 12%), transparent 48%),
+        linear-gradient(135deg, color-mix(in srgb, var(--md-sys-color-surface-container-high, #192029) 82%, transparent), rgb(48 42 45 / 70%));
+      border-color: color-mix(in srgb, var(--md-sys-color-primary, #f4a77f) 34%, transparent);
     }
     .balance {
-      font-size: 28px;
+      font-size: clamp(32px, 5vw, 42px);
+      letter-spacing: -0.04em;
       overflow-wrap: anywhere;
     }
     .address,
@@ -170,6 +182,15 @@ export class WalletSend extends LitElement {
       box-sizing: border-box;
       width: 100%;
     }
+    input:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--md-sys-color-primary, #f4a77f);
+      outline-offset: 2px;
+    }
+    input {
+      background: var(--md-sys-color-surface-container, #171619);
+      font-size: 16px;
+    }
     button {
       cursor: pointer;
       background: var(--md-sys-color-primary, #93b4ff);
@@ -183,6 +204,14 @@ export class WalletSend extends LitElement {
     button:disabled {
       opacity: 0.45;
       cursor: default;
+    }
+    button:hover:not(:disabled) { filter: brightness(1.08); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button { min-height: 44px; }
+    @media (max-width: 420px) {
+      .actions { flex-wrap: wrap; }
+      dl { grid-template-columns: 1fr; gap: 6px; }
+      dd { text-align: left; margin-bottom: 8px; }
     }
     .actions {
       display: flex;
@@ -206,15 +235,36 @@ export class WalletSend extends LitElement {
       font-size: 14px;
       border-left: 3px solid #f7c873;
       padding-left: 10px;
+      margin: 0;
     }
     .network[data-ready] {
       border-color: #80d6a5;
+    }
+    .sync-guide {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgb(255 255 255 / 4%);
+    }
+    .sync-guide svg {
+      width: 52px;
+      height: 52px;
+      color: var(--md-sys-color-primary, #f4a77f);
+    }
+    .sync-guide p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
     }
   `
   render() {
     return html`<main>
       <header>
-        <p class="muted">PEACH TEST NETWORK</p>
+        <p class="muted">PEACH TEST NETWORK · TEST TOKENS ONLY</p>
         <h1>Your wallet</h1>
       </header>
       <section class="card">
@@ -223,6 +273,22 @@ export class WalletSend extends LitElement {
         <p class="network" ?data-ready=${this.status.ready} role="status">
           ${this.status.label} · ${this.status.peers} peers
         </p>
+        ${!this.status.ready
+          ? html`<div class="sync-guide">
+              <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <circle cx="14" cy="32" r="6" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="50" cy="16" r="6" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="50" cy="48" r="6" stroke="currentColor" stroke-width="2.5"/>
+                <path d="m20 30 24-11M20 34l24 11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M31 25v14" stroke="currentColor" stroke-width="2" stroke-dasharray="3 4" opacity=".6"/>
+              </svg>
+              <p>
+                ${!this.wallet?.selectedAccount
+                  ? 'Unlock your wallet from the top bar to show your address and balance.'
+                  : 'Your node is getting ready. Wait for it to connect and sync before sending test LFC.'}
+              </p>
+            </div>`
+          : ''}
         <p class="muted">Test LFC has no monetary value. Use the faucet below to fund your test wallet.</p>
       </section>
       <section class="card"><testnet-faucet .address=${this.wallet?.selectedAccount || ''}></testnet-faucet></section>

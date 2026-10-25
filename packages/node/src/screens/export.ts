@@ -36,6 +36,7 @@ export default customElements.define(
 
     #close() {
       this.shown = false
+      this.dispatchEvent(new CustomEvent('export-close', { bubbles: true, composed: true }))
     }
 
     render() {

@@ -211,6 +211,7 @@ const deployDexFixture = async () => {
 }
 
 const status = async () => ({
+  chainId: (await chain.getChainIdentity()).chainId,
   identity: globalThis.peernet.id,
   account: globalThis.peernet.selectedAccount,
   peers: globalThis.peernet.peers.length,
@@ -231,6 +232,17 @@ process.stdin.setEncoding('utf8')
 process.stdin.on('data', async (input) => {
   for (const command of input.trim().split(/\s+/)) {
     if (command === 'status') emit('status', await status())
+    if (command === 'chain-identity') {
+      const { decodeResponsePayload } = await import('../../packages/chain/src/helpers/response.ts')
+      const { verifyChainIdentity } = await import('@leofcoin/lib/chain-identity')
+      const request = new globalThis.peernet.protos['peernet-request']({ request: 'chainIdentity' })
+      const message = await globalThis.peernet.prepareMessage(request)
+      const connected = Object.values(globalThis.peernet.connections).filter(peer => peer.connected)
+      const responses = await Promise.all(connected.map(async peer =>
+        verifyChainIdentity(await decodeResponsePayload(await peer.request(message.encoded)))
+      ))
+      emit('chain:identity', { responses })
+    }
     if (command === 'append-block') emit('block:produced', await appendFixtureBlock())
     if (command === 'dex-fixture') emit('dex:deployed', await deployDexFixture())
     if (command === 'shutdown') {

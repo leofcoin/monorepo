@@ -12,17 +12,28 @@ export class StatsView extends LitElement {
   @property({ type: String })
   accessor peerId: base58String
 
+  #subscribed = false
+
   #peerChange = async (peer) => {
     this.peers = await client.peers()
   }
 
   async connectedCallback() {
     super.connectedCallback()
+    this.#subscribed = true
+    pubsub.subscribe('peer:connected', this.#peerChange)
+    pubsub.subscribe('peer:left', this.#peerChange)
     // this.shadowRoot.querySelector('.peerId').value = await client.peerId()
     this.peers = await client.peers()
     this.peerId = await client.peerId()
-    pubsub.subscribe('peer:connected', this.#peerChange)
-    pubsub.subscribe('peer:left', this.#peerChange)
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    if (!this.#subscribed) return
+    pubsub.unsubscribe('peer:connected', this.#peerChange)
+    pubsub.unsubscribe('peer:left', this.#peerChange)
+    this.#subscribed = false
   }
 
   static get styles() {
