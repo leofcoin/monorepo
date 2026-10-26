@@ -97,6 +97,9 @@ the amount and the normal review/confirmation flow remain unchanged.
 ### Peernet chat
 
 Open **Chat** (`#!/chat`) with an unlocked wallet and a running Peernet node.
+Use **Add friend** to save a friend's Peernet ID, or copy your own ID to share.
+Their device appears when they open Chat on the same Peernet network; select
+their entry to start a direct message. Joined Spaces appear in the left rail.
 Direct messages are encrypted to a discovered device certificate. Each browser
 device has a separate random device ID and non-exportable keys in IndexedDB;
 the wallet signs its certificate. A newly announced device for the same wallet
@@ -109,9 +112,11 @@ to **Offer encrypted DM archiving**. Archive nodes retain ciphertext only,
 with a 30-day maximum retention and bounded local capacity. A verified signed
 delivery receipt triggers best-effort deletion from reachable archives and
 the sender's outbox; it cannot erase copies held by unreachable or untrusted
-nodes. This uses Peernet's archive mode and message store. Chat transcripts
-currently remain in memory for the open view and are not a durable local
-message-history store.
+nodes. This uses Peernet's archive mode and message store. Decrypted chat
+history is saved locally on the current browser device, encrypted with that
+device's non-exportable chat key, and limited to the latest 2,000 messages.
+History is not synchronized to another device; signing into the same wallet
+does not transfer device keys or past messages.
 
 Spaces use a shared AES-GCM key, with invitations delivered inside encrypted
 DMs and messages gossiped through Peernet. Space keys are locally wrapped
@@ -120,11 +125,11 @@ live gossip only: they are not archived or replayed to offline members. The
 current version has no member-removal/key-rotation workflow; create a new
 Space and invite the intended devices after membership changes.
 
-The browser node now uses a stable random Peernet routing ID per network and
-browser installation, separate from its wallet identity. This allows restored
-copies of the same wallet on different devices to be discovered as separate
-peers; chain transactions and account signatures continue to use the wallet
-identity. Clearing this browser's local storage creates a new routing ID.
+The browser node uses the wallet's Peernet ID on every device. Signing in with
+the same wallet therefore keeps the same network identity when moving between
+devices; only one device for a wallet should be connected at a time because
+simultaneous nodes with the same Peernet ID may conflict. Chat encryption keys
+remain local to each device and are not transferred with the wallet.
 
 ### Explorer block details
 

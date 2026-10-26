@@ -32,24 +32,6 @@ export function setSelectedNetwork(key, storage = globalThis.localStorage) {
   return network
 }
 
-function getNodePeerId(network, storage) {
-  if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function')
-    throw new Error('Persistent storage is required for a unique Peernet routing identity.')
-  const storageKey = `leofcoin:peernet-peer-id:v1:${network}`
-  const saved = storage.getItem(storageKey)
-  if (saved !== null) {
-    if (!/^lfc-peer-[0-9a-f]{32}$/.test(saved))
-      throw new Error('Saved Peernet routing identity is invalid.')
-    return saved
-  }
-  if (!globalThis.crypto?.getRandomValues)
-    throw new Error('Secure randomness is unavailable for Peernet routing identity.')
-  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
-  const id = `lfc-peer-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
-  storage.setItem(storageKey, id)
-  return id
-}
-
 export function installNetworkStoreScope(key, global = globalThis) {
   const network = SUPPORTED_NETWORKS[key]
   if (!network) throw new Error(`Unsupported network: ${key}`)
@@ -60,11 +42,11 @@ export function installNetworkStoreScope(key, global = globalThis) {
 
   class NetworkScopedPeernet extends Peernet {
     constructor(options, password) {
-      super({ ...options, routingId: getNodePeerId(key, global.localStorage) }, password)
+      super({ ...options, routingId: undefined }, password)
     }
 
     get id() {
-      return this.routingId || getNodePeerId(key, global.localStorage)
+      return this.identity?.id
     }
 
     get peerId() {

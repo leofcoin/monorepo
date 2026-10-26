@@ -5,9 +5,52 @@ const DATABASE_VERSION = 2
 const STORE_NAME = 'devices'
 const SPACE_STORE_NAME = 'spaces'
 const KNOWN_DEVICES_LIMIT = 200
+const CHAT_HISTORY_LIMIT = 2_000
+const encoder = new TextEncoder()
+const decoder = new TextDecoder()
 
 function knownDevicesKey(network) {
   return `${network}:chat-known-devices:v1`
+}
+
+function friendsKey(network, account) {
+  return `${network}:chat-friends:v1:${account}`
+}
+
+function historyIndexKey(device) {
+  return `${device.network}:chat-history:v1:${device.account}:${device.deviceId}:index`
+}
+
+function historyMessageKey(device, messageId) {
+  return `${device.network}:chat-history:v1:${device.account}:${device.deviceId}:message:${messageId}`
+}
+
+function encodeBase64(value) {
+  let binary = ''
+  for (const byte of value) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+function decodeBase64(value) {
+  const binary = atob(value)
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
+function validateChatMessage(message) {
+  if (
+    !message ||
+    typeof message.id !== 'string' ||
+    !message.id ||
+    typeof message.sender !== 'string' ||
+    typeof message.text !== 'string' ||
+    message.text.length > 4_000 ||
+    !Number.isFinite(message.timestamp) ||
+    typeof message.outgoing !== 'boolean' ||
+    !(typeof message.conversationId === 'string' && message.conversationId) &&
+      !(typeof message.spaceId === 'string' && message.spaceId)
+  )
+    throw new Error('Chat history contains an invalid message.')
+  return message
 }
 
 function openDatabase(indexedDB) {
@@ -94,6 +137,82 @@ async function deriveLocalSpaceKey(device) {
   )
 }
 
+async function deriveLocalChatHistoryKey(device) {
+  if (!device?.keys?.encryption?.privateKey || !(device.keys.encryption.publicKey instanceof Uint8Array))
+    throw new Error('A local chat encryption key is required for message history.')
+  return deriveLocalSpaceKey(device)
+}
+
+export async function listChatMessages(device, storage = globalThis.localStorage) {
+  if (!device?.account || !device.network || !device.deviceId)
+    throw new Error('A local chat device is required to read message history.')
+  if (!storage || typeof storage.getItem !== 'function')
+    throw new Error('Encrypted chat history storage is unavailable.')
+  const indexValue = storage.getItem(historyIndexKey(device))
+  if (indexValue === null) return []
+  const ids = JSON.parse(indexValue)
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || !id))
+    throw new Error('Saved chat history index is invalid.')
+  const key = await deriveLocalChatHistoryKey(device)
+  const messages = []
+  for (const id of ids) {
+    const encodedRecord = storage.getItem(historyMessageKey(device, id))
+    if (encodedRecord === null) throw new Error(`Saved chat message ${id} is missing.`)
+    const record = JSON.parse(encodedRecord)
+    if (typeof record?.iv !== 'string' || typeof record?.ciphertext !== 'string')
+      throw new Error(`Saved chat message ${id} is invalid.`)
+    const additionalData = encoder.encode(`${device.network}:${device.account}:${device.deviceId}:${id}`)
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: decodeBase64(record.iv), additionalData },
+      key,
+      decodeBase64(record.ciphertext)
+    )
+    const message = validateChatMessage(JSON.parse(decoder.decode(plaintext)))
+    if (message.id !== id) throw new Error(`Saved chat message ${id} has a mismatched identity.`)
+    messages.push(message)
+  }
+  return messages.sort((left, right) => left.timestamp - right.timestamp)
+}
+
+export async function saveChatMessage(device, message, storage = globalThis.localStorage) {
+  if (!device?.account || !device.network || !device.deviceId)
+    throw new Error('A local chat device is required to save message history.')
+  if (
+    !storage ||
+    typeof storage.getItem !== 'function' ||
+    typeof storage.setItem !== 'function' ||
+    typeof storage.removeItem !== 'function'
+  )
+    throw new Error('Encrypted chat history storage is unavailable.')
+  validateChatMessage(message)
+  const key = await deriveLocalChatHistoryKey(device)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const additionalData = encoder.encode(
+    `${device.network}:${device.account}:${device.deviceId}:${message.id}`
+  )
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData },
+    key,
+    encoder.encode(JSON.stringify(message))
+  )
+  const recordKey = historyMessageKey(device, message.id)
+  storage.setItem(recordKey, JSON.stringify({
+    iv: encodeBase64(iv),
+    ciphertext: encodeBase64(new Uint8Array(ciphertext))
+  }))
+
+  const indexKey = historyIndexKey(device)
+  const storedIndex = storage.getItem(indexKey)
+  const ids = storedIndex === null ? [] : JSON.parse(storedIndex)
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || !id))
+    throw new Error('Saved chat history index is invalid.')
+  const updatedIds = [...ids.filter((id) => id !== message.id), message.id]
+  const removedIds = updatedIds.splice(0, Math.max(0, updatedIds.length - CHAT_HISTORY_LIMIT))
+  for (const id of removedIds) storage.removeItem(historyMessageKey(device, id))
+  storage.setItem(indexKey, JSON.stringify(updatedIds))
+  return message
+}
+
 async function readSpace(database, id) {
   const transaction = database.transaction(SPACE_STORE_NAME, 'readonly')
   const record = await requestValue(transaction.objectStore(SPACE_STORE_NAME).get(id))
@@ -121,6 +240,7 @@ async function writeSpace(database, record) {
 export async function loadOrCreateChatDevice({
   account,
   network,
+  peerId = account,
   signWithAccount,
   indexedDB = globalThis.indexedDB
 }) {
@@ -143,13 +263,24 @@ export async function loadOrCreateChatDevice({
         existing.certificate.deviceId !== existing.deviceId
       )
         throw new Error('The saved chat device identity does not match this wallet and network.')
-      return existing
+      if (existing.certificate.peerId === peerId) return existing
+      const certificate = await createDeviceCertificate({
+        account,
+        network,
+        deviceId: existing.deviceId,
+        peerId,
+        keys: existing.keys,
+        signWithAccount
+      })
+      const migrated = { ...existing, peerId, certificate }
+      await updateDevice(database, migrated)
+      return migrated
     }
 
     const deviceId = createDeviceId()
     const keys = await createDeviceKeys()
-    const certificate = await createDeviceCertificate({ account, network, deviceId, keys, signWithAccount })
-    const record = { id, account, network, deviceId, keys, certificate }
+    const certificate = await createDeviceCertificate({ account, network, deviceId, peerId, keys, signWithAccount })
+    const record = { id, account, network, peerId, deviceId, keys, certificate }
     if (await addDevice(database, record)) return record
 
     const concurrentRecord = await readDevice(database, id)
@@ -327,4 +458,34 @@ export function rememberChatDevice(certificate, storage = globalThis.localStorag
   if (devices.length > KNOWN_DEVICES_LIMIT) devices.splice(0, devices.length - KNOWN_DEVICES_LIMIT)
   storage.setItem(key, JSON.stringify(devices))
   return devices
+}
+
+export function listChatFriends(network, account, storage = globalThis.localStorage) {
+  if (!storage || typeof storage.getItem !== 'function') throw new Error('Chat friend preferences are unavailable.')
+  if (!network || !account) throw new Error('Network and wallet address are required.')
+  const value = storage.getItem(friendsKey(network, account))
+  if (value === null) return []
+  const friends = JSON.parse(value)
+  if (!Array.isArray(friends) || friends.some((friend) => typeof friend !== 'string' || !friend.trim()))
+    throw new Error('Saved chat friends are invalid.')
+  return friends
+}
+
+export function addChatFriend(
+  network,
+  account,
+  friendPeerId,
+  storage = globalThis.localStorage,
+  ownPeerId = account
+) {
+  if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function')
+    throw new Error('Chat friend preferences are unavailable.')
+  if (!network || !account || typeof friendPeerId !== 'string' || !friendPeerId.trim())
+    throw new Error('Network, wallet address and friend Peernet ID are required.')
+  const friend = friendPeerId.trim()
+  if (friend === ownPeerId || friend === account) throw new Error('You cannot add your own account as a friend.')
+  const friends = listChatFriends(network, account, storage)
+  if (!friends.includes(friend)) friends.push(friend)
+  storage.setItem(friendsKey(network, account), JSON.stringify(friends))
+  return friends
 }

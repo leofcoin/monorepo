@@ -3,7 +3,14 @@ import test from 'node:test'
 import generateAccount from '@leofcoin/generate-account'
 import IdentityController from '../src/controllers/identity.ts'
 import { createChatTransport } from '../src/controllers/chat-transport.js'
-import { listKnownChatDevices, rememberChatDevice } from '../src/controllers/chat-device-store.js'
+import {
+  addChatFriend,
+  listChatMessages,
+  listChatFriends,
+  listKnownChatDevices,
+  rememberChatDevice,
+  saveChatMessage
+} from '../src/controllers/chat-device-store.js'
 import {
   approveDevice,
   createDeviceCertificate,
@@ -33,6 +40,14 @@ class MemoryStorage {
 
   setItem(key, value) {
     this.#values.set(key, String(value))
+  }
+
+  removeItem(key) {
+    this.#values.delete(key)
+  }
+
+  serialized() {
+    return JSON.stringify([...this.#values.entries()])
   }
 }
 
@@ -68,7 +83,7 @@ function connectPeers(left, right) {
 
 const waitForNetwork = () => new Promise((resolve) => setTimeout(resolve, 50))
 
-async function setupDevice(wallet, deviceId) {
+async function setupDevice(wallet, deviceId, peerId) {
   globalThis.walletStore = {
     get: async () => new TextEncoder().encode(JSON.stringify(wallet.accounts))
   }
@@ -81,11 +96,14 @@ async function setupDevice(wallet, deviceId) {
     account,
     network,
     deviceId,
+    peerId: peerId || account,
     keys,
     signWithAccount: signer.sign
   })
   return {
     account,
+    network,
+    peerId: peerId || account,
     deviceId,
     keys,
     certificate,
@@ -101,6 +119,8 @@ test('creates wallet-bound device certificates and requires explicit device appr
   const requested = await setupDevice(wallet, 'device-two')
 
   assert.equal(await verifyDeviceCertificate(existing.certificate, network), true)
+  assert.equal(existing.certificate.peerId, existing.peerId)
+  assert.equal(await verifyDeviceCertificate({ ...existing.certificate, peerId: 'forged-peer-id' }, network), false)
   assert.equal(await verifyDeviceCertificate(requested.certificate, network), true)
   assert.equal(await isTrustedChatDevice(requested.certificate, [existing.certificate], network), false)
 
@@ -133,6 +153,49 @@ test('remembers verified chat devices for offline addressing without marking the
   assert.deepEqual(rememberChatDevice(device.certificate, storage), [device.certificate])
   assert.deepEqual(listKnownChatDevices(network, storage), [device.certificate])
   assert.equal(await isTrustedChatDevice(device.certificate, [], network), false)
+})
+
+test('saves friends by wallet Peernet ID per account and network', () => {
+  const storage = new MemoryStorage()
+  const account = 'my-wallet-peer-id'
+  const friend = 'friend-wallet-peer-id'
+
+  assert.deepEqual(listChatFriends(network, account, storage), [])
+  assert.deepEqual(addChatFriend(network, account, friend, storage, account), [friend])
+  assert.deepEqual(addChatFriend(network, account, friend, storage, account), [friend])
+  assert.deepEqual(listChatFriends('leofcoin:mainnet', account, storage), [])
+  assert.throws(() => addChatFriend(network, account, account, storage), /cannot add your own account/)
+  assert.throws(() => addChatFriend(network, account, 'my-peer-id', storage, 'my-peer-id'), /cannot add your own account/)
+  assert.throws(() => addChatFriend(network, account, '  ', storage), /friend Peernet ID/)
+})
+
+test('stores local chat history encrypted and restores it only with the device key', async () => {
+  const device = await setupDevice(
+    await generateAccount('chat-security-test-password', network),
+    'history-device',
+    'history-peer-id'
+  )
+  const storage = new MemoryStorage()
+  const message = {
+    id: 'history-message',
+    sender: device.account,
+    conversationId: 'friend-peer-id',
+    text: 'This must stay encrypted at rest',
+    timestamp: Date.now(),
+    outgoing: true,
+    deliveryState: 'queued'
+  }
+
+  await saveChatMessage(device, message, storage)
+  assert.equal(storage.serialized().includes(message.text), false)
+  assert.deepEqual(await listChatMessages(device, storage), [message])
+
+  const otherDevice = {
+    ...device,
+    keys: await createDeviceKeys()
+  }
+  await assert.rejects(listChatMessages(otherDevice, storage))
+  assert.deepEqual(await listChatMessages({ ...device, network: 'leofcoin:mainnet' }, storage), [])
 })
 
 test('can retry Peernet subscription after startup fails', async () => {

@@ -56,16 +56,16 @@ export class AddressAmount extends LiteElement {
       }
       p {
         margin: 0;
-        font-size: 14px;
-        font-weight: 500;
-        text-align: center;
+        font-size: var(--address-amount-font-size, 14px);
+        font-weight: var(--address-amount-font-weight, 500);
+        text-align: var(--address-amount-align, center);
         text-transform: uppercase;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         direction: rtl;
-        max-width: 86px;
-        min-width: 60px;
+        max-width: var(--address-amount-max-width, 86px);
+        min-width: var(--address-amount-min-width, 60px);
       }
     `
   ]

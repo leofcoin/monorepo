@@ -1,3 +1,4 @@
+import './shims/buffer.js'
 import Pubsub from '@vandeurenglenn/little-pubsub'
 import Storage from '@leofcoin/storage'
 import '@vandeurenglenn/lite-elements/pages.js'
@@ -153,6 +154,7 @@ class AppShell extends LiteElement {
     if (name === 'wallet') {
       this.#applyViewData('chat')
       this.#applyViewData('faucet')
+      this.#applyViewData('address-book')
       if (this.wallet && this.#lockedRoute) {
         this.#lockedRoute = false
         void this.rendered.then(() => globalThis.dispatchEvent(new HashChangeEvent('hashchange')))
@@ -275,26 +277,42 @@ class AppShell extends LiteElement {
     }
   }
 
-  #changeNetwork = (event: Event) => {
-    const select = event.currentTarget as HTMLSelectElement
-    const key = select.value
-    if (key === this.selectedNetworkKey) return
+  #changeNetwork = (event: CustomEvent<{ key: string }>) => {
+    const key = event.detail?.key
+    if (!key || key === this.selectedNetworkKey) return
     const next = SUPPORTED_NETWORKS[key]
     if (!next) {
-      select.value = this.selectedNetworkKey
       this.nodeStartError = `Unsupported network: ${key}`
       return
     }
     if (!window.confirm(`Switch to ${next.label}? The browser node will restart and unsaved work will be lost. Finish or note any pending transactions first. Your wallet is shared; chain data stays separate.`)) {
-      select.value = this.selectedNetworkKey
       return
     }
     try {
       setSelectedNetwork(key)
       window.location.reload()
     } catch (error) {
-      select.value = this.selectedNetworkKey
       this.nodeStartError = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  #changeAccount = async (event: CustomEvent<{ index: number }>) => {
+    const index = event.detail?.index
+    const account = this.wallet?.accounts?.[index]
+    if (!account || index === this.wallet.selectedAccountIndex) return
+    const previous = this.wallet
+    this.wallet = { ...previous, selectedAccountIndex: index, selectedAccount: account[1] }
+    try {
+      await globalThis.walletStore.put('selectedAccount', account[1])
+      await globalThis.walletStore.put('selectedAccountIndex', String(index))
+      globalThis.pubsub?.publish('identity-change', {
+        accounts: this.wallet.accounts,
+        selectedAccount: this.wallet.selectedAccount,
+        selectedAccountIndex: index
+      })
+    } catch (error) {
+      this.wallet = previous
+      this.nodeStartError = `Could not switch account: ${error instanceof Error ? error.message : String(error)}`
     }
   }
 
@@ -854,6 +872,8 @@ class AppShell extends LiteElement {
         -webkit-backdrop-filter: blur(20px) saturate(1.25);
         backdrop-filter: blur(20px) saturate(1.25);
         gap: 12px;
+        position: relative;
+        z-index: 120;
       }
       .header-actions {
         display: flex;
@@ -861,30 +881,9 @@ class AppShell extends LiteElement {
         gap: 10px;
         margin-left: auto;
       }
-      .network-switcher {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--md-sys-color-on-surface-variant);
-        font-size: 12px;
-        white-space: nowrap;
-      }
-      .network-switcher select {
-        min-height: 40px;
-        max-width: 170px;
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--md-sys-color-surface-container-high);
-        color: var(--md-sys-color-on-surface);
-        padding: 0 10px;
-        font: inherit;
-      }
-      .network-switcher select:focus-visible {
-        outline: 2px solid var(--md-sys-color-primary);
-        outline-offset: 2px;
-      }
       account-select {
-        max-width: 250px;
+        width: 260px;
+        max-width: 100%;
       }
 
       .page-heading {
@@ -967,7 +966,7 @@ class AppShell extends LiteElement {
         account-select {
           min-width: 0;
           width: auto;
-          flex: 0 1 210px;
+          flex: 1 1 auto;
         }
       }
 
@@ -1052,6 +1051,9 @@ class AppShell extends LiteElement {
           <span name="call_made">@symbol-call_made</span>
           <span name="share">@symbol-share</span>
           <span name="content_copy">@symbol-content_copy</span>
+          <span name="lock">@symbol-lock</span>
+          <span name="expand_more">@symbol-keyboard_arrow_down</span>
+          <span name="check">@symbol-check</span>
           <span name="square">@symbol-square</span>
           <span name="check_box_outline_blank">@symbol-check_box_outline_blank</span>
           <span name="check_box">@symbol-check_box</span>
@@ -1157,14 +1159,10 @@ class AppShell extends LiteElement {
               ${this.unreadNotifications ? html`<span class="notification-dot" aria-hidden="true"></span>` : ''}
             </button>
             <div class="header-actions">
-              <label class="network-switcher">
-                <span>Network</span>
-                <select aria-label="Switch blockchain network" @change=${this.#changeNetwork}>
-                  ${Object.values(SUPPORTED_NETWORKS).map(network =>
-                    html`<option value=${network.key} ?selected=${network.key === this.selectedNetworkKey}>${network.label}</option>`)}
-                </select>
-              </label>
-              ${this.wallet ? html`<account-select></account-select>` : ''}
+              <account-select
+                .networkKey=${this.selectedNetworkKey}
+                @network-change=${this.#changeNetwork}
+                @account-change=${this.#changeAccount}></account-select>
             </div>
           </header>
           <custom-pages

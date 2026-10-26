@@ -37,7 +37,7 @@ test('uses separate roots for network state and shared wallet data', () => {
   assert.notEqual(SUPPORTED_NETWORKS.mainnet.storageRoot, SUPPORTED_NETWORKS.peach.storageRoot)
 })
 
-test('scopes every Peernet store except the shared wallet to the selected network', async () => {
+test('shares the wallet Peernet ID across devices and scopes every store except the wallet', async () => {
   const created = []
   let storeGlobal
   class Peernet {
@@ -62,18 +62,19 @@ test('scopes every Peernet store except the shared wallet to the selected networ
   storeGlobal = nodeGlobal
   try {
     installNetworkStoreScope('mainnet', nodeGlobal)
-    const node = new nodeGlobal.Peernet()
+    const node = new nodeGlobal.Peernet({ routingId: 'ignored-custom-routing-id' })
     const secondNode = new nodeGlobal.Peernet()
-    assert.match(node.id, /^lfc-peer-[0-9a-f]{32}$/)
+    assert.equal(node.id, 'wallet-identity-id')
     assert.equal(node.id, secondNode.id)
     assert.equal(node.peerId, 'wallet-identity-id')
-    assert.notEqual(node.id, node.peerId)
+    assert.equal(node.id, node.peerId)
+    assert.equal(node.routingId, undefined)
     const otherDeviceGlobal = { Peernet, localStorage: memoryStorage() }
     installNetworkStoreScope('mainnet', otherDeviceGlobal)
-    assert.notEqual(node.id, new otherDeviceGlobal.Peernet().id)
+    assert.equal(node.id, new otherDeviceGlobal.Peernet().id)
     const peachGlobal = { Peernet, localStorage: nodeGlobal.localStorage }
     installNetworkStoreScope('peach', peachGlobal)
-    assert.notEqual(node.id, new peachGlobal.Peernet().id)
+    assert.equal(node.id, new peachGlobal.Peernet().id)
     await node.addStore('block', 'lfc', '.leofcoin/mainnet', false)
     await node.addStore('wallet', 'lfc', '.leofcoin/wallet', true)
     assert.equal(nodeGlobal.blockStore.name, 'block-mainnet')

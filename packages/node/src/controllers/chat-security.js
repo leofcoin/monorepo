@@ -58,15 +58,18 @@ export async function createDeviceKeys() {
   }
 }
 
-export async function createDeviceCertificate({ account, network, deviceId, keys, signWithAccount }) {
+export async function createDeviceCertificate({ account, network, deviceId, peerId, keys, signWithAccount }) {
   if (!account || !network || !deviceId || !keys?.encryption?.publicKey || !keys?.signing?.publicKey)
     throw new Error('Account, network, device ID and device keys are required.')
+  if (peerId !== undefined && (typeof peerId !== 'string' || !peerId.trim()))
+    throw new Error('Peer ID must be a non-empty string.')
   if (typeof signWithAccount !== 'function') throw new Error('An unlocked account signer is required.')
   const payload = {
     version: 1,
     account,
     network,
     deviceId,
+    ...(peerId ? { peerId: peerId.trim() } : {}),
     encryptionKey: encodeBase64(keys.encryption.publicKey),
     signingKey: encodeBase64(keys.signing.publicKey)
   }
@@ -80,6 +83,7 @@ export async function verifyDeviceCertificate(certificate, network) {
     certificate.network !== network ||
     typeof certificate.account !== 'string' ||
     typeof certificate.deviceId !== 'string' ||
+    (certificate.peerId !== undefined && typeof certificate.peerId !== 'string') ||
     typeof certificate.encryptionKey !== 'string' ||
     typeof certificate.signingKey !== 'string' ||
     typeof certificate.signature !== 'string'
