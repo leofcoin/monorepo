@@ -88,8 +88,8 @@ async function createShellFixture(t) {
     }
     throw new Error(`Timed out: ${expression}`)
   }
-  const resize = async width => {
-    await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false })
+  const resize = async (width, height = 900) => {
+    await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
   }
   const click = async expression => {
     const { x, y } = await evaluate(`(() => {
@@ -353,6 +353,48 @@ test('wallet-required views automatically open the unlock dialog and preserve de
   await evaluate(`shell.wallet = undefined; location.hash = '#!/stats'`)
   await waitFor(`shell.currentRoute === 'stats' && shell.shadowRoot.querySelector('stats-view')`)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('wallet-required') === null`), true)
+  assert.deepEqual(errors, [])
+})
+
+test('wallet backup steps remain reachable in a short viewport', {
+  skip: !runShellUiTests, timeout: 15000
+}, async t => {
+  const { evaluate, waitFor, resize, click, errors } = await createShellFixture(t)
+  await resize(390, 420)
+  await evaluate(`shell.loginOpen = true`)
+  await waitFor(`shell.shadowRoot.querySelector('login-screen')`)
+  await evaluate(`globalThis.backupScreen = shell.shadowRoot.querySelector('login-screen');
+    backupScreen.shown = true;
+    backupScreen.headline = 'Wallet created';
+    backupScreen.decodedMnemonic = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima';
+    await backupScreen.requestRender();
+    backupScreen.shadowRoot.querySelector('custom-pages').select('create')`)
+  await waitFor(`backupScreen.shadowRoot.querySelector('[data-route="create"] custom-button[label="view wallet password"]')`)
+
+  const layout = await evaluate(`(() => {
+    const create = backupScreen.shadowRoot.querySelector('[data-route="create"]');
+    const passwordStep = create.querySelector('custom-button[label="view wallet password"]');
+    const confirm = create.querySelector('custom-button[label="I Understand"]');
+    create.scrollTop = create.scrollHeight;
+    return {
+      overflowY: getComputedStyle(create).overflowY,
+      passwordStepPresent: Boolean(passwordStep),
+      confirmPresent: Boolean(confirm),
+      confirmVisible: confirm.getBoundingClientRect().bottom <= create.getBoundingClientRect().bottom
+    };
+  })()`)
+  assert.equal(layout.overflowY, 'auto')
+  assert.equal(layout.passwordStepPresent, true)
+  assert.equal(layout.confirmPresent, true)
+  assert.equal(layout.confirmVisible, true)
+  await click(`backupScreen.shadowRoot.querySelector('[data-route="create"] custom-button[label="view recovery phrase"]')`)
+  await waitFor(`document.querySelector('dialog[data-wallet-backup="recovery-phrase"]')?.open`)
+  await evaluate(`const phraseDialog = document.querySelector('dialog[data-wallet-backup="recovery-phrase"]');
+    const phrase = phraseDialog.querySelector('flex-wrap-between');
+    phrase.scrollTop = phrase.scrollHeight;
+    phraseDialog.querySelector('button').click()`)
+  await waitFor(`!document.querySelector('dialog[data-wallet-backup="recovery-phrase"]')`)
+  assert.equal(await evaluate(`backupScreen.shadowRoot.querySelector('[data-route="create"] .step-marker').hasAttribute('data-complete')`), true)
   assert.deepEqual(errors, [])
 })
 

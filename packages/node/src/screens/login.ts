@@ -608,6 +608,10 @@ export class LoginScreen extends LiteElement {
         align-items: stretch;
         justify-content: flex-start;
         gap: 4px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: 8px;
+        box-sizing: border-box;
       }
 
       flex-row {
