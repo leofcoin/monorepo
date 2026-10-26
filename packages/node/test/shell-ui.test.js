@@ -369,12 +369,12 @@ test('wallet backup steps remain reachable in a short viewport', {
     backupScreen.decodedMnemonic = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima';
     await backupScreen.requestRender();
     backupScreen.shadowRoot.querySelector('custom-pages').select('create')`)
-  await waitFor(`backupScreen.shadowRoot.querySelector('[data-route="create"] custom-button[label="view wallet password"]')`)
+  await waitFor(`backupScreen.shadowRoot.querySelector('[data-route="create"] button.backup-action')`)
 
   const layout = await evaluate(`(() => {
     const create = backupScreen.shadowRoot.querySelector('[data-route="create"]');
-    const passwordStep = create.querySelector('custom-button[label="view wallet password"]');
-    const confirm = create.querySelector('custom-button[label="I Understand"]');
+    const passwordStep = create.querySelectorAll('button.backup-action')[1];
+    const confirm = create.querySelector('button.backup-confirm');
     create.scrollTop = create.scrollHeight;
     return {
       overflowY: getComputedStyle(create).overflowY,
@@ -387,7 +387,7 @@ test('wallet backup steps remain reachable in a short viewport', {
   assert.equal(layout.passwordStepPresent, true)
   assert.equal(layout.confirmPresent, true)
   assert.equal(layout.confirmVisible, true)
-  await click(`backupScreen.shadowRoot.querySelector('[data-route="create"] custom-button[label="view recovery phrase"]')`)
+  await click(`backupScreen.shadowRoot.querySelector('[data-route="create"] button.backup-action')`)
   await waitFor(`document.querySelector('dialog[data-wallet-backup="recovery-phrase"]')?.open`)
   await evaluate(`const phraseDialog = document.querySelector('dialog[data-wallet-backup="recovery-phrase"]');
     const phrase = phraseDialog.querySelector('flex-wrap-between');

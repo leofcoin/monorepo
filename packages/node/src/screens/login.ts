@@ -620,8 +620,25 @@ export class LoginScreen extends LiteElement {
         justify-content: space-between;
       }
 
-      custom-button[type='text'] {
-        --custom-button-color: var(--md-sys-color-primary);
+      .backup-action {
+        min-height: 44px;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 10px;
+        color: var(--md-sys-color-primary);
+        background: transparent;
+        font: inherit;
+        font-weight: 600;
+      }
+
+      .backup-action:hover {
+        background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+      }
+
+      .backup-confirm {
+        border-color: var(--md-sys-color-outline-variant);
+        color: var(--md-sys-color-on-surface);
+        background: color-mix(in srgb, var(--md-sys-color-surface-container-high) 70%, transparent);
       }
 
       .create-item {
@@ -826,24 +843,26 @@ export class LoginScreen extends LiteElement {
               <span class="step-marker" data-complete=${this.mnemonicShowed} aria-hidden="true">
                 ${this.mnemonicShowed ? '✓' : '1'}
               </span>
-              <custom-button
-                @click=${() => this.#viewMnemonic()}
-                label="view recovery phrase"></custom-button>
+              <button class="backup-action" type="button" @click=${() => this.#viewMnemonic()}>
+                view recovery phrase
+              </button>
             </flex-row>
 
             <flex-row class="create-item">
               <span class="step-marker" data-complete=${this.passwordShowed} aria-hidden="true">
                 ${this.passwordShowed ? '✓' : '2'}
               </span>
-              <custom-button
-                @click=${() => this.#viewPassword()}
-                label="view wallet password"></custom-button>
+              <button class="backup-action" type="button" @click=${() => this.#viewPassword()}>
+                view wallet password
+              </button>
             </flex-row>
-            <custom-button
-              type="outlined"
-              label="I Understand"
+            <button
+              class="backup-confirm"
+              type="button"
               @click=${this.#iUnderstand}
-              ?disabled=${!this.mnemonicShowed || !this.passwordShowed}></custom-button>
+              ?disabled=${!this.mnemonicShowed || !this.passwordShowed}>
+              I Understand
+            </button>
           </flex-column>
 
           <flex-column data-route="import">
