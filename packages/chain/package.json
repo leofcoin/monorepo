@@ -103,7 +103,7 @@
     "@leofcoin/messages": "^1.6.5",
     "@leofcoin/multi-wallet": "^3.1.11",
     "@leofcoin/networks": "^1.1.31",
-    "@leofcoin/peernet": "^3.1.0",
+    "@leofcoin/peernet": "^3.1.1",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.45",
     "@leofcoin/workers": "^1.5.43",
