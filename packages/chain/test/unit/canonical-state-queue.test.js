@@ -56,6 +56,14 @@ test('a validation failure does not prevent a subsequent valid block', async () 
   assert.equal(fixture.counts.rewards, 1)
 })
 
+test('unrelated inventory entries do not block canonical target catch-up', async () => {
+  const fixture = createApplicationHarness()
+  fixture.instance.wantList.push('unavailable-orphan-block')
+  assert.equal(await fixture.instance.sync(), 'synced')
+  assert.equal(fixture.counts.loaded, 1)
+  assert.equal(fixture.counts.executions, 1)
+})
+
 for (const failure of ['rewardFailure', 'snapshotFailure', 'executionFailure']) {
   test(`${failure} halts queued retries instead of applying partial effects again`, async () => {
     const fixture = createApplicationHarness({ [failure]: true })

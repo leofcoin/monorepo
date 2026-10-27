@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readEvents } from './events.js'
 
 const nodeScript = join(dirname(fileURLToPath(import.meta.url)), 'node-process.js')
 const remoteUrl = process.env.LEOFCOIN_REMOTE_URL || 'https://remote.leofcoin.org'
@@ -41,25 +42,20 @@ class ObserverNode {
         LEOFCOIN_E2E_NETWORK: 'leofcoin:peach',
         LEOFCOIN_E2E_NETWORK_VERSION: 'peach',
         LEOFCOIN_E2E_ROOT: '.leofcoin/peach',
+        LEOFCOIN_E2E_DEBUG: '1',
         LEOFCOIN_E2E_STAR: star
       },
       stdio: ['pipe', 'pipe', 'pipe']
     })
     this.child.stdout.setEncoding('utf8')
     this.child.stderr.setEncoding('utf8')
-    this.child.stdout.on('data', (chunk) => this.#consume(chunk))
-    this.child.stderr.on('data', (chunk) => (this.output += chunk))
-    return this.waitFor('ready', 60_000)
-  }
-
-  #consume(chunk) {
-    this.output += chunk
-    for (const line of chunk.split('\n')) {
-      if (!line.startsWith('E2E_EVENT:')) continue
-      const event = JSON.parse(line.slice(10))
+    this.child.stdout.on('data', chunk => { this.output += chunk })
+    readEvents(this.child.stdout, event => {
       this.events.push(event)
       this.listener?.(event)
-    }
+    })
+    this.child.stderr.on('data', (chunk) => (this.output += chunk))
+    return this.waitFor('ready', 60_000)
   }
 
   waitFor(type, timeoutMs = 30_000, after = 0) {
@@ -100,6 +96,7 @@ const nodes = homes.map((home, index) => new ObserverNode(home, index))
 
 const verify = async () => {
   const [canonical, ...statuses] = await Promise.all([remoteTip(), ...nodes.map((node) => node.status())])
+  for (const [index, status] of statuses.entries()) nodes[index].lastStatus = status
   for (const status of statuses) {
     if (status.connectedPeers < 1) throw new Error(`observer has no connected peers: ${JSON.stringify(status)}`)
     if (status.lastBlock?.hash !== canonical.hash || Number(status.lastBlock?.index) !== canonical.index) {
@@ -109,7 +106,7 @@ const verify = async () => {
   process.stdout.write(`public network converged at ${canonical.index}:${canonical.hash}\n`)
 }
 
-const verifyEventually = async (timeoutMs = 60_000) => {
+const verifyEventually = async (timeoutMs = 5 * 60_000) => {
   const deadline = Date.now() + timeoutMs
   let failure
   while (Date.now() < deadline) {
@@ -135,12 +132,26 @@ try {
       await nodes[1].stop()
       nodes[1] = new ObserverNode(homes[1], 1)
       await nodes[1].start()
+      process.stdout.write('public observer 1 restarted with its isolated persisted state\n')
       restarted = true
       await verifyEventually()
     }
     await delay(Math.min(pollMs, Math.max(0, deadline - Date.now())))
   }
   await verify()
+} catch (error) {
+  for (const node of nodes) {
+    const status = node.lastStatus
+    process.stderr.write(`observer ${node.index} last status: ${JSON.stringify(status && {
+      chain: status.chain, tip: status.lastBlock, connectedPeers: status.connectedPeers,
+      blockCount: status.blockHashes.length
+    })}\n`)
+    const diagnostics = node.output.split('\n')
+      .filter(line => !line.startsWith('E2E_EVENT:'))
+      .map(line => line.slice(0, 1000)).slice(-100).join('\n')
+    process.stderr.write(`observer ${node.index} diagnostics:\n${diagnostics}\n`)
+  }
+  throw error
 } finally {
   await Promise.allSettled(nodes.map((node) => node.stop()))
   await Promise.all(homes.map((home) => rm(home, { recursive: true, force: true })))

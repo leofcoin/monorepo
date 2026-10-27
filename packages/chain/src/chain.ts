@@ -1119,14 +1119,6 @@ export default class Chain extends VersionControl {
       }
     }
 
-    if (this.wantList.length > 0) {
-      const promises = await Promise.allSettled(this.wantList.map((hash) => peernet.get(hash, 'block')))
-      for (let i = promises.length - 1; i >= 0; i -= 1) {
-        if (promises[i].status === 'fulfilled') this.wantList.splice(i, 1)
-      }
-      // todo trigger load instead?
-      if (this.wantList.length === 0) await this.triggerSync()
-    }
     try {
       let stateInfo = await this.#makeRequest(peer, 'stateInfo')
       if (stateInfo instanceof Uint8Array) {

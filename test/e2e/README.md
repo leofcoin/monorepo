@@ -48,3 +48,13 @@ SSH must be non-interactive. CI should provide the private key and known-host en
 `public-network.yml` starts two temporary, non-participating nodes on a GitHub-hosted runner every six hours. They join the `peach` network through `wss://star.leofcoin.org`, compare their canonical tips with `https://remote.leofcoin.org/lastBlock` every 15 seconds, and restart one observer halfway through the run. The scheduled duration is 30 minutes and manually dispatched runs accept up to 60 minutes.
 
 These nodes do not submit transactions, participate as validators, receive rewards, or retain account material. Their temporary homes are removed at the end of every run.
+
+On failure the gate prints bounded chain and state diagnostics from each
+observer, while retaining the strict canonical hash and height checks. Provider
+discovery must wait for a positive content response: a faster peer that does not
+have the requested block or transaction must not mask a slower provider.
+Cold-sync resolves ancestry iteratively with shared in-flight requests and
+bounded retries; the ten-second job timeout is not applied to the entire chain.
+Startup and restart allow up to five minutes to converge; the steady-state
+checks remain strict. Status events are parsed as complete lines, including
+messages larger than a single stdout chunk.

@@ -27,6 +27,7 @@ import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { decodeResponsePayload } from './helpers/response.js'
 import { CanonicalStateQueue, type CanonicalTransition } from './consensus/canonical-state-queue.js'
 import { validateChainLink } from './consensus/chain-link.js'
+import { resolveTransactionReference } from './consensus/transaction-reference.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -64,7 +65,7 @@ export default class State extends Contract {
 
   #loaded: boolean = false
   jobber: Jobber
-  #resolvingHashes: Set<string> = new Set()
+  #resolvingHashes = new Map<string, Promise<void>>()
 
   _wantList = []
 
@@ -346,7 +347,8 @@ export default class State extends Contract {
           if (!exists) {
             const data = await peernet.get(hash, 'transaction')
             if (!data) throw new Error(`missing transaction data for ${hash}`)
-            await transactionStore.put(hash, data)
+            const transaction = await resolveTransactionReference(hash, data)
+            await transactionStore.put(hash, transaction.encoded)
           }
           const inPool = await transactionPoolStore.has(hash)
           if (inPool) await transactionPoolStore.delete(hash)
@@ -355,97 +357,64 @@ export default class State extends Contract {
   }
 
   async #resolveBlock(hash) {
-    let index = this.#blockHashMap.get(hash)
-    let localHash = '0x0'
-    try {
-      const rawLocalHash = await globalThis.stateStore.get('lastBlock')
-      if (rawLocalHash) {
-        const decoded = JSON.parse(new TextDecoder().decode(rawLocalHash))
-        localHash = typeof decoded === 'string' ? decoded : decoded?.hash ?? '0x0'
+    const localHash = (await this.canonicalTip()).hash
+    const visited = new Set<string>()
+    while (hash !== '0x0' && hash !== localHash) {
+      if (visited.has(hash)) throw new ResolveError(`cyclic block ancestry at ${hash}`)
+      visited.add(hash)
+      const cachedIndex = this.#blockHashMap.get(hash)
+      const cached = this.#blocks[cachedIndex]
+      if (cached) {
+        hash = cached.previousHash
+        continue
       }
-    } catch (error) {
-      debug('no local state found')
-    }
-    if (this.#blocks[index]) {
-      // Block already exists, check if we need to resolve previous blocks
-      const previousHash = this.#blocks[index].previousHash
-      if (previousHash === localHash) return
-      if (previousHash !== '0x0') {
-        // Previous block not in memory, recursively resolve it
-        return this.resolveBlock(previousHash)
-      } else {
-        // Previous block already exists or is genesis, stop resolving
-        return
+      try {
+        const block = await this.getAndPutBlock(hash)
+        // Finish one block's dependencies before fetching its parent. A long
+        // cold-sync must not create one concurrent request per historical block.
+        await this.#resolveTransactions(block.decoded.transactions as unknown as string[])
+        const index = block.decoded.index
+        const size = block.encoded.byteLength
+        this.#totalSize += size
+        this.#blocks[index] = { hash, ...block.decoded }
+        this.#blockHashMap.set(hash, index)
+        debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
+        globalThis.pubsub.publish('block-resolved', { hash, index })
+        this.#lastResolved = this.#blocks[index]
+        this.#lastResolvedTime = Date.now()
+        hash = block.decoded.previousHash
+      } catch (error) {
+        throw new ResolveError(`block: ${hash}`, { cause: error })
       }
     }
-    try {
-      const block = await this.getAndPutBlock(hash)
-
-      const promises = []
-      if (block.decoded.previousHash !== '0x0' && block.decoded.previousHash !== localHash) {
-        promises.push(this.resolveBlock(block.decoded.previousHash))
-      }
-
-      promises.push(this.#resolveTransactions(block.decoded.transactions as unknown as string[]))
-
-      await Promise.all(promises)
-
-      index = block.decoded.index
-      const size = block.encoded.length > 0 ? block.encoded.length : block.encoded.byteLength
-      this.#totalSize += size
-      this.#blocks[index] = { hash, ...block.decoded }
-      this.#blockHashMap.set(hash, index)
-      debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
-      globalThis.pubsub.publish('block-resolved', { hash, index })
-      this.#lastResolved = this.#blocks[index]
-      this.#lastResolvedTime = Date.now()
-    } catch (error) {
-      throw new ResolveError(`block: ${hash}@${index}`, { cause: error })
-    }
-    return
   }
 
   async resolveBlock(hash) {
     if (!hash) throw new Error(`expected hash, got: ${hash}`)
     if (hash === '0x0') return
-    if (this.#resolvingHashes.has(hash)) return
-    this.#resolvingHashes.add(hash)
-    const isEntering = this.#resolvingHashes.size === 1
+    const existing = this.#resolvingHashes.get(hash)
+    if (existing) return existing
     this.#resolving = true
-
-    try {
-      if (isEntering) {
-        if (this.jobber.busy && this.jobber.destroy) await this.jobber.destroy()
-        await this.jobber.add(() => this.#resolveBlock(hash))
-      } else {
-        await this.#resolveBlock(hash)
-      }
-
-      try {
-        const lastBlockHash = await globalThis.stateStore.get('lastBlock')
-
-        if (lastBlockHash === hash) {
+    const resolution = Promise.resolve().then(async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await this.#resolveBlock(hash)
           this.#resolveErrored = false
           return
+        } catch (error) {
+          console.error(`block resolution attempt ${attempt + 1} failed for ${hash}`, error)
+          if (attempt === 2) {
+            if (!this.wantList.includes(hash)) this.wantList.push(hash)
+            throw new ResolveError(`block: ${hash}`, { cause: error })
+          }
         }
-      } catch (error) {}
-    } catch (error) {
-      console.log({ error })
-
-      this.#resolveErrorCount += 1
-
-      if (this.#resolveErrorCount < 3) {
-        this.#resolvingHashes.delete(hash)
-        return this.resolveBlock(hash)
       }
-
-      this.#resolveErrorCount = 0
-      this.wantList.push(hash)
-      throw new ResolveError(`block: ${hash}`, { cause: error })
-    } finally {
+    }).finally(() => {
       this.#resolvingHashes.delete(hash)
       if (this.#resolvingHashes.size === 0) this.#resolving = false
-    }
+    })
+    this.#resolvingHashes.set(hash, resolution)
+    return resolution
   }
 
   async resolveBlocks() {
@@ -626,27 +595,6 @@ export default class State extends Contract {
 
       // Use state hash comparison: only resolve if remote hash differs from local state hash
       if (localStateHash !== remoteBlockHash) {
-        if (this.wantList.length > 0) {
-          debug(`Fetching ${this.wantList.length} blocks before resolving`)
-          const getBatch = async (batch) => {
-            const blocks = await Promise.all(
-              batch.map((hash) =>
-                this.getAndPutBlock(hash).catch((e) => {
-                  console.warn(`failed to fetch block ${hash}`, e)
-                })
-              )
-            )
-
-            const transactions = blocks.filter((block) => Boolean(block)).flatMap((block) => block.decoded.transactions)
-            return this.#resolveTransactions(transactions)
-          }
-
-          // Process in batches of 50 to avoid overwhelming network/memory
-          for (let i = 0; i < this.wantList.length; i += 50) {
-            const batch = this.wantList.slice(i, i + 50)
-            await getBatch(batch)
-          }
-        }
         // Remote block hash differs from our local state, need to resolve
         debug(`Resolving remote block: ${remoteBlockHash} @${remoteIndex} (differs from local state)`)
 

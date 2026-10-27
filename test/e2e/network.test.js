@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import { createServer } from 'node:net'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { readEvents } from './events.js'
 
 const nodeScript = join(dirname(fileURLToPath(import.meta.url)), 'node-process.js')
 const starScript = join(dirname(fileURLToPath(import.meta.url)), 'star-process.js')
@@ -76,14 +77,10 @@ class TestNode {
     this.process.stderr.setEncoding('utf8')
     this.process.stderr.on('data', (chunk) => (this.stderr += chunk))
     this.process.stdout.setEncoding('utf8')
-    this.process.stdout.on('data', (chunk) => {
-      this.stdout += chunk
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('E2E_EVENT:')) continue
-        const event = JSON.parse(line.slice(10))
-        this.events.push(event)
-        this.onEvent?.(event)
-      }
+    this.process.stdout.on('data', chunk => { this.stdout += chunk })
+    readEvents(this.process.stdout, event => {
+      this.events.push(event)
+      this.onEvent?.(event)
     })
     return this.waitFor('ready')
   }

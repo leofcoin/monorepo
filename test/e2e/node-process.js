@@ -1,6 +1,11 @@
 const stringify = (value) => JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item))
 const emit = (type, value = {}) => process.stdout.write(`E2E_EVENT:${stringify({ type, ...value })}\n`)
 
+if (process.env.LEOFCOIN_E2E_DEBUG === '1') {
+  const { setTargets } = await import('@vandeurenglenn/debug')
+  setTargets(['leofcoin/chain', 'leofcoin/state'])
+}
+
 for (const event of ['uncaughtException', 'unhandledRejection']) {
   process.on(event, (error) => {
     emit('error', { message: error?.message || String(error), stack: error?.stack })

@@ -1,7 +1,98 @@
 import Peer from '@netpeer/swarm/peer'
+import { Codec } from '@leofcoin/codec-format-interface'
+import { requestTimeout } from './protocol.js'
 
 const INITIAL_RECONNECT_DELAY = 5000
 const MAX_RECONNECT_DELAY = 30000
+
+export const guardProviderDiscovery = (peernet) => {
+  peernet.walk = async (hash: string) => {
+    if (!hash) throw new Error('hash expected for provider discovery')
+    const request = new peernet.protos['peernet-dht']({ hash })
+    const message = await peernet.prepareMessage(request)
+    const connections: Record<string, Peer> = peernet.connections
+    const requests = Object.entries(connections).filter(
+      ([id, peer]) => id !== peernet.id && peer.connected
+    ).map(async ([id, peer]) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+        const result = await Promise.race([
+          peer.request(message.encoded),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error('provider discovery timed out')), requestTimeout)
+          })
+        ])
+        const bytes = result instanceof Uint8Array ? result : new Uint8Array(Object.values(result))
+        if (new Codec(bytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
+        const response = new peernet.protos['peernet-dht-response'](bytes).decoded
+        if (response.hash !== hash) throw new Error('provider response hash mismatch')
+        // A fast negative response must not win over a slower content provider.
+        if (!response.has) throw new Error('peer does not provide content')
+        peernet.dht.addProvider({ id, address: peer.remoteAddress }, hash)
+      } catch (error) {
+        if ((error as Error).message !== 'peer does not provide content') {
+          console.warn(`Provider discovery failed for ${id}:`, (error as Error)?.message ?? error)
+        }
+        throw error
+      } finally {
+        clearTimeout(timeout)
+      }
+    })
+    if (requests.length === 0) return
+    try {
+      await Promise.any(requests)
+    } catch (error) {
+      if (!(error instanceof AggregateError)) throw error
+      console.warn(`No connected provider found for ${hash}`)
+    }
+  }
+  const requestData = peernet.requestData.bind(peernet)
+  peernet.requestData = async (hash, store, options) => {
+    const storeName = typeof store === 'string' ? store : store?.name
+    if (!['block', 'transaction', 'transactionPool'].includes(storeName)) {
+      return requestData(hash, store, options)
+    }
+    const probe = await peernet.prepareMessage(new peernet.protos['peernet-dht']({ hash, store: storeName }))
+    const request = await peernet.prepareMessage(new peernet.protos['peernet-data']({ hash, store: storeName }))
+    const connections: Record<string, Peer> = peernet.connections
+    const requests = Object.entries(connections).filter(
+      ([id, peer]) => id !== peernet.id && peer.connected
+    ).map(async ([id, peer]) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+        const fetch = async () => {
+          const availability = await peer.request(probe.encoded)
+          const probeBytes = availability instanceof Uint8Array
+            ? availability : new Uint8Array(Object.values(availability))
+          if (new Codec(probeBytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
+          const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded
+          if (provider.hash !== hash || !provider.has) throw new Error('peer does not provide content in requested store')
+          const result = await peer.request(request.encoded)
+          const bytes = result instanceof Uint8Array ? result : new Uint8Array(Object.values(result))
+          if (new Codec(bytes).name !== 'peernet-data-response') throw new Error('invalid data response codec')
+          const response = new peernet.protos['peernet-data-response'](bytes).decoded
+          if (response.hash !== hash || !(response.data instanceof Uint8Array) || response.data.length === 0) {
+            throw new Error('invalid content response')
+          }
+          return response.data
+        }
+        return await Promise.race([
+          fetch(),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error(`content request timed out for ${id}`)), requestTimeout)
+          })
+        ])
+      } finally {
+        clearTimeout(timeout)
+      }
+    })
+    try {
+      return await Promise.any(requests)
+    } catch (error) {
+      throw new Error(`Content unavailable in ${storeName}: ${hash}`, { cause: error })
+    }
+  }
+}
 
 export const isSendablePeer = (peer: unknown): peer is Peer => {
   if (!peer || typeof peer !== 'object') return false
