@@ -27,7 +27,7 @@
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
-    "rollup": "^4.65.0"
+    "rollup": "^4.65.1"
   },
   "repository": {
     "type": "git",
