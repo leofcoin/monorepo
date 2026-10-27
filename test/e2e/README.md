@@ -12,6 +12,13 @@ This creates isolated temporary homes and a local discovery star. It verifies th
 
 This is a lifecycle, storage-isolation, peer-connectivity, wire-format, cold-sync, and restart-recovery gate. Fixture blocks are signed and hash-linked but inserted by the harness, so this test does not claim to prove validator election, quorum, or live consensus block production.
 
+The pending-pool test submits signed transactions between two isolated nodes over
+the real transport. It also takes the receiver offline, submits another
+transaction, and checks pool recovery after restart without any block-height
+advance. These nodes do not produce blocks from the submitted transactions; this
+checks delivery and reconnect recovery, not canonical finalization. Multi-hop
+relay and duplicate suppression are covered by the chain unit tests.
+
 ## Remote lifecycle smoke test
 
 This is an optional, manually dispatched gate for deployments with three or more SSH-managed external nodes. The public observer workflow below does not use these credentials.

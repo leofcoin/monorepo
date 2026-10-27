@@ -968,43 +968,30 @@ export default class Chain extends VersionControl {
 
   async getPeerTransactionPool(peer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
-    console.log('raw response for request transactionPool:', transactionsInPool)
     if (transactionsInPool instanceof Uint8Array) {
-      try {
-        transactionsInPool = JSON.parse(new TextDecoder().decode(transactionsInPool))
-      } catch {
-        debug('transactionPool response must be decoded array payload')
-        return []
-      }
+      transactionsInPool = new TextDecoder().decode(transactionsInPool)
     }
     if (typeof transactionsInPool === 'string') {
+      transactionsInPool = JSON.parse(transactionsInPool)
+    }
+    if (!Array.isArray(transactionsInPool) || transactionsInPool.some((hash) => typeof hash !== 'string')) {
+      throw new Error('transactionPool response must be an array of transaction hashes')
+    }
+
+    const recovered: string[] = []
+    for (const hash of new Set<string>(transactionsInPool)) {
+      if (await globalThis.transactionPoolStore.has(hash)) continue
+      if (await globalThis.transactionStore.has(hash)) continue
       try {
-        transactionsInPool = JSON.parse(transactionsInPool)
-      } catch {
-        return []
+        const txData = await globalThis.peernet.get(hash, 'transactionPool')
+        if (txData === undefined) throw new Error('pending transaction body unavailable')
+        const transaction = await resolveTransactionReference(hash, txData)
+        recovered.push(await this.#sendTransaction(transaction))
+      } catch (error) {
+        debug(`Failed to recover transaction ${hash}:`, (error as Error)?.message ?? error)
       }
     }
-    if (!Array.isArray(transactionsInPool)) return []
-
-    // Use Set for O(1) membership checks instead of array.includes
-    const localTransactions = new Set(await globalThis.transactionPoolStore.keys())
-
-    const transactionsToGet = []
-
-    for (const key of transactionsInPool) {
-      if (!localTransactions.has(key)) {
-        let txData
-        try {
-          txData = await globalThis.peernet.get(key, 'transaction')
-        } catch (error) {
-          debug(`Failed to get transaction ${key}:`, (error as Error)?.message ?? error)
-        }
-        if (txData !== undefined) {
-          transactionsToGet.push(transactionPoolStore.put(key, txData))
-        }
-      }
-    }
-    return Promise.all(transactionsToGet)
+    return recovered
   }
 
   async #peerConnected(peerId) {
@@ -1088,6 +1075,15 @@ export default class Chain extends VersionControl {
       return
     }
 
+    setTimeout(async () => {
+      try {
+        await this.getPeerTransactionPool(peer)
+      } catch (error) {
+        const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
+        debug(`transactionPool request failed: ${peerName}:`, (error as Error)?.message ?? error)
+      }
+    }, 3000)
+
     if (!lastBlock || !lastBlock.hash || lastBlock.hash === '0x0') {
       debug(`peer has no lastBlock: ${peerId}`)
       return
@@ -1131,16 +1127,6 @@ export default class Chain extends VersionControl {
       // todo trigger load instead?
       if (this.wantList.length === 0) await this.triggerSync()
     }
-    setTimeout(async () => {
-      try {
-        const peerTransactionPool = (higherThenCurrentLocal && (await this.getPeerTransactionPool(peer))) || []
-        if (this.#participating && peerTransactionPool.length > 0) return this.#runEpoch()
-      } catch (error) {
-        const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-        debug(`transactionPool request failed: ${peerName}:`, (error as Error)?.message ?? error)
-      }
-    }, 3000)
-
     try {
       let stateInfo = await this.#makeRequest(peer, 'stateInfo')
       if (stateInfo instanceof Uint8Array) {
@@ -1647,18 +1633,33 @@ export default class Chain extends VersionControl {
     let hash: string | undefined
 
     try {
+      hash = await transaction.hash()
+      if (await globalThis.transactionStore.has(hash)) return hash
+      const alreadyPending = await globalThis.transactionPoolStore.has(hash)
       hash = await enqueueTransaction(transaction, {
         putToPool: (txHash, data) => globalThis.transactionPoolStore.put(txHash, data),
         hasInPool: (txHash) => globalThis.transactionPoolStore.has(txHash),
         hasInStore: (txHash) => globalThis.transactionStore.has(txHash),
         addPendingNonce: (address, nonce) => this.addPendingNonce(address, nonce)
       })
-      if (this.#participating && !this.#runningEpoch) this.#runEpoch()
+      // Peernet pubsub delivers only to direct neighbours; relay new entries once.
+      if (!alreadyPending) {
+        try {
+          await globalThis.peernet.publish('add-transaction', transaction.encoded)
+        } catch (publishError) {
+          debug('peernet publish failed: add-transaction relay', (publishError as Error)?.message ?? publishError)
+        }
+      }
+      if (this.#participating && !this.#runningEpoch) {
+        void this.#runEpoch().catch((error) => {
+          debug('transaction epoch scheduling failed:', (error as Error)?.message ?? error)
+        })
+      }
       return hash
     } catch (e) {
       if (hash) {
         try {
-          globalThis.peernet.publish('invalid-transaction', hash)
+          await globalThis.peernet.publish('invalid-transaction', hash)
         } catch (publishError) {
           debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
         }
@@ -1677,7 +1678,7 @@ export default class Chain extends VersionControl {
 
     await this.#sendTransaction(transactionMessage.encoded)
     try {
-      globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
+      await globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
     } catch (publishError) {
       debug('peernet publish failed: send-transaction', (publishError as Error)?.message ?? publishError)
     }

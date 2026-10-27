@@ -175,6 +175,16 @@ class TestNode {
     )
   }
 
+  async waitForPending(hash, timeoutMs = 20_000) {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const current = await this.status()
+      if (current.pendingTransactions.includes(hash)) return current
+      await new Promise(resolve => setTimeout(resolve, 250))
+    }
+    throw new Error(`node ${this.index} did not receive pending transaction ${hash}`)
+  }
+
   async stop() {
     if (!this.process || this.process.exitCode !== null) return
     const exited = new Promise((resolve) => this.process.once('exit', resolve))
@@ -269,6 +279,41 @@ test('a late node cold-syncs canonical blocks and keeps them across restart', { 
     await Promise.allSettled(nodes.map((node) => node.stop()))
     star.kill('SIGKILL')
     await Promise.all(homes.map((home) => rm(home, { recursive: true, force: true })))
+  }
+})
+
+test('pending transactions cross the real transport and recover after equal-height reconnect', { timeout: 90_000 }, async () => {
+  const homes = await Promise.all(
+    Array.from({ length: 2 }, (_, index) => mkdtemp(join(tmpdir(), `leofcoin-pool-e2e-${index}-`)))
+  )
+  const port = await availablePort()
+  const star = await startStar(port)
+  const starUrl = `ws://127.0.0.1:${port}`
+  const nodes = homes.map((home, index) => new TestNode(home, index, starUrl))
+  try {
+    await nodes[0].start()
+    const tip = await nodes[0].appendBlock()
+    await nodes[1].start()
+    await Promise.all(nodes.map(node => node.waitForPeers(1)))
+    await nodes[1].waitForTip(tip)
+
+    const first = await nodes[0].command('queue-transaction', 'transaction:queued')
+    await nodes[1].waitForPending(first.hash)
+
+    await nodes[1].stop()
+    const missed = await nodes[0].command('queue-transaction', 'transaction:queued')
+    nodes[1] = new TestNode(homes[1], 1, starUrl)
+    const restarted = await nodes[1].start()
+    assert.equal(restarted.lastBlock.hash, tip.hash)
+    assert.ok(!restarted.pendingTransactions.includes(missed.hash))
+    await nodes[1].waitForPeers(1)
+    const recovered = await nodes[1].waitForPending(missed.hash)
+    assert.equal(recovered.lastBlock.hash, tip.hash)
+    assert.ok(recovered.pendingTransactions.includes(first.hash))
+  } finally {
+    await Promise.allSettled(nodes.map(node => node.stop()))
+    star.kill('SIGKILL')
+    await Promise.all(homes.map(home => rm(home, { recursive: true, force: true })))
   }
 })
 

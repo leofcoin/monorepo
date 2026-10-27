@@ -262,7 +262,7 @@ export default class Transaction extends Protocol {
       this.addPendingNonce(message.decoded.from, message.decoded.nonce)
       // debug(`Added ${hash} to the transaction pool`)
       try {
-        peernet.publish('add-transaction', message.encoded)
+        await peernet.publish('add-transaction', message.encoded)
       } catch (publishError) {
         console.warn('peernet publish failed: add-transaction', (publishError as Error)?.message ?? publishError)
       }

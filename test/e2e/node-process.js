@@ -224,7 +224,8 @@ const status = async () => ({
   chain: chain.state,
   lastBlock: await chain.lastBlock,
   blockHashes: (await globalThis.blockStore.keys()).sort(),
-  stateSnapshot: await storeText(globalThis.stateStore, 'lastBlock')
+  stateSnapshot: await storeText(globalThis.stateStore, 'lastBlock'),
+  pendingTransactions: await globalThis.transactionPoolStore.keys()
 })
 
 emit('ready', await status())
@@ -244,6 +245,20 @@ process.stdin.on('data', async (input) => {
       emit('chain:identity', { responses })
     }
     if (command === 'append-block') emit('block:produced', await appendFixtureBlock())
+    if (command === 'queue-transaction') {
+      const from = globalThis.peernet.selectedAccount
+      const transaction = await signTransaction({
+        from,
+        to: addresses.nativeToken,
+        method: 'transfer',
+        params: [from, 1n],
+        timestamp: Date.now(),
+        nonce: (await chain.getNonce(from)) + 1
+      }, globalThis.peernet.identity)
+      const submitted = await chain.sendTransaction(transaction)
+      submitted.wait.catch(error => emit('error', { message: error?.message || String(error) }))
+      emit('transaction:queued', { hash: submitted.hash })
+    }
     if (command === 'dex-fixture') emit('dex:deployed', await deployDexFixture())
     if (command === 'shutdown') {
       emit('stopped')
