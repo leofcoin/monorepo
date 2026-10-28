@@ -84,7 +84,7 @@
     "@rollup/plugin-typescript": "^12.3.1",
     "@types/semver": "^7.8.0",
     "@vandeurenglenn/debug": "^1.4.0",
-    "rollup": "^4.65.1",
+    "rollup": "^4.66.0",
     "rollup-plugin-esbuild": "^6.2.1",
     "rollup-plugin-modify": "^3.0.0",
     "tape": "^5.10.3",
