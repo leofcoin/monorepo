@@ -5,7 +5,42 @@ import { requestTimeout } from './protocol.js'
 const INITIAL_RECONNECT_DELAY = 5000
 const MAX_RECONNECT_DELAY = 30000
 
+const isChainStore = (store: unknown): store is 'block' | 'transaction' | 'transactionPool' =>
+  store === 'block' || store === 'transaction' || store === 'transactionPool'
+
 export const guardProviderDiscovery = (peernet) => {
+  const handleData = peernet.handleData.bind(peernet)
+  peernet.handleData = async (peer: Peer, id: string, proto: { decoded: { hash: string; store?: string } }) => {
+    const { hash, store: storeName } = proto.decoded
+    if (!isChainStore(storeName)) return handleData(peer, id, proto)
+
+    // A data server must not turn a local miss into another network request.
+    // Peernet dispatches this handler without awaiting its returned promise.
+    let data: Uint8Array = new Uint8Array()
+    try {
+      const store = globalThis[`${storeName}Store`]
+      if (store && !('private' in store && store.private) && await store.has(hash)) {
+        const bytes = await store.get(hash)
+        if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+          throw new Error('local content is unavailable')
+        }
+        data = bytes
+      } else {
+        console.warn(`Requested content unavailable in ${storeName}: ${hash}`)
+      }
+    } catch (error) {
+      console.error(`Local chain data read failed in ${storeName}: ${hash}`, error)
+    }
+
+    try {
+      const response = new peernet.protos['peernet-data-response']({ hash, data })
+      const message = await peernet.prepareMessage(response)
+      await peernet.sendMessage(peer, id, message.encoded)
+    } catch (error) {
+      console.error(`Incoming chain data response failed in ${storeName}: ${hash}`, error)
+    }
+  }
+
   peernet.walk = async (hash: string) => {
     if (!hash) throw new Error('hash expected for provider discovery')
     const request = new peernet.protos['peernet-dht']({ hash })
@@ -49,7 +84,7 @@ export const guardProviderDiscovery = (peernet) => {
   const requestData = peernet.requestData.bind(peernet)
   peernet.requestData = async (hash, store, options) => {
     const storeName = typeof store === 'string' ? store : store?.name
-    if (!['block', 'transaction', 'transactionPool'].includes(storeName)) {
+    if (!isChainStore(storeName)) {
       return requestData(hash, store, options)
     }
     const probe = await peernet.prepareMessage(new peernet.protos['peernet-dht']({ hash, store: storeName }))

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { FormatInterface } from '@leofcoin/codec-format-interface'
+import { Codec, FormatInterface } from '@leofcoin/codec-format-interface'
 import { guardProviderDiscovery } from '../../exports/connection-monitor.js'
 
 class Request extends FormatInterface {
@@ -33,6 +33,8 @@ const setup = (connections) => {
       'peernet-dht': Request, 'peernet-dht-response': Response,
       'peernet-data': DataRequest, 'peernet-data-response': DataResponse
     },
+    async handleData() { throw new Error('original handleData') },
+    async sendMessage() {},
     async requestData() { throw new Error('original requestData') },
     async prepareMessage(request) { return { encoded: request.encoded } },
     dht: { addProvider(provider, hash) { providers.push({ ...provider, hash }) } }
@@ -43,6 +45,14 @@ const setup = (connections) => {
 const peer = (request) => ({ connected: true, remoteAddress: 'address', request })
 const response = (has, hash = 'wanted') => new Response({ hash, has }).encoded
 const nextTurn = () => new Promise(resolve => setImmediate(resolve))
+const installStore = (t, name, store) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
+  Object.defineProperty(globalThis, name, { value: store, configurable: true, writable: true })
+  t.after(() => {
+    if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+    else delete globalThis[name]
+  })
+}
 
 test('a fast non-provider cannot hide a slower provider', async () => {
   let release
@@ -152,4 +162,94 @@ test('chain data requests reject mismatched responses and leave unrelated stores
   })
   await assert.rejects(peernet.requestData('wanted', 'transaction'), /Content unavailable/)
   await assert.rejects(peernet.requestData('wanted', 'data'), /original requestData/)
+})
+
+test('incoming chain data requests return local bytes with the original request id', async t => {
+  const data = Uint8Array.of(1, 2, 3)
+  installStore(t, 'blockStore', {
+    private: false, async has(hash) { return hash === 'wanted' }, async get() { return data }
+  })
+  const { peernet } = setup({})
+  const sent = t.mock.method(peernet, 'sendMessage', async () => {})
+  const remote = peer(async () => { throw new Error('must not fetch') })
+  await peernet.handleData(remote, 'request-id', new DataRequest({ hash: 'wanted', store: 'block' }))
+  const [recipient, id, bytes] = sent.mock.calls[0].arguments
+  assert.equal(recipient, remote)
+  assert.equal(id, 'request-id')
+  assert.deepEqual(new DataResponse(bytes).decoded, { hash: 'wanted', data })
+})
+
+test('missing, private and disappearing chain data never trigger network fetches', async t => {
+  t.mock.method(console, 'warn', () => {})
+  t.mock.method(console, 'error', () => {})
+  installStore(t, 'blockStore', undefined)
+  for (const store of [
+    undefined,
+    { private: true, async has() { throw new Error('must not inspect private store') } },
+    { async has() { return false }, async get() { throw new Error('must not read absent key') } },
+    { async has() { return true }, async get() { return undefined } },
+    { async has() { return true }, async get() { throw new TypeError("Cannot read properties of undefined (reading 'length')") } }
+  ]) {
+    globalThis.blockStore = store
+    const { peernet } = setup({})
+    const fetches = t.mock.method(peernet, 'requestData', async () => { throw new Error('must not relay') })
+    const sent = t.mock.method(peernet, 'sendMessage', async () => {})
+    await peernet.handleData(peer(), 'request-id', new DataRequest({ hash: 'wanted', store: 'block' }))
+    assert.equal(fetches.mock.callCount(), 0)
+    assert.equal(sent.mock.callCount(), 1)
+    assert.deepEqual(new DataResponse(sent.mock.calls[0].arguments[2]).decoded, {
+      hash: 'wanted', data: new Uint8Array()
+    })
+  }
+})
+
+test('incoming chain data send failures are logged without rejecting the detached handler', async t => {
+  const errors = t.mock.method(console, 'error', () => {})
+  installStore(t, 'transactionPoolStore', {
+    async has() { return true }, async get() { return Uint8Array.of(1) }
+  })
+  const { peernet } = setup({})
+  t.mock.method(peernet, 'sendMessage', async () => { throw new Error('peer disconnected') })
+  await assert.doesNotReject(peernet.handleData(peer(), 'id', new DataRequest({ hash: 'wanted', store: 'transactionPool' })))
+  assert.match(errors.mock.calls[0].arguments[0], /chain data response failed/)
+})
+
+test('incoming unrelated data requests retain the original handler', async () => {
+  const { peernet } = setup({})
+  await assert.rejects(peernet.handleData(peer(), 'id', new DataRequest({ hash: 'wanted', store: 'data' })), /original handleData/)
+})
+
+test('a provider losing content after a positive probe does not hide a remaining provider', async t => {
+  t.mock.method(console, 'warn', () => {})
+  installStore(t, 'blockStore', {
+    async has() { return false },
+    async get() { throw new Error('must not read missing block') }
+  })
+  const { peernet: server } = setup({})
+  const serverFetches = t.mock.method(server, 'requestData', async () => { throw new Error('must not relay') })
+  const data = Uint8Array.of(7, 8, 9)
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const { peernet: client } = setup({
+    stale: peer(async bytes => {
+      if (new Codec(bytes).name === 'peernet-dht') return response(true)
+      let reply
+      server.sendMessage = async (_peer, id, encoded) => {
+        assert.equal(id, 'data-request')
+        reply = encoded
+      }
+      await server.handleData(peer(), 'data-request', new DataRequest(bytes))
+      release()
+      return reply
+    }),
+    available: peer(async bytes => {
+      if (new Codec(bytes).name === 'peernet-dht') {
+        await gate
+        return response(true)
+      }
+      return new DataResponse({ hash: 'wanted', data }).encoded
+    })
+  })
+  assert.deepEqual(await client.requestData('wanted', 'block'), data)
+  assert.equal(serverFetches.mock.callCount(), 0)
 })

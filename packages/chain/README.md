@@ -18,6 +18,12 @@ from a peer. A pending-only copy cannot act as a provider for the canonical
 transaction store. Responses must use the expected codec and advertised hash;
 the first valid response wins, and unavailable content fails explicitly.
 
+Incoming chain data requests only read the requested local store. Missing,
+private or concurrently removed content receives an empty data response using
+the existing codec and request ID; requesters reject it and can try another
+provider. A local miss never starts a recursive peer fetch, and read/send
+failures are logged without rejecting the transport's detached handler.
+
 Historical ancestry is resolved iteratively, finishing transaction dependencies
 before requesting the next parent. Duplicate callers await the same resolution,
 completed blocks survive retries, and missing or cyclic ancestry fails explicitly.
