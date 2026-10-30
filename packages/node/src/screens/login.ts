@@ -210,8 +210,8 @@ export class LoginScreen extends LiteElement {
       this.mnemonic = wallet.identity.mnemonic
       this.decodedMnemonic = await decrypt(password, base58.decode(wallet.identity.mnemonic))
       this.#viewPassword = () => this.#viewPasswordMethod(password)
-      this.headline = 'Wallet created'
-      this.subline = 'Back up your recovery phrase and password before continuing.'
+      this.headline = ''
+      this.subline = ''
       this.shadowRoot.querySelector('input:focus')?.blur()
       this.#pages.select('create')
       await this.#handleAfterLogin(wallet)
@@ -491,10 +491,6 @@ export class LoginScreen extends LiteElement {
         box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
       }
 
-      hero-element custom-pages {
-        height: 100%;
-      }
-
       button {
         min-height: 48px;
         border: 1px solid transparent;
@@ -561,7 +557,24 @@ export class LoginScreen extends LiteElement {
 
       custom-pages {
         width: 100%;
-        height: 100%;
+        height: auto;
+        flex: none;
+        overflow: visible;
+      }
+
+      /* Absolute pages cannot size an auto-height dialog to its backup steps. */
+      custom-pages > [data-route] {
+        position: static;
+        transform: none;
+      }
+
+      custom-pages > [data-route]:not(.custom-selected) {
+        display: none;
+      }
+
+      custom-pages > .custom-selected {
+        display: flex;
+        max-height: none;
       }
 
       flex-column[data-route='login'] {
@@ -604,7 +617,6 @@ export class LoginScreen extends LiteElement {
       }
 
       [data-route='create'] {
-        min-height: 270px;
         align-items: stretch;
         justify-content: flex-start;
         gap: 4px;

@@ -85,7 +85,9 @@ export class HeroElement extends LitElement {
           </div>
           <div class="tagline" aria-hidden="true"></div>`
         : ''}
-      <custom-typography type="headline" size="small"><span>${this.headline}</span></custom-typography>
+      ${this.headline
+        ? html`<custom-typography type="headline" size="small"><span>${this.headline}</span></custom-typography>`
+        : ''}
       ${this.subline ? html`<custom-typography type="subline" size="medium">${this.subline}</custom-typography>` : ''}
       <custom-typography type="body" size="medium"><slot></slot></custom-typography>
     `

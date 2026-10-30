@@ -356,45 +356,71 @@ test('wallet-required views automatically open the unlock dialog and preserve de
   assert.deepEqual(errors, [])
 })
 
-test('wallet backup steps remain reachable in a short viewport', {
-  skip: !runShellUiTests, timeout: 15000
+test('wallet creation keeps both backup actions and confirmation reachable', {
+  skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, click, errors } = await createShellFixture(t)
-  await resize(390, 420)
-  await evaluate(`shell.loginOpen = true`)
+  await resize(604, 536)
+  await evaluate(`globalThis.fixtureWalletData = new Map();
+    globalThis.walletStore = {
+      has: async key => fixtureWalletData.has(key),
+      put: async (key, value) => fixtureWalletData.set(key, value),
+      get: async key => fixtureWalletData.get(key)
+    };
+    shell.loginOpen = true`)
   await waitFor(`shell.shadowRoot.querySelector('login-screen')`)
   await evaluate(`globalThis.backupScreen = shell.shadowRoot.querySelector('login-screen');
-    backupScreen.shown = true;
-    backupScreen.headline = 'Wallet created';
-    backupScreen.decodedMnemonic = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima';
-    await backupScreen.requestRender();
-    backupScreen.shadowRoot.querySelector('custom-pages').select('create')`)
-  await waitFor(`backupScreen.shadowRoot.querySelector('[data-route="create"] button.backup-action')`)
+    void backupScreen.requestLogin(false)`)
+  await waitFor(`backupScreen.headline === 'Welcome!'`)
+  await evaluate(`await backupScreen.requestRender();
+    backupScreen.shadowRoot.querySelector('.wallet-password').value = 'fixture-backup-password'`)
+  await click(`backupScreen.shadowRoot.querySelector('[data-route-action="create"]')`)
+  await waitFor(`!backupScreen.busy && (backupScreen.shadowRoot.querySelector('[data-route="create"]').classList.contains('custom-selected') || backupScreen.loginError)`)
+  assert.equal(await evaluate(`backupScreen.loginError`), '')
+  await waitFor(`backupScreen.shadowRoot.querySelector('[data-route="create"]').classList.contains('custom-selected')`)
+  assert.equal(await evaluate(`backupScreen.shadowRoot.querySelector('hero-element').shadowRoot.querySelector('custom-typography[type="headline"], custom-typography[type="subline"]') === null`), true)
 
-  const layout = await evaluate(`(() => {
-    const create = backupScreen.shadowRoot.querySelector('[data-route="create"]');
-    const passwordStep = create.querySelectorAll('button.backup-action')[1];
-    const confirm = create.querySelector('button.backup-confirm');
-    create.scrollTop = create.scrollHeight;
-    return {
-      overflowY: getComputedStyle(create).overflowY,
-      passwordStepPresent: Boolean(passwordStep),
-      confirmPresent: Boolean(confirm),
-      confirmVisible: confirm.getBoundingClientRect().bottom <= create.getBoundingClientRect().bottom
-    };
-  })()`)
-  assert.equal(layout.overflowY, 'auto')
-  assert.equal(layout.passwordStepPresent, true)
-  assert.equal(layout.confirmPresent, true)
-  assert.equal(layout.confirmVisible, true)
+  for (const [width, height] of [[604, 536], [390, 420], [320, 568], [1280, 900]]) {
+    await resize(width, height)
+    for (const selector of ['button.backup-action', 'flex-row:nth-of-type(2) button.backup-action', 'button.backup-confirm']) {
+      // Check every clipping ancestor, not just the taller create section.
+      assert.equal(await evaluate(`(() => {
+        const create = backupScreen.shadowRoot.querySelector('[data-route="create"]');
+        const button = create.querySelector('${selector}');
+        button.scrollIntoView({ block: 'center' });
+        const rect = button.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= innerHeight &&
+          [...backupScreen.shadowRoot.querySelectorAll('hero-element, custom-pages, [data-route="create"]')]
+            .every(ancestor => {
+              if (getComputedStyle(ancestor).overflowY === 'visible') return true;
+              const bounds = ancestor.getBoundingClientRect();
+              return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
+            });
+      })()`), true, `${selector} must be reachable at ${width}x${height}`)
+    }
+  }
+  await resize(604, 536)
+  assert.equal(await evaluate(`backupScreen.shadowRoot.querySelector('button.backup-confirm').disabled`), true)
+  await evaluate(`backupScreen.shadowRoot.querySelector('button.backup-action').scrollIntoView({ block: 'center' })`)
   await click(`backupScreen.shadowRoot.querySelector('[data-route="create"] button.backup-action')`)
   await waitFor(`document.querySelector('dialog[data-wallet-backup="recovery-phrase"]')?.open`)
   await evaluate(`const phraseDialog = document.querySelector('dialog[data-wallet-backup="recovery-phrase"]');
     const phrase = phraseDialog.querySelector('flex-wrap-between');
-    phrase.scrollTop = phrase.scrollHeight;
-    phraseDialog.querySelector('button').click()`)
+    phrase.scrollTop = phrase.scrollHeight`)
+  await click(`document.querySelector('dialog[data-wallet-backup="recovery-phrase"] button')`)
   await waitFor(`!document.querySelector('dialog[data-wallet-backup="recovery-phrase"]')`)
   assert.equal(await evaluate(`backupScreen.shadowRoot.querySelector('[data-route="create"] .step-marker').hasAttribute('data-complete')`), true)
+  assert.equal(await evaluate(`backupScreen.shadowRoot.querySelector('button.backup-confirm').disabled`), true)
+  await evaluate(`backupScreen.shadowRoot.querySelectorAll('button.backup-action')[1].scrollIntoView({ block: 'center' })`)
+  await click(`backupScreen.shadowRoot.querySelectorAll('button.backup-action')[1]`)
+  await waitFor(`document.querySelector('dialog[data-wallet-backup="password"]')?.open`)
+  assert.equal(await evaluate(`document.querySelector('dialog[data-wallet-backup="password"] p').textContent === 'fixture-backup-password'`), true)
+  await click(`document.querySelector('dialog[data-wallet-backup="password"] button')`)
+  await waitFor(`!document.querySelector('dialog[data-wallet-backup="password"]')`)
+  await waitFor(`!backupScreen.shadowRoot.querySelector('button.backup-confirm').disabled`)
+  await evaluate(`backupScreen.shadowRoot.querySelector('button.backup-confirm').scrollIntoView({ block: 'center' })`)
+  await click(`backupScreen.shadowRoot.querySelector('button.backup-confirm')`)
+  await waitFor(`!backupScreen.shown && !shell.loginOpen`)
   assert.deepEqual(errors, [])
 })
 

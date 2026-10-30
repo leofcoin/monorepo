@@ -59,6 +59,10 @@ wallet secrets are not retained; endpoint URLs are reduced to their origins.
 
 ### Identity and Validator
 
+Wallet creation keeps the recovery phrase, wallet password and final confirmation
+in the dialog's normal layout. On short screens the dialog scrolls; both backup
+dialogs must be confirmed before **I Understand** becomes available.
+
 Identity's Overview, Accounts, Account details and Backup screens share
 illustrated headers, responsive cards and subtle entrance/hover effects.
 Expand an account to view and copy its external and internal public addresses.
