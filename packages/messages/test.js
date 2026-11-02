@@ -11,6 +11,34 @@ import {
   PrevoteMessage,
   ProposalMessage
 } from './exports/index.js'
+import { BinaryFormat } from './exports/binary-format.js'
+
+test('immutable message schema keys are compiled once without caching caller data', t => {
+  const proto = Object.freeze({ amount: 0n, label: '', data: [] })
+  const keys = Object.keys
+  let reads = 0
+  t.mock.method(Object, 'keys', value => { if (value === proto) reads++; return keys(value) })
+  for (let index = 0; index < 20; index++) {
+    const message = new BinaryFormat({ amount: index, label: `item-${index}`, data: [BigInt(index)] }, proto, { name: 'state-message' })
+    const decoded = new BinaryFormat(message.encoded, proto, { name: 'state-message' }).decoded
+    assert.deepEqual(decoded, { amount: BigInt(index), label: `item-${index}`, data: [BigInt(index)] })
+  }
+  assert.equal(reads, 1)
+})
+
+test('mutable caller schemas are not cached and message bytes remain independently owned', () => {
+  const proto = { amount: 0n }
+  const first = new BinaryFormat({ amount: 1n }, proto, { name: 'state-message' }).encoded
+  proto.label = ''
+  const message = new BinaryFormat({ amount: 2n, label: 'new field' }, proto, { name: 'state-message' })
+  const decoded = new BinaryFormat(message.encoded, proto, { name: 'state-message' }).decoded
+  assert.deepEqual(decoded, { amount: 2n, label: 'new field' })
+  assert.deepEqual(new BinaryFormat(first, Object.freeze({ amount: 0n }), { name: 'state-message' }).decoded, { amount: 1n })
+  const bytes = message.encoded
+  const preserved = new Uint8Array(bytes)
+  new BinaryFormat({ amount: 3n, label: 'another' }, proto, { name: 'state-message' }).encode()
+  assert.deepEqual(bytes, preserved)
+})
 
 test('block messages round-trip all consensus fields', () => {
   const block = {
@@ -35,7 +63,7 @@ test('block messages round-trip all consensus fields', () => {
   assert.equal(decoded.protocolVersion, '0.2.0')
 })
 
-test('binary validator framing preserves message bytes with the canonical codec-first hash', async () => {
+test('binary-only schema has a fixed canonical wire/hash vector', async () => {
   const block = {
     index: 7n,
     previousHash: '0x0',
@@ -52,10 +80,10 @@ test('binary validator framing preserves message bytes with the canonical codec-
     protocolVersion: '0.3.0'
   }
   const hex =
-    'edc4010137033078300d31373030303030303030303030033135300231300b5b2274782d68617368225d3813edec010b76616c696461746f722d610331353023edec010b76616c696461746f722d6213313030303030303030303030303030303030300b76616c696461746f722d610570726f6f6605302e332e30'
+    'edc4014c464301090a05070703307830044278bcfe56800000059601050a0901070774782d68617368083b19edec014c4643010902070b76616c696461746f722d6105960120edec014c4643010902070b76616c696461746f722d6205808090bbbad6adf00d070b76616c696461746f722d61070570726f6f660705302e332e30'
   const message = new BlockMessage(block)
   assert.equal(Buffer.from(message.encoded).toString('hex'), hex)
-  assert.equal(await message.hash(), 'HNYQASAGLXGXMA5YT2H3YRYWIQMX5KQGFSODANJZ337OV3XLTMBVLV6XZS')
+  assert.equal(await message.hash(), 'HNYQASBUSRNDHVIQRNUTC4GCT3PCYJLRWYSGH2DEX6M5VOA6WEWAOGCKR4')
   assert.deepEqual(new BlockMessage(new Uint8Array(Buffer.from(hex, 'hex'))).decoded.validators, block.validators)
 })
 

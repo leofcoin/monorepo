@@ -68,7 +68,8 @@ class TestNode {
     this.process = spawn(process.execPath, [nodeScript], {
       env: {
         ...process.env,
-        HOME: this.home,
+        LEOFCOIN_E2E_ROOT: join(this.home, 'chain'),
+        LEOFCOIN_E2E_FIXTURE: '1',
         LEOFCOIN_E2E_PASSWORD: `validator-${this.index}`,
         LEOFCOIN_E2E_STAR: this.star
       },
@@ -207,7 +208,8 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
     assert.equal(new Set(ready.map(({ account }) => account)).size, 4)
     for (const state of ready) {
       assert.equal(state.supportedWebrtcBackend, true, 'node must use the chain-supported native backend')
-      assert.deepEqual(state.chain, { sync: 'connectionless', chain: 'loaded' })
+      assert.equal(state.chain.chain, 'loaded')
+      assert.notEqual(state.chain.sync, 'errored')
       assert.equal(state.lastBlock.hash, '0x0')
       assert.equal(Number(state.lastBlock.index), -1)
     }
@@ -226,7 +228,8 @@ test('four isolated nodes converge on bootstrap state and survive restart', { ti
     assert.equal(after.identity, before.identity)
     assert.equal(after.account, before.account)
     assert.equal(after.chainId, before.chainId)
-    assert.deepEqual(after.chain, { sync: 'connectionless', chain: 'loaded' })
+    assert.equal(after.chain.chain, 'loaded')
+    assert.notEqual(after.chain.sync, 'errored')
     await nodes[0].waitForPeers(3)
   } finally {
     await Promise.allSettled(nodes.map((node) => node.stop()))

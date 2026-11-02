@@ -1,3 +1,5 @@
+import { fetchBinary as fetch } from '../../../test/helpers/binary-http.js'
+import { encodeWire } from '@leofcoin/binary'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
@@ -144,26 +146,26 @@ test('HTTP exposes claim status, uses 202 before confirmation, rejects disallowe
   const base = `http://127.0.0.1:${server.address().port}`
   const request = await fetch(base + '/claims', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'https://leofcoin.org' },
-    body: JSON.stringify({ address: 'test-a', requestId: randomUUID() })
+    headers: { 'Content-Type': 'application/octet-stream', Origin: 'https://leofcoin.org' },
+    body: encodeWire('rpc', { address: 'test-a', requestId: randomUUID() })
   })
   assert.equal(request.status, 202)
-  const claim = await request.json()
+  const claim = await request.binary()
   assert.equal(claim.state, 'pending')
-  const receipt = await (await fetch(base + '/claims/' + claim.id)).json()
+  const receipt = await (await fetch(base + '/claims/' + claim.id)).binary()
   assert.equal(receipt.hash, claim.hash)
   const replay = await fetch(base + '/claims', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: 'test-a', requestId: claim.id })
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: encodeWire('rpc', { address: 'test-a', requestId: claim.id })
   })
-  assert.equal((await replay.json()).id, claim.id)
+  assert.equal((await replay.binary()).id, claim.id)
   assert.equal(env.payments(), 1)
   assert.equal(
     (
       await fetch(base + '/claims', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/octet-stream' },
         body: 'null'
       })
     ).status,
@@ -174,7 +176,7 @@ test('HTTP exposes claim status, uses 202 before confirmation, rejects disallowe
     (
       await fetch(base + '/claims', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/octet-stream' },
         body: 'x'.repeat(3000)
       })
     ).status,

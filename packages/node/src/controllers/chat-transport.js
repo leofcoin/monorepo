@@ -1,3 +1,4 @@
+import { encodeWire, decodeWire } from '@leofcoin/binary'
 import {
   verifyDeliveryReceipt,
   approveDevice as createDeviceApproval,
@@ -21,13 +22,13 @@ const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
 function encodePacket(packet) {
-  return encoder.encode(JSON.stringify(packet))
+  return encodeWire('chat', packet, { maxBytes: MAX_PACKET_BYTES })
 }
 
 function decodePacket(payload) {
   if (!(payload instanceof Uint8Array)) throw new TypeError('Peernet chat payload must be encoded bytes.')
   if (payload.byteLength > MAX_PACKET_BYTES) throw new RangeError('Peernet chat packet is too large.')
-  return JSON.parse(decoder.decode(payload))
+  return decodeWire('chat', payload, { maxBytes: MAX_PACKET_BYTES })
 }
 
 function keyFor(network) {
@@ -92,7 +93,7 @@ function validateEnvelope(envelope, network, kind) {
   ) {
     throw new Error('Space message envelope is incomplete or belongs to another network.')
   }
-  if (encoder.encode(JSON.stringify(envelope)).byteLength > MAX_PACKET_BYTES)
+  if (encodePacket(envelope).byteLength > MAX_PACKET_BYTES)
     throw new Error('Chat message is too large to send.')
 }
 
@@ -124,7 +125,7 @@ export class ChatTransport {
     this.#storage = storage
     this.#topic = `leofcoin:chat:v1:${network}`
     this.#identityProvider = identityProvider
-    if (typeof peernet.createArchiveMode === 'function') {
+    if (peernet.binaryArchiveVersion === 1 && typeof peernet.createArchiveMode === 'function') {
       this.#archiveMode = peernet.createArchiveMode({
         verifyEnvelope: (envelope) => verifyDirectEnvelope(envelope, network),
         verifyInboxRequest: (request) => verifyChatInboxRequest(request, network),
@@ -324,7 +325,7 @@ export class ChatTransport {
       type,
       payload
     }
-    if (encoder.encode(JSON.stringify(packet)).byteLength > MAX_PACKET_BYTES)
+    if (encodePacket(packet).byteLength > MAX_PACKET_BYTES)
       throw new Error('Chat network packet is too large.')
     this.#markSeen(packet.id)
     await this.#peernet.publish(this.#topic, encodePacket(packet))
@@ -356,7 +357,7 @@ export class ChatTransport {
         'device-approval'
       ].includes(packet.type) ||
       !isRecord(packet.payload) ||
-      encoder.encode(JSON.stringify(packet)).byteLength > MAX_PACKET_BYTES
+      encodePacket(packet).byteLength > MAX_PACKET_BYTES
     )
       return
     if (this.#wasSeen(packet.id)) return

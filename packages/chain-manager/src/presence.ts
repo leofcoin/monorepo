@@ -1,3 +1,4 @@
+import { readBinaryResponse } from '@leofcoin/endpoint-clients/transport'
 import { assertChainId, verifyChainIdentity } from '@leofcoin/lib/chain-identity'
 
 export type ChainPresence = { status: 'found' | 'not-observed' | 'unknown' }
@@ -17,6 +18,6 @@ export async function checkChainPresence(endpoint: string, chainId: string): Pro
     cache: 'no-store'
   })
   if (!response.ok) throw new Error(`Node identity request failed: HTTP ${response.status}`)
-  const identity = await verifyChainIdentity(await response.json())
+  const identity = await verifyChainIdentity(await readBinaryResponse(response, 65536))
   return { status: identity.chainId === chainId ? 'found' : 'not-observed' }
 }

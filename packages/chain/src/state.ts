@@ -8,21 +8,14 @@ import {
   LastBlockMessage
 } from '@leofcoin/messages'
 import { formatBytes } from '@leofcoin/utils'
-import {
-  calculateFee,
-  distributeTransactionFee,
-  supportsTransactionFees,
-  calculateMonetaryPolicy,
-  distributeAmount,
-  supportsMonetaryPolicy,
-  validateBlockResourceLimits
-} from '@leofcoin/lib'
 import Contract from './contract.js'
 import Machine from './machine.js'
-import { nativeToken } from '@leofcoin/addresses'
+import addresses from '@leofcoin/addresses'
+import { createChainIdentity } from '@leofcoin/lib/chain-identity'
+import { readCheckpoint, recoveryHistory, restoreAccountNonces } from './helpers/state-checkpoint.js'
 import Jobber from './jobs/jobber.js'
 import { BlockHash, BlockInMemory, RawBlock } from './types.js'
-import { ResolveError, isExecutionError, isResolveError } from '@leofcoin/errors'
+import { ResolveError } from '@leofcoin/errors'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { decodeResponsePayload } from './helpers/response.js'
 import { CanonicalStateQueue, type CanonicalTransition } from './consensus/canonical-state-queue.js'
@@ -53,7 +46,13 @@ export default class State extends Contract {
   #canonicalStateQueue = new CanonicalStateQueue()
 
   protected withCanonicalState<T>(operation: (transition: CanonicalTransition) => Promise<T>): Promise<T> {
-    return this.#canonicalStateQueue.run(operation)
+    return this.#canonicalStateQueue.run(operation).catch(error => {
+      if (this.#canonicalStateQueue.failed) {
+        this.#loaded = false
+        this.#syncState = 'errored'
+      }
+      throw error
+    })
   }
 
   protected canonicalTip() {
@@ -206,109 +205,86 @@ export default class State extends Contract {
   }
 
   async init() {
-    debug('State init start')
     this.jobber = new Jobber(this.resolveTimeout)
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
     await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
-
-    let localBlockHash
-    let blockMessage
-    let localBlock
-
-    console.log('State init before try-catch')
     try {
-      const rawBlock = await globalThis.chainStore.has('lastBlock')
-      console.log('State init after has lastBlock check')
-      if (rawBlock) {
-        console.log('State init after has lastBlock found')
-        console.log(rawBlock)
-        localBlockHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
-        console.log(localBlockHash)
-
-        if (localBlockHash !== '0x0') {
-          blockMessage = await globalThis.blockStore.get(localBlockHash)
-
-          console.log(blockMessage)
-          blockMessage = await new BlockMessage(blockMessage)
-          localBlock = { ...blockMessage.decoded, hash: localBlockHash }
-        }
-        console.log('State init after localBlock set')
-      } else {
-        localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
+      const identity = await createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+      const required = [addresses.contractFactory, addresses.nativeToken, addresses.nameService, addresses.validators]
+      const checkpoint = await readCheckpoint(globalThis.stateStore, identity.chainId, required)
+      const checkpointTip = checkpoint?.snapshot.lastBlock ?? { index: -1, hash: '0x0' }
+      const marker = await globalThis.chainStore.has('lastBlock')
+        ? new TextDecoder().decode(await globalThis.chainStore.get('lastBlock')) : '0x0'
+      const readBlock = async hash => await globalThis.blockStore.has(hash)
+        ? globalThis.blockStore.get(hash) : globalThis.peernet.get(hash, 'block')
+      let history = await recoveryHistory(checkpointTip.hash, readBlock)
+      if (marker !== '0x0' && marker !== checkpointTip.hash && !history.some(block => block.hash === marker)) {
+        const candidate = await recoveryHistory(marker, readBlock)
+        if (checkpointTip.hash !== '0x0' && candidate[Number(checkpointTip.index)]?.hash !== checkpointTip.hash)
+          throw new Error('Persisted chain marker conflicts with state checkpoint')
+        history = candidate
       }
-    } catch {
-      console.log('e')
-
-      console.log('State init middle')
-      localBlock = { index: 0, hash: '0x0', previousHash: '0x0' }
-    }
-    console.log('State init middle')
-
-    try {
-      console.log('fetching known blocks from blockStore')
+      // Legacy split snapshots are deliberately ignored. The referenced canonical
+      // blocks are revalidated and replayed from genesis instead of trusting a
+      // possibly mixed lastBlock/states/accounts/info generation.
+      if (!checkpoint && await globalThis.stateStore.has('lastBlock')) {
+        const legacy = JSON.parse(new TextDecoder().decode(await globalThis.stateStore.get('lastBlock')))
+        if (legacy.hash && legacy.hash !== '0x0' && legacy.hash !== history.at(-1)?.hash) {
+          const candidate = await recoveryHistory(legacy.hash, readBlock)
+          const common = Math.min(history.length, candidate.length)
+          if (common && history[common - 1].hash !== candidate[common - 1].hash)
+            throw new Error('Legacy snapshot conflicts with canonical chain marker')
+          if (candidate.length > history.length) history = candidate
+        }
+      }
+      if (await globalThis.chainStore.has('recoveryTarget')) {
+        const target = new TextDecoder().decode(await globalThis.chainStore.get('recoveryTarget'))
+        const candidate = await recoveryHistory(target, readBlock)
+        const common = Math.min(history.length, candidate.length)
+        if (common && history[common - 1].hash !== candidate[common - 1].hash)
+          throw new Error('Recovery target conflicts with canonical checkpoint history')
+        if (candidate.length > history.length) history = candidate
+      }
+      this.#blocks = history
+      this.#blockHashMap = new Map(history.map(block => [block.hash, block.index]))
       this.knownBlocks = await globalThis.blockStore.keys()
-    } catch (error) {
-      console.log('no local known blocks found')
-    }
-
-    try {
-      if (localBlock?.hash && localBlock.hash !== '0x0') {
-        try {
-          // Avoid JSON decode here; just check if persisted state snapshot exists.
-          if (!(await globalThis.stateStore.has('lastBlock'))) {
-            await this.resolveBlocks()
-          }
-        } catch {
-          // no state marker found, try resolving blocks
-          await this.resolveBlocks()
-        }
-      } else {
-        await this.resolveBlocks()
-      }
-
-      const machine = new Machine(this.#blocks)
-      console.log(machine)
-
+      if (!checkpoint && !history.length && this.knownBlocks.length)
+        throw new Error('Local blocks exist without a canonical recovery anchor; preserve this root and rebuild in a separate root')
+      const prefix = history.slice(0, Number(checkpointTip.index) + 1).map(block => ({ ...block, loaded: true }))
+      if (history.length > prefix.length) await globalThis.chainStore.put('recoveryTarget', history.at(-1).hash)
+      const machine = new Machine(prefix, checkpoint)
       await machine.ready
       this.#machine = machine
-
-      const lastBlock = await this.#machine.lastBlock
-
-      if (lastBlock.hash !== '0x0') {
-        await this.updateState(new BlockMessage(lastBlock))
-      }
-
+      await restoreAccountNonces(globalThis.accountsStore, checkpoint?.snapshot.accounts ?? {})
+      for (const block of prefix) this.#blocks[Number(block.index)].loaded = true
+      await this.withCanonicalState(transition => this.#loadBlocks(history.slice(prefix.length), transition))
+      if (!checkpoint && !history.length) await this.#machine.updateState(true)
+      const tip = await this.canonicalTip()
+      await globalThis.chainStore.put('lastBlock', tip.hash)
+      await globalThis.chainStore.delete('recoveryTarget')
       this.#loaded = true
       this.#chainState = 'loaded'
-      // await this.#loadBlocks(this.#blocks)
     } catch (error) {
-      console.log('e')
-
-      if (isResolveError(error)) {
-        console.error(error)
-      }
-      console.log(error)
+      this.#loaded = false
+      this.#chainState = 'loading'
+      this.#syncState = 'errored'
+      throw error
     }
   }
 
   async updateState(message: BlockMessage) {
-    try {
-      const hash = await message.hash()
-      await globalThis.chainStore.put('lastBlock', hash)
-      globalThis.pubsub.publish('lastBlock', message.encoded)
-      if (!this.#machine) {
-        const machine = new Machine(this.#blocks)
-        console.log(machine)
-
-        await machine.ready
-        this.#machine = machine
-      }
-      await this.#machine.updateState(true)
-    } catch (error) {
-      console.error(error)
-      throw error
-    }
+    if (!this.#machine) throw new Error('Cannot checkpoint an uninitialized state machine')
+    const hash = await message.hash()
+    const tip = await this.canonicalTip()
+    if (tip.hash !== hash || Number(tip.index) !== Number(message.decoded.index))
+      throw new Error('Checkpoint target does not match canonical worker tip')
+    await this.#machine.updateState(true)
+    await globalThis.chainStore.put('lastBlock', hash)
+    if (await globalThis.chainStore.has('recoveryTarget') &&
+      new TextDecoder().decode(await globalThis.chainStore.get('recoveryTarget')) === hash)
+      await globalThis.chainStore.delete('recoveryTarget')
+    globalThis.pubsub.publish('lastBlock', message.encoded)
   }
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {
@@ -607,6 +583,7 @@ export default class State extends Contract {
         //   await Promise.all(promises)
         // } else {
         await this.resolveBlock(remoteBlockHash)
+        await globalThis.chainStore.put('recoveryTarget', remoteBlockHash)
         // }
 
         const blocksSynced = remoteIndex - localIndex
@@ -737,167 +714,24 @@ export default class State extends Contract {
     return latest
   }
 
-  #loadBlockTransactions = (transactions): Promise<TransactionMessage[]> =>
-    Promise.all(
-      transactions.map(async (transaction) => new TransactionMessage(await peernet.get(transaction, 'transaction')))
-    )
-
-  #getLastTransactions = async () => {
-    let lastTransactions = (
-      await Promise.all(
-        (
-          await this.blocks
-        )
-          // @ts-ignore
-          .filter((block) => block.loaded)
-          .slice(-24)
-          // @ts-ignore
-          .map((block) => this.#loadBlockTransactions(block.transactions))
-      )
-    ).reduce((all, transactions) => [...all, ...transactions], [])
-
-    return Promise.all(lastTransactions.map((transaction) => transaction.hash()))
+  protected async applyRecoveredBlock(block: BlockMessage, transition: CanonicalTransition): Promise<void> {
+    throw new Error('Canonical block application is not implemented')
   }
 
-  // todo throw error
-  async #_executeTransaction(
-    transaction,
-    validators: string[],
-    feesEnabled: boolean,
-    burnBasisPoints: bigint,
-    blockTimestamp: number
-  ) {
-    try {
-      const hash = await transaction.hash()
-      if (feesEnabled) {
-        const fee = BigInt(await calculateFee(transaction.decoded))
-        const { payments, burned } = distributeTransactionFee(fee, hash, validators, burnBasisPoints)
-        await this.#machine.collectFee(transaction.decoded.from, payments, burned)
-      }
-      await this.#machine.execute(
-        transaction.decoded.to,
-        transaction.decoded.method,
-        transaction.decoded.params,
-        transaction.decoded.from,
-        { seed: hash, timestamp: Number(blockTimestamp) }
-      )
-      // await globalThis.accountsStore.put(transaction.decoded.from, String(transaction.decoded.nonce))
-      // if (transaction.decoded.to === nativeToken) {
-      //   this.#nativeCalls += 1
-      //   if (transaction.decoded.method === 'burn') this.#nativeBurns += 1
-      //   if (transaction.decoded.method === 'mint') this.#nativeMints += 1
-      //   if (transaction.decoded.method === 'transfer') this.#nativeTransfers += 1
-      // }
-      // this.#totalTransactions += 1
-    } catch (error) {
-      console.log(error)
-
-      await globalThis.transactionPoolStore.delete(await transaction.hash())
-      console.log('removing invalid transaction')
-      if (isExecutionError(error)) {
-        console.log(error)
-
-        // console.log(`removing invalid block ${block.index}`)
-        // await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-        // const deletedBlock = blocks.splice(block.index, 1)
-        // console.log(`removed block ${deletedBlock[0].index}`)
-
-        // return this.#loadBlocks(blocks)
-      }
-
-      console.log(error)
-      throw error
-    }
-  }
-  /**
-   *
-   * @param {Block[]} blocks
-   */
   async #loadBlocks(blocks: BlockInMemory[], transition: CanonicalTransition): Promise<boolean> {
     this.#chainState = 'loading'
-    if (blocks.some((block) => !block)) {
-      throw new Error('missing block data during load; chain resolution incomplete')
-    }
-    const poolTransactionKeys = new Set(await globalThis.transactionPoolStore.keys())
-    debug(`pool transactions: ${poolTransactionKeys.size}`)
-    debug(`loading ${blocks.length} blocks`)
     for (const block of blocks) {
-      if (block && !block.loaded) {
-        try {
-          const link = validateChainLink(await this.canonicalTip(), {
-            index: Number(block.index),
-            hash: (block as any).hash,
-            previousHash: String(block.previousHash)
-          })
-          if (link !== 'append') {
-            this.#blocks[block.index].loaded = true
-            debug(`Ignoring ${link} loaded block ${(block as any).hash} at height ${block.index}`)
-            continue
-          }
-          debug(`loading block: ${Number(block.index)} ${(block as any).hash}`)
-          let transactions = await this.#loadBlockTransactions(block.transactions || [])
-          const validators = block.validators.map(({ address }) => address)
-          // const lastTransactions = await this.#getLastTransactions()
-
-          debug(`loading transactions: ${transactions.length} for block ${block.index}`)
-          transition.markMutating()
-          for (const transaction of transactions) {
-            const hash = await transaction.hash()
-            // if (lastTransactions.includes(hash)) {
-            //   console.log('removing invalid block')
-            //   await globalThis.blockStore.delete(await (await new BlockMessage(block)).hash())
-            //   blocks.splice(block.index - 1, 1)
-            //   return this.#loadBlocks(blocks)
-            // }
-            if (poolTransactionKeys.has(hash)) await globalThis.transactionPoolStore.delete(hash)
-          }
-
-          transactions = transactions.sort((a, b) => {
-            if (a.decoded.priority !== b.decoded.priority) return a.decoded.priority ? -1 : 1
-            const left = BigInt(a.decoded.nonce)
-            const right = BigInt(b.decoded.nonce)
-            return left < right ? -1 : left > right ? 1 : 0
-          })
-          debug(`executing ${transactions.length} transactions for block ${block.index}`)
-          const feesEnabled = supportsTransactionFees(block.protocolVersion)
-          const monetaryPolicyEnabled = supportsMonetaryPolicy(block.protocolVersion)
-          if (monetaryPolicyEnabled) await validateBlockResourceLimits(transactions)
-          const policy = monetaryPolicyEnabled
-            ? calculateMonetaryPolicy(
-                BigInt(await this.#machine.get(nativeToken, 'totalSupply')),
-                BigInt(await this.#machine.get(nativeToken, 'targetSupply'))
-              )
-            : { subsidy: 0n, burnBasisPoints: 1_000n }
-          for (const transaction of transactions) {
-            await this.#_executeTransaction(
-              transaction,
-              validators,
-              feesEnabled,
-              policy.burnBasisPoints,
-              block.timestamp
-            )
-          }
-          if (monetaryPolicyEnabled && policy.subsidy > 0n) {
-            await this.#machine.settleRewards([
-              ...distributeAmount(policy.subsidy, validators, Number(block.index) % validators.length)
-            ])
-          }
-          debug(`executed transactions for block ${block.index}`)
-          const registered = await this.#machine.addLoadedBlock({ ...block, loaded: true })
-          if (registered !== true) throw new Error(`Loaded block registration failed after execution: ${block.hash}`)
-          this.#blocks[block.index].loaded = true
-          if (Number(block.index) === 0) this.#loaded = true
-          // @ts-ignore
-          debug(`loaded block: ${(block as any).hash} @${Number(block.index)}`)
-          globalThis.pubsub.publish('block-loaded', { ...block })
-        } catch (error) {
-          console.error(error)
-          for (const transaction of block.transactions) {
-            this.wantList.push(transaction as unknown as string)
-          }
-          throw error
-        }
-      }
+      if (!block) throw new Error('Missing block data during recovery')
+      if (block.loaded) continue
+      const { hash, loaded, ...header } = block
+      const message = new BlockMessage(header)
+      if (await message.hash() !== block.hash) throw new Error('Recovery block hash changed before application')
+      await this.applyRecoveredBlock(message, transition)
+      const tip = await this.canonicalTip()
+      if (tip.hash !== block.hash || Number(tip.index) !== Number(block.index))
+        throw new Error('Recovery did not apply the expected canonical block')
+      block.loaded = true
+      globalThis.pubsub.publish('block-loaded', { ...block })
     }
     this.#chainState = 'loaded'
     return true
@@ -985,12 +819,8 @@ export default class State extends Contract {
   }
 
   async triggerLoad() {
-    if (this.#blocks?.length > 0) {
-      const machine = new Machine(this.#blocks)
-      console.log(machine)
-
-      await machine.ready
-      this.#machine = machine
-    }
+    if (!this.#machine) throw new Error('Restart the node to initialize recovery')
+    const tip = await this.canonicalTip()
+    return this.withCanonicalState(transition => this.#loadBlocks(this.#blocks.slice(Number(tip.index) + 1), transition))
   }
 }

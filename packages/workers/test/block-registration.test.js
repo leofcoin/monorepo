@@ -18,9 +18,9 @@ const createRegistry = new Function(`
   let lastBlock = { index: -1, hash: '0x0' }
   const worker = { postMessage() {} }
   const formatBytes = value => value
-  const jsonParseBigInt = undefined
+  const encodeValue = () => new Uint8Array()
   ${js}
-  return { add: block => add(JSON.stringify(block)), count: () => totalBlocks, tip: () => lastBlock }
+  return { add: block => add(block), count: () => totalBlocks, tip: () => lastBlock }
 `)
 
 test('loaded block registration is idempotent and never increments counters for duplicates', () => {

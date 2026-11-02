@@ -1,8 +1,9 @@
 {
   "name": "@leofcoin/endpoint-clients",
-  "version": "0.3.17",
+  "version": "0.4.0",
   "description": "",
   "exports": {
+    "./transport": { "import": "./exports/transport.js", "types": "./exports/types/transport.d.ts" },
     ".": {
       "import": "./exports/index.js",
       "types": "./exports/types/index.d.ts"
@@ -56,6 +57,6 @@
   },
   "dependencies": {
     "@leofcoin/utils": "^1.1.45",
-    "socket-request-client": "^2.0.9"
+    "@leofcoin/binary": "^1.1.0"
   }
 }

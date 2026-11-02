@@ -1,8 +1,10 @@
+import { readBinaryResponse } from '@leofcoin/endpoint-clients/transport'
+import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { calculateFee, signTransaction, MAX_TRANSACTION_BYTES } from '@leofcoin/lib'
 import { verifyChainIdentity, type ChainIdentity } from '@leofcoin/lib/chain-identity'
-import { parseUnits, formatUnits, jsonParseBigInt } from '@leofcoin/utils'
+import { parseUnits, formatUnits } from '@leofcoin/utils'
 import { FAUCET_SOURCE } from './templates.js'
 
 export type ChainProfile = { id: string; name: string; endpoint: string; chainId: string; network: string; testnet: boolean }
@@ -28,7 +30,7 @@ type Backup = { schema: 'leofcoin:operator-wallet:v1'; network: string; address:
 type RawTransaction = { from: string; to: string; method: string; params: unknown[]; nonce: number; timestamp: number }
 type SignedTransaction = RawTransaction & { signature: string }
 type Prepared = {
-  review: Review; transaction: SignedTransaction; contract?: string
+  review: Review; transaction: SignedTransaction; contract?: Uint8Array
   cost: bigint; nonce: number; profileId: string
 }
 const PROFILES = 'leofcoin:manager:profiles:v1'
@@ -157,22 +159,22 @@ export class OperatorController extends EventTarget {
   }
   async #request(profile: ChainProfile, body: Record<string, unknown>): Promise<unknown> {
     const response = await fetch(`${profile.endpoint}/manager/rpc`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, chainId: profile.chainId }),
+      method: 'POST', headers: { 'Content-Type': BINARY_CONTENT_TYPE },
+      body: encodeWire('rpc', { ...body, chainId: profile.chainId }) as any,
       credentials: 'omit', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10000)
     })
     if (!response.ok) {
-      const text = await response.text()
+      const text = (await readBinaryResponse(response, 1048576))?.error ?? 'Unsupported binary endpoint'
       throw new Error(`Management API HTTP ${response.status}: ${text.slice(0, 300)}. Update the node's @leofcoin/endpoints package if this API is unavailable.`)
     }
-    return JSON.parse(await response.text(), jsonParseBigInt)
+    return await readBinaryResponse(response, 1048576)
   }
   async #identity(endpoint: string): Promise<ChainIdentity> {
     const response = await fetch(`${endpoint}/chainIdentity`, {
       credentials: 'omit', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(3000)
     })
     if (!response.ok) throw new Error(`Identity request failed: HTTP ${response.status}`)
-    return verifyChainIdentity(await response.json())
+    return verifyChainIdentity(await readBinaryResponse(response, 65536))
   }
   async discoverProfile(name: string, rawEndpoint: string, testnet: boolean) {
     return this.#run(async () => {
@@ -332,12 +334,12 @@ export class OperatorController extends EventTarget {
     this.status = status
     if (this.activity.some(entry => entry.profileId === profile.id && ['submitting', 'pending', 'unknown'].includes(entry.status)))
       throw new Error('Reconcile the outstanding transaction on this chain before preparing another')
-    let contract: string | undefined
+    let contract: Uint8Array | undefined
     let contractAddress: string | undefined
     if (source !== undefined) {
       if (!source.trim() || new TextEncoder().encode(source).length > 131072) throw new Error('Contract source must be 1–128 KiB of self-contained JavaScript')
       const message = new ContractMessage({ creator: this.walletAddress, contract: source, constructorParameters: params })
-      contract = await message.toString()
+      contract = message.encoded
       contractAddress = await message.hash()
       target = status.contractFactory
       method = 'registerContract'

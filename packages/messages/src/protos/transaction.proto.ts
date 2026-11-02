@@ -1,6 +1,7 @@
+import { defineSchema } from '../schema.js'
 import { Transaction } from '@leofcoin/types'
 
-export default {
+export default defineSchema({
   timestamp: Number(),
   from: String(),
   to: String(),
@@ -10,4 +11,4 @@ export default {
   'nonce?': Number(),
   'dependsOn?': Array(),
   'priority?': Boolean()
-} as Transaction
+} as Transaction)

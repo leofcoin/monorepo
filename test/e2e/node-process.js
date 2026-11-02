@@ -1,3 +1,8 @@
+import { tmpdir, homedir } from 'node:os'
+import { resolve, relative, isAbsolute } from 'node:path'
+const explicitRoot = process.env.LEOFCOIN_E2E_ROOT
+if (!explicitRoot || !relative(tmpdir(), resolve(explicitRoot)) || relative(tmpdir(), resolve(explicitRoot)).startsWith('..') || isAbsolute(relative(tmpdir(), resolve(explicitRoot))))
+  throw new Error('E2E requires an explicit isolated temporary root')
 const stringify = (value) => JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item))
 const emit = (type, value = {}) => process.stdout.write(`E2E_EVENT:${stringify({ type, ...value })}\n`)
 
@@ -20,13 +25,18 @@ const node = new Node(
   {
     network,
     networkVersion,
-    root: process.env.LEOFCOIN_E2E_ROOT || '.leofcoin/e2e',
+    root: relative(homedir(), resolve(explicitRoot)),
     stars: process.env.LEOFCOIN_E2E_STAR ? [process.env.LEOFCOIN_E2E_STAR] : [],
     autoStart: false
   },
   process.env.LEOFCOIN_E2E_PASSWORD
 )
 await node.ready
+for (const name of ['chain', 'state', 'accounts', 'wallet', 'account', 'contract', 'block', 'transaction', 'transactionPool']) {
+  const store = globalThis[`${name}Store`]
+  if (store && resolve(store.db?.root || '') !== resolve(explicitRoot))
+    throw new Error(`E2E store escaped its explicit temporary root: ${name}`)
+}
 
 const discoveryEvents = []
 globalThis.pubsub.subscribe('peer:joined', (peer) => {
@@ -38,11 +48,46 @@ globalThis.pubsub.subscribe('peer:connected', (peerId) => {
 })
 
 const { default: Chain } = await import('../../packages/chain/exports/chain.js')
+// Explicitly trusted fixture checkpoint, only in the isolated temporary E2E network.
+// Real identities and published genesis artifacts are never changed.
+const { default: MultiWallet } = await import('@leofcoin/multi-wallet')
+const fixtureMode = network === 'leofcoin:e2e' && process.env.LEOFCOIN_E2E_FIXTURE === '1'
+const fixtureWallet = new MultiWallet(network)
+await fixtureWallet.fromPrivateKey(Uint8Array.from({ length: 32 }, (_, index) => index + 1), undefined, network)
+const fixtureProducer = await fixtureWallet.address
+if (fixtureMode && !(await globalThis.chainStore.has('version'))) {
+  const { default: fixtureAddresses } = await import('@leofcoin/addresses')
+  const { default: definitions } = await import('@leofcoin/lib/bytecodes.json', { with: { type: 'json' } })
+  const { ContractMessage } = await import('@leofcoin/messages')
+  const { default: Machine } = await import('../../packages/chain/exports/machine.js')
+  const { readCheckpoint, writeCheckpoint } = await import('../../packages/chain/exports/state-checkpoint.js')
+  const { PROTOCOL_VERSION } = await import('../../packages/chain/exports/hash-format-state.js')
+  const { createChainIdentity } = await import('@leofcoin/lib/chain-identity')
+  const required = Object.values(fixtureAddresses)
+  for (const value of Object.values(definitions)) {
+    const message = new ContractMessage(Uint8Array.from(value.split(','), Number))
+    await globalThis.contractStore.put(await message.hash(), message.encoded)
+  }
+  const machine = new Machine()
+  await machine.ready
+  await machine.updateState(true)
+  const checkpoint = await readCheckpoint(globalThis.stateStore, (await createChainIdentity(network, fixtureAddresses)).chainId, required)
+  const token = checkpoint.snapshot.states[fixtureAddresses.nativeToken]
+  token.balances = { [fixtureProducer]: BigInt(token.totalSupply) }
+  token.holders = 1n
+  const validators = checkpoint.snapshot.states[fixtureAddresses.validators]
+  validators.validators = [fixtureProducer]
+  validators.currentValidator = fixtureProducer
+  validators.validatorHistory = { 0: [fixtureProducer] }
+  await writeCheckpoint(globalThis.stateStore, checkpoint.snapshot, 0, required)
+  await globalThis.chainStore.put('version', PROTOCOL_VERSION)
+  machine.close()
+}
 const chain = new Chain({ network, networkVersion })
 await chain.ready
 
 const { BlockMessage } = await import('@leofcoin/messages')
-const { createContractMessage, signTransaction } = await import('@leofcoin/lib')
+const { createContractMessage, signTransaction, calculateMonetaryPolicy } = await import('@leofcoin/lib')
 const { default: addresses } = await import('@leofcoin/addresses')
 const { readFile } = await import('node:fs/promises')
 const { dirname, join } = await import('node:path')
@@ -61,18 +106,20 @@ const storeText = async (store, key) => {
 }
 
 const appendFixtureBlock = async () => {
+  if (!fixtureMode) throw new Error('Synthetic fixture blocks are forbidden outside the isolated E2E network')
   const previous = await chain.lastBlock
   const index = Number(previous?.index ?? -1) + 1
-  const producer = globalThis.peernet.selectedAccount
+  const producer = fixtureProducer
   const timestamp = Date.now()
+  const policy = calculateMonetaryPolicy(BigInt(await chain.staticCall(addresses.nativeToken, 'totalSupply')), BigInt(await chain.staticCall(addresses.nativeToken, 'targetSupply')))
   const block = {
     index,
     previousHash: previous?.hash || '0x0',
     timestamp,
-    reward: 150n,
+    reward: policy.subsidy,
     fees: 0n,
     transactions: [],
-    validators: [{ address: producer, reward: 150n }],
+    validators: [{ address: producer, reward: policy.subsidy }],
     producer,
     producerProof: '',
     protocolVersion: chain.version
@@ -86,15 +133,14 @@ const appendFixtureBlock = async () => {
       params: [unsignedBlockHash],
       timestamp
     },
-    globalThis.peernet.identity
+    fixtureWallet
   )
   const encoded = new BlockMessage({ ...block, producerProof: proof.signature }).encoded
   const message = new BlockMessage(encoded)
   const hash = await message.hash()
 
   await globalThis.peernet.put(hash, message.encoded, 'block')
-  await chain.machine.addLoadedBlock({ ...message.decoded, hash, loaded: true })
-  await chain.updateState(message)
+  await chain.withCanonicalState(transition => chain.applyRecoveredBlock(message, transition))
   return { hash, index }
 }
 
@@ -114,10 +160,12 @@ const deployBundle = async (filename, constructorParameters = []) => {
     [hash],
     globalThis.peernet.selectedAccount
   )
+  await chain.machine.updateState(true)
   return hash
 }
 
 const deployDexFixture = async () => {
+  if (!fixtureMode) throw new Error('Synthetic DEX state is forbidden outside the isolated E2E network')
   const account = globalThis.peernet.selectedAccount
   const unit = 10n ** 18n
   const registrationFee = BigInt(
@@ -157,13 +205,12 @@ const deployDexFixture = async () => {
     },
     factory
   )
-  const executeDexTransaction = async (transaction) =>
-    chain.machine.execute(
-      transaction.to,
-      transaction.method,
-      transaction.params,
-      transaction.from
-    )
+  const executeDexTransaction = async (transaction) => {
+    const value = await chain.machine.execute(transaction.to, transaction.method, transaction.params, transaction.from)
+    // VM-only fixture mutations become a complete trusted checkpoint before isolated reads.
+    await chain.machine.updateState(true)
+    return value
+  }
   const transactionOptions = { nonce: 1, timestamp: Date.now() }
 
   await executeDexTransaction(await dex.registerPool(account, pool, transactionOptions))

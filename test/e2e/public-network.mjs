@@ -1,3 +1,4 @@
+import { readBinaryResponse } from '../../packages/endpoint-clients/exports/transport.js'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -19,8 +20,8 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 const remoteTip = async () => {
   const response = await fetch(`${remoteUrl}/lastBlock`, { signal: AbortSignal.timeout(10_000) })
   if (!response.ok) throw new Error(`remote lastBlock returned HTTP ${response.status}`)
-  const value = await response.json()
-  const tip = { hash: value.hash, index: Number(value.index?.$bigint ?? value.index) }
+  const value = await readBinaryResponse(response)
+  const tip = { hash: value.hash, index: Number(value.index) }
   if (typeof tip.hash !== 'string' || !Number.isSafeInteger(tip.index)) throw new Error('remote returned invalid tip')
   return tip
 }
@@ -37,11 +38,11 @@ class ObserverNode {
     this.child = spawn(process.execPath, [nodeScript], {
       env: {
         ...process.env,
-        HOME: this.home,
         LEOFCOIN_E2E_PASSWORD: `github-observer-${this.index}`,
         LEOFCOIN_E2E_NETWORK: 'leofcoin:peach',
         LEOFCOIN_E2E_NETWORK_VERSION: 'peach',
-        LEOFCOIN_E2E_ROOT: '.leofcoin/peach',
+        LEOFCOIN_E2E_ROOT: join(this.home, 'chain'),
+        LEOFCOIN_E2E_FIXTURE: '0',
         LEOFCOIN_E2E_DEBUG: '1',
         LEOFCOIN_E2E_STAR: star
       },

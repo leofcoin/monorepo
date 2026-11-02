@@ -1,3 +1,4 @@
+import { binaryResponse } from '../../../test/helpers/binary-http.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
@@ -14,7 +15,7 @@ test('offline checks do not request a node', async t => {
 })
 
 test('endpoint checks verify genesis identity and use bounded credential-free requests', async t => {
-  const request = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(identity)))
+  const request = t.mock.method(globalThis, 'fetch', async () => binaryResponse(identity))
   assert.deepEqual(await checkChainPresence('http://localhost:3030/api/', identity.chainId), { status: 'found' })
   const [url, options] = request.mock.calls[0].arguments
   assert.equal(url.href, 'http://localhost:3030/api/chainIdentity')
@@ -36,7 +37,7 @@ test('invalid URLs and chain IDs fail before making requests', async t => {
 test('HTTP failures and forged identities fail explicitly, never report absence', async t => {
   const request = t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 503 }))
   await assert.rejects(checkChainPresence('http://localhost', identity.chainId), /HTTP 503/)
-  request.mock.mockImplementation(async () => new Response(JSON.stringify({ ...identity, chainId: `lfc:${'f'.repeat(64)}` })))
+  request.mock.mockImplementation(async () => binaryResponse({ ...identity, chainId: `lfc:${'f'.repeat(64)}` }))
   await assert.rejects(checkChainPresence('http://localhost', identity.chainId), /does not match/)
   request.mock.mockImplementation(async () => { throw new Error('Network unavailable') })
   await assert.rejects(checkChainPresence('http://localhost', identity.chainId), /Network unavailable/)

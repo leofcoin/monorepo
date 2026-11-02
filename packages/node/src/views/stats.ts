@@ -4,16 +4,20 @@ import { nodeActivity } from '../controllers/node-activity.js'
 import { getSelectedNetwork } from '../network-selection.js'
 
 export interface NodeStatus {
+  state: string
   label: string
   ready: boolean
   started: boolean
   error: string
-  progress: number
-  local: number
-  target: number
+  progress: number | null
+  local: number | null
+  target: number | null
   resolved: number
   loaded: number
   peers: string[]
+  compatible: number
+  negotiating: number
+  peerDetails: Array<{ id: string; version: string | null; compatible: boolean }>
 }
 
 const sizeLabel = (bytes: number) =>
@@ -22,8 +26,9 @@ const sizeLabel = (bytes: number) =>
 @customElement('stats-view')
 export class StatsView extends LitElement {
   @property({ type: Object }) accessor nodeStatus: NodeStatus = {
-    label: 'Wallet locked', ready: false, started: false, error: '',
-    progress: 0, local: 0, target: 0, resolved: 0, loaded: 0, peers: []
+    state: 'locked', label: 'Wallet locked', ready: false, started: false, error: '',
+    progress: null, local: null, target: null, resolved: 0, loaded: 0, peers: [],
+    compatible: 0, negotiating: 0, peerDetails: []
   }
   @state() accessor snapshot = nodeActivity.snapshot()
   @state() accessor direction = 'all'
@@ -82,6 +87,10 @@ export class StatsView extends LitElement {
     .in { color: var(--md-sys-color-secondary, #80d6a5); }
     .out { color: var(--md-sys-color-primary, #8dbbff); }
     .error { color: var(--md-sys-color-error, #ffb4ab); }
+    .notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-radius: 16px; background: var(--md-sys-color-surface-container-low, #1d1b20); border: 1px solid var(--lfc-glass-border, #51474e); }
+    .notice a { color: var(--md-sys-color-primary, #8dbbff); white-space: nowrap; font-size: 13px; }
+    .peer { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--lfc-glass-border, #51474e); }
+    .peer small { font: 11px var(--lfc-font-family, sans-serif); color: var(--md-sys-color-on-surface-variant, #ccc); }
     .empty { padding: 28px; text-align: center; }
     @media (max-width: 700px) {
       :host { padding: 14px; }
@@ -104,10 +113,11 @@ export class StatsView extends LitElement {
       <header><span class="eyebrow">${getSelectedNetwork().label} · Live diagnostics</span>
         <h1>Node activity</h1><p class="muted">Sync, connections and observed network traffic. Metadata only, stored in memory for this tab.</p>
       </header>
+      ${!status.started ? html`<section class="notice"><p class="muted">Your wallet is locked. Start the browser node to see live network activity.</p><a href="#!/wallet">Open wallet →</a></section>` : ''}
       <div class="metrics">
         <section class="card metric"><span class="muted">Incoming events</span><strong class="in">${totals.incoming}</strong><span class="muted">${sizeLabel(totals.bytesIn)} measured</span></section>
         <section class="card metric"><span class="muted">Outgoing events</span><strong class="out">${totals.outgoing}</strong><span class="muted">${sizeLabel(totals.bytesOut)} measured</span></section>
-        <section class="card metric"><span class="muted">Connected peers</span><strong>${status.peers.length}</strong><span class="muted">Current browser node</span></section>
+        <section class="card metric"><span class="muted">Compatible peers</span><strong>${status.compatible}</strong><span class="muted">${status.peers.length} connected · ${status.negotiating} checking version</span></section>
         <section class="card metric"><span class="muted">Failed operations</span><strong class=${totals.errors ? 'error' : ''}>${totals.errors}</strong><span class="muted">Since last clear</span></section>
       </div>
       <div class="overview">
@@ -115,17 +125,18 @@ export class StatsView extends LitElement {
           <div class="section-heading"><h2>Chain sync</h2><span class="status" ?data-ready=${status.ready}>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ${status.label}</span></div>
-          ${status.started && (status.target > 0 || status.ready) ? html`<progress aria-label="Chain sync progress" max="100" value=${status.progress}></progress>` : ''}
+          ${status.target !== null && status.target >= 0 && status.progress !== null && (status.state === 'syncing' || status.ready) ? html`<progress aria-label="Chain sync progress" max="100" value=${status.progress}></progress>` : ''}
           ${status.error ? html`<p class="error" role="alert">${status.error}</p>` : ''}
           <dl>
-            <div><dt>Local block</dt><dd>${status.local}</dd></div>
-            <div><dt>Target block</dt><dd>${status.target || 'Not known'}</dd></div>
+            <div><dt>Local block</dt><dd>${status.local ?? '—'}</dd></div>
+            <div><dt>Observed target</dt><dd>${status.target === null || status.target < 0 ? 'Not known' : status.target}</dd></div>
             <div><dt>Blocks resolved</dt><dd>${status.resolved}</dd></div>
             <div><dt>Blocks loaded</dt><dd>${status.loaded}</dd></div>
           </dl>
+          <p class="muted">Local sync is not transaction finality. Resolved and loaded counts cover this tab's session.</p>
         </section>
         <section class="card"><h2>Connected nodes</h2>
-          ${status.peers.length ? html`<ul>${status.peers.map((id) => html`<li>${id}</li>`)}</ul>` : html`<p class="muted">No connected peers.</p>`}
+          ${status.peers.length ? html`<ul>${status.peerDetails.map(peer => html`<li class="peer"><span>${peer.id}</span><small>${peer.version ? `Protocol ${peer.version} · ${peer.compatible ? 'Compatible' : 'Incompatible'}` : 'Awaiting protocol version'}</small></li>`)}</ul>` : html`<p class="muted">No connected peers. The list updates as this node discovers the network.</p>`}
           <span class="muted">Version @version · Build @build</span>
         </section>
       </div>

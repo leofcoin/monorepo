@@ -6,6 +6,8 @@ import { PROTOCOL_VERSION, REACHED_ONE_ZERO_ZERO } from './constants.js'
 export class VersionControl extends State {
   constructor(config) {
     super(config)
+    // Startup recovery validates historical blocks before init() returns.
+    this.version = PROTOCOL_VERSION
   }
   #currentVersion: string = PROTOCOL_VERSION
 

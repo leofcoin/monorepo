@@ -1,6 +1,6 @@
 import { BlockMessage } from '@leofcoin/messages'
 
-import EasyWorker from '@vandeurenglenn/easy-worker'
+import EasyWorker from './binary-worker.js'
 
 const worker = new EasyWorker()
 

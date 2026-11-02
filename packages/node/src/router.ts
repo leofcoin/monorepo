@@ -1,4 +1,3 @@
-import { BlockMessage } from '@leofcoin/messages'
 import type AppShell from './shell.js'
 
 // minimal needed interface to support routing & subrouting
@@ -79,31 +78,6 @@ export default class Router {
         await previousRoute.select(route)
         previousRoute = previousRoute.pages?.querySelector('.custom-selected')
 
-        if (previousRoute?.tagName.startsWith('EXPLORER-') && (route === 'blocks' || route === 'transactions')) {
-          const task = async () => {
-            const blocks = await Promise.all(
-              (
-                await client.blocks(-25)
-              ).map(async (block) => {
-                const message = new BlockMessage(block)
-                await message.decode()
-                console.log(message.decoded)
-                console.log(await message.hash())
-
-                return {
-                  hash: await message.hash(),
-                  ...message.decoded
-                }
-              })
-            )
-            this.#host.blocks = blocks.sort((a, b) => Number(b.index - a.index))
-          }
-          if (pubsub.subscribers?.['chain:ready']?.value) {
-            await task()
-          } else {
-            pubsub.subscribe('node:ready', task)
-          }
-        }
       }
 
       for (const param in params) {

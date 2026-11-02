@@ -1,3 +1,10 @@
+# Binary RPC migration
+
+Protocol 0.5.0 uses `application/octet-stream` HTTP and binary-only WebSocket
+frames. JSON bodies/query parameters and text socket frames are unsupported.
+Use the matching `@leofcoin/endpoint-clients@0.4` rather than `response.json()`.
+See [wire format, rollout and upstream release gates](../../docs/binary-wire-protocol.md).
+
 # endpoints
  
 ```js
@@ -8,11 +15,40 @@ http(chain, port, networkVersion)
 wss(chain, port, networkVersion)
 ```
 
+## Generic contract reads
+
+POST /staticCall accepts a binary map containing `contract`, `method` and an
+array `params` (default `[]`). Native BigInts and byte arrays retain their types;
+there is no JSON boxing or revival. Use the matching HTTP/WebSocket clients.
+Malformed parameters return HTTP 400; rejected read-only queries return HTTP 422.
+All reads delegate to the chain's isolated `staticCall` path.
+
+## Public read-only explorer
+
+Deploy/restart the updated endpoints build before enabling anonymous browser
+exploration. These binary POST routes never access wallets, select accounts, sign,
+submit transactions or fetch missing content from peers. Responses carry
+`apiVersion: 1` and `chainId`. Except status, queries must include the expected
+`chainId`; a changed chain returns HTTP 409. Non-POST requests return HTTP 405.
+
+| Route | Binary fields | Result |
+| --- | --- | --- |
+| `/explorer/status` | none | Genesis identity, source tip, connected peer IDs, sync state |
+| `/explorer/blocks` | `from`, `count` (1–25), `chainId` | Applied block snapshot, zero-based indexes |
+| `/explorer/block` | `hash`, `chainId` | Hash-checked local content as Uint8Array, maximum 1 MiB |
+| `/explorer/transaction` | `hash`, `chainId` | Hash-checked local transaction/pool content as Uint8Array |
+| `/explorer/pool` | `chainId` | Up to 101 pool hashes; clients display at most 100 |
+| `/explorer/overview` | `chainId` | Public counters, registry, top-five holder balances and shares |
+
+Reads time out after 10 seconds. A local content miss returns HTTP 404 rather
+than a proxy fetch. Source sync/membership is not a proof of network finality.
+No explorer write action is exposed; all application API responses use binary encoding.
+
 ## Chain Manager HTTP API
 
-`POST /manager/rpc` accepts `application/json` (maximum 1 MiB). Requests must
+`POST /manager/rpc` accepts `application/octet-stream` (maximum 1 MiB). Requests must
 include the full expected `chainId`; the node verifies its own genesis identity
-and returns HTTP 409 on a mismatch. Existing endpoints remain unchanged.
+and returns HTTP 409 on a mismatch. All application API responses use binary encoding.
 This API never unlocks a node wallet, selects remote accounts or signs messages.
 Deploy/restart an updated endpoints package before connecting Chain Manager.
 
@@ -21,7 +57,7 @@ Actions:
 | Action | Additional fields | Result |
 | --- | --- | --- |
 | `status` | optional public `account` | API version, chain identity, sync, peer count, height, contract hashes, account balance in integer units and latest nonce |
-| `read` | `contract`, `method`, JSON array `params` | `{ value }`, using the existing bigint JSON codec |
+| `read` | `contract`, `method`, array `params` | `{ value }`, with native BigInt/byte fields |
 | `submit` | signed `transaction`, optional encoded `contract` | transaction hash and explicit status |
 | `receipt` | transaction `hash` | durable status, canonical inclusion (`blockHeight`, `blockHash`) and scan progress (`scannedHeight`) when observed, or `unknown` |
 

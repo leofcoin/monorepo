@@ -1,5 +1,5 @@
 import proto from '../protos/block.proto.js'
-import { FormatInterface } from '@leofcoin/codec-format-interface'
+import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
 import { encodeFrames, decodeFrames } from '@leofcoin/binary'
@@ -49,9 +49,8 @@ export default class BlockMessage extends FormatInterface {
     encoded = encoded || this.encoded
     super.decode(encoded)
     // @ts-ignore
-    // Preserve historical acceptance of padded length prefixes. Tightening
-    // canonical protocol validation is a separate, versioned decision.
-    this.decoded.validators = decodeFrames(this.decoded.validators as Uint8Array, 0, { canonical: false }).map(
+    // Binary-only protocol also requires canonical validator frame lengths.
+    this.decoded.validators = decodeFrames(this.decoded.validators as Uint8Array).map(
       (validator) => new ValidatorMessage(validator).decoded
     )
     return this.decoded

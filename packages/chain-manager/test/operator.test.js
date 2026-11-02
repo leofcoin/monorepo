@@ -1,3 +1,5 @@
+import { binaryResponse } from '../../../test/helpers/binary-http.js'
+import { decodeWire } from '@leofcoin/binary'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { OperatorController, endpointURL, parameters } from '../dist/operator.js'
@@ -36,17 +38,17 @@ async function fixture(t, { createWallet = true, testnet = true } = {}) {
   let receiptStatus = 'pending'
   const fetchImplementation = async (input, options) => {
     const url = String(input)
-    if (url.endsWith('/chainIdentity')) return Response.json(chainIdentity)
-    const body = JSON.parse(options.body)
+    if (url.endsWith('/chainIdentity')) return binaryResponse(chainIdentity)
+    const body = decodeWire('rpc', options.body)
     requests.push(body)
     assert.equal(body.chainId, chainIdentity.chainId)
     assert.equal(options.credentials, 'omit')
-    if (body.action === 'status') return Response.json({
+    if (body.action === 'status') return binaryResponse({
       apiVersion: 1, chainId: chainIdentity.chainId, network: chainIdentity.network, height: '12',
       nativeToken: chainIdentity.genesisContracts.nativeToken, contractFactory: chainIdentity.genesisContracts.contractFactory,
       synced, peers: 2, balance, nonce
     })
-    if (body.action === 'read') return Response.json({ value: ({
+    if (body.action === 'read') return binaryResponse({ value: ({
       tokenAmountToReceive: '1000000000000000000000',
       tokenToReceive: identity.genesisContracts.nativeToken,
       allowance: '1000000000000000000000', decimals: 18, hasRole: mintRole
@@ -55,9 +57,9 @@ async function fixture(t, { createWallet = true, testnet = true } = {}) {
       const verifier = new MultiWallet('leofcoin:peach')
       await verifier.fromAddress(body.transaction.from, null, 'leofcoin:peach')
       assert.equal(await verifier.verify(base58.decode(body.transaction.signature), await createTransactionHash(body.transaction)), true)
-      return Response.json({ hash: await new TransactionMessage(body.transaction).hash(), status: receiptStatus })
+      return binaryResponse({ hash: await new TransactionMessage(body.transaction).hash(), status: receiptStatus })
     }
-    if (body.action === 'receipt') return Response.json({ hash: body.hash, status: receiptStatus })
+    if (body.action === 'receipt') return binaryResponse({ hash: body.hash, status: receiptStatus })
     throw new Error('Unexpected management action')
   }
   const mock = t.mock.method(globalThis, 'fetch', fetchImplementation)
@@ -134,7 +136,7 @@ test('submission writes history before network and never auto-retries ambiguous 
   const original = mock.mock.calls.at(-1)
   assert.ok(original)
   mock.mock.mockImplementation(async (url, options) => {
-    if (String(url).endsWith('/manager/rpc') && JSON.parse(options.body).action === 'submit') {
+    if (String(url).endsWith('/manager/rpc') && decodeWire('rpc', options.body).action === 'submit') {
       assert.equal(JSON.parse(storage.getItem('leofcoin:manager:activity:v1'))[0].status, 'submitting')
       throw new Error('Connection lost after admission')
     }
@@ -350,9 +352,9 @@ test('saved faucet setup is chain-bound, validates restored data and never advan
   const { controller, storage, setReceipt, requests, mock, fetchImplementation } = await fixture(t)
   await controller.configureFaucet('1', 60000, '100', '10')
   mock.mock.mockImplementation(async (input, options) => {
-    const body = options?.body ? JSON.parse(options.body) : {}
+    const body = options?.body ? decodeWire('rpc', options.body) : {}
     if (body.action === 'read' && body.method === 'tokenToReceive')
-      return Response.json({ value: 'E'.repeat(52) })
+      return binaryResponse({ value: 'E'.repeat(52) })
     return fetchImplementation(input, options)
   })
   await assert.rejects(controller.prepareFaucetStep(), /unsupported registration token/)

@@ -1,10 +1,9 @@
-import { SocketRequestClient } from 'socket-request-client'
-import ClientConnection from 'socket-request-client/connection'
+import BinarySocketClient from './binary-socket.js'
 
 export default class Client {
   url: string
   networkVersion: string
-  client!: ClientConnection
+  client!: BinarySocketClient
 
   constructor(url = 'ws://localhost:4040', networkVersion = 'leofcoin-peach') {
     this.url = url
@@ -12,8 +11,7 @@ export default class Client {
   }
 
   async init() {
-    const client = new SocketRequestClient(this.url, this.networkVersion)
-    this.client = (await client.init()) as ClientConnection
+    this.client = await new BinarySocketClient(this.url, this.networkVersion).init()
   }
 
   get pubsub() {
@@ -79,8 +77,19 @@ export default class Client {
     return this.request('lookup', { name })
   }
 
-  staticCall(contract: string, method: string, params: {}) {
-    return this.request('staticCall', { contract, method, params })
+  async staticCall(contract: string, method: string, params: any[] = []) {
+    if (!Array.isArray(params)) throw new Error('staticCall params must be an array')
+    try {
+      const value = await this.request('staticCall', {
+        contract, method, params
+      })
+      if (value?.error) throw new Error(value.error)
+      return value ?? null
+    } catch (error) {
+      if (error instanceof Error) throw error
+      const message = error && typeof error === 'object' && 'error' in error ? error.error : undefined
+      throw new Error(typeof error === 'string' ? error : typeof message === 'string' ? message : 'Read-only RPC query failed')
+    }
   }
 
   contracts(): Promise<number> {

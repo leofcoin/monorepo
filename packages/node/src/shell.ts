@@ -15,6 +15,7 @@ import './elements/leofcoin-mark.js'
 import { chainNameForId } from './chain-names.js'
 import { getSelectedNetwork, setSelectedNetwork, SUPPORTED_NETWORKS } from './network-selection.js'
 import { nodeActivity } from './controllers/node-activity.js'
+import { blockHeight, nodeStatus } from './controllers/node-status.js'
 import type { NodeStatus } from './views/stats.js'
 import '@vandeurenglenn/lite-elements/icon-set.js'
 import '@vandeurenglenn/lite-elements/icon.js'
@@ -31,17 +32,17 @@ import { LiteElement, property, query, css, html, customElement } from '@vandeur
 import { NotificationController } from './notification/controller.js'
 
 const navigation = [
-  { route: 'wallet', label: 'Wallet', icon: 'wallet' },
-  { route: 'address-book', label: 'Address book', icon: 'contacts' },
-  { route: 'identity', label: 'Identity', icon: 'account_circle' },
-  { route: 'explorer', label: 'Explorer', icon: 'travel_explore' },
-  { route: 'validator', label: 'Validator', icon: 'gavel' },
-  { route: 'editor', label: 'Contracts', icon: 'edit_note' },
-  { route: 'chat', label: 'Chat', icon: 'chat' },
-  { route: 'stats', label: 'Node activity', icon: 'analytics' },
-  { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop' }
+  { route: 'wallet', label: 'Wallet', icon: 'wallet', group: 'Your wallet' },
+  { route: 'address-book', label: 'Address book', icon: 'contacts', group: 'Your wallet' },
+  { route: 'identity', label: 'Identity', icon: 'account_circle', group: 'Your wallet' },
+  { route: 'explorer', label: 'Explorer', icon: 'travel_explore', group: 'Network' },
+  { route: 'validator', label: 'Validator', icon: 'gavel', group: 'Network' },
+  { route: 'stats', label: 'Node activity', icon: 'analytics', group: 'Network' },
+  { route: 'editor', label: 'Contracts', icon: 'edit_note', group: 'Tools & community' },
+  { route: 'chat', label: 'Chat', icon: 'chat', group: 'Tools & community' },
+  { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop', group: 'Tools & community' }
 ]
-const walletRoutes = ['wallet', 'identity', 'chat', 'validator', 'faucet', 'explorer']
+const walletRoutes = ['wallet', 'identity', 'chat', 'validator', 'faucet']
 
 interface SyncProgress {
   phase: 'syncing' | 'synced'
@@ -68,6 +69,8 @@ interface ExportScreenElement extends HTMLElement {
 
 interface SyncInfoElement extends HTMLElement {
   open: boolean
+  nodeStatus: NodeStatus
+  chainId: string
 }
 
 globalThis.pubsub = globalThis.pubsub || new Pubsub(true)
@@ -81,7 +84,7 @@ class AppShell extends LiteElement {
   @property({ provides: true }) accessor blocks
 
   @property({ type: Number, provides: true })
-  accessor lastBlockIndex = 0
+  accessor lastBlockIndex: number | null = null
 
   @property({ type: Number, provides: true })
   accessor totalResolved = 0
@@ -95,6 +98,8 @@ class AppShell extends LiteElement {
   @property({ type: Boolean, provides: true })
   accessor nodeStarted = false
   @property({ type: Number }) accessor connectedPeers = 0
+  @property({ type: Number }) accessor compatiblePeers = 0
+  @property({ type: String }) accessor statusLabel = 'Wallet locked'
 
   @property({ type: String, provides: true })
   accessor nodeStartError = ''
@@ -105,6 +110,8 @@ class AppShell extends LiteElement {
   @property({ type: String })
   accessor selectedNetworkKey = getSelectedNetwork().key
   #networkTimer: ReturnType<typeof setInterval>
+  #subscriptions: Array<() => void> = []
+  #tipRequest: object | undefined
   #chainIdentityRequest = false
   #chainIdentitySource: unknown
   #loginRequested = false
@@ -120,7 +127,7 @@ class AppShell extends LiteElement {
   accessor syncStartIndex = 0
 
   @property({ type: Number, provides: true })
-  accessor syncTargetIndex = 0
+  accessor syncTargetIndex: number | null = null
 
   @property({ type: Boolean, reflect: true })
   accessor navRailShown = false
@@ -175,34 +182,51 @@ class AppShell extends LiteElement {
   }
 
   get syncPercent() {
-    const total = this.syncTargetIndex - this.syncStartIndex
-    if (total <= 0) return this.isNodeReady ? 100 : 0
-    const completed = this.lastBlockIndex - this.syncStartIndex
-    return Math.max(0, Math.min(100, Math.round((completed / total) * 100)))
+    return this.nodeStatus.progress
   }
 
   get syncLabel() {
-    if (this.nodeStartError) return 'Node unavailable'
-    if (!this.nodeStarted) return 'Wallet locked'
-    if (!this.connectedPeers) return 'Waiting for peers'
-    if (this.isNodeReady) return 'Node synced'
-    if (!this.syncTargetIndex) return 'Connecting...'
-    return `Syncing ${this.syncPercent}%`
+    return this.statusLabel
   }
 
-  #nodeReady = new Promise((resolve) => {
-    pubsub.subscribe('node:ready', () => {
+  get nodeStatus(): NodeStatus {
+    return nodeStatus({ started: this.nodeStarted, error: this.nodeStartError,
+      sync: globalThis.chain?.state?.sync, local: this.lastBlockIndex,
+      target: this.syncTargetIndex, start: this.syncStartIndex,
+      connections: globalThis.peernet?.connections || {}, version: globalThis.chain?.version,
+      resolved: this.totalResolved, loaded: this.totalLoaded })
+  }
+
+  #resolveNodeReady: (value: boolean) => void
+  #nodeReady = new Promise<boolean>((resolve) => { this.#resolveNodeReady = resolve })
+
+  #refreshCanonicalTip() {
+    const chain = globalThis.chain
+    if (!chain || !this.nodeStarted || chain.state?.chain !== 'loaded' || this.#tipRequest) return
+    const request = this.#tipRequest = {}
+    // Read the decoded canonical tip. The lastBlock event itself contains encoded bytes.
+    Promise.resolve().then(() => chain.lastBlock).then(block => {
+      if (!this.isConnected || globalThis.chain !== chain) return
+      this.lastBlockIndex = blockHeight(block?.index)
       this.#refreshNodeStatus()
-      resolve(true)
-    })
-  })
+    }, () => {
+      if (this.isConnected && globalThis.chain === chain) {
+        this.lastBlockIndex = null
+        this.#refreshNodeStatus()
+      }
+    }).finally(() => { if (this.#tipRequest === request) this.#tipRequest = undefined })
+  }
 
   #refreshNodeStatus() {
     nodeActivity.refreshPeers(globalThis.peernet)
-    this.connectedPeers = Object.values(globalThis.peernet?.connections || {})
-      .filter((peer: { connected?: boolean }) => peer.connected).length
-    this.isNodeReady = Boolean(this.connectedPeers && globalThis.chain?.state?.sync === 'synced')
+    const status = this.nodeStatus
+    this.connectedPeers = status.peers.length
+    this.compatiblePeers = status.compatible
+    this.statusLabel = status.label
+    this.isNodeReady = status.ready
     this.#applyViewData('stats')
+    const sync = this.#screenHistory.get('sync-info') as SyncInfoElement | undefined
+    if (sync) { sync.nodeStatus = status; sync.chainId = this.chainId }
   }
 
   get notificationController() {
@@ -351,6 +375,7 @@ class AppShell extends LiteElement {
   }
 
   #toggleSyncInfo() {
+    this.notifications.open = false
     this.syncInfoOpen = !this.syncInfoOpen
     const syncInfo = this.#screenHistory.get('sync-info') as SyncInfoElement | undefined
     if (syncInfo) syncInfo.open = this.syncInfoOpen
@@ -358,6 +383,7 @@ class AppShell extends LiteElement {
       const screen = this.screenWithOrWithoutHistory('sync-info') as SyncInfoElement
       screen.open = true
     }
+    this.#refreshNodeStatus()
   }
 
   async requestWalletPassword(): Promise<string> {
@@ -387,19 +413,7 @@ class AppShell extends LiteElement {
       page.wallet = this.wallet
     }
     if (view === 'address-book' || view === 'faucet') page.wallet = this.wallet
-    if (view === 'stats') page.nodeStatus = {
-      label: this.syncLabel,
-      ready: this.isNodeReady,
-      started: this.nodeStarted,
-      error: this.nodeStartError,
-      progress: this.syncPercent,
-      local: this.lastBlockIndex,
-      target: this.syncTargetIndex,
-      resolved: this.totalResolved,
-      loaded: this.totalLoaded,
-      peers: Object.entries(globalThis.peernet?.connections || {})
-        .filter(([, peer]: [string, { connected?: boolean }]) => peer.connected).map(([id]) => id)
-    }
+    if (view === 'stats') page.nodeStatus = this.nodeStatus
   }
 
   async #select(selected: string) {
@@ -464,6 +478,11 @@ class AppShell extends LiteElement {
     }
   }
 
+  #openNetworkFromDrawer = async () => {
+    if (!this.isDesktop) await this.#setDrawer(false)
+    this.#toggleSyncInfo()
+  }
+
   #drawerKeydown = (event: KeyboardEvent) => {
     if (this.isDesktop || !this.drawerOpen) return
     if (event.key === 'Escape') {
@@ -488,33 +507,61 @@ class AppShell extends LiteElement {
   async connectedCallback() {
     super.connectedCallback()
     nodeActivity.start()
-    pubsub.subscribe('peer:connected', this.#observePeers)
-    pubsub.subscribe('peer:left', this.#observePeers)
+    const subscribe = (event: string, handler: (...args: any[]) => void, replay = true) => {
+      let subscribing = true
+      const listener = (...args: any[]) => { if (replay || !subscribing) handler(...args) }
+      pubsub.subscribe(event, listener)
+      subscribing = false
+      this.#subscriptions.push(() => pubsub.unsubscribe(event, listener, { keepValue: true }))
+    }
+    subscribe('peer:connected', this.#observePeers)
+    subscribe('peer:left', this.#observePeers)
     this.router = new Router(this, 'wallet')
     this.#media = window.matchMedia('(min-width: 960px)')
     this.#matchMedia(this.#media)
     this.#media.addEventListener('change', this.#matchMedia)
 
-    pubsub.subscribe('lastBlock', (block) => (this.lastBlockIndex = block.index))
-    pubsub.subscribe('node:starting', () => {
+    subscribe('lastBlock', () => this.#refreshCanonicalTip())
+    subscribe('node:starting', () => {
       this.nodeStarted = true
       this.nodeStartError = ''
+      this.lastBlockIndex = null
+      this.syncTargetIndex = null
+      this.#refreshNodeStatus()
     })
-    pubsub.subscribe('node:start-error', (message) => (this.nodeStartError = message))
-    pubsub.subscribe('sync-progress', ({ startIndex, localIndex, targetIndex }: SyncProgress) => {
-      this.syncStartIndex = startIndex
-      this.lastBlockIndex = localIndex
-      this.syncTargetIndex = targetIndex
+    subscribe('node:start-error', (message) => {
+      this.nodeStartError = String(message)
+      this.#refreshNodeStatus()
+    })
+    subscribe('node:ready', () => {
+      this.nodeStarted = true
+      this.nodeStartError = ''
+      this.#refreshCanonicalTip()
+      this.#refreshNodeStatus()
+      this.#resolveNodeReady(true)
+    })
+    subscribe('sync-progress', ({ startIndex, localIndex, targetIndex }: SyncProgress) => {
+      this.syncStartIndex = blockHeight(startIndex) ?? -1
+      this.lastBlockIndex = blockHeight(localIndex)
+      this.syncTargetIndex = blockHeight(targetIndex)
+      this.#refreshNodeStatus()
     })
     // todo check if our address is in the block
-    pubsub.subscribe('block-resolved', (block) => (this.totalResolved += 1))
-    pubsub.subscribe('block-loaded', (block) => {
+    subscribe('block-resolved', () => { this.totalResolved += 1; this.#refreshNodeStatus() }, false)
+    subscribe('block-loaded', (block) => {
+      const height = blockHeight(block?.index)
+      // The worker also emits a string when it loads a block's transactions.
+      // Only a decoded canonical block counts as an applied block here.
+      if (height === null) return
       this.totalLoaded += 1
-      this.lastBlockIndex = Number(block.index)
-    })
+      this.lastBlockIndex = height
+      this.#refreshNodeStatus()
+    }, false)
     this.#refreshNodeStatus()
+    this.#refreshCanonicalTip()
     this.#networkTimer = setInterval(() => {
       this.#refreshNodeStatus()
+      this.#refreshCanonicalTip()
       void this.#refreshChainIdentity()
     }, 3000)
     void this.#refreshChainIdentity()
@@ -529,8 +576,7 @@ class AppShell extends LiteElement {
     super.disconnectedCallback()
     clearInterval(this.#networkTimer)
     nodeActivity.stop()
-    pubsub.unsubscribe('peer:connected', this.#observePeers)
-    pubsub.unsubscribe('peer:left', this.#observePeers)
+    for (const unsubscribe of this.#subscriptions.splice(0)) unsubscribe()
     this.#media?.removeEventListener('change', this.#matchMedia)
   }
 
@@ -787,6 +833,11 @@ class AppShell extends LiteElement {
           inset 0 1px rgb(255 255 255 / 8%),
           0 4px 16px rgb(0 0 0 / 10%);
       }
+      .primary-nav a { position: relative; border-radius: 12px; }
+      .primary-nav a[aria-current='page']::before {
+        content: ''; position: absolute; left: -11px; height: 20px; width: 3px;
+        border-radius: 0 3px 3px 0; background: var(--md-sys-color-primary, #9fc4ff);
+      }
 
       .nav-label {
         overflow: hidden;
@@ -813,6 +864,15 @@ class AppShell extends LiteElement {
         overflow-wrap: anywhere;
         font-size: 11px;
       }
+      .network-card { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px; border-radius: 14px; border: 1px solid var(--lfc-glass-border); background: var(--md-sys-color-surface-container-low, #1d1b20); }
+      .network-card:hover { background: var(--md-sys-color-surface-container-high, #302d32); }
+      .network-card .network-copy { display: grid; gap: 2px; flex: 1; min-width: 0; }
+      .network-card strong, .network-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .network-card small { font-size: 10px; color: var(--md-sys-color-on-surface-variant); }
+      .network-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-sys-color-outline, #888); flex-shrink: 0; }
+      .network-dot[data-state='ready'] { background: #80d6a5; box-shadow: 0 0 0 4px #80d6a512; }
+      .network-dot[data-state='error'] { background: var(--md-sys-color-error, #ffb4ab); }
+      .extra-nav-rail > p { font-size: 10px; text-align: center; }
 
       .sync-status-pill {
         display: flex;
@@ -1105,10 +1165,9 @@ class AppShell extends LiteElement {
             </button>
           </div>
           <nav class="primary-nav" aria-label="Workspace">
-            <span class="nav-section">Workspace</span>
             ${navigation.filter(item => item.route !== 'faucet' || getSelectedNetwork().key === 'peach').map(
-              ({ route, label, icon }, index) => html`
-                ${index === 5 ? html`<span class="nav-section">Tools & community</span>` : ''}
+              ({ route, label, icon, group }, index, items) => html`
+                ${index === 0 || items[index - 1].group !== group ? html`<span class="nav-section">${group}</span>` : ''}
                 <a
                   href=${`#!/${route}`}
                   data-route=${route}
@@ -1124,7 +1183,11 @@ class AppShell extends LiteElement {
           </nav>
 
           <flex-column class="extra-nav-rail">
-            <strong>${this.chainName}</strong>
+            <button class="network-card" aria-label="Open network and sync details" aria-haspopup="dialog" @click=${this.#openNetworkFromDrawer}>
+              <span class="network-dot" data-state=${this.nodeStartError ? 'error' : this.isNodeReady ? 'ready' : 'waiting'} aria-hidden="true"></span>
+              <span class="network-copy"><strong>${this.chainName}</strong><small>${this.syncLabel}</small><small>${this.compatiblePeers} compatible · ${this.connectedPeers} connected</small></span>
+              <span aria-hidden="true">↗</span>
+            </button>
             ${getSelectedNetwork().key === 'peach'
               ? html`<p>Test tokens only · No monetary value</p>`
               : ''}
@@ -1145,7 +1208,7 @@ class AppShell extends LiteElement {
               <span class="page-title"
                 >${navigation.find((item) => item.route === this.currentRoute)?.label || 'Node console'}</span
               >
-              <span class="page-subtitle">Your browser. Your node.</span>
+              <span class="page-subtitle">${this.chainName} · Browser node</span>
             </span>
             <button
               class="icon-button notification-toggle"
@@ -1153,6 +1216,9 @@ class AppShell extends LiteElement {
               aria-haspopup="dialog"
               aria-expanded=${String(this.notificationsOpen)}
               @click=${() => {
+                this.#closeSyncInfo()
+                const sync = this.#screenHistory.get('sync-info') as SyncInfoElement | undefined
+                if (sync) sync.open = false
                 this.notifications.open = !this.notifications.open
               }}>
               <custom-icon icon="notifications" aria-hidden="true"></custom-icon>
@@ -1193,7 +1259,7 @@ class AppShell extends LiteElement {
               <custom-icon icon="groups" aria-hidden="true"></custom-icon>
               ${this.connectedPeers} ${this.connectedPeers === 1 ? 'peer' : 'peers'}
             </span>
-            <span class="block-status" title="Latest local block">#${this.lastBlockIndex}</span>
+            <span class="block-status" title="Latest local block">${this.lastBlockIndex == null ? 'Block —' : `#${this.lastBlockIndex}`}</span>
           </footer>
 
       ${this.loginOpen || this.passwordPromptOpen

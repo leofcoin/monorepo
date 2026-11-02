@@ -1,5 +1,5 @@
 import proto from './../protos/transaction.proto.js'
-import { FormatInterface } from '@leofcoin/codec-format-interface'
+import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
 export default class TransactionMessage extends FormatInterface {

@@ -575,7 +575,7 @@ export class ExplorerDashboardCharts extends LiteElement {
   @property({ type: Number }) accessor peers: number
   @property({ type: Number }) accessor tps: number
   @property({ type: Number }) accessor totalValidators = 0
-  @property({ type: Number }) accessor onlineValidators = 0
+  @property({ type: Number }) accessor onlineValidators: number | undefined
   @property({ type: Object }) accessor native: Record<string, string> = {}
 
   @property({ type: Number }) accessor range = 24
@@ -763,6 +763,7 @@ export class ExplorerDashboardCharts extends LiteElement {
 
   #validatorsDonut() {
     const total = this.totalValidators || 0
+    if (this.onlineValidators === undefined) return html`<div class="empty"><strong>${total} registered</strong><p>Online status is not available from the registry.</p></div>`
     const online = Math.min(this.onlineValidators || 0, total)
     const radius = 48
     const circumference = 2 * Math.PI * radius
@@ -858,7 +859,7 @@ export class ExplorerDashboardCharts extends LiteElement {
       <div class="card kpi" style="--order:3">
         <span class="label">Network</span>
         <lfc-count-up class="value" .value=${this.peers ?? 0}></lfc-count-up>
-        <span class="hint">peers · ${this.tps ?? 0} tps</span>
+        <span class="hint">peers · ${this.tps === undefined ? 'throughput not measured' : `${this.tps} sampled tx/s`}</span>
       </div>
 
       <section class="card wide" style="--order:4">

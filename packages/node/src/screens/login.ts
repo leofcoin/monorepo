@@ -75,7 +75,9 @@ export class LoginScreen extends LiteElement {
     return this.shadowRoot.querySelector('custom-pages')
   }
 
-  _keydown({ key, code, keyCode, ctrlKey, altKey, shiftKey }) {
+  _keydown(event: KeyboardEvent) {
+    if (event.composedPath().some(element => (element as HTMLElement)?.classList?.contains('browse-explorer'))) return
+    const { key } = event
     if (key === 'Enter' && !this.busy) {
       this.shadowRoot.querySelector(`[data-route-action="${this.hasWallet ? 'login' : 'create'}"]`)?.click()
     }
@@ -554,6 +556,13 @@ export class LoginScreen extends LiteElement {
         color: var(--md-sys-color-error);
         font-size: 13px;
       }
+      .browse-explorer {
+        min-height: 44px; padding: 10px 16px; border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: 12px; background: transparent; color: var(--md-sys-color-primary);
+        font: inherit; font-size: 13px; cursor: pointer;
+      }
+      .browse-explorer:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 3px; }
+      .browse-explorer:disabled { opacity: .45; cursor: default; }
 
       custom-pages {
         width: 100%;
@@ -840,6 +849,10 @@ export class LoginScreen extends LiteElement {
           <flex-column data-route="login" center>
             <flex-it flex="2"></flex-it>
             ${this.hasWallet ? this.#hasWalletTemplate : this.#defaultTemplate}
+            <button class="browse-explorer" type="button" ?disabled=${this.busy}
+              @click=${() => { if (!this.busy) { this.#dismiss(); location.hash = '#!/explorer/blocks' } }}>
+              Browse explorer without unlocking
+            </button>
           </flex-column>
 
           <flex-column data-route="create">

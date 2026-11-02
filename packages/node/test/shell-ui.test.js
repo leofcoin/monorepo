@@ -124,15 +124,12 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.isDesktop`), true)
   assert.equal(await evaluate(`shell.shadowRoot.querySelectorAll('.primary-nav a').length`), 9)
-  assert.equal(await evaluate(`shell.shadowRoot.querySelector('.network-switcher select').value`), 'peach')
-  assert.deepEqual(await evaluate(`Array.from(shell.shadowRoot.querySelectorAll('.network-switcher option')).map(option => option.value)`), ['mainnet', 'peach'])
+  assert.equal(await evaluate(`shell.shadowRoot.querySelector('account-select').networkKey`), 'peach')
   await evaluate(`globalThis.originalConfirm = window.confirm;
     window.confirm = message => { window.networkSwitchPrompt = message; return false };
-    const networkSelect = shell.shadowRoot.querySelector('.network-switcher select');
-    networkSelect.value = 'mainnet';
-    networkSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    shell.shadowRoot.querySelector('account-select').dispatchEvent(new CustomEvent('network-change', { detail: { key: 'mainnet' }, bubbles: true, composed: true }));
     window.confirm = originalConfirm`)
-  assert.equal(await evaluate(`shell.shadowRoot.querySelector('.network-switcher select').value`), 'peach')
+  assert.equal(await evaluate(`shell.shadowRoot.querySelector('account-select').networkKey`), 'peach')
   assert.equal(await evaluate(`window.networkSwitchPrompt.includes('pending transactions')`), true)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('a[aria-current="page"]').dataset.route`), 'wallet')
   assert.equal(await evaluate(`!shell.shadowRoot.querySelector('login-screen')`), true)
@@ -143,15 +140,11 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   await evaluate(`shell.shadowRoot.querySelector('.sync-status-pill').click()`)
   await waitFor(`shell.shadowRoot.querySelector('sync-info')?.open`)
   await evaluate(`globalThis.cachedSyncInfo = shell.shadowRoot.querySelector('sync-info');
-    cachedSyncInfo.shadowRoot.querySelector('custom-pane').dispatchEvent(new CustomEvent(
-      'custom-pane-close', { detail: cachedSyncInfo.id, bubbles: true, composed: true }
-    ))`)
+    cachedSyncInfo.shadowRoot.querySelector('dialog').dispatchEvent(new Event('cancel', { cancelable: true }))`)
   await waitFor(`!shell.shadowRoot.querySelector('sync-info')`)
   await evaluate(`shell.shadowRoot.querySelector('.sync-status-pill').click()`)
   await waitFor(`shell.shadowRoot.querySelector('sync-info') === cachedSyncInfo && cachedSyncInfo.open`)
-  await evaluate(`cachedSyncInfo.shadowRoot.querySelector('custom-pane').dispatchEvent(new CustomEvent(
-    'custom-pane-close', { detail: cachedSyncInfo.id, bubbles: true, composed: true }
-  ))`)
+  await evaluate(`cachedSyncInfo.shadowRoot.querySelector('dialog').dispatchEvent(new Event('cancel', { cancelable: true }))`)
   await waitFor(`!shell.shadowRoot.querySelector('sync-info')`)
   await evaluate(`globalThis.fixtureWallet = shell.wallet;
     shell.wallet = undefined;
@@ -238,7 +231,7 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   await evaluate(`shell.shadowRoot.querySelector('.drawer-close').focus()`)
   await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', modifiers: 8 })
   await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', modifiers: 8 })
-  assert.equal(await evaluate(`shell.shadowRoot.activeElement.dataset.route`), 'stats')
+  assert.equal(await evaluate(`shell.shadowRoot.activeElement.classList.contains('network-card')`), true)
   await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
   await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
   await waitFor(`!shell.drawerOpen`)
@@ -256,10 +249,10 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   await waitFor(`!shell.drawerOpen`)
 
   await evaluate(`globalThis.account = shell.shadowRoot.querySelector('account-select');
-    account.shadowRoot.querySelector('.account-trigger').click()`)
+    account.shadowRoot.querySelector('.trigger').click()`)
   await waitFor(`account.selecting`)
-  assert.equal(await evaluate(`account.shadowRoot.querySelector('.accounts-container').getBoundingClientRect().right <= innerWidth`), true)
-  await evaluate(`account.shadowRoot.querySelector('.account-trigger').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
+  assert.equal(await evaluate(`account.shadowRoot.querySelector('.menu').getBoundingClientRect().right <= innerWidth`), true)
+  await evaluate(`account.shadowRoot.querySelector('.trigger').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`)
   await waitFor(`!account.selecting`)
 
   await evaluate(`globalThis.notices = shell.notificationController;
@@ -328,7 +321,7 @@ test('wallet-required views automatically open the unlock dialog and preserve de
   await evaluate(`globalThis.lockedFixtureWallet = shell.wallet; shell.wallet = undefined;
     globalThis.walletStore = { has: async () => true }; location.hash = '#!/stats'`)
   await waitFor(`shell.currentRoute === 'stats'`)
-  for (const route of ['wallet/send', 'identity/accounts', 'chat', 'validator', 'faucet', 'explorer/dashboard', 'explorer/blocks']) {
+  for (const route of ['wallet/send', 'identity/accounts', 'chat', 'validator', 'faucet']) {
     await evaluate(`location.hash = '#!/${route}'`)
     await waitFor(`shell.currentRoute === '${route.split('/')[0]}' && shell.shadowRoot.querySelector('login-screen')?.shown`)
     assert.equal(await evaluate(`shell.shadowRoot.querySelector('wallet-required') === null`), true)
@@ -684,6 +677,8 @@ test('explorer block details show encoded size, transactions, recovery and lates
   }
   const encoded = new BlockMessage(block).encode()
   const empty = new BlockMessage({ ...block, index: 0n, previousHash: '', transactions: [], validators: [] }).encode()
+  const blockHash = await new BlockMessage(encoded).hash()
+  const emptyHash = await new BlockMessage(empty).hash()
   const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
   await evaluate(`globalThis.blockBytes = new Uint8Array(${JSON.stringify([...encoded])});
     globalThis.emptyBlockBytes = new Uint8Array(${JSON.stringify([...empty])});
@@ -691,7 +686,7 @@ test('explorer block details show encoded size, transactions, recovery and lates
     await import('/explorer-block.js');
     globalThis.blockPage = document.createElement('explorer-block');
     shell.shadowRoot.querySelector('#main-content').replaceChildren(blockPage);
-    blockPage.selected = 'fixture-block'; undefined`)
+    blockPage.selected = ${JSON.stringify(blockHash)}; undefined`)
   await waitFor(`blockPage.block && blockPage.shadowRoot.querySelector('table')`)
   assert.equal(await evaluate(`blockPage.shadowRoot.querySelector('h1').textContent`), 'Block #594')
   assert.equal(await evaluate(`blockPage.size`), encoded.byteLength)
@@ -721,6 +716,8 @@ test('explorer block details show encoded size, transactions, recovery and lates
   await evaluate(`peernet.get = async () => { throw new Error('Peer unavailable') }; blockPage.selected = 'failed-block'`)
   await waitFor(`blockPage.error === 'Peer unavailable' && blockPage.shadowRoot.querySelector('[role="alert"]')`)
   assert.equal(await evaluate(`blockPage.shadowRoot.textContent.includes('Peer unavailable')`), true)
+  await evaluate(`peernet.get = async () => undefined; blockPage.selected = ${JSON.stringify(emptyHash)}`)
+  await waitFor(`blockPage.error === 'Block not found.'`)
   await evaluate(`peernet.get = async () => emptyBlockBytes;
     blockPage.shadowRoot.querySelector('[role="alert"] button').click()`)
   await waitFor(`blockPage.block && blockPage.shadowRoot.textContent.includes('No transactions')`)
@@ -729,7 +726,7 @@ test('explorer block details show encoded size, transactions, recovery and lates
   await evaluate(`peernet.get = hash => hash === 'slow' ? new Promise(resolve => { globalThis.resolveSlowBlock = resolve })
     : Promise.resolve(blockBytes); blockPage.selected = 'slow'`)
   await waitFor(`globalThis.resolveSlowBlock`)
-  await evaluate(`blockPage.selected = 'newer'`)
+  await evaluate(`blockPage.selected = ${JSON.stringify(blockHash)}`)
   await waitFor(`blockPage.block && blockPage.shadowRoot.querySelector('h1').textContent === 'Block #594'`)
   await evaluate(`resolveSlowBlock(emptyBlockBytes); new Promise(resolve => setTimeout(resolve, 50))`)
   assert.equal(await evaluate(`blockPage.shadowRoot.querySelector('h1').textContent`), 'Block #594')
@@ -746,7 +743,7 @@ test('node activity dashboard shows real observed traffic, filters and sync stat
   await evaluate(`globalThis.activity = shell.shadowRoot.querySelector('stats-view');
     globalThis.requestResult = Promise.resolve(new Uint8Array(7));
     globalThis.peernet = {
-      connections: { 'activity-peer': { id: 'activity-peer', connected: true, request: () => requestResult } },
+      connections: { 'activity-peer': { id: 'activity-peer', version: '0.4.0', connected: true, request: () => requestResult } },
       _protoHandler: message => message,
       sendMessage: () => Promise.resolve('id')
     }; undefined`)
@@ -775,7 +772,8 @@ test('node activity dashboard shows real observed traffic, filters and sync stat
   assert.equal(await evaluate(`activity.snapshot.totals.incoming`), count)
   await evaluate(`activity.shadowRoot.querySelectorAll('button')[0].click()`)
   await waitFor(`activity.snapshot.totals.incoming > ${count}`)
-  await evaluate(`pubsub.publish('sync-progress', { startIndex: 100, localIndex: 150, targetIndex: 200 });
+  await evaluate(`chain.lastBlock = Promise.resolve({ index: 150 });
+    pubsub.publish('sync-progress', { startIndex: 100, localIndex: 150, targetIndex: 200 });
     chain.state.sync = 'syncing'`)
   await waitFor(`activity.nodeStatus.progress === 50 && activity.nodeStatus.local === 150`)
   assert.equal(await evaluate(`activity.shadowRoot.querySelector('progress').value`), 50)
@@ -797,7 +795,7 @@ test('bottom status bar shows sync, peers and blocks across views and screen siz
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('.extra-nav-rail').textContent.includes('Chain ID')`), false)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('.extra-nav-rail code') === null`), true)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('.node-status-bar').textContent.includes('Node synced')`), true)
-  await evaluate(`shell.lastBlockIndex = 123; await shell.rendered`)
+  await evaluate(`chain.lastBlock = Promise.resolve({ index: 123 }); shell.lastBlockIndex = 123; await shell.rendered`)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('.block-status').textContent`), '#123')
   await evaluate(`shell.shadowRoot.querySelector('.node-status-bar button').click()`)
   await waitFor(`shell.shadowRoot.querySelector('sync-info')?.open`)
@@ -810,7 +808,7 @@ test('bottom status bar shows sync, peers and blocks across views and screen siz
   await evaluate(`shell.nodeStartError = 'Fixture node failed'; await shell.rendered`)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('.sync-status-pill').dataset.state`), 'error')
   await evaluate(`shell.nodeStartError = ''; shell.nodeStarted = false; await shell.rendered`)
-  assert.equal(await evaluate(`shell.syncLabel`), 'Wallet locked')
+  await waitFor(`shell.syncLabel === 'Wallet locked'`)
   await evaluate(`await shell.select('address-book')`)
   for (const width of [1280, 390, 320]) {
     await resize(width)

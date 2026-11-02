@@ -12,7 +12,7 @@ test('npm tarball includes built entry points and works outside the workspace', 
     const workspace = fileURLToPath(new URL('..', import.meta.url))
     const [packed] = JSON.parse(execFileSync('npm', [
       'pack', '--json', '--workspaces=false', '--pack-destination', directory
-    ], { cwd: workspace, encoding: 'utf8' }))
+    ], { cwd: workspace, encoding: 'utf8', env: { ...process.env, npm_config_cache: join(directory, 'cache') } }))
     const files = new Set(packed.files.map(({ path }) => path))
     for (const entry of ['exports/index.js', 'exports/index.d.ts', 'package.json'])
       assert.ok(files.has(entry), `Published tarball is missing ${entry}`)

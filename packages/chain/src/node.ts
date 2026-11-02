@@ -1,3 +1,4 @@
+import { installBinaryPeerProtocol } from './binary-peer-protocol.js'
 // import config from './config/config'
 import Peernet from '@leofcoin/peernet'
 import nodeConfig from '@leofcoin/lib/node-config'
@@ -15,6 +16,8 @@ export default class Node {
 
   async _init(config: NodeOptions = { autoStart: false }, password?: string) {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
+    const autoStart = config.autoStart
+    config = { ...config, autoStart: false }
     // Load the chain's supported native version before swarm starts discovery.
     // Swarm otherwise resolves its own older optional dependency.
     const backend = (config as any).transport?.webrtc?.backend ||
@@ -30,9 +33,14 @@ export default class Node {
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)
+    installBinaryPeerProtocol(this.#node)
     guardPeerMessages(this.#node)
     guardProviderDiscovery(this.#node)
     await nodeConfig(config)
+    if (autoStart) {
+      this.#node.autoStart = true
+      await this.#node.start()
+    }
 
     globalThis.pubsub.subscribe('chain:ready', async () => {
       // when autostart is false the node will only be started after the chain is ready (this is here so we can just use node for communication)

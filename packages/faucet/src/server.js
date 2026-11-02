@@ -1,3 +1,4 @@
+import { encodeWire, decodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 import { createServer } from 'node:http'
 import { isIP } from 'node:net'
 import { FaucetError } from './service.js'
@@ -7,8 +8,8 @@ export function faucetServer(faucet, { origins = [], trustProxy = false } = {}) 
   const clients = new Map()
   return createServer(async (request, response) => {
     const send = (status, value) => {
-      response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-      response.end(JSON.stringify(value))
+      response.writeHead(status, { 'Content-Type': BINARY_CONTENT_TYPE, 'Cache-Control': 'no-store' })
+      response.end(encodeWire('rpc', value))
     }
     try {
       const origin = request.headers.origin
@@ -46,18 +47,20 @@ export function faucetServer(faucet, { origins = [], trustProxy = false } = {}) 
         return
       }
       if (request.method !== 'POST' || path !== '/claims') throw new FaucetError(404, 'Not found')
-      if (!request.headers['content-type']?.startsWith('application/json'))
-        throw new FaucetError(415, 'Use application/json')
-      let body = ''
+      if (request.headers['content-type']?.split(';')[0] !== BINARY_CONTENT_TYPE)
+        throw new FaucetError(415, 'Use application/octet-stream')
+      const chunks = []
+      let size = 0
       for await (const chunk of request) {
-        body += chunk
-        if (Buffer.byteLength(body) > 2048) throw new FaucetError(413, 'Request too large')
+        size += chunk.length
+        if (size > 2048) throw new FaucetError(413, 'Request too large')
+        chunks.push(chunk)
       }
       let value
       try {
-        value = JSON.parse(body)
+        value = decodeWire('rpc', Buffer.concat(chunks), { maxBytes: 2048 })
       } catch {
-        throw new FaucetError(400, 'Invalid JSON')
+        throw new FaucetError(400, 'Invalid binary request')
       }
       if (!value || typeof value.address !== 'string' || value.address.length > 100)
         throw new FaucetError(400, 'Recipient address required')

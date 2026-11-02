@@ -1,7 +1,7 @@
 import { TransactionMessage } from '@leofcoin/messages'
 globalThis.contracts = {}
 
-import EasyWorker from '@vandeurenglenn/easy-worker'
+import EasyWorker from './binary-worker.js'
 
 const worker = new EasyWorker()
 

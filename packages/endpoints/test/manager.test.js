@@ -1,3 +1,5 @@
+import { fetchBinary as fetch } from '../../../test/helpers/binary-http.js'
+import { encodeWire } from '@leofcoin/binary'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import http from '../exports/http.js'
@@ -57,7 +59,7 @@ async function setup(t, overrides = {}) {
   t.after(() => { server.closeAllConnections(); server.close() })
   let url = `http://127.0.0.1:${server.address().port}/manager/rpc`
   const request = body => fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chainId: identity.chainId, ...body })
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: encodeWire('rpc', { chainId: identity.chainId, ...body })
   })
   const include = async hash => {
     const block = { index: Number((await chain.lastBlock).index) + 1, hash: `canonical-${blocks.size}`, transactions: [hash] }
@@ -80,7 +82,7 @@ test('management status is public and chain-pinned; old HTTP routes remain intac
   const { request, url } = await setup(t)
   const response = await request({ action: 'status', account: from })
   assert.equal(response.status, 200)
-  const status = await response.json()
+  const status = await response.binary()
   assert.equal(status.balance, '100000000000000000000')
   assert.equal(status.peers, 1)
   assert.equal(status.apiVersion, 1)
@@ -94,34 +96,34 @@ test('signed submissions are deduplicated and only canonical wait resolves confi
   const { request, calls, resolve, include } = await setup(t)
   const response = await request({ action: 'submit', transaction: signed })
   assert.equal(response.status, 200)
-  const receipt = await response.json()
+  const receipt = await response.binary()
   assert.equal(receipt.status, 'pending')
-  assert.deepEqual(await (await request({ action: 'submit', transaction: signed })).json(), receipt)
+  assert.deepEqual(await (await request({ action: 'submit', transaction: signed })).binary(), receipt)
   assert.equal(calls.length, 1)
-  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).json()).status, 'pending')
+  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).binary()).status, 'pending')
   await include(receipt.hash)
   resolve(receipt.hash)
   await new Promise(resolve => setImmediate(resolve))
-  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).json()).status, 'confirmed')
+  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).binary()).status, 'confirmed')
 })
 
 test('restart restores admission and proves confirmation from canonical blocks without rebroadcast', async t => {
   const { request, calls, restart, include, chain } = await setup(t)
-  const receipt = await (await request({ action: 'submit', transaction: signed })).json()
+  const receipt = await (await request({ action: 'submit', transaction: signed })).binary()
   await restart()
-  const unresolved = await (await request({ action: 'receipt', hash: receipt.hash })).json()
+  const unresolved = await (await request({ action: 'receipt', hash: receipt.hash })).binary()
   assert.equal(unresolved.status, 'unknown')
   assert.match(unresolved.error, /do not resend/)
-  assert.equal((await (await request({ action: 'submit', transaction: signed })).json()).status, 'unknown')
+  assert.equal((await (await request({ action: 'submit', transaction: signed })).binary()).status, 'unknown')
   assert.equal(calls.length, 1)
   await include(receipt.hash)
   chain.lastBlock = Promise.resolve(chain.lastBlock)
-  const confirmed = await (await request({ action: 'receipt', hash: receipt.hash })).json()
+  const confirmed = await (await request({ action: 'receipt', hash: receipt.hash })).binary()
   assert.equal(confirmed.status, 'confirmed')
   assert.equal(confirmed.blockHeight, 2)
   assert.equal(calls.length, 1)
   await restart()
-  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).json()).status, 'confirmed')
+  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).binary()).status, 'confirmed')
 })
 
 test('durable reservation failure blocks admission; crash-window reservations prevent resend', async t => {
@@ -136,28 +138,28 @@ test('durable reservation failure blocks admission; crash-window reservations pr
     { hash, status: 'submitting', createdAt: Date.now(), startHeight: 1 }
   ])))
   await restart()
-  assert.equal((await (await request({ action: 'submit', transaction: signed })).json()).status, 'submitting')
+  assert.equal((await (await request({ action: 'submit', transaction: signed })).binary()).status, 'submitting')
   assert.equal(calls.length, 0)
-  assert.equal((await (await request({ action: 'receipt', hash })).json()).status, 'unknown')
+  assert.equal((await (await request({ action: 'receipt', hash })).binary()).status, 'unknown')
 })
 
 test('reconciliation is bounded, persists progress and rechecks canonical inclusion after a fork', async t => {
   const { request, restart, blocks, chain } = await setup(t)
-  const receipt = await (await request({ action: 'submit', transaction: signed })).json()
+  const receipt = await (await request({ action: 'submit', transaction: signed })).binary()
   for (let index = 2; index <= 300; index++) blocks.set(index, {
     index, hash: `block-${index}`, transactions: index === 290 ? [receipt.hash] : []
   })
   chain.lastBlock = blocks.get(300)
   await restart()
-  const first = await (await request({ action: 'receipt', hash: receipt.hash })).json()
+  const first = await (await request({ action: 'receipt', hash: receipt.hash })).binary()
   assert.equal(first.status, 'unknown')
   assert.equal(first.scannedHeight, 128)
   await restart()
-  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).json()).scannedHeight, 256)
-  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).json()).blockHeight, 290)
+  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).binary()).scannedHeight, 256)
+  assert.equal((await (await request({ action: 'receipt', hash: receipt.hash })).binary()).blockHeight, 290)
   blocks.set(290, { index: 290, hash: 'fork-290', transactions: [] })
   chain.lastBlock = { ...blocks.get(300), hash: 'fork-tip' }
-  const forked = await (await request({ action: 'receipt', hash: receipt.hash })).json()
+  const forked = await (await request({ action: 'receipt', hash: receipt.hash })).binary()
   assert.equal(forked.status, 'unknown')
   assert.equal(forked.blockHeight, undefined)
 })
@@ -171,10 +173,10 @@ test('concurrent duplicate uploads are admitted only once after async validation
 
 test('canonical rejection reports failed; uncertain admission never reports success', async t => {
   const { request, reject } = await setup(t)
-  const receipt = await (await request({ action: 'submit', transaction: signed })).json()
+  const receipt = await (await request({ action: 'submit', transaction: signed })).binary()
   reject(new Error('Execution rejected'))
   await new Promise(resolve => setImmediate(resolve))
-  const rejected = await (await request({ action: 'receipt', hash: receipt.hash })).json()
+  const rejected = await (await request({ action: 'receipt', hash: receipt.hash })).binary()
   assert.equal(rejected.status, 'failed')
   assert.match(rejected.error, /Execution rejected/)
 })
@@ -182,7 +184,7 @@ test('canonical rejection reports failed; uncertain admission never reports succ
 test('invalid signatures, uploads and mismatched chain never reach submission or storage', async t => {
   const { request, calls, writes } = await setup(t)
   const contract = new ContractMessage({ creator: from, contract: 'export default class Example {}', constructorParameters: [] })
-  const bad = await request({ action: 'submit', transaction: signed, contract: await contract.toString() })
+  const bad = await request({ action: 'submit', transaction: signed, contract: contract.encoded })
   assert.equal(bad.status, 400)
   const invalid = await request({ action: 'submit', transaction: { ...signed, params: [from, '2'] } })
   assert.equal(invalid.status, 400)
@@ -196,7 +198,7 @@ test('matching signed factory upload persists the exact encoded contract', async
   const registration = await signTransaction({
     ...raw, to: identity.genesisContracts.contractFactory, method: 'registerContract', params: [await contract.hash()]
   }, { sign: hash => wallet.sign(hash.subarray(0, 32)) })
-  const receipt = await (await request({ action: 'submit', transaction: registration, contract: await contract.toString() })).json()
+  const receipt = await (await request({ action: 'submit', transaction: registration, contract: contract.encoded })).binary()
   assert.equal(receipt.status, 'pending')
   assert.equal(writes.length, 1)
   assert.equal(writes[0][0], await contract.hash())
@@ -208,6 +210,6 @@ test('disconnected nodes reject writes and malformed/oversized requests are boun
   assert.equal((await request({ action: 'submit', transaction: signed })).status, 503)
   assert.equal((await request({ action: 'unknown' })).status, 400)
   assert.equal((await fetch(url, { method: 'POST', body: '{}' })).status, 415)
-  assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400)
+  assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: '{' })).status, 400)
   assert.equal((await request({ action: 'status', padding: 'x'.repeat(1_048_576) })).status, 413)
 })

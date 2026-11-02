@@ -16,3 +16,5 @@ export { default as StateMessage } from './messages/state.js'
 export { default as PrevoteMessage } from './messages/prevote.js'
 export { default as PrecommitMessage } from './messages/precommit.js'
 export { default as ProposalMessage } from './messages/proposal.js'
+
+export { BinaryFormat } from './binary-format.js'

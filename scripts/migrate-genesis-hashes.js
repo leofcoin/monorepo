@@ -1,12 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { ContractMessage } from '@leofcoin/messages'
+import { FormatInterface } from '@leofcoin/codec-format-interface'
+import contractProto from '../packages/messages/exports/protos/contract.proto.js'
 
 const order = ['nativeToken', 'contractFactory', 'validators', 'nameService']
 
 // Re-address the existing public contract artifacts. No wallets, passwords,
 // stores, allocations, contract code, or owner identities are created or reset.
-export const migrateGenesisHashes = async (addresses, bytecodes) => {
+export const migrateGenesisHashes = async (addresses, bytecodes, { legacyJson = false } = {}) => {
   for (const input of [addresses, bytecodes]) {
     if (Object.keys(input).length !== order.length || order.some((name) => typeof input[name] !== 'string' || !input[name])) {
       throw new Error('genesis artifacts must contain exactly the four native contracts')
@@ -28,7 +30,11 @@ export const migrateGenesisHashes = async (addresses, bytecodes) => {
   }
   for (const name of order) {
     if (!addresses[name] || typeof bytecodes[name] !== 'string') throw new Error(`missing genesis contract: ${name}`)
-    const previous = new ContractMessage(Uint8Array.from(bytecodes[name].split(',').map(Number)))
+    const bytes = Uint8Array.from(bytecodes[name].split(',').map(Number))
+    // Legacy decoding exists only in this explicit offline artifact migration.
+    const previous = legacyJson
+      ? new FormatInterface(bytes, contractProto, { name: 'contract-message' })
+      : new ContractMessage(bytes)
     const source = new TextDecoder().decode(previous.decoded.contract)
     if ([...known].some((address) => source.includes(address))) {
       throw new Error(`embedded genesis address in ${name}; explicit source migration required`)
@@ -54,7 +60,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const bytecodeFile = new URL('../packages/lib/src/bytecodes.json', import.meta.url)
   const addresses = JSON.parse(await readFile(addressFile, 'utf8'))
   const bytecodes = JSON.parse(await readFile(bytecodeFile, 'utf8'))
-  const migrated = await migrateGenesisHashes(addresses, bytecodes)
+  const migrated = await migrateGenesisHashes(addresses, bytecodes, { legacyJson: process.argv.includes('--legacy-json') })
   const changed = JSON.stringify(addresses) !== JSON.stringify(migrated.addresses) || JSON.stringify(bytecodes) !== JSON.stringify(migrated.bytecodes)
   if (changed && !process.argv.includes('--write')) throw new Error('genesis hash references need migration; review and run with --write')
   if (changed) {

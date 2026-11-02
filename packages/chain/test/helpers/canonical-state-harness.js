@@ -19,10 +19,10 @@ export const methods = (file, className, names) => {
   }).join('\n')
 }
 const applicationMethods = methods('../../src/chain.ts', 'Chain', [
-  '#addBlock', '#applyBlock', '#executeTransaction', '#handleTransaction'
+  '#addBlock', '#applyBlock', 'applyRecoveredBlock', '#executeTransaction', '#handleTransaction'
 ])
 const stateMethods = methods('../../src/state.ts', 'State', [
-  'withCanonicalState', 'canonicalTip', 'syncChain', '#syncChain', '#loadBlocks', '#_executeTransaction'
+  'withCanonicalState', 'canonicalTip', 'syncChain', '#syncChain', '#loadBlocks'
 ])
 
 export const deferred = () => {
@@ -37,6 +37,7 @@ export const createApplicationHarness = (options = {}) => {
   const balances = { sender: 1000n, recipient: 0n, validator: 0n }
   let tip = { index: 570, hash: 'parent' }
   const transactions = new Set()
+  const accountNonces = new Map()
   const policy = { subsidy: 100n, burnBasisPoints: 0n }
   const transaction = {
     decoded: { from: 'sender', to: 'token', method: 'transfer', params: ['recipient', 100n], nonce: 1n },
@@ -95,10 +96,12 @@ export const createApplicationHarness = (options = {}) => {
   Object.assign(globalThis, {
     blockStore: { async put() { counts.stores++ } },
     transactionPoolStore: pool,
-    accountsStore: { async put() {} },
+    accountsStore: { async put(key, value) { accountNonces.set(key, value) },
+      async has(key) { return accountNonces.has(key) }, async get(key) { return accountNonces.get(key) } },
     peernet: { selectedAccount: 'other', peers: ['peer'], async publish() {} },
     pubsub: { publish() {} },
-    chainStore: { async get() { return new TextEncoder().encode(tip.hash) } }
+    chainStore: { async get() { return new TextEncoder().encode(tip.hash) },
+      async has() { return false }, async put() {}, async delete() {} }
   })
   const source = `class Harness {
     #canonicalStateQueue = new CanonicalStateQueue()
@@ -114,6 +117,7 @@ export const createApplicationHarness = (options = {}) => {
     wantList = []
     get shouldSync() { return !this.#chainSyncing }
     get machine() { return this.#machine }
+    get loaded() { return this.#loaded }
     removePendingNonce() {}
     async validateTransactionSignature() {}
     async #validateBlockValidators() { await boundary.validate() }
@@ -121,6 +125,7 @@ export const createApplicationHarness = (options = {}) => {
     async #loadBlockTransactions() { return [boundary.transaction] }
     async #monetaryPolicy() { return boundary.policy }
     async #handleEpochBoundary() {}
+    async #recordValidatorSnapshot() {}
     async call() {}
     async updateState() { boundary.snapshot() }
     add(block) { return this.#addBlock(block) }
@@ -162,7 +167,7 @@ export const createApplicationHarness = (options = {}) => {
   const instance = new Harness()
   const block = new AcceptedBlockMessage()
   return {
-    instance, block, counts, balances, events, options,
+    instance, block, counts, balances, events, options, transactions, accountNonces,
     fork: () => Object.assign(new AcceptedBlockMessage(), { identity: 'fork' }),
     loadedBlock: () => ({ ...block.decoded, hash: block.identity, loaded: false })
   }

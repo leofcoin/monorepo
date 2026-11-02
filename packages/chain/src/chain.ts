@@ -1,3 +1,5 @@
+import { encodeWire, decodeWire } from '@leofcoin/binary'
+import { decodeResponsePayload } from './helpers/response.js'
 import { createDebugger } from '@vandeurenglenn/debug'
 import { Codec } from '@leofcoin/codec-format-interface'
 import { formatUnits, parseUnits, formatBytes } from '@leofcoin/utils'
@@ -559,13 +561,13 @@ export default class Chain extends VersionControl {
 
     globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
 
-    globalThis.peernet.subscribe('invalid-transaction', this.#invalidTransaction.bind(this))
+    globalThis.peernet.subscribe('invalid-transaction', bytes => this.#invalidTransaction(decodeWire('invalid-transaction', bytes)))
 
     globalThis.peernet.subscribe('send-transaction', this.#sendTransaction.bind(this))
 
     globalThis.peernet.subscribe('add-transaction', this.#addTransaction.bind(this))
 
-    globalThis.peernet.subscribe('validator:timeout', this.#validatorTimeout.bind(this))
+    globalThis.peernet.subscribe('validator:timeout', bytes => this.#validatorTimeout(decodeWire('validator:timeout', bytes)))
 
     // Tendermint consensus topics
     globalThis.peernet.subscribe('consensus:propose', this.#handleProposal.bind(this))
@@ -845,60 +847,7 @@ export default class Chain extends VersionControl {
       console.log(`raw response for request ${request}:`, response)
       if (response === undefined || response === null) return response
 
-      const normalizeResponse = async (payload: unknown): Promise<unknown> => {
-        if (payload === undefined || payload === null) return payload
-
-        if (payload instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload))) {
-          let bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload)
-
-          for (let i = 0; i < 3; i += 1) {
-            try {
-              const codec = new Codec(bytes)
-              if (codec.name !== 'peernet-response') break
-
-              const wrapped = await new globalThis.peernet.protos['peernet-response'](bytes)
-              if (wrapped?.decoded?.response === undefined) break
-              const next = wrapped.decoded.response
-              if (next instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(next))) {
-                bytes = next instanceof Uint8Array ? next : new Uint8Array(next)
-                continue
-              }
-              return normalizeResponse(next)
-            } catch {
-              break
-            }
-          }
-
-          try {
-            return JSON.parse(new TextDecoder().decode(bytes))
-          } catch {
-            return bytes
-          }
-        }
-
-        if (payload && typeof payload === 'object') {
-          const objectPayload = payload as Record<string, unknown>
-          const decoded = objectPayload.decoded as Record<string, unknown> | undefined
-          if ('decoded' in objectPayload && decoded && 'response' in decoded) {
-            return normalizeResponse(decoded.response)
-          }
-          if ('response' in objectPayload) {
-            return normalizeResponse(objectPayload.response)
-          }
-        }
-
-        if (typeof payload === 'string') {
-          try {
-            return JSON.parse(payload)
-          } catch {
-            return payload
-          }
-        }
-
-        return payload
-      }
-
-      return await normalizeResponse(response)
+      return decodeResponsePayload(response)
     } catch (error) {
       const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
       debug(`peernet request failed: ${request} -> ${peerId}:`, (error as Error)?.message ?? error)
@@ -907,73 +856,12 @@ export default class Chain extends VersionControl {
   }
 
   async #decodeKnownBlocksResponse(response: any): Promise<{ blocks: string[] } | null> {
-    if (!response) return null
-
-    if (Array.isArray(response)) {
-      return { blocks: response }
-    }
-
-    if (Array.isArray(response.blocks)) {
-      return { blocks: response.blocks }
-    }
-
-    if (response.response && Array.isArray(response.response.blocks)) {
-      return { blocks: response.response.blocks }
-    }
-
-    if (typeof response === 'string') {
-      try {
-        const parsed = JSON.parse(response)
-        if (Array.isArray(parsed)) return { blocks: parsed }
-        if (parsed && Array.isArray(parsed.blocks)) return { blocks: parsed.blocks }
-        if (parsed?.response && Array.isArray(parsed.response.blocks)) return { blocks: parsed.response.blocks }
-      } catch {
-        return null
-      }
-      return null
-    }
-
-    if (!(response instanceof Uint8Array)) return null
-
-    // Keep knownBlocks decoding binary/codec-first.
-    // Some peers may wrap peernet-response more than once, so unwrap up to 3 layers.
-    let payload: any = response
-    for (let i = 0; i < 3; i++) {
-      if (!(payload instanceof Uint8Array)) break
-      try {
-        const nestedResponse = await new globalThis.peernet.protos['peernet-response'](payload)
-        payload = nestedResponse?.decoded?.response
-      } catch {
-        break
-      }
-    }
-
-    if (Array.isArray(payload)) return { blocks: payload }
-    if (payload && Array.isArray(payload.blocks)) return { blocks: payload.blocks }
-    if (payload?.response && Array.isArray(payload.response.blocks)) return { blocks: payload.response.blocks }
-
-    // Backward-compatible fallback for peers returning JSON bytes.
-    try {
-      const decoded = new TextDecoder().decode(response)
-      const parsed = JSON.parse(decoded)
-      if (Array.isArray(parsed)) return { blocks: parsed }
-      if (parsed && Array.isArray(parsed.blocks)) return { blocks: parsed.blocks }
-      if (parsed?.response && Array.isArray(parsed.response.blocks)) return { blocks: parsed.response.blocks }
-    } catch {
-      return null
-    }
-
-    return null
+    if (!Array.isArray(response) || response.length > 100000 || response.some(hash => typeof hash !== 'string')) return null
+    return { blocks: response }
   }
 
   async getPeerTransactionPool(peer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
-    if (transactionsInPool instanceof Uint8Array) {
-      transactionsInPool = new TextDecoder().decode(transactionsInPool)
-    }
-    if (typeof transactionsInPool === 'string') {
-      transactionsInPool = JSON.parse(transactionsInPool)
-    }
     if (!Array.isArray(transactionsInPool) || transactionsInPool.some((hash) => typeof hash !== 'string')) {
       throw new Error('transactionPool response must be an array of transaction hashes')
     }
@@ -1136,7 +1024,7 @@ export default class Chain extends VersionControl {
       debug(
         `sync finished with peer ${peerId}: state=${this.syncState} localNow=${(await this.lastBlock)?.index ?? -1}`
       )
-      this.machine.states.info = stateInfo
+      // Peer statistics must never overwrite the local committed snapshot.
     } catch (error) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
       debug(`stateInfo/syncChain failed: ${peerName}:`, (error as Error)?.message ?? error)
@@ -1180,7 +1068,7 @@ export default class Chain extends VersionControl {
     } catch (error) {
       await transactionPoolStore.delete(hash)
       try {
-        globalThis.peernet.publish('invalid-transaction', hash)
+        globalThis.peernet.publish('invalid-transaction', encodeWire('invalid-transaction', hash))
       } catch (publishError) {
         debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
       }
@@ -1193,7 +1081,16 @@ export default class Chain extends VersionControl {
     return this.withCanonicalState((transition) => this.#applyBlock(block, transition))
   }
 
-  async #applyBlock(block, transition: CanonicalTransition) {
+  protected applyRecoveredBlock(block: BlockMessage, transition: CanonicalTransition): Promise<void> {
+    return this.#applyBlock(block, transition, false)
+  }
+
+  #recordValidatorSnapshot(index) {
+    // Protocol bookkeeping only: called from the serialized canonical writer.
+    return this.machine.execute(addresses.validators, 'recordValidatorSnapshot', [index], globalThis.peernet.selectedAccount)
+  }
+
+  async #applyBlock(block, transition: CanonicalTransition, schedule = true) {
     // Store the original received encoded bytes for validation
     const receivedEncoded = block instanceof BlockMessage ? block.encoded : block
 
@@ -1243,14 +1140,14 @@ export default class Chain extends VersionControl {
     // Authenticate both the content-addressed reference and transaction sender
     // before storing the block or mutating the local transaction pool.
     const transactions = await this.#resolveBlockTransactions(blockMessage)
+    await globalThis.blockStore.put(hash, blockMessage.encoded)
+    if (!(await globalThis.chainStore.has('recoveryTarget'))) await globalThis.chainStore.put('recoveryTarget', hash)
     transition.markMutating()
     await Promise.all(
       blockMessage.decoded.transactions.map(async (transactionHash) => {
         if (await transactionPoolStore.has(transactionHash)) await transactionPoolStore.delete(transactionHash)
       })
     )
-
-    await globalThis.blockStore.put(hash, blockMessage.encoded)
 
     // Cache block for conflict detection
     this.#blocks[blockIndex] = {
@@ -1321,7 +1218,7 @@ export default class Chain extends VersionControl {
 
     // Record validator snapshot at this block height for future consensus queries
     try {
-      await this.call(addresses.validators, 'recordValidatorSnapshot', [blockMessage.decoded.index])
+      await this.#recordValidatorSnapshot(blockMessage.decoded.index)
     } catch (snapshotError) {
       debug(`failed to record validator snapshot: ${(snapshotError as Error)?.message ?? snapshotError}`)
     }
@@ -1330,7 +1227,7 @@ export default class Chain extends VersionControl {
     debug(`added block: ${hash}`)
     globalThis.pubsub.publish('block-processed', blockMessage.decoded)
     // Start follow-up production only once this block has a persisted snapshot.
-    await this.#handleEpochBoundary(blockIndex)
+    if (schedule) await this.#handleEpochBoundary(blockIndex)
   }
 
   async participate(address) {
@@ -1388,17 +1285,16 @@ export default class Chain extends VersionControl {
     await this.validateTransactionSignature(transaction)
     const hash = await transaction.hash()
 
-    const doubleTransactions = []
-
-    if (latestTransactions.includes(hash) || (await transactionStore.has(hash))) {
-      doubleTransactions.push(hash)
+    // Content availability is not proof of execution: replay and sync must have
+    // transaction bodies in the store before applying their financial effects.
+    if (latestTransactions.includes(hash)) throw new Error(`Duplicate canonical transaction: ${hash}`)
+    const nonce = BigInt(transaction.decoded.nonce)
+    let committed = 0n
+    if (await globalThis.accountsStore.has(transaction.decoded.from)) {
+      const raw = await globalThis.accountsStore.get(transaction.decoded.from)
+      committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-
-    if (doubleTransactions.length > 0) {
-      await globalThis.transactionPoolStore.delete(hash)
-      await globalThis.peernet.publish('invalid-transaction', hash)
-      return
-    }
+    if (nonce <= committed) throw new Error(`Transaction nonce already committed: ${hash}`)
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
@@ -1422,7 +1318,7 @@ export default class Chain extends VersionControl {
 
       console.log({ e })
       console.log(hash)
-      peernet.publish('invalid-transaction', hash)
+      peernet.publish('invalid-transaction', encodeWire('invalid-transaction', hash))
 
       await globalThis.transactionPoolStore.delete(e.hash)
       if (block) throw e
@@ -1651,7 +1547,7 @@ export default class Chain extends VersionControl {
     } catch (e) {
       if (hash) {
         try {
-          await globalThis.peernet.publish('invalid-transaction', hash)
+          await globalThis.peernet.publish('invalid-transaction', encodeWire('invalid-transaction', hash))
         } catch (publishError) {
           debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
         }
@@ -1665,7 +1561,9 @@ export default class Chain extends VersionControl {
    * error is thrown on error so undefined data doesn't mean there is an error...
    **/
   async sendTransaction(transaction) {
-    const transactionMessage = await new TransactionMessage({ ...transaction })
+    const { hash: ignoredHash, ...payload } = transaction instanceof TransactionMessage ? transaction.decoded : transaction
+    // A caller-supplied cached hash is metadata, never authority for signed bytes.
+    const transactionMessage = await new TransactionMessage(payload)
     const event = await super.sendTransaction(transactionMessage)
 
     await this.#sendTransaction(transactionMessage.encoded)
@@ -1710,9 +1608,7 @@ export default class Chain extends VersionControl {
    * @returns
    */
   internalCall(sender: Address, contract: Address, method: string, parameters?: any[]) {
-    // globalThis.msg = this.#createMessage(sender, contract) // Debug line removed
-
-    return this.machine.execute(contract, method, parameters, sender)
+    throw new Error('Direct sender impersonation is disabled; submit a signed transaction with sendTransaction()')
   }
 
   /**
@@ -1722,10 +1618,11 @@ export default class Chain extends VersionControl {
    * @param {Array} parameters
    * @returns
    */
-  call(contract: Address, method: string, parameters?: any[]) {
-    // globalThis.msg = this.#createMessage(peernet.selectedAccount, contract) // Debug line removed
-
-    return this.machine.execute(contract, method, parameters, globalThis.peernet.selectedAccount)
+  async call(transaction: any, ...legacy: any[]) {
+    const signed = transaction instanceof TransactionMessage ? transaction.decoded : transaction
+    if (legacy.length || !signed || typeof signed !== 'object' || typeof signed.signature !== 'string' || !signed.signature)
+      throw new Error('call() requires a signed transaction object; use staticCall() for reads or sendTransaction() for writes')
+    return this.sendTransaction(structuredClone(signed))
   }
 
   staticCall(contract: Address, method: string, parameters?: any[]) {
@@ -1733,13 +1630,15 @@ export default class Chain extends VersionControl {
     return this.machine.get(contract, method, parameters)
   }
 
-  mint(to: Address, amount: bigint) {
-    return this.call(addresses.nativeToken, 'mint', [to, amount])
+  mint(...args: any[]) {
+    throw new Error('Native minting is restricted to the monetary protocol')
   }
 
-  transfer(from: Address, to: Address, amount: bigint) {
-    if (from !== globalThis.peernet.selectedAccount) throw new Error('transfer sender must be the selected account')
-    return this.call(addresses.nativeToken, 'transfer', [to, amount])
+  async transfer(transaction: any, ...legacy: any[]) {
+    const signed = transaction instanceof TransactionMessage ? transaction.decoded : transaction
+    if (legacy.length || signed?.to !== addresses.nativeToken || signed?.method !== 'transfer')
+      throw new Error('transfer() requires a signed native-token transfer transaction')
+    return this.call(signed)
   }
 
   balanceOf(address: Address): Promise<bigint> {
@@ -1772,7 +1671,7 @@ export default class Chain extends VersionControl {
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
   lookup(name): Promise<{ owner; address }> {
-    return this.call(addresses.nameService, 'lookup', [name])
+    return this.staticCall(addresses.nameService, 'lookup', [name])
   }
 
   #monitorPeerConnections() {

@@ -230,10 +230,10 @@ test('pool recovery logs unavailable entries and continues', async () => {
   assert.ok(node.logs.some(args => args.join(' ').includes('pending transaction body unavailable')))
 })
 
-test('pool recovery accepts byte and string JSON responses, rejecting malformed lists explicitly', async () => {
+test('pool recovery rejects legacy JSON and malformed lists explicitly', async () => {
   const node = createNode()
   for (const response of ['[]', new TextEncoder().encode('[]')]) {
-    assert.deepEqual(await node.chain.getPeerTransactionPool({ async request() { return response } }), [])
+    await assert.rejects(node.chain.getPeerTransactionPool({ async request() { return response } }))
   }
   for (const response of ['not-json', '{}', '[1]']) {
     await assert.rejects(node.chain.getPeerTransactionPool({ async request() { return response } }))

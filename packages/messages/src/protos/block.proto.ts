@@ -1,4 +1,5 @@
-export default {
+import { defineSchema } from '../schema.js'
+export default defineSchema({
   index: BigInt(0),
   previousHash: String(),
   timestamp: Number(),
@@ -9,4 +10,4 @@ export default {
   producer: String(),
   producerProof: String(),
   protocolVersion: String()
-}
+})

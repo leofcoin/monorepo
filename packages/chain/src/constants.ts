@@ -1,8 +1,8 @@
 import networks from '@leofcoin/networks'
 
-// Consensus-breaking activation: canonical codec-first content addresses.
-// Do not reuse 0.3.x ledger state or connect it to this protocol.
-export const PROTOCOL_VERSION = '0.4.0'
+// Consensus-breaking activation: binary-only typed messages and new content addresses.
+// Do not reuse 0.4.x ledger state or connect it to this protocol.
+export const PROTOCOL_VERSION = '0.5.0'
 export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes
 export const REACHED_ONE_ZERO_ZERO = false // set to true when protocol reaches v1.0.0
 

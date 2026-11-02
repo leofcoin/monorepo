@@ -10,6 +10,8 @@
     "lib": "lib"
   },
   "scripts": {
+    "benchmark:wire": "node scripts/benchmark-wire-codecs.js",
+    "test:wire": "npm run build:core && npm run build -w @leofcoin/node -w @leofcoin/chain-manager && npm test -w @leofcoin/binary -w @leofcoin/messages -w @leofcoin/workers -w @leofcoin/chain -w @leofcoin/endpoints -w @leofcoin/endpoint-clients -w @leofcoin/faucet -w @leofcoin/node -w @leofcoin/chain-manager && node --test test/e2e/network.test.js",
     "genesis:validate": "node scripts/validate-genesis-plan.js",
     "docs": "node ./build-docs.js",
     "serve:docs": "jsproject --serve ./docs --port 1111",

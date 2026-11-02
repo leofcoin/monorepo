@@ -1,25 +1,42 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import http from '../exports/http.js'
-import { jsonParseBigInt } from '@leofcoin/utils'
+import { encodeWire, decodeWire } from '@leofcoin/binary'
+const read = async response => decodeWire('rpc', new Uint8Array(await response.arrayBuffer()))
+const post = (url, value) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: encodeWire('rpc', value) })
 
-test('HTTP advertises the public chain identity without changing state', async (t) => {
+test('HTTP identity and BigInt status are binary, not JSON or boxed decimal fields', async t => {
   const identity = { schema: 'leofcoin:chain-identity:v1', chainId: 'lfc:' + 'a'.repeat(64) }
-  const server = http({ getChainIdentity: async () => identity }, 0, 'peach')
+  const server = http({ getChainIdentity: async () => identity, lastBlock: { hash: 'test-block', index: 9n, reward: 150n, fees: 10n } }, 0, 'peach')
   t.after(() => server.close())
   await new Promise(resolve => server.once('listening', resolve))
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/chainIdentity`)
-  assert.equal(response.status, 200)
-  assert.deepEqual(await response.json(), identity)
+  const base = `http://127.0.0.1:${server.address().port}`
+  const response = await fetch(base + '/chainIdentity')
+  assert.equal(response.headers.get('content-type'), 'application/octet-stream')
+  assert.deepEqual(await read(response), identity)
+  assert.equal((await read(await fetch(base + '/lastBlock'))).index, 9n)
+  assert.equal((await fetch(base + '/lastBlock?params={}')).status, 405)
+  assert.equal((await fetch(base + '/lastBlock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 415)
 })
 
-test('HTTP block status serializes canonical bigint fields with the existing JSON codec', async (t) => {
-  const server = http({ lastBlock: { hash: 'test-block', index: 9n, reward: 150n, fees: 10n } }, 0, 'peach')
+test('HTTP native binary parameters preserve exact read values and reject mutation/invalid bytes', async t => {
+  const calls = []
+  const server = http({ staticCall: async (contract, method, params) => {
+    calls.push({ contract, method, params })
+    if (method === 'increment') throw new Error('Read-only call attempted to change contract state')
+    return method === 'missing' ? null : method === 'name' ? 'Fixture contract' : 2n ** 100n
+  } }, 0, 'peach')
   t.after(() => server.close())
-  await new Promise((resolve) => server.once('listening', resolve))
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/lastBlock`)
-  assert.equal(response.status, 200)
-  const block = JSON.parse(await response.text(), jsonParseBigInt)
-  assert.equal(block.index, 9n)
-  assert.equal(block.hash, 'test-block')
+  await new Promise(resolve => server.once('listening', resolve))
+  const url = `http://127.0.0.1:${server.address().port}/staticCall`
+  const params = ['alice', 9007199254740993n, new Uint8Array([42])]
+  assert.equal(await read(await post(url, { contract: 'fixture', method: 'balanceOf', params })), 2n ** 100n)
+  assert.deepEqual(calls[0], { contract: 'fixture', method: 'balanceOf', params })
+  assert.equal(await read(await post(url, { contract: 'fixture', method: 'name', params: [] })), 'Fixture contract')
+  const missing = await post(url, { contract: 'fixture', method: 'missing', params: [] })
+  assert.equal(missing.status, 200)
+  assert.equal(await read(missing), null)
+  assert.equal((await post(url, { contract: 'fixture', method: 'increment', params: [] })).status, 422)
+  assert.equal((await post(url, { contract: 'fixture', method: 'name', params: 'not-array' })).status, 400)
+  assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: '{}' })).status, 400)
 })

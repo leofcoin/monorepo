@@ -1,11 +1,10 @@
-import Server from 'socket-request-server'
+import Server from './binary-socket.js'
 import { formatUnits } from '@leofcoin/utils'
 import shared from './shared.js'
+import { guardRpcHandler } from './rpc-handler.js'
 
 export default (chain, port, networkVersion, remote = false) => {
-  return Server(
-    { port, protocol: networkVersion },
-    {
+  const routes = {
       network: async ({ send }) => {
         send({ version: networkVersion })
       },
@@ -45,11 +44,11 @@ export default (chain, port, networkVersion, remote = false) => {
       sendTransaction: async (transaction, { send }) => {
         try {
           const tx = await chain.sendTransaction(transaction)
-          await tx.wait()
+          await (typeof tx.wait === 'function' ? tx.wait() : tx.wait)
           delete tx.wait
           send(tx)
         } catch (error) {
-          send(202)
+          send({ error: error instanceof Error ? error.message : 'Transaction failed' }, 422)
         }
       },
       peerId: ({ send }) => send(globalThis.peernet.peerId),
@@ -57,7 +56,7 @@ export default (chain, port, networkVersion, remote = false) => {
       validators: ({ send }) => send(chain.validators),
       lookup: async ({ name }, { send }) => send(await chain.lookup(name)),
       staticCall: async ({ contract, method, params }, { send }) =>
-        send(await chain.staticCall(contract, method, params)),
+        send(await chain.staticCall(contract, method, params ?? [])),
       contracts: async ({ send }) => send(await chain.contracts),
       totalContracts: async ({ send }) => send(await chain.totalContracts),
       nativeToken: async ({ send }) => send(await chain.nativeToken),
@@ -89,11 +88,11 @@ export default (chain, port, networkVersion, remote = false) => {
       deployContract: async ({ transaction, contract }, { send }) => {
         try {
           const tx = await chain.deployContract(contract, transaction)
-          await tx.wait()
+          await (typeof tx.wait === 'function' ? tx.wait() : tx.wait)
           delete tx.wait
           send(tx)
         } catch (error) {
-          send(error.message)
+          send({ error: error instanceof Error ? error.message : 'Deployment failed' }, 422)
         }
       },
       createContractAddress: async ({ owner, code, params }, { send }) => {
@@ -101,7 +100,7 @@ export default (chain, port, networkVersion, remote = false) => {
           const address = await chain.createContractAddress(owner, code, params)
           send(address)
         } catch (error) {
-          send(error)
+          send({ error: error instanceof Error ? error.message : 'Contract address failed' }, 422)
         }
       },
 
@@ -111,5 +110,7 @@ export default (chain, port, networkVersion, remote = false) => {
         send(await shared.bootstrap())
       }
     }
-  )
+  return Server({ port, protocol: networkVersion }, Object.fromEntries(
+    Object.entries(routes).map(([name, handler]) => [name, guardRpcHandler(handler)])
+  ))
 }

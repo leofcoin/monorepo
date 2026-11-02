@@ -1,14 +1,15 @@
 import { css, html, LiteElement, customElement, property } from '@vandeurenglenn/lite'
-import { formatBytes, formatUnits } from '@leofcoin/utils'
+import { formatBytes } from '@leofcoin/utils'
 import { BlockMessage } from '@leofcoin/messages'
 import type Peernet from '@leofcoin/peernet'
-import { formatRankingBalance } from '../../controllers/explorer-rankings.js'
+import { readBlockContent, readTransactionRows, transactionReferences, explorerLink, PAGE_SIZE, formatLfc, compactLfc } from '../../controllers/explorer-data.js'
+import { getExplorerSource } from '../../controllers/public-explorer.js'
 
 declare global {
   var peernet: Peernet
 }
 
-const short = (value: string) => value.length > 24 ? `${value.slice(0, 12)}...${value.slice(-8)}` : value
+const short = (input: unknown) => { const value = String(input ?? '—'); return value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value }
 const relativeTime = (timestamp: number) => {
   const seconds = (timestamp - Date.now()) / 1000
   const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -26,6 +27,11 @@ export class ExplorerBlock extends LiteElement {
   @property({ type: String }) accessor error = ''
   @property({ type: String }) accessor copyStatus = ''
   @property({ type: String }) accessor hash = ''
+  @property({ type: Array }) accessor transactionRows: any[] = []
+  @property({ type: Number }) accessor transactionOffset = 0
+  @property({ type: Boolean }) accessor transactionsLoading = false
+  @property({ type: String }) accessor sourceLabel = ''
+  #source
 
   #request = 0
 
@@ -39,19 +45,32 @@ export class ExplorerBlock extends LiteElement {
     this.error = ''
     this.copyStatus = ''
     try {
-      const encoded = await globalThis.peernet.get(this.selected, undefined)
-      if (!encoded) throw new Error('Block not found.')
-      const message = new BlockMessage(encoded)
-      const block = message.decode()
-      const hash = await message.hash()
+      const source = await getExplorerSource()
+      const block = await readBlockContent(this.selected, source.peernet)
       if (request !== this.#request) return
-      this.size = message.encoded.byteLength
-      this.hash = hash
+      this.size = block.size
+      this.hash = block.hash
       this.block = block
+      this.#source = source
+      this.sourceLabel = source.label
+      void this.loadTransactions(0)
     } catch (error) {
       if (request !== this.#request) return
       this.error = error instanceof Error ? error.message : String(error)
     }
+  }
+
+  async loadTransactions(offset: number) {
+    const block = this.block
+    if (!block) return
+    const request = this.#request
+    this.transactionsLoading = true
+    this.transactionOffset = offset
+    const references = transactionReferences([{ ...block, hash: this.hash }]).sort((a, b) => a.position - b.position)
+    const rows = await readTransactionRows(references.slice(offset, offset + PAGE_SIZE), this.#source)
+    if (request !== this.#request) return
+    this.transactionRows = rows
+    this.transactionsLoading = false
   }
 
   async #copy(value: string, label: string) {
@@ -95,13 +114,14 @@ export class ExplorerBlock extends LiteElement {
             </svg>
             <div><span class="eyebrow">BLOCK DETAILS</span><h1>Block #${String(block.index)}</h1>
               <p><time datetime=${new Date(Number(block.timestamp)).toISOString()}>${relativeTime(Number(block.timestamp))}</time><span> · ${new Date(Number(block.timestamp)).toLocaleString()}</span></p>
+              <p>${this.sourceLabel} · Hash-verified content · Network finality not checked</p>
             </div>
           </header>
           <section class="metrics" aria-label="Block summary">
             <article><span>Transactions</span><strong>${block.transactions.length.toLocaleString()}</strong></article>
             <article><span>Validators</span><strong>${block.validators.length.toLocaleString()}</strong></article>
-            <article><span>Fees</span><strong title=${`${formatUnits(block.fees)} LFC`}>${formatRankingBalance(block.fees)} <small>LFC</small></strong></article>
-            <article><span>Reward</span><strong title=${`${formatUnits(block.reward)} LFC`}>${formatRankingBalance(block.reward)} <small>LFC</small></strong></article>
+            <article><span>Fees</span><strong title=${`${formatLfc(block.fees)} LFC`}>${compactLfc(block.fees)} <small>LFC</small></strong></article>
+            <article><span>Reward</span><strong title=${`${formatLfc(block.reward)} LFC`}>${compactLfc(block.reward)} <small>LFC</small></strong></article>
           </section>
           <section class="panel">
             <h2>Block identity</h2>
@@ -109,20 +129,22 @@ export class ExplorerBlock extends LiteElement {
             ${this.#identifier('Previous hash', String(block.previousHash))}
             ${block.producer ? this.#identifier('Producer', String(block.producer)) : ''}
             <dl><div><dt>Encoded size</dt><dd>${formatBytes(this.size)}</dd></div>
-              <div><dt>Protocol version</dt><dd>${String(block.protocolVersion) || 'Not recorded'}</dd></div></dl>
+              <div><dt>Protocol version</dt><dd>${String(block.protocolVersion) || 'Not recorded'}</dd></div>
+              <div><dt>Exact block fees</dt><dd>${formatLfc(block.fees)} LFC</dd></div></dl>
             <p class="feedback" role="status" aria-live="polite">${this.copyStatus}</p>
           </section>
           <section class="panel">
             <div class="section-heading"><h2>Transactions</h2><span class="badge">${block.transactions.length}</span></div>
-            ${block.transactions.length ? html`<div class="table-scroll" tabindex="0" role="region" aria-label="Block transactions">
-              <table><thead><tr><th scope="col">#</th><th scope="col">From</th><th scope="col">To / contract</th><th scope="col">Method</th></tr></thead>
-                <tbody>${block.transactions.map((transaction, index) => html`<tr>
-                  <td>${index + 1}</td>
-                  <td><code title=${transaction.from}>${short(transaction.from)}</code></td>
-                  <td><code title=${transaction.to}>${short(transaction.to)}</code></td>
-                  <td><span class="method">${transaction.method || 'Transaction'}</span></td>
+            ${this.transactionsLoading ? html`<p role="status">Loading transaction bodies…</p>` : block.transactions.length ? html`<div class="table-scroll" tabindex="0" role="region" aria-label="Block transactions">
+              <table><thead><tr><th scope="col">Transaction</th><th scope="col">From</th><th scope="col">To / contract</th><th scope="col">Method</th></tr></thead>
+                <tbody>${this.transactionRows.map(row => html`<tr>
+                  <td>${row.hash ? html`<a href=${explorerLink('transaction', { selected: row.hash, blockIndex: String(block.index), blockHash: this.hash })}><code title=${row.hash}>${short(row.hash)}</code></a>` : row.position + 1}</td>
+                  ${row.error ? html`<td colspan="3">${row.error}</td>` : html`<td><code title=${row.transaction.from}>${short(row.transaction.from)}</code></td>
+                  <td><code title=${row.transaction.to}>${short(row.transaction.to)}</code></td>
+                  <td><span class="method">${row.transaction.method || 'Contract creation'}</span></td>`}
                 </tr>`)}</tbody>
               </table></div>` : html`<div class="empty"><span aria-hidden="true">◇</span><h3>No transactions</h3><p>This block contains no transactions.</p></div>`}
+            ${block.transactions.length > PAGE_SIZE ? html`<div class="section-heading"><button ?disabled=${this.transactionsLoading || this.transactionOffset === 0} @click=${() => this.loadTransactions(this.transactionOffset - PAGE_SIZE)}>← Previous transactions</button><span>${this.transactionOffset + 1}–${Math.min(this.transactionOffset + PAGE_SIZE, block.transactions.length)} of ${block.transactions.length}</span><button ?disabled=${this.transactionsLoading || this.transactionOffset + PAGE_SIZE >= block.transactions.length} @click=${() => this.loadTransactions(this.transactionOffset + PAGE_SIZE)}>Next transactions →</button></div>` : ''}
           </section>
           <section class="panel">
             <div class="section-heading"><h2>Validators</h2><span class="badge">${block.validators.length}</span></div>

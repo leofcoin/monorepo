@@ -1,7 +1,7 @@
 import { BlockMessage } from '@leofcoin/messages'
 import { formatBytes, BigNumber } from '@leofcoin/utils'
 
-import EasyWorker from '@vandeurenglenn/easy-worker'
+import EasyWorker from './binary-worker.js'
 import Storage from '@leofcoin/storage'
 const worker = new EasyWorker()
 const logStore = new Storage('log')

@@ -4,7 +4,6 @@ import '../../elements/explorer/info-container.js'
 import { formatBytes, formatUnits } from '@leofcoin/utils'
 import '@vandeurenglenn/flex-elements/wrap-around.js'
 import { BlockMessage } from '@leofcoin/messages'
-import { state } from '../../state/state.js'
 import './../../elements/explorer/dashboard-section.js'
 import './../../elements/explorer/dashboard-charts.js'
 import type { DashboardBlockPoint } from '../../elements/explorer/dashboard-charts.js'
@@ -12,6 +11,7 @@ import { getSelectedNetwork } from '../../network-selection.js'
 import '../../elements/explorer/dashboard-rankings.js'
 import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
 import { errorMessage } from '../../controllers/transfer.js'
+import { getExplorerSource } from '../../controllers/public-explorer.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -26,20 +26,29 @@ export default customElements.define(
 
     @property({ type: String, consumes: true }) accessor nodeStartError = ''
 
-    #clientSubscribed = false
+    #subscriptions: Array<() => void> = []
     #updating = false
+    @property({ type: String }) accessor dashboardError = ''
+    @property({ type: String }) accessor sourceMode = ''
 
     updateInfo = async () => {
       if (this.#updating) return
       this.#updating = true
       try {
+        this.dashboardError = ''
         await this.#updateInfo()
+      } catch (error) {
+        this.dashboardError = errorMessage(error)
       } finally {
         this.#updating = false
       }
     }
 
     async #updateInfo() {
+      const source = await getExplorerSource()
+      this.sourceMode = source.kind
+      const client = source.client
+      if (!client) throw new Error('Node data is not ready yet. Retry after startup.')
       const promises = []
 
       const lookupValidators = await client.lookup('LeofcoinValidators')
@@ -85,11 +94,9 @@ export default customElements.define(
       this.peers = promises[12]
       // validators
       this.totalValidators = Object.keys(this.validators).length
-      this.onlineValidators = Object.values(this.validators).filter(
-        ({ lastSeen }) => lastSeen - new Date().getTime() < 60_000
-      ).length
-
-      const tpeses = []
+      const records = Object.values(this.validators) as any[]
+      this.onlineValidators = records.length && records.every(record => record && Number.isFinite(record.lastSeen))
+        ? records.filter(record => Date.now() - record.lastSeen >= 0 && Date.now() - record.lastSeen < 60_000).length : undefined
       const chartBlocks: DashboardBlockPoint[] = []
       let previousTimestamp: number | undefined
 
@@ -97,22 +104,11 @@ export default customElements.define(
       const rankingBlocks = []
       let blocks = await client.blocks(-128)
       for (let block of blocks) {
-        const message = new BlockMessage(new Uint8Array(Object.values(block)))
+        const message = new BlockMessage(block)
         chartMessages.push(message)
         block = message.decoded
         rankingBlocks.push(block)
         const transactions = block.transactions ?? []
-        block.tps = 0
-
-        let start = transactions[0]?.timestamp
-        for (const transaction of transactions) {
-          if (start - transaction.timestamp <= 1000) {
-            block.tps += 1
-          }
-        }
-
-        tpeses.push(block.tps)
-
         const timestamp = Number(block.timestamp)
         chartBlocks.push({
           index: Number(block.index),
@@ -139,9 +135,11 @@ export default customElements.define(
         })
       )
       this.chartBlocks = recent
-      this.activityRankings = rankActivity(rankingBlocks)
+      const unresolved = rankingBlocks.some(block => block.transactions.some(transaction => typeof transaction === 'string'))
+      this.activityError = unresolved ? 'Transaction bodies are not resolved for this sample. Browse Transactions to inspect them.' : ''
+      this.activityRankings = rankActivity(unresolved ? [] : rankingBlocks)
       try {
-        this.holderRankings = rankHolders(await client.balances())
+        this.holderRankings = source.getHolderRankings ? await source.getHolderRankings() : rankHolders(await client.balances())
         this.holderError = ''
       } catch (error) {
         this.holderRankings = undefined
@@ -150,13 +148,8 @@ export default customElements.define(
         this.holdersLoading = false
       }
 
-      const median = (arr) => {
-        const mid = Math.floor(arr.length / 2),
-          nums = [...arr].sort((a, b) => a - b)
-        return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2
-      }
-
-      this.tps = median(tpeses)
+      // Block transaction counts are not a measured transactions-per-second rate.
+      this.tps = undefined
     }
     @property({ type: Number }) accessor onlineValidators: number
     @property({ type: Number }) accessor totalValidators: number
@@ -175,32 +168,25 @@ export default customElements.define(
     @property({ type: Number }) accessor tps: number
     @property({ type: Array }) accessor chartBlocks: DashboardBlockPoint[] = []
     @property({ type: Object }) accessor activityRankings = rankActivity([])
+    @property({ type: String }) accessor activityError = ''
     @property({ type: Object }) accessor holderRankings: ReturnType<typeof rankHolders> | undefined
     @property({ type: String }) accessor holderError = ''
     @property({ type: Boolean }) accessor holdersLoading = true
 
-    async beforeRender() {
-      await state.ready
-    }
-
-    async firstRender(): Promise<void> {
-      pubsub.subscribe('chain:ready', this.updateInfo)
-      pubsub.subscribe('node:ready', async () => {
-        this.#subscribeClient()
-        await this.updateInfo()
-      })
-      if (globalThis.chain && globalThis.client) {
-        this.#subscribeClient()
-        await this.updateInfo()
+    connectedCallback() {
+      super.connectedCallback()
+      const bus = globalThis.pubsub
+      if (bus) for (const event of ['chain:ready', 'node:ready', 'block-loaded', 'explorer:source-ready']) {
+        const handler = (block) => { if (event !== 'block-loaded' || block && typeof block === 'object') void this.updateInfo() }
+        bus.subscribe(event, handler)
+        this.#subscriptions.push(() => bus.unsubscribe(event, handler, { keepValue: true }))
       }
+      void this.updateInfo()
     }
 
-    #subscribeClient() {
-      if (this.#clientSubscribed || !globalThis.client) return
-      const clientPubsub = globalThis.client.pubsub
-      clientPubsub.subscribe('add-block', this.updateInfo)
-      clientPubsub.subscribe('block-processed', this.updateInfo)
-      this.#clientSubscribed = true
+    disconnectedCallback() {
+      super.disconnectedCallback()
+      for (const unsubscribe of this.#subscriptions.splice(0)) unsubscribe()
     }
 
     render() {
@@ -255,11 +241,11 @@ export default customElements.define(
         </style>
         ${this.nodeStarted && this.nativeMints && !this.isNodeReady
           ? html`<p>Node is syncing. Rankings reflect the current local chain, not necessarily the network tip.</p>` : ''}
-        ${this.nodeStartError
-          ? html`<h3>Dashboard unavailable: ${this.nodeStartError}</h3>`
-          : !this.nodeStarted
-          ? html`<h3>Unlock your wallet to start the dashboard.</h3>`
-          : !this.isNodeReady
+        ${this.nodeStartError || this.dashboardError
+          ? html`<div role="alert"><h3>Dashboard unavailable</h3><p>${this.nodeStartError || this.dashboardError}</p><button @click=${this.updateInfo}>Try again</button></div>`
+          : !this.nodeStarted && this.sourceMode !== 'public'
+          ? html`<h3>Connecting to explorer data…</h3>`
+          : !this.isNodeReady && this.sourceMode !== 'public'
           ? html`<h3>Connecting dashboard to ${getSelectedNetwork().label}...</h3>`
           : this.nativeMints
           ? html` <explorer-dashboard-charts
@@ -280,6 +266,7 @@ export default customElements.define(
 
               <explorer-dashboard-rankings
                 .activity=${this.activityRankings}
+                .activityError=${this.activityError}
                 .holders=${this.holderRankings}
                 .holderError=${this.holderError}
                 .loading=${this.holdersLoading}></explorer-dashboard-rankings>

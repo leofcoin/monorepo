@@ -1,18 +1,10 @@
-import { BlockMessage, ContractMessage, TransactionMessage } from '@leofcoin/messages'
+import { encodeValue } from '@leofcoin/binary'
+import { ContractMessage } from '@leofcoin/messages'
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
-import {
-  calculateFee,
-  distributeTransactionFee,
-  supportsTransactionFees,
-  calculateMonetaryPolicy,
-  distributeAmount,
-  supportsMonetaryPolicy,
-  MONETARY_POLICY_AUTHORITY,
-  validateBlockResourceLimits
-} from '@leofcoin/lib'
-import EasyWorker from '@vandeurenglenn/easy-worker'
+import { MONETARY_POLICY_AUTHORITY } from '@leofcoin/lib'
+import EasyWorker from './binary-worker.js'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { DEFAULT_CONTRACT_EXECUTION_UNITS, ExecutionMeter, instrumentContractSource } from './execution-meter.js'
@@ -42,6 +34,16 @@ let totalBlocks: bigint
 let blocks = []
 let contracts = {}
 let contractDefinitions = {}
+const readCodeCache = new Map<string, { decoded: any; encoded: Uint8Array; source: string; size: number }>()
+let readCodeBytes = 0
+let readOnly = false
+let readBaseline
+const stateFingerprint = value => JSON.stringify(value, (_, item) => {
+  if (typeof item === 'bigint') return { $bigint: item.toString() }
+  if (item && typeof item === 'object' && !Array.isArray(item))
+    return Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]]))
+  return item
+})
 
 let activeMeter: ExecutionMeter
 let activeTimestamp: number
@@ -80,6 +82,7 @@ const createMessage = (sender = globalThis.peerid, contract) => {
     contract,
     sender,
     call: async (targetOrParams, method?, params = []) => {
+      if (readOnly) throw new Error('Read-only contract queries cannot call mutating contracts')
       const callParams =
         typeof targetOrParams === 'object'
           ? targetOrParams
@@ -94,6 +97,7 @@ const createMessage = (sender = globalThis.peerid, contract) => {
       }
     },
     staticCall: async (target, method, params = []) => {
+      if (!readOnly) return askFor('staticCall', { snapshot: await _.snapshot(), contract: target, method, params, sender: contract })
       const previousMessage = globalThis.msg
       globalThis.msg = createMessage(contract, target)
       try {
@@ -111,6 +115,7 @@ const createState = async () => ({
 })
 
 const debug = (message) => {
+  if (readOnly) return
   worker.postMessage({
     type: 'debug',
     message
@@ -149,7 +154,7 @@ const snapshotCounters = () => ({
 const instantiateContract = async (hash: string, state?) => {
   const definition = contractDefinitions[hash]
   if (!definition) throw new Error(`missing contract definition for ${hash}`)
-  const params = [...definition.constructorParameters]
+  const params = cloneState(definition.constructorParameters)
   if (state !== undefined) params.push(cloneState(state))
   globalThis.msg = createMessage(definition.creator, hash)
   globalThis.state = await createState()
@@ -223,9 +228,14 @@ const respond = (id, value) => {
 }
 
 const askFor = (question, input?) =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     const id = globalThis.crypto.randomUUID()
-    pubsub.subscribe(id, resolve)
+    const onResponse = result => {
+      pubsub.unsubscribe(id, onResponse)
+      if (result.error) reject(new Error(result.error))
+      else resolve(result.input)
+    }
+    pubsub.subscribe(id, onResponse)
     worker.postMessage({
       type: 'ask',
       question,
@@ -235,8 +245,6 @@ const askFor = (question, input?) =>
   })
 
 const resolveContract = (hash) => askFor('contract', hash)
-
-const resolveTransaction = (hash) => askFor('transaction', hash)
 
 const runTask = async (id, taskName, input) => {
   try {
@@ -256,47 +264,9 @@ const queueTask = (id, taskName, input) => {
   taskQueue = taskQueue.then(() => runTask(id, taskName, input))
 }
 const queueRead = (id, input) => {
-  taskQueue = taskQueue.then(async () => respond(id, await get(input)))
+  taskQueue = taskQueue.then(() => runTask(id, 'get', input))
 }
 
-const _executeTransaction = async (
-  transaction,
-  validators: string[],
-  feesEnabled: boolean,
-  burnBasisPoints: bigint
-) => {
-  const hash = await new TransactionMessage(transaction).hash()
-  if (latestTransactions.includes(hash)) {
-    throw new Error(`double transaction found: ${hash}`)
-  } else {
-    latestTransactions.push(hash)
-    const { from, to, method, params, nonce } = transaction
-    globalThis.msg = createMessage(from, to)
-    globalThis.state = await createState()
-
-    if (feesEnabled) {
-      const fee = BigInt(await calculateFee(transaction))
-      const { payments, burned } = distributeTransactionFee(fee, hash, validators, burnBasisPoints)
-      await _.collectFee({ from, payments, burned })
-    }
-    await _.execute({
-      contract: to,
-      method,
-      params,
-      executionSeed: hash,
-      executionTimestamp: Number(lastBlock.timestamp ?? transaction.timestamp ?? 0)
-    })
-
-    worker.postMessage({
-      type: 'transactionLoaded',
-      result: {
-        hash,
-        from,
-        nonce: String(nonce)
-      }
-    })
-  }
-}
 
 const addToWantList = (hash) => {
   worker.postMessage({
@@ -306,11 +276,25 @@ const addToWantList = (hash) => {
 }
 
 const _ = {
+  get,
   runContract: async ({ decoded, hash, encoded }, state?) => {
     const topLevelDeployment = !activeExecution
     try {
       if (topLevelDeployment) beginExecution(`deploy:${hash}`, Number(lastBlock.timestamp ?? 0))
-      const source = instrumentContractSource(new TextDecoder().decode(decoded.contract))
+      const cached = readOnly ? readCodeCache.get(hash) : undefined
+      const source = cached?.source ?? instrumentContractSource(new TextDecoder().decode(decoded.contract))
+      if (readOnly && !cached) {
+        const size = encoded.byteLength + source.length * 2
+        if (size <= 8 * 1024 * 1024) {
+          while (readCodeCache.size && (readCodeCache.size >= 128 || readCodeBytes + size > 8 * 1024 * 1024)) {
+            const oldest = readCodeCache.keys().next().value
+            readCodeBytes -= readCodeCache.get(oldest).size
+            readCodeCache.delete(oldest)
+          }
+          readCodeCache.set(hash, { decoded: cloneState(decoded), encoded: encoded.slice(), source, size })
+          readCodeBytes += size
+        }
+      }
       const func = new Function('__lfcMeter', 'Date', 'crypto', source)
       const Contract = func(meterBridge, dateBridge, cryptoBridge)
       if (activeExecution && !contractDefinitions[hash]) activeExecution.deployed.add(hash)
@@ -323,12 +307,13 @@ const _ = {
 
       debug(`loaded contract: ${hash} size: ${formatBytes(encoded.length)}`)
     } catch (e) {
-      console.log(e)
+      if (!readOnly) console.log(e)
       worker.postMessage({
         type: 'contractError',
         message: e.message,
         hash
       })
+      throw e
     } finally {
       if (topLevelDeployment) {
         activeMeter = undefined
@@ -337,6 +322,7 @@ const _ = {
     }
   },
   execute: async ({ contract, method, params, sender, executionSeed, executionTimestamp, executionRandomness }) => {
+    if (readOnly) throw new Error('Read-only worker cannot execute canonical transactions')
     const topLevel = !activeExecution
     try {
       if (topLevel) {
@@ -409,6 +395,7 @@ const _ = {
     }
   },
   collectFee: async ({ from, payments, burned = 0n }) => {
+    if (readOnly) throw new Error('Read-only worker cannot collect fees')
     burned = BigInt(burned)
     const seed = `fee:${from}:${JSON.stringify(payments, jsonStringifyBigInt)}:${burned}`
     return runAtomicMutation(seed, nativeToken, () => {
@@ -429,6 +416,7 @@ const _ = {
     })
   },
   settleRewards: async ({ rewards }) => {
+    if (readOnly) throw new Error('Read-only worker cannot mint rewards')
     const seed = `rewards:${JSON.stringify(rewards, jsonStringifyBigInt)}`
     return runAtomicMutation(seed, nativeToken, () => {
       globalThis.msg = createMessage(MONETARY_POLICY_AUTHORITY, nativeToken)
@@ -442,12 +430,19 @@ const _ = {
     })
   },
   init: async (message) => {
+    if (readOnly && !message.readOnly) throw new Error('Read-only worker cannot become a canonical worker')
+    if (message.readOnly) {
+      readOnly = true
+      contracts = {}
+      contractDefinitions = {}
+      activeExecution = undefined
+      activeMeter = undefined
+      activeCrypto = undefined
+    }
     let { peerid, fromState, state, info } = message
-    if (info) info = JSON.parse(info, jsonParseBigInt)
-    if (state) state = JSON.parse(state, jsonParseBigInt)
+    if (readOnly) readBaseline = stateFingerprint(state)
 
     globalThis.peerid = peerid
-    console.log({ fromState, info })
 
     nativeCalls = BigInt(info?.nativeCalls ?? 0)
     nativeMints = BigInt(info?.nativeMints ?? 0)
@@ -461,16 +456,24 @@ const _ = {
 
     if (fromState) {
       if (message.lastBlock) {
-        lastBlock = JSON.parse(message.lastBlock, jsonParseBigInt)
+        lastBlock = message.lastBlock
       }
 
       const setState = async (address, state?) => {
-        const contractBytes = await resolveContract(address)
-        if (contractBytes === address) {
-          addToWantList(address)
+        if (readOnly && readCodeCache.has(address)) {
+          // Re-evaluate the cached instrumented source, never reuse a live class:
+          // static fields and lexical closure variables must not leak between reads.
+          const cached = readCodeCache.get(address)
+          await _.runContract({ hash: address, decoded: cached.decoded, encoded: cached.encoded }, state)
           return
         }
+        const contractBytes = await resolveContract(address)
+        if (!contractBytes || contractBytes === address) {
+          addToWantList(address)
+          throw new Error(`Checkpoint contract unavailable: ${address}`)
+        }
         const contract = await new ContractMessage(contractBytes)
+        if (await contract.hash() !== address) throw new Error(`Checkpoint contract hash mismatch: ${address}`)
 
         await _.runContract({ hash: address, decoded: contract.decoded, encoded: contract.encoded }, state)
       }
@@ -502,102 +505,43 @@ const _ = {
           hash: await contractMessage.hash()
         })
       }
-      console.log({ blocks: message.blocks })
-      if (message.blocks?.length > 0) {
-        // let pre
-
-        // try {
-        //   const importee = await import('url')
-        //   const url = importee.default
-        //   if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
-        // } catch {
-        //   // browser env
-        //   pre = './'
-        // }
-
-        // let _worker = await new EasyWorker(pre + '@leofcoin/workers/block-worker.js', {
-        //   serialization: 'advanced',
-        //   type: 'module'
-        // })
-        // blocks = await _worker.once(message.blocks)
-        // _worker = null
-        // blocks = unique(globalThis.blocks ? globalThis : [], blocks)
-        // for (let i = 0; i < blocks.length; i++) {
-
-        // }
-        blocks = message.blocks
-        for (const block of blocks) {
-          // we only revalidate the latest 24 blocks
-          // every 24 blocks a snapshot is taken and stored in state
-          // this means contracts will be restored from this state
-          // this also means devs NEED to make sure the state can be restored
-          // on contract deploy an error will be thrown if state wasn't recoverable
-          if (block.index >= blocks.length - 24) {
-            const transactionCount = blocks[block.index].transactions.length
-            latestTransactions.splice(-transactionCount, latestTransactions.length)
-          }
-          if (!block.loaded && !fromState) {
-            totalBlocks += 1n
-            try {
-              const transactions = await Promise.all(
-                block.transactions.map(async (transaction) => {
-                  const message = new TransactionMessage(await resolveTransaction(transaction)).decode()
-                  if (message === transaction) {
-                    throw new Error(`nothing found for ${transaction}`)
-                  }
-                  return message
-                })
-              )
-              const validators = block.validators.map(({ address }) => address)
-              transactions.sort((a, b) => {
-                if (a.priority !== b.priority) return a.priority ? -1 : 1
-                const left = BigInt(a.nonce)
-                const right = BigInt(b.nonce)
-                return left < right ? -1 : left > right ? 1 : 0
-              })
-              const feesEnabled = supportsTransactionFees(block.protocolVersion)
-              const monetaryPolicyEnabled = supportsMonetaryPolicy(block.protocolVersion)
-              if (monetaryPolicyEnabled) await validateBlockResourceLimits(transactions)
-              const policy = monetaryPolicyEnabled
-                ? calculateMonetaryPolicy(
-                    BigInt(await get({ contract: nativeToken, method: 'totalSupply', params: [] })),
-                    BigInt(await get({ contract: nativeToken, method: 'targetSupply', params: [] }))
-                  )
-                : { subsidy: 0n, burnBasisPoints: 1_000n }
-              for (const transaction of transactions) {
-                await _executeTransaction(transaction, validators, feesEnabled, policy.burnBasisPoints)
-              }
-              if (monetaryPolicyEnabled && policy.subsidy > 0n) {
-                _.settleRewards({
-                  rewards: [...distributeAmount(policy.subsidy, validators, Number(block.index) % validators.length)]
-                })
-              }
-              block.loaded = true
-              worker.postMessage({
-                type: 'debug',
-                message: `loaded transactions for block: ${block.hash} @${block.index}`
-              })
-            } catch (error) {
-              // just tell chain it's ready so we can get this node sync
-              // when a node connects this node will try to resolve the wantList
-              // this should result in the node beeing sync
-              if (error.message.includes('nothing found for')) worker.postMessage({ type: 'machine-ready', lastBlock })
-              else console.error(error)
-            }
-          }
-        }
-        if (blocks.length > 0) {
-          lastBlock = blocks[blocks.length - 1]
-        }
-        globalThis.blocks = blocks
-      }
     }
-
-    worker.postMessage({ type: 'machine-ready', lastBlock })
+    // Startup only restores a verified checkpoint. Unapplied blocks are executed
+    // by Chain's canonical application path, never by a second replay engine.
+    blocks = message.blocks ?? []
+    if (!readOnly && (!Array.isArray(blocks) || blocks.length !== Number(lastBlock.index) + 1 ||
+      (blocks.length && blocks.at(-1)?.hash !== lastBlock.hash))) throw new Error('Checkpoint history does not match tip')
+    for (let index = 0; index < blocks.length; index++) {
+      if (Number(blocks[index]?.index) !== index ||
+        blocks[index].previousHash !== (index ? blocks[index - 1].hash : '0x0'))
+        throw new Error('Invalid checkpoint history')
+    }
+    globalThis.blocks = blocks
+    latestTransactions.splice(0, latestTransactions.length, ...blocks.slice(-24).flatMap(block => block.transactions))
+    return true
+  },
+  read: async ({ contract, method, params, sender = 'leofcoin:read-only' }) => {
+    if (!readOnly) throw new Error('Contract queries require a separate read-only worker')
+    globalThis.msg = createMessage(sender, contract)
+    beginExecution(`read:${contract}:${method}:${JSON.stringify(params, jsonStringifyBigInt)}`)
+    try {
+      const result = cloneState(await get({ contract, method, params }))
+      const snapshot = await _.snapshot()
+      if (stateFingerprint(snapshot.states) !== readBaseline) throw new Error('Read-only call attempted to change contract state')
+      return result
+    } finally {
+      activeMeter = undefined
+      activeCrypto = undefined
+      globalThis.msg = undefined
+    }
+  },
+  snapshot: async () => {
+    const states = {}
+    for (const address of Object.keys(contracts)) states[address] = cloneState(await get({ contract: address, method: 'state', params: [] }))
+    return { lastBlock: cloneState(lastBlock), states, info: { ...snapshotCounters(), totalBlocks } }
   },
   addLoadedBlock: (block) => {
-    const size = formatBytes(block.length)
-    block = JSON.parse(block, jsonParseBigInt)
+    const size = formatBytes(encodeValue(block).length)
     const index = Number(block.index)
     const tipIndex = Number(lastBlock.index)
     if (
@@ -631,9 +575,9 @@ const _ = {
   }
 }
 
-worker.onmessage(({ id, type, input }) => {
+worker.onmessage(({ id, type, input, error }) => {
   if (pubsub.hasSubscribers(id)) {
-    pubsub.publish(id, input)
+    pubsub.publish(id, { input, error })
     return
   }
   switch (type) {
@@ -654,6 +598,9 @@ worker.onmessage(({ id, type, input }) => {
       break
     case 'settleRewards':
       queueTask(id, 'settleRewards', input)
+      break
+    case 'snapshot':
+      queueTask(id, 'snapshot', input)
       break
     case 'contracts':
       respond(id, contracts)
@@ -678,6 +625,9 @@ worker.onmessage(({ id, type, input }) => {
       break
     case 'get':
       queueRead(id, input)
+      break
+    case 'read':
+      queueTask(id, 'read', input)
       break
     case 'totalContracts':
       respond(id, Object.keys(contracts).length)

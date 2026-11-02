@@ -57,7 +57,8 @@ export const guardProviderDiscovery = (peernet) => {
             timeout = setTimeout(() => reject(new Error('provider discovery timed out')), requestTimeout)
           })
         ])
-        const bytes = result instanceof Uint8Array ? result : new Uint8Array(Object.values(result))
+        if (!(result instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
+        const bytes = result
         if (new Codec(bytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
         const response = new peernet.protos['peernet-dht-response'](bytes).decoded
         if (response.hash !== hash) throw new Error('provider response hash mismatch')
@@ -97,8 +98,8 @@ export const guardProviderDiscovery = (peernet) => {
       try {
         const fetch = async () => {
           const availability = await peer.request(probe.encoded)
-          const probeBytes = availability instanceof Uint8Array
-            ? availability : new Uint8Array(Object.values(availability))
+          if (!(availability instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
+          const probeBytes = availability
           if (new Codec(probeBytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
           const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded
           if (provider.hash !== hash || !provider.has) throw new Error('peer does not provide content in requested store')

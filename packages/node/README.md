@@ -27,7 +27,7 @@ Mainnet is currently marked experimental; verify its chain ID and connection
 before sending funds.
 
 The browser runs its own selected-network node and stores its encrypted identity locally.
-Wallet, Identity, Chat, Validator, Faucet and Explorer automatically open the existing
+Wallet, Identity, Chat, Validator and Faucet automatically open the existing
 create/import/unlock dialog when no wallet is loaded, without an intermediate
 card. After unlocking, the original route, including its subview, is restored.
 Public views do not force a login on every app load.
@@ -38,6 +38,28 @@ node is shown as pending; only canonical completion shows confirmed.
 The bottom status bar spans the full window width, including below the desktop
 drawer, and shows node sync progress, connected peers and the latest local block
 across all views. Click its sync status to open the sync details.
+
+The navigation drawer groups wallet, network and community tools. On desktop
+it stays visible; on narrow screens it opens from the menu button, keeps keyboard
+focus inside, and closes with Escape or the backdrop. Its network card opens the
+same sync drawer as the bottom status bar.
+
+Sync and notifications use matching, scrollable side drawers with native modal
+focus handling. A connected peer only counts as compatible after its protocol
+major/minor version matches the local chain. Sync readiness also requires the
+chain to report synced and a known local tip. Unknown heights show **—**; block
+zero remains valid. A progress bar appears only for a known observed target.
+Local sync is not transaction finality.
+
+Notifications include timestamps and an errors filter. Up to 100 are retained
+in memory for this tab, with at most three simultaneous toasts. Toasts pause on
+hover or keyboard focus. Opening the inbox marks its entries read. Clearing or
+dismissing a notification does not cancel or change a transaction.
+
+For an isolated UI preview, build the node and run `npm run test:ui` from this
+package, then open `http://127.0.0.1:9556/console?view=stats`. Add
+`&panel=notifications` to preview the inbox with sample messages. This fixture
+uses simulated state and does not start a node, unlock a wallet or send transactions.
 
 ### Node activity
 
@@ -78,6 +100,65 @@ confirmation because it can submit registration/approval transactions and lock
 stake. Registration submission and enabled local participation are shown as
 different outcomes. All refreshed screens respect `prefers-reduced-motion`.
 
+### Explorer navigation and ledger
+
+Explorer does **not** require wallet login. If a local wallet-backed node is
+already running, it reads that node; otherwise it opens a separate read-only
+HTTP source. This never assigns the remote source to the global signer, chain,
+client or peer state, never opens wallet/account stores and never publishes
+`node:ready`. Sending and validator actions still require the real local wallet.
+The initial create/unlock screen also offers **Browse explorer without
+unlocking**; this is not shown during required wallet-backup acknowledgements.
+
+Peach's public endpoint is `https://remote.leofcoin.org`, pinned to the bundled
+Peach genesis chain ID. Each response must match that ID, and the initial genesis
+identity is verified. Public data is labelled as endpoint-reported, not locally
+verified consensus. There is no configured public Mainnet endpoint yet; its
+explorer reports that explicitly rather than requesting wallet login or silently
+showing Peach data.
+
+The remote server must run the matching updated `@leofcoin/endpoints` build with
+the `/explorer/*` API. Until that release is deployed, the UI shows an endpoint
+update/retry error, without opening a wallet. No legacy account-management or
+transaction-submission endpoint is used.
+
+The explorer has labelled **Overview**, **Blocks**, **Transactions** and
+**Pending pool** tabs. One search field automatically recognizes an exact
+zero-based block index (including genesis at 0), a block hash or a transaction
+hash by decoding its codec header and checking the full hash. Decimal indices
+are parsed as BigInt (with an optional `n` suffix); values outside the current
+node API's safe-number index range are reported explicitly, never rounded.
+The selected data source supplies block-index lookups; the explorer does not guess a height from
+the position of an item in a recent-block array.
+
+Block pages contain up to 25 blocks. Transaction pages resolve up to 25 bodies
+at a time, with four concurrent reads, and retain the correct containing block
+hash/index. Next/previous controls browse within the selected block range and
+then move to older/newer ranges. Page filters are explicitly local to the
+displayed page. New activity prompts a refresh instead of shifting the list
+under the cursor. Missing block or transaction data is reported rather than
+silently counted as zero.
+
+The pending-pool tab reads the local pool store only, capped at 100 entries.
+These are not confirmed transactions or a network-wide pool. Content hashes
+are checked in block/transaction detail views. A transaction is labelled
+**Recorded in local chain** only after checking its reference in the supplied
+local block; finding its body in storage alone does not establish inclusion.
+No explorer label is an independent proof of network finality.
+
+Native amounts use the current two-argument `transfer(to, amount)` interface
+and exact 18-decimal integer formatting. Other token decimals are not guessed.
+Tiny nonzero values display as **<0.000001** in compact tables, with exact values
+in detail views/tooltips. Transaction fee-paid values are not invented from
+the current fee calculator; block detail shows the recorded block fee total.
+
+Use the isolated `/console?view=explorer` fixture to review the screens without
+starting a node or submitting transactions.
+Add `&anonymous=1` to exercise the real HTTP adapter and endpoint middleware
+against simulated public data while leaving the wallet locked. The fixture
+remaps the public origin to its local test server only; this is not live network
+verification.
+
 ### Explorer rankings
 
 The Explorer dashboard shows the top five LFC holders by current local-chain
@@ -90,6 +171,10 @@ and display the actual sample size and index range. They include native-token
 calls but exclude internal contract calls and off-chain/read-only requests.
 These are activity metrics, not endorsements, unique-user counts or all-time
 rankings. During sync, results reflect only the currently available local state.
+If the sample only contains unresolved transaction hashes, activity rankings are
+explicitly unavailable rather than presenting zero activity. Registry membership
+does not establish online validator status, and a block transaction count is not
+a measured TPS rate; unavailable liveness/throughput data is labelled as such.
 
 Open **Address book** in the navigation drawer (`#!/address-book`) to add,
 rename or remove named wallet addresses, including your own. Contacts are saved

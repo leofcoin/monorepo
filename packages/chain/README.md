@@ -33,6 +33,74 @@ Transaction bodies are hash-checked before entering the canonical transaction
 store. Resolving data never applies it: canonical loading still uses the
 serialized state writer and chain-link validation.
 
+## Crash recovery and checkpoints
+
+State snapshots use two alternating, checksummed `checkpoint:0` / `checkpoint:1`
+records. Each record binds the chain ID and canonical tip to the **complete**
+contract state, committed account nonces and financial counters. An interrupted
+write leaves the previous verified slot available. Storage I/O errors propagate;
+if neither existing slot validates, startup refuses readiness rather than
+inventing balances or resetting counters. Preserve that root and rebuild into a
+separate data root when both checkpoints are unrecoverable.
+
+Startup verifies the ancestry of the checkpoint and persisted recovery target,
+restores derived nonces, then replays only the unapplied suffix through the same
+signature, validator, economics and serialized execution path as live blocks.
+A durable recovery target preserves a multi-block replay across another crash.
+The tip is checkpointed before updating the chain marker or announcing success.
+Local transaction bytes are not considered evidence of prior execution;
+committed sender nonces prevent executing a transfer twice.
+
+Older, split `lastBlock` / `states` / `accounts` / `info` snapshots are not trusted
+as coherent checkpoints. On first startup they are rebuilt from their hash-checked
+block ancestry and validated transactions, without removing ledger or identity
+files. Missing historical content or invalid execution stops recovery explicitly.
+No new genesis is required for this local storage change.
+
+Build `@leofcoin/workers` before `@leofcoin/chain` and deploy matching artifacts;
+the worker now exposes a serialized full-snapshot operation and no longer owns a
+separate startup-replay implementation. Process-isolated LevelDB tests exercise
+normal restarts, crashes before/during/after checkpoint writes and marker writes,
+plus invalid producer proofs and execution failures. These tests do not establish
+live multi-peer consensus correctness or protection against arbitrary disk loss.
+
+## Contract calls and read isolation
+
+Public `call(transaction)` now accepts a **signed transaction object**, not the
+old `(contract, method, params)` direct-execution form. `transfer(transaction)`
+likewise requires a signed native-token transfer. Both use `sendTransaction()`:
+admission returns a pending handle; only canonical execution changes state.
+Caller-supplied `hash` metadata is ignored and recomputed from signed content.
+`internalCall(sender, ...)` no longer permits public sender impersonation, and
+native minting is reserved for the monetary protocol. CLI/wallet helpers that
+already sign and submit transactions keep working.
+
+`staticCall(contract, method, params = [])` queries an isolated worker restored
+from the last committed snapshot, with `msg.sender = 'leofcoin:read-only'`.
+It never uses the node's selected account as read authority. Mutating getters
+and methods are rejected when their exported state changes; nested mutating
+`msg.call()` is denied. Results are cloned, so returned references cannot alter
+canonical state or cached results. Private validator snapshot bookkeeping stays
+inside the canonical block writer; name-service lookup uses the read path.
+
+Contract-to-contract `msg.staticCall()` during execution uses a separate read
+worker seeded from the transaction's current in-flight state and retains the
+calling contract as sender. A rejected nested mutation rejects execution; it
+does not mutate the queried canonical contract. Code instrumentation is cached,
+but evaluated classes and closures are reconstructed for each uncached query.
+
+Workers are lazy and reused. Public read queues are capped at 32; queries at
+64 KiB; results and the result cache at 4 MiB (maximum 64 entries). Instrumented
+code caches are bounded to 8 MiB/128 entries. Reads time out after 10 seconds;
+execution metering still applies. A committed snapshot invalidates result caches.
+Use `machine.close()` to release the canonical and both lazy query workers.
+Nested static-call execution rules are stricter than in older runtimes: coordinate
+the rollout across all validators before producing blocks; do not mix execution
+policies within one active network.
+This is state separation, not an OS security sandbox or a full audit of arbitrary
+JavaScript host-escape resistance. Consensus quorum certificates and durable
+validator vote locks remain separate follow-up work.
+
 ## Pending transaction propagation
 
 Transactions enter the local pending pool before canonical confirmation. Peers

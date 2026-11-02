@@ -2,23 +2,10 @@ import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
 import { verifyChainIdentity } from '@leofcoin/lib/chain-identity'
 import { ManagerReceipts, type Receipt } from './manager-receipts.js'
 
-const MAX_BODY = 1_048_576
 const errorMessage = (error) => error?.error?.message || error?.message || String(error?.error || error)
 
 class RequestError extends Error {
   constructor(public status: number, message: string) { super(message) }
-}
-
-async function readBody(request) {
-  let size = 0
-  const chunks: Buffer[] = []
-  for await (const chunk of request) {
-    size += chunk.length
-    if (size > MAX_BODY) throw new RequestError(413, 'Management request exceeds 1 MiB')
-    chunks.push(chunk)
-  }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) }
-  catch { throw new RequestError(400, 'Management request must contain JSON') }
 }
 
 /** No remote wallet access: only public queries and client-signed transactions. */
@@ -34,12 +21,11 @@ export function managerMiddleware(chain) {
     ctx.set('Cache-Control', 'no-store')
     if (ctx.method !== 'POST') {
       ctx.status = 405
-      ctx.body = { error: 'Use POST with application/json' }
+      ctx.body = { error: 'Use POST with application/octet-stream' }
       return
     }
     try {
-      if (!ctx.is('application/json')) throw new RequestError(415, 'Content-Type must be application/json')
-      const body = await readBody(ctx.req)
+      const body = ctx.state.rpcParams
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError(400, 'Invalid request')
       const identity = await verifyChainIdentity(await chain.getChainIdentity())
       if (body.chainId !== identity.chainId) throw new RequestError(409, 'Endpoint chain identity changed; reconnect and review')
@@ -86,7 +72,7 @@ export function managerMiddleware(chain) {
         await chain.validateTransactionSignature(message)
         let contract: ContractMessage | undefined
         if (body.contract !== undefined) {
-          if (typeof body.contract !== 'string') throw new RequestError(400, 'Contract must be an encoded message')
+          if (!(body.contract instanceof Uint8Array)) throw new RequestError(400, 'Contract must be an encoded message')
           contract = new ContractMessage(body.contract)
           if (contract.encoded.length > 262144 || contract.decoded.creator !== transaction.from ||
               transaction.to !== identity.genesisContracts.contractFactory ||

@@ -1,4 +1,4 @@
-import { FormatInterface } from '@leofcoin/codec-format-interface'
+import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import proto from '../protos/beacon-commitment.proto.js'
 import type { messageInput } from '../types.js'
 

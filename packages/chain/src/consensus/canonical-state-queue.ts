@@ -6,6 +6,8 @@ export class CanonicalStateQueue {
   #failed = false
   #failure: unknown
 
+  get failed() { return this.#failed }
+
   run<T>(operation: (transition: CanonicalTransition) => Promise<T>): Promise<T> {
     const result = this.#tail.then(async () => {
       if (this.#failed) {

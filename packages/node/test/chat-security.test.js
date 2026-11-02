@@ -256,6 +256,7 @@ test('uses Peernet archive mode for signed inbox requests, delivery and receipts
     },
     stop() {}
   }
+  peer.binaryArchiveVersion = 1
   peer.createArchiveMode = (options) => {
     archiveOptions = options
     assert.equal(typeof options.verifyEnvelope, 'function')

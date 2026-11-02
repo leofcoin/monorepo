@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { FormatInterface } from '@leofcoin/codec-format-interface'
+import { BinaryFormat as FormatInterface } from '@leofcoin/messages'
+import { decodeResponsePayload } from '../../src/helpers/response.ts'
 import { BlockMessage, LastBlockMessage } from '@leofcoin/messages'
 import { resolveLastBlockMessage } from '../../src/helpers/last-block.ts'
 
@@ -54,14 +55,12 @@ test('unwraps an encoded peernet response exactly once', async () => {
   const lastBlock = new LastBlockMessage({ hash: 'BA5WRAPPED', index: 10n })
   const response = new ResponseMessage({ response: lastBlock.encoded })
 
-  const resolved = await resolveLastBlockMessage(response.encoded)
+  const resolved = await resolveLastBlockMessage(await decodeResponsePayload(response.encoded))
   assert.deepEqual(resolved.decoded, { hash: 'BA5WRAPPED', index: 10n })
 })
 
-test('normalizes a legacy full block response to hash and index', async () => {
+test('rejects old block/hash/object/JSON tip representations instead of guessing', async () => {
   const block = new BlockMessage(blockInput)
-  const resolved = await resolveLastBlockMessage(block.encoded)
-
-  assert.equal(resolved.decoded.hash, await block.hash())
-  assert.equal(resolved.decoded.index, 9n)
+  for (const value of [block.encoded, 'hash', {}, new TextEncoder().encode('{}')])
+    await assert.rejects(resolveLastBlockMessage(value))
 })

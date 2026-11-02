@@ -6,6 +6,7 @@ import '@vandeurenglenn/lite-elements/icon.js'
 export class NotificationChild extends LitElement {
   @property() accessor title = ''
   @property() accessor message = ''
+  @property({ type: Number }) accessor createdAt = 0
   @property({ reflect: true }) accessor type: 'error' | 'info' | 'warning' = 'info'
   #hovered = false
   #focused = false
@@ -29,6 +30,7 @@ export class NotificationChild extends LitElement {
     :host([type='warning']) .kind { color: #f7c873; }
     strong { flex: 1; font-size: 14px; line-height: 24px; }
     p { margin: 8px 0 0 34px; line-height: 1.6; color: var(--md-sys-color-on-surface-variant, #ccc); white-space: pre-wrap; }
+    time { display: block; margin: 10px 0 0 34px; color: var(--md-sys-color-on-surface-variant, #ccc); font-size: 10px; }
     button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; margin: -10px -10px -6px 0; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
     button:hover { background: var(--md-sys-color-surface-container-high, #383139); }
     button:focus-visible { outline: 2px solid var(--md-sys-color-primary, #3477d2); outline-offset: 2px; }
@@ -49,6 +51,7 @@ export class NotificationChild extends LitElement {
         </button>
       </div>
       <p>${this.message}</p>
+      ${this.createdAt ? html`<time datetime=${new Date(this.createdAt).toISOString()}>${new Date(this.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>` : ''}
     </article>`
   }
 }

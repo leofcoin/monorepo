@@ -30,15 +30,17 @@ test('monorepo resolves one canonical codec and automatic-transport peernet grap
 })
 
 test('canonical hash protocol accepts fresh/current roots and rejects old or unversioned state without writes', async () => {
-  assert.equal(PROTOCOL_VERSION, '0.4.0')
+  assert.equal(PROTOCOL_VERSION, '0.5.0')
   await assertHashFormatState(store())
-  await assertHashFormatState(store({ version: '0.4.0', lastBlock: 'current' }))
-  await assertHashFormatState(store({ version: '0.4.9' }))
-  for (const version of ['0.3.0', '0.2.0', '1.0.0', '0.4.bad', 'not-a-version', '']) {
+  await assertHashFormatState(store({ version: '0.5.0', lastBlock: 'current' }))
+  await assertHashFormatState(store({ version: '0.5.9' }))
+  for (const version of ['0.4.0', '0.3.0', '0.2.0', '1.0.0', '0.5.bad', 'not-a-version', '']) {
     await assert.rejects(assertHashFormatState(store({ version })), /incompatible with canonical hash protocol/)
   }
   await assert.rejects(assertHashFormatState(store({ lastBlock: 'old' })), /no protocol version/)
   await assert.rejects(assertHashFormatState(store(), store({ lastBlock: 'old' })), /no protocol version/)
+  await assert.rejects(assertHashFormatState(store(), store({ 'checkpoint:0': 'existing' })), /no protocol version/)
+  await assert.rejects(assertHashFormatState(store({ recoveryTarget: 'existing' }), store()), /no protocol version/)
   await assert.rejects(assertHashFormatState({ has: async () => { throw new Error('storage failure') } }), /storage failure/)
 })
 

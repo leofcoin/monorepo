@@ -9,18 +9,61 @@
   <body>
     <script type="module">
       // UI only: no wallet storage, real node, peers or transactions.
-      history.replaceState(null, '', '#!/wallet/send')
+      const options = new URLSearchParams(location.search)
+      history.replaceState(null, '', options.get('view') === 'stats' ? '#!/stats' : options.get('view') === 'explorer' ? '#!/explorer/blocks' : '#!/wallet/send')
       localStorage.removeItem('leofcoin:selected-network:v1')
       const address = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
-      globalThis.chain = { state: { sync: 'synced' }, balanceOf: async () => 100000000000000000000n }
-      globalThis.peernet = { connections: { fixture: { connected: true } } }
+      globalThis.chain = { version: '0.4.0', lastBlock: Promise.resolve({ index: 1200n }),
+        state: { chain: 'loaded', sync: 'synced' }, balanceOf: async () => 100000000000000000000n }
+      globalThis.peernet = { connections: { fixture: { connected: true, version: '0.4.0' } } }
       globalThis.client = { peers: async () => [], peerId: async () => 'fixture' }
+      if (options.get('view') === 'explorer' && options.get('anonymous') !== '1') {
+        const { explorerFixture } = await import('/fixture-explorer.js')
+        const data = await explorerFixture(address)
+        Object.assign(globalThis, { transactionStore: data.transactionStore, transactionPoolStore: data.transactionPoolStore })
+        chain.nativeToken = data.nativeToken
+        chain.lastBlock = Promise.resolve(data.blocks.at(-1))
+        chain.getBlocks = async (start, end) => data.blocks.slice(start, end)
+        peernet.get = async (hash, kind) => kind === 'block' ? data.blockBytes.get(hash) : data.transactions.get(hash)
+        Object.assign(client, {
+          lookup: async name => ({ address: name }),
+          staticCall: async (_, method) => method === 'validators' ? [address] : 3n,
+          nativeTransfers: async () => data.transactions.size, nativeBurns: async () => 0n,
+          nativeMints: async () => 1n, nativeCalls: async () => data.transactions.size,
+          totalContracts: async () => 3n, lastBlockHeight: async () => 64,
+          totalTransactions: async () => data.transactions.size, totalSize: async () => 100000,
+          transactionsInPool: async () => 1, transactionPoolSize: async () => 224,
+          balances: async () => ({ [address]: 1000n * 10n ** 18n }),
+          blocks: async amount => data.blocks.slice(amount).map(block => data.blockBytes.get(block.hash))
+        })
+      }
+      const anonymous = options.get('anonymous') === '1'
+      if (anonymous) {
+        delete globalThis.chain; delete globalThis.peernet; delete globalThis.client
+        globalThis.fixtureWalletReads = 0
+        document.body.dataset.walletReads = '0'
+        globalThis.walletStore = { has: async () => { globalThis.fixtureWalletReads++; document.body.dataset.walletReads = String(globalThis.fixtureWalletReads); return true }, put: () => { throw new Error('Fixture wallet write forbidden') } }
+        const nativeFetch = globalThis.fetch.bind(globalThis)
+        globalThis.fetch = (input, init) => {
+          const url = new URL(typeof input === 'string' ? input : input.url, location.href)
+          return nativeFetch(url.origin === 'https://remote.leofcoin.org' && url.pathname.startsWith('/explorer/')
+            ? `${location.origin}${url.pathname}${url.search}` : input, init)
+        }
+      }
       await import('/shell.js')
       const shell = document.createElement('app-shell')
-      shell.wallet = { selectedAccount: address, selectedAccountIndex: 0, accounts: [['Test account', address, address]] }
-      shell.nodeStarted = true
-      shell.isNodeReady = true
+      if (!anonymous) {
+        shell.wallet = { selectedAccount: address, selectedAccountIndex: 0, accounts: [['Test account', address, address]] }
+        shell.nodeStarted = true
+        shell.isNodeReady = true
+      }
       document.body.append(shell)
+      if (options.get('panel') === 'notifications') {
+        await shell.rendered
+        shell.notificationController.createNotification({ title: 'Node connected', message: 'A compatible peer was discovered. This is simulated UI fixture data.' }, 0)
+        shell.notificationController.createNotification({ title: 'Peer request timed out', message: 'The node will retry. Your wallet and local chain data are unchanged.', type: 'warning' }, 0)
+        shell.notificationController.open = true
+      }
       globalThis.shell = shell
       globalThis.fixtureReady = true
     </script>

@@ -4,6 +4,23 @@ import ts from 'typescript'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { createApplicationHarness, deferred, methods } from '../helpers/canonical-state-harness.js'
 
+test('locally available transaction bodies are executed, not mistaken for canonical commits', async () => {
+  const fixture = createApplicationHarness()
+  fixture.transactions.add('tx')
+  await fixture.instance.add(fixture.block)
+  assert.equal(fixture.counts.executions, 1)
+  assert.deepEqual(fixture.balances, { sender: 890n, recipient: 100n, validator: 110n })
+})
+
+test('a committed sender nonce rejects a repeated transaction before another transfer or fee', async () => {
+  const fixture = createApplicationHarness()
+  fixture.accountNonces.set('sender', new TextEncoder().encode('1'))
+  await assert.rejects(fixture.instance.add(fixture.block), /nonce already committed/)
+  assert.equal(fixture.counts.executions, 0)
+  assert.equal(fixture.counts.fees, 0)
+  assert.equal(fixture.counts.rewards, 0)
+})
+
 test('concurrent duplicate commits execute transactions, fees and rewards exactly once', async () => {
   const gate = deferred()
   const entered = deferred()
@@ -77,6 +94,7 @@ for (const failure of ['rewardFailure', 'snapshotFailure', 'executionFailure']) 
     assert.equal(fixture.counts.executions, 1)
     assert.equal(fixture.counts.rewards, failure === 'executionFailure' ? 0 : 1)
     assert.ok(!fixture.events.includes('added block: block'))
+    assert.equal(fixture.instance.loaded, false)
   })
 }
 

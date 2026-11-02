@@ -8,6 +8,7 @@ const shortAddress = (address: string) => address.length > 22 ? `${address.slice
 @customElement('explorer-dashboard-rankings')
 export class DashboardRankings extends LitElement {
   @property({ type: Object }) accessor activity = rankActivity([])
+  @property() accessor activityError = ''
   @property({ type: Object }) accessor holders: ReturnType<typeof rankHolders> | undefined
   @property() accessor holderError = ''
   @property({ type: Boolean }) accessor loading = true
@@ -49,7 +50,7 @@ export class DashboardRankings extends LitElement {
 
   render() {
     const activity = this.activity
-    const period = activity.blocks ? `${activity.blocks} sampled blocks · #${activity.start}–#${activity.end}` : 'No recent blocks'
+    const period = this.activityError ? 'Activity sample unavailable' : activity.blocks ? `${activity.blocks} sampled blocks · #${activity.start}–#${activity.end}` : 'No recent blocks'
     return html`<div class="heading"><h2>On-chain leaders</h2><span class="period muted">${period}</span></div>
     <div class="rankings">
       <section aria-labelledby="holders-heading">
@@ -70,7 +71,7 @@ export class DashboardRankings extends LitElement {
       <section aria-labelledby="contracts-heading">
         <h2 id="contracts-heading"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Most used contracts</h2>
         <p class="muted">Top 5 by contract calls</p>
-        ${!activity.contracts.length ? html`<div class="empty">
+        ${this.activityError ? html`<p class="error" role="status">${this.activityError}</p>` : !activity.contracts.length ? html`<div class="empty">
             <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="5" y="8" width="38" height="32" rx="8" stroke="currentColor" stroke-width="1.5"/><path d="m18 19-5 5 5 5m12-10 5 5-5 5m-4-13-4 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <strong>No calls yet</strong><p class="muted">No contract calls in this sample.</p></div>`
           : html`<ol>${activity.contracts.map((contract, index) => html`<li>
@@ -85,7 +86,7 @@ export class DashboardRankings extends LitElement {
       <section aria-labelledby="addresses-heading">
         <h2 id="addresses-heading"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Most active addresses</h2>
         <p class="muted">Top 5 by sent transactions</p>
-        ${!activity.addresses.length ? html`<div class="empty">
+        ${this.activityError ? html`<p class="error" role="status">${this.activityError}</p>` : !activity.addresses.length ? html`<div class="empty">
             <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="19" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 4"/><path d="M10 24h8l4-10 5 20 4-10h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <strong>Waiting for activity</strong><p class="muted">No sent transactions in this sample.</p></div>`
           : html`<ol>${activity.addresses.map((sender, index) => html`<li>

@@ -31,6 +31,8 @@ export default [
     input: [
       './src/chain.ts',
       './src/node.ts',
+      './src/machine.ts',
+      './src/helpers/state-checkpoint.ts',
       './src/connection-monitor.ts',
       './src/helpers/hash-format-state.ts',
       './src/consensus/beacon.ts',

@@ -1,6 +1,8 @@
+import { readBinaryResponse } from './transport.js'
 // see https://developer.mozilla.org/en-US/docs/Web/API/Response#instance_methods
 type responseType = 'json' | 'text' | 'arrayBuffer' | 'clone' | 'formData' | 'blob'
 type networkVersion = 'peach' | string
+import { encodeWire, decodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 
 export default class Client {
   url: string
@@ -15,9 +17,14 @@ export default class Client {
   }
 
   async _fetch(method: string, params?, type: responseType = 'json') {
-    params = new URLSearchParams(params).toString()
-    const response = await fetch(`${this.url}/${method}?${params}`)
-    return response[type]()
+    const response = await fetch(`${this.url}/${method}`, {
+      method: 'POST', headers: { 'Content-Type': BINARY_CONTENT_TYPE },
+      body: encodeWire('rpc', params ?? {}, { maxBytes: 1048576 }) as any,
+      signal: AbortSignal.timeout(10000)
+    })
+    const value = await readBinaryResponse(response)
+    if (!response.ok) throw new Error(value?.error || `${method} failed with HTTP ${response.status}`)
+    return value
   }
 
   async _fetchString(method: string, params?) {
@@ -84,7 +91,8 @@ export default class Client {
     return this._fetch('lookup', { name })
   }
 
-  staticCall(contract, method, params) {
+  async staticCall(contract, method, params = []) {
+    if (!Array.isArray(params)) throw new Error('staticCall params must be an array')
     return this._fetch('staticCall', { contract, method, params })
   }
 
@@ -193,6 +201,6 @@ export default class Client {
   }
 
   bootstrap() {
-    return this._fetch('blockHashMap')
+    return this._fetch('bootstrap')
   }
 }

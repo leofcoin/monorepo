@@ -1,8 +1,9 @@
-export default {
+import { defineSchema } from '../schema.js'
+export default defineSchema({
   epoch: BigInt(0),
   round: BigInt(0),
   participant: BigInt(0),
   from: String(),
   signatureShare: String(),
   signature: String()
-}
+})

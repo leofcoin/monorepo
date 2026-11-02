@@ -13,6 +13,8 @@ export const SUPPORTED_NETWORKS = Object.freeze({
     network: 'leofcoin:peach',
     networkVersion: 'peach',
     label: 'Peach testnet',
+    explorerEndpoint: 'https://remote.leofcoin.org',
+    chainId: 'lfc:dcfb5acc9c617966d5e4c6c6ee3705279cf2765d841502b2c6a58ffccd0f4d0b',
     storageRoot: '.leofcoin/peach'
   })
 })

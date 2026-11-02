@@ -2,8 +2,8 @@
 
 `@leofcoin/binary` is a dependency-free shared implementation of unsigned
 base-128 integers and length-prefixed byte frames. Numeric values retain the
-existing wire bytes. No chain field, codec identifier, hash algorithm or supply
-representation changes as part of this migration.
+existing low-level framing bytes. The package also provides versioned typed-value
+encoding for the application protocol described in [the wire specification](../../docs/binary-wire-protocol.md).
 
 It is independent of `@leofcoin/codecs`, which remains the registry of codec
 identifiers. This package does not import or re-export that registry.
@@ -35,14 +35,53 @@ independent copy before resetting/reusing a writer. Writers have fixed capacity;
 the caller supplies the capacity or an existing Uint8Array. There is no hidden
 buffer growth or mutable process-global `.bytes` state.
 
-New reader calls reject padded/non-canonical integers by default. Existing block
-validator framing explicitly uses `canonical: false` to preserve legacy padded
-prefix acceptance. Tightening that consensus rule needs a separate protocol
-decision. Overflow and truncated fields still fail closed. `decodeFrames` accepts
-an optional `maxFrames` policy; network size/membership limits remain the caller's
-responsibility. BigInt support does not automatically migrate existing fields.
+Reader calls reject padded/non-canonical integers by default. The typed-message
+protocol requires canonical validator framing. An explicit `canonical: false`
+option remains available for offline tooling, not as a network fallback.
+Overflow and truncated fields fail closed. `decodeFrames` accepts an optional
+`maxFrames` policy; network size/membership limits remain the caller's responsibility.
 
 Checks: `npm test -w @leofcoin/binary`, `npm test -w @leofcoin/messages`.
 Benchmark: `node test/bench/binary-codec.js`. It compares the actual installed
 legacy framing packages and verifies equal bytes before measuring. Results are
 local CPU timings, not blockchain throughput or transport latency claims.
+
+## Typed-value encoder and framing
+
+`encodeValue` validates and measures a flat per-call plan, then writes directly
+into one exactly sized output byte buffer. Strings use allocation-free UTF-8
+measurement and direct/encodeInto writes; BigInts use exact 49-bit limbs while
+retaining the same unsigned-varint bytes. No scratch buffers or application
+values are cached across calls.
+
+`encodeValueWithPrefix(value, prefix, limits)` includes an existing codec/framing
+header in that same allocation. The prefix is copied; `maxBytes` bounds the
+typed value including its magic/version, separately from caller-provided framing.
+Callers must keep framing bounded and enforce total network message limits.
+
+Message schema compilation lives in `@leofcoin/messages`. Only frozen data-property
+schemas cache field names, kinds and codec prefixes. Mutable caller schemas are
+recompiled; decoded messages and caller-owned payloads are not frozen or cached.
+
+## Reproducible performance comparison
+
+Build first, then snapshot the **pre-change** binary/message outputs once:
+
+```sh
+node scripts/benchmark-wire-codecs.js --snapshot
+```
+
+Keep the returned directory. After rebuilding changed codecs:
+
+```sh
+node --expose-gc scripts/benchmark-wire-codecs.js <snapshot-directory>
+```
+
+Run from the repository root. The read-only benchmark checks identical bytes,
+decoded values and block/transaction hashes before reporting timings. It uses
+seven alternating samples, medians and source fingerprints. Message cases use
+the actual BlockMessage/TransactionMessage classes with representative encoding
+fixtures; they are not valid-consensus-block or end-to-end throughput benchmarks.
+Snapshots are ignored generated artifacts under `node_modules/.cache`; never
+refresh the baseline midway through a comparison. Rebuild dependencies and run
+multi-node verification only after benchmarks, not concurrently with them.

@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "1.6.5",
+  "version": "2.0.0",
   "description": "",
   "private": false,
   "exports": {
@@ -280,7 +280,7 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
-    "@leofcoin/binary": "^1.0.1",
+    "@leofcoin/binary": "^1.1.0",
     "@leofcoin/codec-format-interface": "^2.0.0",
     "@leofcoin/utils": "^1.1.45"
   },

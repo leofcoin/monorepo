@@ -1,10 +1,14 @@
-import addresses, { contractFactory, nativeToken, validators, nameService } from '@leofcoin/addresses'
+import addresses, { contractFactory } from '@leofcoin/addresses'
 import { randombytes } from '@leofcoin/crypto'
-import EasyWorker from '@vandeurenglenn/easy-worker'
-import { ContractMessage, TransactionMessage } from '@leofcoin/messages'
+import EasyWorker from '@leofcoin/workers/binary-worker'
+import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
-import { jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import { createDebugger } from '@vandeurenglenn/debug'
+import { createChainIdentity } from '@leofcoin/lib/chain-identity'
+import { writeCheckpoint } from './helpers/state-checkpoint.js'
+import { ReadOnlyMachine } from './read-only-machine.js'
+const genesisContracts = { contractFactory: addresses.contractFactory, nativeToken: addresses.nativeToken,
+  nameService: addresses.nameService, validators: addresses.validators }
 // import State from './state'
 const debug = createDebugger('leofcoin/machine')
 export default class Machine {
@@ -14,7 +18,7 @@ export default class Machine {
     states: {},
     lastBlock: {
       index: -1,
-      hash: ''
+      hash: '0x0'
     },
     accounts: {},
     info: {
@@ -33,44 +37,50 @@ export default class Machine {
   wantList: string[] = []
 
   readyResolve: (value: Machine | PromiseLike<Machine>) => void
-  ready = new Promise<Machine>((resolve) => {
+  readyReject: (reason: unknown) => void
+  ready = new Promise<Machine>((resolve, reject) => {
     this.readyResolve = resolve
+    this.readyReject = reject
   })
+  #checkpointGeneration = -1
+  #chainId: string
+  #reader: ReadOnlyMachine
+  #contractReader: ReadOnlyMachine
+  #readSnapshot
+  #workerPath: string
+  #closed = false
 
-  constructor(blocks?: any[]) {
-    this.init(blocks)
+  close() {
+    this.#closed = true
+    this.#reader?.close()
+    this.#contractReader?.close()
+    this.worker?.terminate()
   }
 
-  init(blocks) {
-    // @ts-ignore
-    return this.#init(blocks)
+  constructor(blocks: any[] = [], checkpoint?) {
+    this.init(blocks, checkpoint).then(() => this.readyResolve(this), error => {
+      this.close()
+      this.readyReject(error)
+    })
+  }
+
+  async init(blocks, checkpoint?) {
+    return this.#init(blocks, checkpoint)
   }
 
   async #onmessage(data) {
+    if (this.#closed) return
     switch (data.type) {
-      case 'transactionLoaded': {
-        const { from, nonce, hash } = data.result
-        ;(await transactionPoolStore.has(hash)) && (await transactionPoolStore.delete(hash))
-        try {
-          const _nonce = await accountsStore.get(from)
-          if (nonce > _nonce) await accountsStore.put(from, nonce)
-        } catch (error) {
-          await accountsStore.put(from, nonce)
-        }
-        break
-      }
       case 'contractError': {
-        console.warn(data.error)
+        console.warn(data.message ?? data.error)
 
         console.warn(`contract error: ${data.hash}`)
 
-        // @ts-ignore
-        await contractStore.delete(data.hash)
         break
       }
 
       case 'initError': {
-        console.error(`init error: ${data.message}`)
+        pubsub.publish(data.id, { error: new Error(`Machine initialization failed: ${data.message}`) })
         break
       }
 
@@ -81,8 +91,17 @@ export default class Machine {
       }
 
       case 'addLoadedBlockError':
+      case 'runContractError':
       case 'collectFeeError':
       case 'settleRewardsError': {
+        pubsub.publish(data.id, { error: new Error(data.message) })
+        break
+      }
+      case 'snapshotError': {
+        pubsub.publish(data.id, { error: new Error(data.message) })
+        break
+      }
+      case 'getError': {
         pubsub.publish(data.id, { error: new Error(data.message) })
         break
       }
@@ -98,13 +117,8 @@ export default class Machine {
         console.error(data.message)
         break
       }
-      case 'machine-ready': {
-        this.readyResolve(this)
-        pubsub.publish('machine.ready', true)
-        break
-      }
       case 'response': {
-        pubsub.publish(data.id, data.value || false)
+        pubsub.publish(data.id, data.value ?? false)
         break
       }
       case 'addToWantList': {
@@ -112,6 +126,16 @@ export default class Machine {
         break
       }
       case 'ask': {
+        if (data.question === 'staticCall') {
+          try {
+            const { snapshot, contract, method, params, sender } = data.input
+            const input = await this.#contractReader.read(snapshot, contract, method, params, sender)
+            if (!this.#closed) this.worker.postMessage({ id: data.id, input })
+          } catch (error) {
+            if (!this.#closed) this.worker.postMessage({ id: data.id, error: error instanceof Error ? error.message : String(error) })
+          }
+          break
+        }
         if (data.question === 'contract' || data.question === 'transaction') {
           try {
             const input = await peernet.get(data.input, data.question)
@@ -141,191 +165,58 @@ export default class Machine {
 
   async updateState(strict = false) {
     try {
-      const lastBlock = strict ? await this.getCanonicalTip() : await this.lastBlock
-      const lastBlockIndex = Number(lastBlock.index)
-      const statesLastBlockIndex = Number(this.states.lastBlock.index)
-      if (
-        lastBlockIndex > statesLastBlockIndex ||
-        (lastBlock.hash !== this.states.lastBlock.hash && Number(lastBlockIndex) === 0)
-      ) {
-        // todo only get state for changed contracts
-        const blocks = (await this.blocks).slice(statesLastBlockIndex)
-        let transactions = []
-        for (const block of blocks) {
-          if (block?.transactions) transactions = [...transactions, ...block.transactions]
-        }
-
-        transactions = await Promise.all(
-          transactions.map(async (transaction) => new TransactionMessage(await transactionStore.get(transaction)))
-        )
-
-        const contractsToGet = transactions.reduce((set, current: TransactionMessage) => {
-          const contract = current.decoded.to
-          if (!set.includes(contract)) set.push(contract)
-
-          return set
-        }, [])
-        const state = {}
-
-        if (!contractsToGet.includes(addresses.contractFactory)) contractsToGet.push(addresses.contractFactory)
-        if (!contractsToGet.includes(addresses.nativeToken)) contractsToGet.push(addresses.nativeToken)
-        if (!contractsToGet.includes(addresses.nameService)) contractsToGet.push(addresses.nameService)
-        if (!contractsToGet.includes(addresses.validators)) contractsToGet.push(addresses.validators)
-
-        await Promise.all(
-          contractsToGet.map(async (contract) => {
-            const value = await this.#askWorker('get', { contract, method: 'state', params: [] })
-            state[contract] = value
-          })
-        )
-
-        let accounts = {}
-        try {
-          const promises = []
-          for (const address of await accountsStore.keys()) {
-            promises.push(
-              (async () => {
-                accounts[address] = await accountsStore.get(address)
-              })()
-            )
-          }
-          await Promise.all(promises)
-        } catch (error) {
-          const promises = []
-          // no accounts found local, try to reconstruct from transactions
-          for (const transaction of transactions.reverse()) {
-            const { from, to, amount, nonce } = transaction.decoded.data
-            if (!accounts[from]) {
-              accounts[from] = nonce
-              promises.push(accountsStore.put(from, nonce))
-            }
-          }
-          await Promise.all(promises)
-        }
-
-        // Helper to sort object keys for deterministic serialization
-        const sortedStringify = (obj, replacer) => {
-          const sorted = {}
-          const keys = Object.keys(obj).sort()
-          for (const key of keys) {
-            sorted[key] = obj[key]
-          }
-          return JSON.stringify(sorted, replacer)
-        }
-
-        const tasks = [
-          stateStore.put('lastBlock', sortedStringify(lastBlock, jsonStringifyBigInt)),
-          stateStore.put('states', sortedStringify(state, jsonStringifyBigInt)),
-          stateStore.put('accounts', sortedStringify(accounts, jsonStringifyBigInt)),
-          stateStore.put(
-            'info',
-            sortedStringify(
-              {
-                nativeBurnAmount: await this.totalBurnAmount,
-                nativeBurns: await this.nativeBurns,
-                nativeCalls: await this.nativeCalls,
-                nativeMints: await this.nativeMints,
-                nativeTransfers: await this.nativeTransfers,
-                totalBlocks: await blockStore.length,
-                totalBurnAmount: await this.totalBurnAmount,
-                totalMintAmount: await this.totalMintAmount,
-                totalTransactions: await this.totalTransactions,
-                totalTransferAmount: await this.totalTransferAmount
-              },
-              jsonStringifyBigInt
-            )
-          )
-          // accountsStore.clear()
-        ]
-
-        await Promise.all(tasks)
+      const snapshot = await this.#askWorker('snapshot')
+      snapshot.chainId = this.#chainId
+      const accounts = {}
+      for (const address of await accountsStore.keys()) {
+        const raw = await accountsStore.get(address)
+        accounts[address] = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
       }
+      snapshot.accounts = accounts
+      const generation = this.#checkpointGeneration + 1
+      await writeCheckpoint(stateStore, snapshot, generation, Object.values(genesisContracts))
+      // Advance the in-memory durable tip only after the complete record succeeds.
+      this.#checkpointGeneration = generation
+      this.states = snapshot
+      this.#readSnapshot = structuredClone(snapshot)
     } catch (error) {
-      console.error(error)
       if (strict) throw error
+      console.error(error)
+      throw error
     }
   }
 
-  async #init(blocks): Promise<Machine> {
-    return new Promise(async (resolve) => {
-      const machineReady = async () => {
-        pubsub.unsubscribe('machine.ready', machineReady)
-        await this.updateState()
-        resolve(this)
-      }
-      pubsub.subscribe('machine.ready', machineReady)
-
-      let pre: string
-
-      try {
-        const importee = await import('url')
-        const url = importee.default
-        if (url) pre = url.fileURLToPath(new URL('.', import.meta.url))
-      } catch {
-        // browser env
-        pre = './'
-      }
-
-      this.worker = await new EasyWorker(pre + '@leofcoin/workers/machine-worker.js', {
-        serialization: 'advanced',
-        type: 'module'
-      })
-      this.worker.onmessage(this.#onmessage.bind(this))
-
-      let rawLastBlock
-      let rawStates
-      let rawAccounts
-      let rawInfo
-
-      if (await stateStore.has('lastBlock')) {
-        const decoder = new TextDecoder()
-        const decode = (param) => decoder.decode(param)
-        rawLastBlock = decode(await stateStore.get('lastBlock'))
-        this.states.lastBlock = JSON.parse(rawLastBlock, jsonParseBigInt)
-
-        try {
-          rawStates = decode(await stateStore.get('states'))
-          rawAccounts = decode(await stateStore.get('accounts'))
-          rawInfo = decode(await stateStore.get('info'))
-
-          this.states.states = JSON.parse(rawStates, jsonParseBigInt)
-          this.states.accounts = JSON.parse(rawAccounts, jsonParseBigInt)
-          this.states.info = JSON.parse(rawInfo, jsonParseBigInt)
-        } catch (error) {
-          console.error(error)
-          this.states.accounts = {}
-          // todo try fetching info from fully synced peer
-          this.states.info = {
-            nativeCalls: BigInt(0),
-            nativeMints: BigInt(0),
-            nativeBurns: BigInt(0),
-            nativeTransfers: BigInt(0),
-            totalBurnAmount: BigInt(0),
-            totalMintAmount: BigInt(0),
-            totalTransferAmount: BigInt(0),
-            totalTransactions: BigInt(0),
-            totalBlocks: BigInt(0)
-          }
-          rawInfo = JSON.stringify(this.states.info, jsonStringifyBigInt)
-
-          await stateStore.put('info', new TextEncoder().encode(rawInfo))
-        }
-      }
-
-      const message = {
-        type: 'init',
-        input: {
-          blocks,
-          fromState: this.states.lastBlock?.index >= 0,
-          lastBlock: rawLastBlock,
-          state: rawStates,
-          info: rawInfo,
-          // @ts-ignore
-          peerid: peernet.peerId
-        }
-      }
-      this.worker.postMessage(message)
+  async #init(blocks, checkpoint?): Promise<void> {
+    const identity = await createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+    this.#chainId = identity.chainId
+    if (checkpoint) {
+      this.#checkpointGeneration = checkpoint.generation
+      this.states = checkpoint.snapshot
+    }
+    let pre = './'
+    try {
+      const { fileURLToPath } = await import('url')
+      pre = fileURLToPath(new URL('.', import.meta.url))
+    } catch { /* browser worker URL */ }
+    this.#workerPath = pre + '@leofcoin/workers/machine-worker.js'
+    const readContract = hash => globalThis.contractStore.get(hash)
+    this.#reader = new ReadOnlyMachine(this.#workerPath, readContract)
+    this.#contractReader = new ReadOnlyMachine(this.#workerPath, readContract)
+    this.worker = await new EasyWorker(this.#workerPath, {
+      serialization: 'advanced', type: 'module'
     })
+    if (this.#closed) { this.worker.terminate(); throw new Error('State machine is closed') }
+    this.worker.onmessage(this.#onmessage.bind(this))
+    const initialized = await this.#askWorker('init', {
+      blocks,
+      fromState: Boolean(checkpoint),
+      lastBlock: checkpoint?.snapshot.lastBlock,
+      state: checkpoint?.snapshot.states,
+      info: checkpoint?.snapshot.info,
+      peerid: peernet.peerId
+    })
+    if (initialized !== true) throw new Error('Worker does not support checkpoint initialization; deploy matching chain and worker builds')
+    this.#readSnapshot = structuredClone(checkpoint?.snapshot ?? await this.#askWorker('snapshot'))
   }
 
   async #runContract(contractMessage) {
@@ -366,6 +257,7 @@ export default class Machine {
     sender?: string,
     execution?: { randomness?: string; seed?: string; timestamp?: number }
   ): Promise<any> {
+    if (this.#closed) throw new Error('State machine is closed')
     try {
       if (contract === contractFactory && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
@@ -426,30 +318,9 @@ export default class Machine {
     return this.#askWorker('settleRewards', { rewards })
   }
 
-  get(contract, method, parameters?): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const id = randombytes(20).toString()
-      const timeout = setTimeout(() => {
-        pubsub.unsubscribe(id, onmessage)
-        reject(new Error(`Machine.get timeout for ${contract}.${method}`))
-      }, 30000) // 30 second timeout for machine operations
-
-      const onmessage = (message) => {
-        clearTimeout(timeout)
-        pubsub.unsubscribe(id, onmessage)
-        resolve(message)
-      }
-      pubsub.subscribe(id, onmessage)
-      this.worker.postMessage({
-        type: 'get',
-        id,
-        input: {
-          contract,
-          method,
-          params: parameters
-        }
-      })
-    })
+  get(contract, method, parameters?) {
+    if (!this.#readSnapshot) return Promise.reject(new Error('Contract read state is not initialized'))
+    return this.#reader.read(this.#readSnapshot, contract, method, parameters ?? [])
   }
 
   async has(address) {
@@ -479,6 +350,7 @@ export default class Machine {
   }
 
   #askWorker(type, input?): Promise<any> {
+    if (this.#closed) return Promise.reject(new Error('State machine is closed'))
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
@@ -551,10 +423,8 @@ export default class Machine {
   }
 
   get lastBlock() {
-    return this.#askWorker('lastBlock').catch((error) => {
-      debug('lastBlock fallback after worker timeout:', (error as Error)?.message ?? error)
-      return this.states.lastBlock
-    })
+    // Public/status reads never advertise a tip whose checkpoint has not committed.
+    return Promise.resolve(this.states.lastBlock)
   }
 
   getCanonicalTip(): Promise<any> {
@@ -562,10 +432,7 @@ export default class Machine {
   }
 
   get lastBlockHeight() {
-    return this.#askWorker('lastBlockHeight').catch((error) => {
-      debug('lastBlockHeight fallback after worker timeout:', (error as Error)?.message ?? error)
-      return Number(this.states.lastBlock?.index ?? 0)
-    })
+    return Promise.resolve(Number(this.states.lastBlock.index))
   }
 
   getBlocks(from?, to?): Promise<[]> {
@@ -579,7 +446,7 @@ export default class Machine {
   async addLoadedBlock(block) {
     debug(`adding loaded block: ${block.index}@${block.hash}`)
     if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
-    return this.#askWorker('addLoadedBlock', JSON.stringify(block, jsonStringifyBigInt))
+    return this.#askWorker('addLoadedBlock', block)
   }
 
   async latestTransactions() {

@@ -1,3 +1,5 @@
+import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
+import { readBinaryResponse } from '@leofcoin/endpoint-clients/transport'
 import palenightItalic from '../vs-themes/palenight-italic.json' with { type: 'json' }
 import { Storage } from '@leofcoin/storage'
 import { convertTheme } from '@vandeurenglenn/monaco-utils'
@@ -241,11 +243,16 @@ export default customElements.define(
       this.show('deploying')
       let code = monaco.editor.getModels()[0].getLinesContent().join('\n')
       let response = await fetch('https://deployer.leofcoin.org/bundle', {
-        method: 'GET',
-        body: JSON.stringify({ code, dependencies: this.dependencies })
+        method: 'POST',
+        headers: { 'Content-Type': BINARY_CONTENT_TYPE },
+        body: encodeWire('rpc', { code, dependencies: this.dependencies }) as any,
+        signal: AbortSignal.timeout(30000)
       })
 
-      code = await response.text()
+      if (!response.ok) throw new Error(`Binary compiler request failed (HTTP ${response.status})`)
+      const compiled = await readBinaryResponse(response, 2 * 1024 * 1024)
+      if (typeof compiled?.code !== 'string') throw new Error('Compiler must return a binary RPC code response')
+      code = compiled.code
       console.log(code)
 
       this.show(`

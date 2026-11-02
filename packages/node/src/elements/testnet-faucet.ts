@@ -1,3 +1,5 @@
+import { readBinaryResponse } from '@leofcoin/endpoint-clients/transport'
+import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 import { LitElement, html, css } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import networks from '@leofcoin/networks'
@@ -40,7 +42,7 @@ export class TestnetFaucet extends LitElement {
   async #request(path, options: any = {}) {
     const address = this.address
     const response = await fetch(`${this.base}${path}`, { ...options, signal: AbortSignal.timeout(10000) })
-    const data = await response.json()
+    const data = await readBinaryResponse(response, 65536)
     if (!response.ok) {
       if (data.claimId && address === this.address) {
         this.claim = { id: data.claimId, state: 'reserved' }
@@ -101,8 +103,8 @@ export class TestnetFaucet extends LitElement {
     try {
       const claim = await this.#request('/claims', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, requestId })
+        headers: { 'Content-Type': BINARY_CONTENT_TYPE },
+        body: encodeWire('rpc', { address, requestId })
       })
       if (address !== this.address) return
       this.claim = claim

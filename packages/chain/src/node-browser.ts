@@ -1,3 +1,4 @@
+import { installBinaryPeerProtocol } from './binary-peer-protocol.js'
 // import config from './config/config'
 import Peernet from '@leofcoin/peernet/browser'
 import nodeConfig from '@leofcoin/lib/node-config'
@@ -14,12 +15,19 @@ export default class Node {
 
   async _init(config: NodeOptions = {}, password: string): Promise<this> {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
+    const autoStart = config.autoStart
+    config = { ...config, autoStart: false }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)
+    installBinaryPeerProtocol(this.#node)
     guardPeerMessages(this.#node)
     guardProviderDiscovery(this.#node)
     await nodeConfig(config)
+    if (autoStart) {
+      this.#node.autoStart = true
+      await this.#node.start()
+    }
 
     globalThis.pubsub.subscribe('chain:ready', async () => {
       if (!this.#node.autoStart) {
