@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import LittlePubSub from '@vandeurenglenn/little-pubsub'
 
 import { waitForCanonicalTransaction } from '../../src/transaction-finalization.ts'
 
@@ -55,4 +56,44 @@ test('rejects an invalid transaction and removes it from the pool', async () => 
   await assert.rejects(wait, (result) => result.hash === 'tx-invalid' && result.error.message === 'invalid')
   assert.deepEqual(removed, ['tx-invalid'])
   assert.equal(pubsub.subscribers('block-processed'), 0)
+})
+
+test('the real event bus settles every waiter without mutating an active dispatch', async () => {
+  const pubsub = new LittlePubSub()
+  const hashes = Array.from({ length: 128 }, (_, index) => `tx-${index}`)
+  const waits = hashes.map(hash => waitForCanonicalTransaction(pubsub, { delete: async () => {} }, hash))
+  let observed = 0
+  pubsub.subscribe('block-processed', () => observed++)
+  assert.doesNotThrow(() => pubsub.publish('block-processed', { transactions: hashes }))
+  assert.deepEqual(await Promise.all(waits), hashes)
+  assert.equal(observed, 1)
+  assert.equal(pubsub.subscriberCount('block-processed'), 1)
+  for (const hash of hashes) assert.equal(pubsub.subscriberCount(`transaction.completed.${hash}`), 0)
+})
+
+test('cached canonical notification is safe during waiter subscription', async () => {
+  const pubsub = new LittlePubSub()
+  pubsub.publish('block-processed', { transactions: ['tx-cached'] })
+  assert.equal(await waitForCanonicalTransaction(pubsub, { delete: async () => {} }, 'tx-cached'), 'tx-cached')
+  assert.equal(pubsub.subscriberCount('block-processed'), 0)
+  assert.equal(pubsub.subscriberCount('transaction.completed.tx-cached'), 0)
+})
+
+test('pool deletion failures reject and clean up rather than leaking a pending waiter', async () => {
+  const pubsub = new LittlePubSub()
+  const wait = waitForCanonicalTransaction(pubsub, { delete: async () => { throw new Error('store unavailable') } }, 'tx-invalid')
+  pubsub.publish('transaction.completed.tx-invalid', { status: 'fail', error: new Error('invalid') })
+  await assert.rejects(wait, result => result.error.message === 'store unavailable' && result.transactionError.message === 'invalid')
+  assert.equal(pubsub.subscriberCount('block-processed'), 0)
+  assert.equal(pubsub.subscriberCount('transaction.completed.tx-invalid'), 0)
+})
+
+test('a canonical success cannot subsequently delete the transaction as a failure', async () => {
+  const pubsub = new LittlePubSub()
+  let deleted = false
+  const wait = waitForCanonicalTransaction(pubsub, { delete: async () => { deleted = true } }, 'tx-ok')
+  pubsub.publish('block-processed', { transactions: ['tx-ok'] })
+  pubsub.publish('transaction.completed.tx-ok', { status: 'fail', error: new Error('stale failure') })
+  assert.equal(await wait, 'tx-ok')
+  assert.equal(deleted, false)
 })

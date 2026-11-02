@@ -43,3 +43,7 @@ jobs:
 
       - name: Run multi-process E2E tests
         run: node --test test/e2e/*.test.js
+
+      - name: Verify real transfers, cold sync and restart across isolated nodes
+        timeout-minutes: 5
+        run: npm run test:chain-benchmark && npm run test:e2e:chain-runtime

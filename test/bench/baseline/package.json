@@ -1,0 +1,36 @@
+{
+  "name": "leofcoin-published-chain-benchmark",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@leofcoin/chain": "1.10.22",
+    "@leofcoin/messages": "1.6.5",
+    "@leofcoin/lib": "1.3.18",
+    "@leofcoin/workers": "1.5.44",
+    "@leofcoin/addresses": "1.0.64",
+    "@leofcoin/utils": "1.1.45",
+    "@leofcoin/multi-wallet": "3.1.11",
+    "@leofcoin/peernet": "3.1.1",
+    "@leofcoin/storage": "3.5.38",
+    "@leofcoin/codec-format-interface": "2.0.0",
+    "@leofcoin/codecs": "1.1.5",
+    "@leofcoin/binary": "1.0.1",
+    "@vandeurenglenn/wrtc": "0.7.2"
+  },
+  "overrides": {
+    "@leofcoin/chain": "1.10.22",
+    "@leofcoin/messages": "1.6.5",
+    "@leofcoin/lib": "1.3.18",
+    "@leofcoin/workers": "1.5.44",
+    "@leofcoin/addresses": "1.0.64",
+    "@leofcoin/utils": "1.1.45",
+    "@leofcoin/multi-wallet": "3.1.11",
+    "@leofcoin/peernet": "3.1.1",
+    "@leofcoin/storage": "3.5.38",
+    "@leofcoin/codec-format-interface": "2.0.0",
+    "@leofcoin/codecs": "1.1.5",
+    "@leofcoin/binary": "1.0.1",
+    "@netpeer/swarm": "0.10.1",
+    "@vandeurenglenn/wrtc": "0.7.2"
+  }
+}
