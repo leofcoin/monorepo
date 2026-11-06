@@ -5,6 +5,36 @@ export interface Selectable extends HTMLElement {
   pages: Selectable
   select: Function
   selected: string | HTMLElement | number
+  applyRouteParameters?: (params: Record<string, string>) => void
+}
+
+const queryFields: Record<string, string[]> = {
+  'wallet/pay': ['to', 'amount', 'description', 'protocol', 'network', 'networkName'],
+  'explorer/block': ['selected', 'index'],
+  'explorer/transaction': ['selected', 'blockIndex', 'blockHash'],
+  'explorer/account': ['address'],
+  'identity/account': ['selected']
+}
+
+export function parseHashRoute(hash: string, origin: string) {
+  // An actual navigation URL is data, not URLPattern's matching syntax. Root
+  // the hash path explicitly; payment query strings must never become schemes.
+  const url = new URL(`/${Router.debang(hash).replace(/^\/+/, '')}`, origin)
+  const [route, ...subroutes] = url.pathname.slice(1).split('/')
+  return { route, subroutes, params: Object.fromEntries(url.searchParams) }
+}
+
+export function applyRouteParameters(page: Selectable, path: string, params: Record<string, string>) {
+  const fields = Object.hasOwn(queryFields, path) ? queryFields[path] : []
+  const allowed = Object.fromEntries(fields.filter(key => Object.hasOwn(params, key)).map(key => [key, params[key]]))
+  if (path === 'wallet/pay') {
+    if (typeof page.applyRouteParameters !== 'function') throw new Error('Payment view is not ready for request parameters')
+    page.applyRouteParameters(allowed)
+    return
+  }
+  // Query strings may set only explicit view data, never DOM properties or
+  // methods such as innerHTML, constructor, wallet, or select.
+  for (const [key, value] of Object.entries(allowed)) page[key] = value
 }
 
 export default class Router {
@@ -23,8 +53,7 @@ export default class Router {
   }
 
   static debang(hash) {
-    if (!hash.includes('#!/')) return hash
-    return hash.split('#!/')[1]
+    return hash.startsWith('#!/') ? hash.slice(3) : hash
   }
 
   static bang(hash) {
@@ -32,33 +61,11 @@ export default class Router {
   }
 
   static isbang(hash) {
-    return hash.includes('#!/')
-  }
-
-  #parseUrl = async (hash) => {
-    // @ts-expect-error
-    if (!globalThis.URLPattern) {
-      await import('urlpattern-polyfill')
-    }
-    const urlPattern = new URLPattern(Router.debang(hash), location.origin)
-
-    const routes = urlPattern.pathname.split('/').slice(1)
-
-    const route = routes.splice(0, 1)[0]
-    const subroutes = routes
-    const urlSearchParams = new URLSearchParams(urlPattern.search)
-    const params: any = {}
-
-    if (urlSearchParams.size > 0) {
-      for await (const [key, value] of urlSearchParams.entries()) {
-        params[key] = value
-      }
-    }
-    return { params, route, subroutes }
+    return hash.startsWith('#!/')
   }
 
   #onhashchange = async () => {
-    const { params, route, subroutes } = await this.#parseUrl(location.hash)
+    const { params, route, subroutes } = parseHashRoute(location.hash, location.origin)
 
     if (route) {
       await this.#host.select(route)
@@ -80,9 +87,7 @@ export default class Router {
 
       }
 
-      for (const param in params) {
-        previousRoute[param] = params[param]
-      }
+      applyRouteParameters(previousRoute, [route, ...subroutes].join('/'), params)
     }
   }
 }

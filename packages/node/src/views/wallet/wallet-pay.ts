@@ -108,6 +108,19 @@ export class WalletPay extends LiteElement {
     this.#updatePreview()
   }
 
+  applyRouteParameters(params: Record<string, string>) {
+    if (!params.to) { this.#reset(); return }
+    // Use the same request path as pasted/scanned links, including the network
+    // mismatch check. The router must not assign a nonexistent `network` field.
+    this.#applyRequest({
+      to: params.to,
+      amount: params.amount,
+      description: params.description,
+      protocol: params.protocol || 'url',
+      network: params.network || params.networkName
+    })
+  }
+
   async onChange(propertyKey: string): Promise<void> {
     if (propertyKey === 'amount' || propertyKey === 'wallet' || propertyKey === 'to') {
       await this.#updatePreview()

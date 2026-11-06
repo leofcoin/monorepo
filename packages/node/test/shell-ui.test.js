@@ -106,6 +106,32 @@ async function createShellFixture(t) {
   return { evaluate, waitFor, resize, click, call, errors }
 }
 
+test('payment links preserve query text and enforce the requested network', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, errors } = await createShellFixture(t)
+  await evaluate(`location.hash = '#!/wallet/pay?to=recipient&protocol=url&network=leofcoin%3Apeach&amount=10000&description=hallo+test'`)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-pay')?.requestedNetwork === 'leofcoin:peach'`)
+  await evaluate(`globalThis.payPage = shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('wallet-pay'); await payPage.rendered`)
+  assert.equal(await evaluate(`payPage.description`), 'hallo test')
+  assert.equal(await evaluate(`payPage.amount`), '10000')
+  assert.equal(await evaluate(`payPage.to`), 'recipient')
+  assert.equal(await evaluate(`payPage.paymentState`), 'review')
+  const note = 'coffee + (test)? * : {value} & café ☕ #!/explorer'
+  const query = new URLSearchParams({ to: 'recipient', network: 'leofcoin:mainnet', amount: '1.25', description: note,
+    innerHTML: '<img src=x onerror=alert(1)>', paymentState: 'confirmed', wallet: 'fake' })
+  await evaluate(`location.hash = ${JSON.stringify(`#!/wallet/pay?${query}`)}`)
+  await waitFor(`payPage.requestedNetwork === 'leofcoin:mainnet' && payPage.shadowRoot.querySelector('.network-warning')`)
+  assert.equal(await evaluate(`payPage.description`), note)
+  assert.equal(await evaluate(`payPage.paymentState`), 'review')
+  assert.equal(await evaluate(`payPage.wallet.selectedAccount === shell.wallet.selectedAccount`), true)
+  assert.equal(await evaluate(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Pay now').disabled`), true)
+  assert.equal(await evaluate(`payPage.querySelector('img') === null`), true)
+  await evaluate(`location.hash = '#!/wallet/pay'`)
+  await waitFor(`payPage.to === '' && payPage.requestedNetwork === ''`)
+  assert.deepEqual(errors, [])
+})
+
 test('removed manager route returns to wallet without loading a manager view', {
   skip: !runShellUiTests, timeout: 15000
 }, async t => {
