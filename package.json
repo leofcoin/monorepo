@@ -26,6 +26,7 @@
     "test:e2e:staging": "node test/e2e/remote.mjs staging",
     "test:e2e:public": "node test/e2e/public-network.mjs",
     "validator": "node scripts/run-validator.js",
+    "validator:reset": "node scripts/reset-testnet-data.js",
     "prettier": "npm run prettier --workspaces --if-present",
     "build": "npm run build:core",
     "build:core": "npm run build -w @leofcoin/binary && npm run build -w @leofcoin/addresses && npm run build -w @leofcoin/codecs && npm run build -w @leofcoin/standards && npm run build -w @leofcoin/contracts && npm run build -w @leofcoin/errors && npm run build -w @leofcoin/messages && npm run build -w @leofcoin/mnemonic && npm run build -w @leofcoin/networks && npm run build -w @leofcoin/utils && npm run build -w @leofcoin/wallet && npm run build -w @leofcoin/lib && npm run build -w @leofcoin/workers && npm run build -w @leofcoin/chain && npm run build -w @leofcoin/endpoints && npm run build -w @leofcoin/endpoint-clients && npm run build -w @leofcoin/launch-chain",

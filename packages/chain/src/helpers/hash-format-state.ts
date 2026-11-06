@@ -11,7 +11,7 @@ export const assertHashFormatState = async (chainStore: ReadStore, stateStore?: 
     const parsed = /^(\d+)\.(\d+)\.\d+$/.exec(version)
     const current = PROTOCOL_VERSION.split('.')
     if (parsed && parsed[1] === current[0] && parsed[2] === current[1]) return
-    throw new Error(`stored protocol ${version} is incompatible with canonical hash protocol ${PROTOCOL_VERSION}; back up existing data and use a separate migrated data root`)
+    throw new Error(`stored protocol ${version} is incompatible with canonical hash protocol ${PROTOCOL_VERSION}; explicit ledger migration or a testnet reset is required (preserve the wallet identity)`)
   }
   if (await chainStore.has('lastBlock') || await chainStore.has('recoveryTarget') || await stateStore?.has('lastBlock') ||
     await stateStore?.has('checkpoint:0') || await stateStore?.has('checkpoint:1')) {

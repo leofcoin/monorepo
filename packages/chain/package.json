@@ -57,6 +57,7 @@
   ],
   "scripts": {
     "validator": "node ../../scripts/run-validator.js",
+    "validator:reset": "node ../../scripts/reset-testnet-data.js",
     "np": "np",
     "watch": "rollup -c -w --silent error --cache true",
     "prettier": "prettier src --config ./../../.prettierrc --write",
