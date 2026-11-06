@@ -5,6 +5,7 @@ import { TransactionMessage } from '@leofcoin/messages'
 import { ResolveError } from '@leofcoin/errors'
 import { resolveTransactionReference } from '../../src/consensus/transaction-reference.ts'
 import { methods, deferred } from '../helpers/canonical-state-harness.js'
+import { publishObserverEvent } from '../../src/observer-events.ts'
 
 const production = methods('../../src/state.ts', 'State', [
   '#resolveTransactions', '#resolveBlock', 'resolveBlock'
@@ -59,11 +60,11 @@ const harness = (blocks, options = {}) => {
   }
   const Harness = new Function(
     'boundary', 'globalThis', 'peernet', 'transactionStore', 'transactionPoolStore',
-    'resolveTransactionReference', 'ResolveError', 'debug', 'formatBytes', 'console', source
+    'resolveTransactionReference', 'ResolveError', 'debug', 'formatBytes', 'console', 'publishObserverEvent', source
   )(
     boundary, globals, peernet, transactionStore, transactionPoolStore,
     resolveTransactionReference, ResolveError, () => {}, String,
-    { error(...args) { warnings.push(args) } }
+    { error(...args) { warnings.push(args) } }, publishObserverEvent
   )
   return { chain: new Harness(), reads, transactions, events, pool, warnings }
 }

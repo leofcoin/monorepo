@@ -1,8 +1,51 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import ts from 'typescript'
+import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { createApplicationHarness, deferred, methods } from '../helpers/canonical-state-harness.js'
+
+test('failing commit observers cannot poison the writer or skip later listeners', async t => {
+  t.mock.method(console, 'warn', () => {})
+  const fixture = createApplicationHarness(), bus = new LittlePubSub(), observed = []
+  globalThis.pubsub = bus
+  for (const topic of ['transaction-processed', 'block-processed']) {
+    bus.subscribe(topic, () => {
+      assert.equal(fixture.counts.snapshots, 1, 'observers run only after checkpoint persistence')
+      throw new Error(`${topic} observer failed`)
+    })
+    bus.subscribe(topic, () => observed.push(topic))
+  }
+  await fixture.instance.add(fixture.block)
+  await fixture.instance.add(fixture.block) // The queue must still accept a duplicate/no-op.
+  assert.deepEqual(observed, ['transaction-processed', 'block-processed'])
+  assert.equal(fixture.instance.loaded, true)
+  assert.equal(fixture.counts.executions, 1)
+  assert.equal(fixture.counts.rewards, 1)
+})
+
+test('failed checkpoint writes never emit transaction or block success notifications', async () => {
+  const fixture = createApplicationHarness({ snapshotFailure: true }), bus = new LittlePubSub(), observed = []
+  globalThis.pubsub = bus
+  for (const topic of ['transaction-processed', 'account-transaction-processed', 'block-processed'])
+    bus.subscribe(topic, () => observed.push(topic))
+  await assert.rejects(fixture.instance.add(fixture.block), /snapshot write failed/)
+  assert.deepEqual(observed, [])
+})
+
+test('sync progress and loaded-block observers cannot turn a successful recovery into an error', async t => {
+  t.mock.method(console, 'warn', () => {})
+  const fixture = createApplicationHarness(), bus = new LittlePubSub(), observed = []
+  globalThis.pubsub = bus
+  for (const topic of ['sync-progress', 'block-loaded']) {
+    bus.subscribe(topic, () => { throw new Error(`${topic} observer failed`) })
+    bus.subscribe(topic, () => observed.push(topic))
+  }
+  assert.equal(await fixture.instance.sync(), 'synced')
+  await fixture.instance.add(fixture.block)
+  assert.deepEqual(observed, ['sync-progress', 'block-loaded', 'sync-progress'])
+  assert.equal(fixture.counts.executions, 1)
+})
 
 test('locally available transaction bodies are executed, not mistaken for canonical commits', async () => {
   const fixture = createApplicationHarness()

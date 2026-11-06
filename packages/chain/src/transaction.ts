@@ -10,7 +10,7 @@ import {
 import { formatBytes } from '@leofcoin/utils'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
-import { waitForCanonicalTransaction } from './transaction-finalization.js'
+import { createCanonicalTransactionWaiter } from './transaction-finalization.js'
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
@@ -253,10 +253,12 @@ export default class Transaction extends Protocol {
     await this.validateTransactionSignature(message)
     await this.validateNonce(message.decoded.from, message.decoded.nonce)
     const hash = await message.hash()
+    // Finish fallible preparation before allocating a waiter or admitting a tx.
+    const fee = await calculateFee(message.decoded)
+    const waiter = createCanonicalTransactionWaiter(pubsub, transactionPoolStore, hash)
     try {
       let data
 
-      const wait = waitForCanonicalTransaction(pubsub, transactionPoolStore, hash)
       await globalThis.transactionPoolStore.put(hash, message.encoded)
       // Add to pending nonce index
       this.addPendingNonce(message.decoded.from, message.decoded.nonce)
@@ -266,13 +268,16 @@ export default class Transaction extends Protocol {
       } catch (publishError) {
         console.warn('peernet publish failed: add-transaction', (publishError as Error)?.message ?? publishError)
       }
-      const fee = await calculateFee(message.decoded)
-      return { hash, data, fee, wait, message }
+      return { hash, data, fee, wait: waiter.wait, message }
     } catch (error) {
-      console.log('remo')
-
-      await transactionPoolStore.delete(hash)
-      this.removePendingNonce(message.decoded.from, message.decoded.nonce)
+      waiter.cancel(error)
+      try {
+        await transactionPoolStore.delete(hash)
+      } catch (cleanupError) {
+        console.warn('failed to clean up rejected transaction:', cleanupError)
+      } finally {
+        this.removePendingNonce(message.decoded.from, message.decoded.nonce)
+      }
       throw error
     }
   }

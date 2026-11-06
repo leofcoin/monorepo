@@ -52,6 +52,7 @@ import {
 } from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
+import { publishObserverEvent } from './observer-events.js'
 import { createChainIdentity, findChainPresence, assertChainId } from '@leofcoin/lib/chain-identity'
 
 const debug = createDebugger('leofcoin/chain')
@@ -1194,9 +1195,6 @@ export default class Chain extends VersionControl {
 
     const noncesByAddress = {}
     for (let transaction of transactions) {
-      globalThis.pubsub.publish('transaction-processed', transaction.encoded)
-      if (transaction.decoded.to === globalThis.peernet.selectedAccount)
-        globalThis.pubsub.publish('account-transaction-processed', transaction.encoded)
       if (
         !noncesByAddress[transaction.decoded.from] ||
         noncesByAddress?.[transaction.decoded.from] < transaction.decoded.nonce
@@ -1225,7 +1223,14 @@ export default class Chain extends VersionControl {
 
     await this.updateState(blockMessage)
     debug(`added block: ${hash}`)
-    globalThis.pubsub.publish('block-processed', blockMessage.decoded)
+    // Announce only durable commits. Observer code cannot poison the writer or
+    // prevent later listeners (including transaction waiters) from receiving it.
+    for (const transaction of transactions) {
+      publishObserverEvent(globalThis.pubsub, 'transaction-processed', transaction.encoded)
+      if (transaction.decoded.to === globalThis.peernet.selectedAccount)
+        publishObserverEvent(globalThis.pubsub, 'account-transaction-processed', transaction.encoded)
+    }
+    publishObserverEvent(globalThis.pubsub, 'block-processed', blockMessage.decoded)
     // Start follow-up production only once this block has a persisted snapshot.
     if (schedule) await this.#handleEpochBoundary(blockIndex)
   }

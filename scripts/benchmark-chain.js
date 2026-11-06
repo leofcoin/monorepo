@@ -16,6 +16,7 @@ const args = process.argv.slice(2)
 const option = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 1] : fallback
 const baseline = option('--baseline', process.env.LEOFCOIN_CHAIN_BASELINE)
 const currentOnly = args.includes('--current-only')
+const observerFaults = args.includes('--faulty-observers')
 const count = Number(option('--transactions', '32'))
 const samples = Number(option('--samples', '3'))
 const timeout = Number(option('--timeout-ms', '45000'))
@@ -63,7 +64,8 @@ class NodeProcess {
   constructor(runtime, data, star) {
     this.events = []; this.pending = new Map(); this.sequence = 0; this.logs = ''
     this.child = fork(fixture, [], { cwd: runtime, serialization: 'advanced', execArgv: [],
-      env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star },
+      env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star,
+        LEOFCOIN_BENCH_OBSERVER_FAULTS: observerFaults ? '1' : '0' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
     const capture = bytes => {
       this.logTail = (this.logTail || '') + bytes.toString()
@@ -239,7 +241,8 @@ const report = { schema: 'leofcoin-chain-benchmark-v1', measuredAt: new Date().t
   current: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), fingerprint },
   workload: { count, amountPerTransfer: '100', validatorCount: 1, liveNodes: 3, transport: 'loopback WebRTC',
     trustedCommonAnchor: 'height 0, fixture setup excluded', measuredBlocks: 1, blockTimeMs: 6000,
-    signingIncluded: false, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false },
+    signingIncluded: false, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false,
+    observerFaultInjection: observerFaults },
   status: allPassed ? 'passed' : 'failed', comparable: !currentOnly && allPassed, summary: summarize(results), results,
   limits: ['One-validator consensus is not a multi-validator mainnet TPS guarantee', 'CPU is sampled over all benchmark descendants; short-lived process tails can be missed',
     'RSS is sampled aggregate resident memory, not unique physical memory', 'Current release also includes safety/recovery changes, not only codec changes'], events }

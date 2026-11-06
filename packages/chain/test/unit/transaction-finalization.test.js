@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 
-import { waitForCanonicalTransaction } from '../../src/transaction-finalization.ts'
+import { waitForCanonicalTransaction, createCanonicalTransactionWaiter } from '../../src/transaction-finalization.ts'
 
 const createPubSub = () => {
   const handlers = new Map()
@@ -96,4 +96,16 @@ test('a canonical success cannot subsequently delete the transaction as a failur
   pubsub.publish('transaction.completed.tx-ok', { status: 'fail', error: new Error('stale failure') })
   assert.equal(await wait, 'tx-ok')
   assert.equal(deleted, false)
+})
+
+test('cancelling a submission cleans both listeners without deleting shared pool data', async () => {
+  const pubsub = new LittlePubSub(), removed = []
+  const waiter = createCanonicalTransactionWaiter(pubsub, { delete: async hash => removed.push(hash) }, 'tx-cancel')
+  const error = new Error('submission cancelled')
+  waiter.cancel(error)
+  waiter.cancel(new Error('duplicate cancellation'))
+  await assert.rejects(waiter.wait, result => result.hash === 'tx-cancel' && result.error === error)
+  assert.equal(pubsub.subscriberCount('block-processed'), 0)
+  assert.equal(pubsub.subscriberCount('transaction.completed.tx-cancel'), 0)
+  assert.deepEqual(removed, [])
 })

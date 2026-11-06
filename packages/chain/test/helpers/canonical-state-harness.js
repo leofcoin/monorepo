@@ -4,6 +4,7 @@ import ts from 'typescript'
 import { distributeAmount } from '@leofcoin/lib'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { validateChainLink } from '../../src/consensus/chain-link.ts'
+import { publishObserverEvent } from '../../src/observer-events.ts'
 
 // Exercise the actual private application methods without starting discovery,
 // using a real wallet, or opening any persistent stores. Authentication and
@@ -150,7 +151,7 @@ export const createApplicationHarness = (options = {}) => {
         events.push('snapshot')
       }
     },
-    CanonicalStateQueue, validateChainLink, BlockMessage: AcceptedBlockMessage,
+    CanonicalStateQueue, validateChainLink, publishObserverEvent, BlockMessage: AcceptedBlockMessage,
     transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet,
     console: { log() {}, error() {} }, debug: message => events.push(message),
     compareTransactionNonces: () => 0, supportsTransactionFees: () => true,

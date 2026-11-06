@@ -21,6 +21,7 @@ import { decodeResponsePayload } from './helpers/response.js'
 import { CanonicalStateQueue, type CanonicalTransition } from './consensus/canonical-state-queue.js'
 import { validateChainLink } from './consensus/chain-link.js'
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
+import { publishObserverEvent } from './observer-events.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -284,7 +285,7 @@ export default class State extends Contract {
     if (await globalThis.chainStore.has('recoveryTarget') &&
       new TextDecoder().decode(await globalThis.chainStore.get('recoveryTarget')) === hash)
       await globalThis.chainStore.delete('recoveryTarget')
-    globalThis.pubsub.publish('lastBlock', message.encoded)
+    publishObserverEvent(globalThis.pubsub, 'lastBlock', message.encoded)
   }
 
   getLatestBlock(): Promise<BlockMessage['decoded']> {
@@ -355,7 +356,7 @@ export default class State extends Contract {
         this.#blocks[index] = { hash, ...block.decoded }
         this.#blockHashMap.set(hash, index)
         debug(`resolved block: ${hash} @${index} ${formatBytes(size)}`)
-        globalThis.pubsub.publish('block-resolved', { hash, index })
+        publishObserverEvent(globalThis.pubsub, 'block-resolved', { hash, index })
         this.#lastResolved = this.#blocks[index]
         this.#lastResolvedTime = Date.now()
         hash = block.decoded.previousHash
@@ -526,7 +527,7 @@ export default class State extends Contract {
       const remoteIndex = Number(lastBlock.index)
       const remoteBlockHash = lastBlock.hash
 
-      globalThis.pubsub.publish('sync-progress', {
+      publishObserverEvent(globalThis.pubsub, 'sync-progress', {
         phase: 'syncing',
         startIndex: localIndex,
         localIndex,
@@ -609,7 +610,7 @@ export default class State extends Contract {
         debug(`Block already in local state. Remote hash: ${remoteBlockHash} matches local state`)
       }
 
-      globalThis.pubsub.publish('sync-progress', {
+      publishObserverEvent(globalThis.pubsub, 'sync-progress', {
         phase: 'synced',
         startIndex: localIndex,
         localIndex: remoteIndex,
@@ -731,7 +732,7 @@ export default class State extends Contract {
       if (tip.hash !== block.hash || Number(tip.index) !== Number(block.index))
         throw new Error('Recovery did not apply the expected canonical block')
       block.loaded = true
-      globalThis.pubsub.publish('block-loaded', { ...block })
+      publishObserverEvent(globalThis.pubsub, 'block-loaded', { ...block })
     }
     this.#chainState = 'loaded'
     return true

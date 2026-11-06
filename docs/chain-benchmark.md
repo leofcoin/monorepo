@@ -26,6 +26,9 @@ npm run benchmark:chain -- --current-only --transactions 32 --samples 3
 
 CI runs the current-runtime check after the existing multi-process tests. Current-only
 reports can pass, but always set `comparable: false`: no second release was measured.
+The `test:e2e:chain-runtime` script also injects failing synchronous and asynchronous
+observers on every node (`--faulty-observers`). This is a correctness test, not a
+performance run. Omit that flag for an ordinary batch-timing measurement.
 
 Preparation uses the committed npm lockfile and `npm ci --ignore-scripts` in a
 private cache directory, including platform-specific optional prebuilt packages.
@@ -114,3 +117,24 @@ The original npm baseline still fails the execution gate, as expected. Do not
 silently patch that baseline to manufacture a passing speed comparison. Existing
 corrupted state from that release is not repaired by this notification fix; use
 the separately tested checkpoint recovery path or a clean isolated test root.
+
+## Observer isolation and submission cleanup (2026-11-05)
+
+Transaction-success notifications now follow the durable block checkpoint, never
+speculative execution. Chain observations (including last-block and sync progress)
+use a snapshot of the public LittlePubSub listener registry, isolate synchronous
+throws and asynchronous rejections per listener, and copy notification data so
+observers cannot mutate canonical headers or byte buffers. Later listeners still
+receive the event. Consensus votes and worker/RPC replies do not use this path;
+real execution and persistence failures still halt the canonical writer safely.
+
+Admission calculates fees before allocating a waiter. A local admission failure
+cancels its waiter and removes pending-nonce bookkeeping even if pool cleanup also
+fails, while preserving the original error. Cancelling this local wait does not
+cancel an already committed transaction or delete another caller's shared data.
+A temporary propagation failure still leaves the durable pool entry available for
+retry and returns a usable confirmation waiter.
+
+Regression coverage includes faulty observers before normal listeners, cached
+notifications, self-unsubscription, failed checkpoint writes without success
+events, and failed admission/cleanup without leaked listeners.

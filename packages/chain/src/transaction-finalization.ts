@@ -7,11 +7,17 @@ type TransactionPool = {
   delete: (hash: string) => Promise<unknown>
 }
 
-export const waitForCanonicalTransaction = (pubsub: PubSub, transactionPool: TransactionPool, hash: string) => {
+export const createCanonicalTransactionWaiter = (pubsub: PubSub, transactionPool: TransactionPool, hash: string) => {
   let cleanup = () => {}
+  let cancel = (_reason: unknown) => {}
   const wait = new Promise<string>((resolve, reject) => {
     const completionTopic = `transaction.completed.${hash}`
     let settled = false
+    cancel = (reason: unknown) => {
+      if (settled) return
+      settled = true
+      reject({ hash, error: reason })
+    }
 
     cleanup = () => {
       pubsub.unsubscribe('block-processed', blockProcessed)
@@ -46,5 +52,12 @@ export const waitForCanonicalTransaction = (pubsub: PubSub, transactionPool: Tra
   // Promise reactions run after the synchronous event dispatch. Unsubscribing
   // inside a listener mutates little-pubsub's live handler array and can skip
   // other transaction waiters or throw after the block was already persisted.
-  return wait.finally(() => cleanup())
+  const finalized = wait.finally(() => cleanup())
+  // The event may fail while sendTransaction is still awaiting local storage or
+  // publication, before the caller can attach its own rejection handler.
+  void finalized.catch(() => {})
+  return { wait: finalized, cancel }
 }
+
+export const waitForCanonicalTransaction = (pubsub: PubSub, transactionPool: TransactionPool, hash: string) =>
+  createCanonicalTransactionWaiter(pubsub, transactionPool, hash).wait

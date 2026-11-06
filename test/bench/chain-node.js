@@ -143,6 +143,14 @@ async function seed(input) {
   return input
 }
 
+if (process.env.LEOFCOIN_BENCH_OBSERVER_FAULTS === '1') {
+  // Register before the fixture reporter and transaction waiters: a broken UI
+  // must neither halt canonical work nor hide its commit from later observers.
+  for (const topic of ['lastBlock', 'block-resolved', 'sync-progress', 'block-loaded', 'transaction-processed', 'block-processed']) {
+    globalThis.pubsub.subscribe(topic, () => { throw new Error(`injected sync observer failure: ${topic}`) })
+    globalThis.pubsub.subscribe(topic, async () => { throw new Error(`injected async observer failure: ${topic}`) })
+  }
+}
 globalThis.pubsub.subscribe('block-processed', block => {
   const event = { type: 'block', index: Number(block.index), hash: block.hash,
     transactions: block.transactions, at: performance.now() }
