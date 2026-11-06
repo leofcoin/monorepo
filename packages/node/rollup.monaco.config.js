@@ -6,6 +6,7 @@ import postcss from 'rollup-plugin-postcss'
 import postcssUrl from 'postcss-url'
 import { join, relative } from 'path'
 import fs from 'fs-extra'
+import { patchedMonacoSanitizer } from './scripts/monaco-sanitizer.js'
 
 const rootNodeModules = join(process.cwd(), '..', '..', 'node_modules')
 
@@ -28,6 +29,7 @@ export default [
       }
     ],
     plugins: [
+      patchedMonacoSanitizer(),
       json(),
       postcss({
         plugins: [

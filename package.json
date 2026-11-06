@@ -10,6 +10,7 @@
     "lib": "lib"
   },
   "scripts": {
+    "test:dependency-security": "node --test test/dependency-security.test.js",
     "benchmark:chain": "node scripts/benchmark-chain.js",
     "benchmark:chain:prepare": "node scripts/prepare-chain-baseline.js",
     "test:chain-benchmark": "node --test test/bench/chain-benchmark.test.js",
@@ -75,6 +76,14 @@
   },
   "engines": {
     "node": ">=24.15.0"
+  },
+  "overrides": {
+    "monaco-editor": {
+      "dompurify": "3.4.17"
+    },
+    "@rollup/plugin-terser": {
+      "serialize-javascript": "^7.1.4"
+    }
   },
   "allowScripts": {
     "@vandeurenglenn/wrtc@0.7.2": true,
