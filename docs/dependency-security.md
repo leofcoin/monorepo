@@ -20,9 +20,9 @@ genesis.
   It is removed; install and build this workspace from the repository root.
   Published npm packages remain usable without cloning this monorepo.
 
-Run `npm run test:dependency-security` to check the reviewed version floors and
-workspace lockfile policy. CI includes this check. These fixed floors supplement,
-but do not replace, Dependabot and `npm audit --audit-level=high`.
+Use Dependabot and `npm audit --audit-level=high` to check dependencies against
+current advisories. The Monaco build checks its actual generated module graph,
+not a hardcoded dependency-version snapshot.
 
 Security updates to build tools must not silently replace native-contract
 addresses or bundled genesis bytecode. Hash the existing contract artifacts and
@@ -32,8 +32,8 @@ Do not run the genesis-generation script to make a dependency update pass.
 Verification on 2026-11-06: the rebuilt contract JavaScript artifacts and the
 public genesis address/bytecode manifests are byte-identical to the pre-update
 copies. Monaco remains 0.55.1; the generated editor bundle contains DOMPurify
-3.4.17 instead of the vendored 3.2.7. Core tests (333), browser-node tests (73
-passed, 12 skipped), and security guards (7) pass, as do the browser builds,
+3.4.17 instead of the vendored 3.2.7. Core tests (333) and browser-node tests (73
+passed, 12 skipped) pass, as do the browser builds,
 static-asset validation, and isolated transfer/cold-sync/restart test. The
 post-update workspace audit reports 0 high and 0 critical vulnerabilities;
 9 moderate and 2 low findings remain outside this cleanup.

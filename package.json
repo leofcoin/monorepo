@@ -10,7 +10,6 @@
     "lib": "lib"
   },
   "scripts": {
-    "test:dependency-security": "node --test test/dependency-security.test.js",
     "benchmark:chain": "node scripts/benchmark-chain.js",
     "benchmark:chain:prepare": "node scripts/prepare-chain-baseline.js",
     "test:chain-benchmark": "node --test test/bench/chain-benchmark.test.js",

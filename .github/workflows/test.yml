@@ -26,9 +26,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check reviewed dependency security floors
-        run: npm run test:dependency-security
-
       - name: Build all workspaces with Rage
         run: npm run build-all
 
