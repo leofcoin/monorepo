@@ -109,21 +109,18 @@ test('isolated offline nodes initialize their chain state', async () => {
     mkdtemp(join(tmpdir(), 'leofcoin-chain-b-'))
   ])
   try {
-    const results = await Promise.all(
-      homes.map((home) =>
+    // The child asserts runtime state directly; a failed assertion rejects here
+    // through its exit code. Console output is diagnostics only.
+    await Promise.all(
+      homes.map((home, index) =>
         execFileAsync(process.execPath, ['test/runtime-smoke.js'], {
           cwd: new URL('..', import.meta.url),
-          env: { ...process.env, HOME: home },
+          // Cover both terminal modes independently of the caller's environment.
+          env: { ...process.env, HOME: home, FORCE_COLOR: String(index) },
           timeout: 30_000
         })
       )
     )
-    for (const { stdout, stderr } of results) {
-      assert.match(stdout, /CHAIN_READY/)
-      assert.match(stdout, /MACHINE_READY/)
-      assert.match(stdout, /chain: 'loaded'/)
-      assert.doesNotMatch(stderr, /TypeError|CHAIN_READY_TIMEOUT/)
-    }
   } finally {
     await Promise.all(homes.map((home) => rm(home, { recursive: true, force: true })))
   }

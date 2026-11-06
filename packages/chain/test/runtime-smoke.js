@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict'
+
 const root = `.leofcoin-smoke-${process.pid}`
 const { default: addresses } = await import('@leofcoin/addresses')
 const { default: Node } = await import('../exports/node.js')
@@ -21,7 +23,9 @@ const timeout = setTimeout(() => {
   process.exit(2)
 }, 20_000)
 
-await chain.ready
+assert.equal(await chain.ready, true, 'chain.ready must complete successfully')
+assert.equal(chain.loaded, true, 'chain must have finished loading')
+assert.equal(chain.state.chain, 'loaded', 'chain state must be loaded')
 clearTimeout(timeout)
 const validators = await chain.staticCall(addresses.validators, 'validators')
 if (!Array.isArray(validators)) throw new Error('validators contract was not ready with chain.ready')
