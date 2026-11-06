@@ -1,19 +1,48 @@
-import {calculateFee, createTransactionHash} from './exports/index.js'
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import MultiWallet from '@leofcoin/multi-wallet'
+import { nativeToken } from '@leofcoin/addresses'
+import { TransactionMessage } from '@leofcoin/messages'
+import { fromBase58, toBase58 } from '@vandeurenglenn/typed-array-utils'
+import { calculateFee, createTransactionHash, signTransaction, TRANSACTION_FEE_BYTES, TRANSACTION_FEE_UNIT } from './exports/index.js'
 import { formatUnits } from '@leofcoin/utils'
 
-const transaction = {
-  from: "YTqzkFatW1LmGXhfHicj3xTirQxYqKezfFter31Pq1RNRa6UWYYWs",
-  method:"transfer",
-  nonce: 313348,
-  params: ['YTqzkFatW1LmGXhfHicj3xTirQxYqKezfFter31Pq1RNRa6UWYYWs', 'YTqwTAojA8aZDPYhSFey3KsYb66YdEa4Xe7L6E484VTfMSVvauLZd', '100000000000000000000'],
-  signature: new Uint8Array([0, 196, 7, 133, 115, 24, 136, 210, 114, 80, 122, 34, 154, 44, 76, 216, 18, 142, 75, 102, 12, 237, 85, 184, 115, 196, 222, 220, 132, 156, 201, 79, 190, 122, 123, 114, 112, 95, 84, 36, 225, 11, 175, 0, 236, 100, 5, 20, 128, 23, 249, 153, 206, 2, 103, 178, 14, 93, 66, 115, 8, 63, 110, 128, 180, 219, 42]),
-  timestamp: 1678450782309,
-  to: "IHNY2GQHXGQL4URICKLN5SE5ULIPF2QSFWU3DP4GZFOA5DBX4MMVDKJ2I3M"
+async function signedTransfer() {
+  // Public test-only seed; entirely in memory, with no identity or chain store.
+  const wallet = new MultiWallet('leofcoin')
+  await wallet.fromPrivateKey(new Uint8Array(32).fill(7), undefined, 'leofcoin')
+  const from = await wallet.address
+  const raw = { from, to: nativeToken, method: 'transfer', params: [from, 10n ** 18n], nonce: 1, timestamp: 1 }
+  return { raw, signed: await signTransaction(raw, wallet), wallet }
 }
 
-const fee = await calculateFee(transaction)
+test('fees use the canonical binary size for signed objects, messages and encoded bytes', async () => {
+  const { signed } = await signedTransfer()
+  const message = new TransactionMessage(signed)
+  assert.equal(typeof signed.signature, 'string')
+  assert.equal(toBase58(fromBase58(signed.signature)), signed.signature)
+  assert.ok(message.encoded instanceof Uint8Array)
+  const bytes = BigInt(message.encoded.length)
+  const expected = ((bytes + TRANSACTION_FEE_BYTES - 1n) / TRANSACTION_FEE_BYTES) * TRANSACTION_FEE_UNIT
+  assert.equal(await calculateFee(signed), expected)
+  assert.equal(await calculateFee(message), expected)
+  assert.equal(await calculateFee(message.encoded), expected)
+  assert.equal(await calculateFee(signed, true), formatUnits(expected.toString()))
+})
 
-console.log(await createTransactionHash(transaction));
-  console.log(fee);
+test('signatures verify against the same canonical hash before and after binary round-trip', async () => {
+  const { raw, signed, wallet } = await signedTransfer()
+  const decoded = new TransactionMessage(new TransactionMessage(signed).encoded)
+  const hash = await createTransactionHash(raw)
+  assert.ok(hash instanceof Uint8Array)
+  assert.deepEqual(await createTransactionHash(signed), hash)
+  assert.deepEqual(await createTransactionHash(decoded), hash)
+  assert.equal(await wallet.verify(fromBase58(decoded.decoded.signature), hash), true)
+  const tampered = { ...signed, params: [raw.from, 2n * 10n ** 18n] }
+  assert.equal(await wallet.verify(fromBase58(signed.signature), await createTransactionHash(tampered)), false)
+})
 
-  console.log(formatUnits(fee));
+test('legacy byte-array signatures remain invalid rather than weakening the message schema', async () => {
+  const { signed } = await signedTransfer()
+  await assert.rejects(calculateFee({ ...signed, signature: fromBase58(signed.signature) }), /Message field type mismatch/)
+})
