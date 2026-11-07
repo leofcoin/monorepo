@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { addContact, listContacts, removeContact, renameContact } from '../src/controllers/address-book.js'
+import { addContact, addressBookStorageKey, findContact, listContacts, removeContact, renameContact } from '../src/controllers/address-book.js'
 
 const address = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
 const network = 'leofcoin:peach'
@@ -37,4 +37,23 @@ test('keeps address books separated by network and surfaces corrupted data', () 
   assert.deepEqual(listContacts(storage, 'leofcoin:mainnet'), [])
   storage.setItem(`${network}:wallet-address-book:v1`, '{')
   assert.throws(() => listContacts(storage, network), SyntaxError)
+})
+
+test('recipient lookup uses the exact address and active network, not a payment-request name', async () => {
+  const storage = memoryStorage()
+  await addContact('Alice', address, storage, network)
+  await addContact('Mainnet Alice', address, storage, 'leofcoin:mainnet')
+  assert.equal(findContact(` ${address} `, storage, network).name, 'Alice')
+  assert.equal(findContact(address, storage, 'leofcoin:mainnet').name, 'Mainnet Alice')
+  assert.equal(findContact(address.toLowerCase(), storage, network), null)
+  assert.equal(findContact('unknown', storage, network), null)
+  const contact = findContact(address, storage, network)
+  contact.name = 'Changed outside the book'
+  assert.equal(findContact(address, storage, network).name, 'Alice')
+  renameContact(address, 'Renamed Alice', storage, network)
+  assert.equal(findContact(address, storage, network).name, 'Renamed Alice')
+  removeContact(address, storage, network)
+  assert.equal(findContact(address, storage, network), null)
+  storage.setItem(addressBookStorageKey(network), '{')
+  assert.throws(() => findContact(address, storage, network), SyntaxError)
 })

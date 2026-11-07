@@ -130,7 +130,7 @@ export class WalletView extends LiteElement {
         <custom-pages attr-for-selected="data-route">
           ${this.viewWithOrWithoutHistory(this.selectedRoute)}
         </custom-pages>
-        <nav class="wallet-nav" aria-label="Wallet">
+        ${this.selectedRoute === 'pay' ? '' : html`<nav class="wallet-nav" aria-label="Wallet">
           ${[
             { route: 'send', label: 'Pay', icon: 'call_made' },
             { route: 'receive', label: 'Receive', icon: 'call_received' },
@@ -140,7 +140,7 @@ export class WalletView extends LiteElement {
               <custom-icon icon=${icon} aria-hidden="true"></custom-icon><span>${label}</span>
             </a>
           `)}
-        </nav>
+        </nav>`}
       </flex-column>
     `
   }

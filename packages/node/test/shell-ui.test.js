@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createServer } from 'node:http'
-import { readFile, mkdtemp, rm } from 'node:fs/promises'
+import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, join, extname, sep } from 'node:path'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 
 // Opt in after `npm run build`; uses only a local fixture and native CDP.
 // RUN_SHELL_UI_TESTS=1 CHROME_BIN="/path/to/chrome" node --test test/shell-ui.test.js
@@ -125,10 +126,158 @@ test('payment links preserve query text and enforce the requested network', {
   assert.equal(await evaluate(`payPage.description`), note)
   assert.equal(await evaluate(`payPage.paymentState`), 'review')
   assert.equal(await evaluate(`payPage.wallet.selectedAccount === shell.wallet.selectedAccount`), true)
-  assert.equal(await evaluate(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Pay now').disabled`), true)
+  assert.equal(await evaluate(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Confirm').disabled`), true)
   assert.equal(await evaluate(`payPage.querySelector('img') === null`), true)
   await evaluate(`location.hash = '#!/wallet/pay'`)
   await waitFor(`payPage.to === '' && payPage.requestedNetwork === ''`)
+  assert.deepEqual(errors, [])
+})
+
+test('payment review is responsive, does not sign previews and signs once on explicit confirmation', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
+  const account = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
+  await evaluate(`
+    globalThis.fixtureSignatures = 0; globalThis.fixtureSubmissions = 0;
+    chain.nativeToken = ${JSON.stringify(account)};
+    chain.createTransaction = async raw => ({ ...raw, nonce: 1, timestamp: 1 });
+    globalThis.identityController = { signer: async () => ({ sign: async () => { fixtureSignatures++; return new Uint8Array(67) } }) };
+    chain.sendTransaction = async () => { fixtureSubmissions++; return { hash: 'fixture-transaction', wait: new Promise(resolve => { globalThis.finishFixturePayment = resolve }) } };
+    location.hash = ${JSON.stringify(`#!/wallet/pay?${new URLSearchParams({ to: account, amount: '1.25', network: 'leofcoin:peach', description: 'Coffee with the team' })}`)};
+  `)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-pay')?.preview?.state === 'ready'`)
+  await evaluate(`globalThis.payPage = shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('wallet-pay'); await payPage.updateComplete`)
+  assert.equal(await evaluate('fixtureSignatures'), 0)
+  assert.equal(await evaluate('fixtureSubmissions'), 0)
+  assert.deepEqual(await evaluate(`[...payPage.shadowRoot.querySelectorAll('footer button')].map(button => button.textContent.trim())`), ['Cancel', 'Confirm'])
+  assert.equal(await evaluate(`shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('.wallet-nav') === null`), true)
+  await evaluate(`globalThis.fixturePaymentRoute = location.hash; payPage.shadowRoot.querySelector('footer button').click()`)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view').selectedRoute === 'send'`)
+  assert.equal(await evaluate('fixtureSignatures'), 0)
+  assert.equal(await evaluate('fixtureSubmissions'), 0)
+  await evaluate(`location.hash = fixturePaymentRoute`)
+  await waitFor(`payPage.preview.state === 'ready' && shell.shadowRoot.querySelector('wallet-view').selectedRoute === 'pay'`)
+  await evaluate('await payPage.updateComplete')
+  assert.equal(await evaluate(`payPage.shadowRoot.querySelector('.protocol') === null`), true)
+  assert.equal(await evaluate(`payPage.shadowRoot.querySelector('hero-element') === null`), true)
+  assert.equal(await evaluate(`payPage.shadowRoot.querySelector('main').getBoundingClientRect().width <= 640`), true)
+  assert.equal(await evaluate(`payPage.shadowRoot.querySelector('main').getBoundingClientRect().top < 220`), true)
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    const shot = await call('Page.captureScreenshot', { format: 'png' })
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS, 'payment-review-desktop.png'), Buffer.from(shot.data, 'base64'))
+  }
+  await resize(390, 844)
+  await evaluate('await payPage.updateComplete')
+  assert.equal(await evaluate(`payPage.scrollWidth <= payPage.clientWidth + 1`), true)
+  assert.equal(await evaluate(`payPage.shadowRoot.querySelector('main').scrollWidth <= payPage.clientWidth + 1`), true)
+  assert.equal(await evaluate(`(() => {
+    const page = payPage.getBoundingClientRect();
+    return [...payPage.shadowRoot.querySelectorAll('footer button')].every(button => {
+      const rect = button.getBoundingClientRect(); return rect.top >= page.top && rect.bottom <= page.bottom + 1;
+    });
+  })()`), true, 'Confirm and Cancel remain visible on a small screen')
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    const shot = await call('Page.captureScreenshot', { format: 'png' })
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS, 'payment-review-mobile.png'), Buffer.from(shot.data, 'base64'))
+  }
+  await evaluate(`payPage.amount = '2.5'`)
+  await waitFor(`payPage.preview.state === 'ready' && payPage.preview.quote.amount === '2.5'`)
+  assert.equal(await evaluate('fixtureSignatures'), 0)
+  await evaluate(`peernet.connections = {}; payPage.amount = '3'`)
+  await waitFor(`payPage.preview.state === 'error'`)
+  assert.match(await evaluate('payPage.preview.error'), /connected and synced/)
+  assert.equal(await evaluate(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent === 'Confirm').disabled`), true)
+  await evaluate(`peernet.connections = { fixture: { connected: true } }; payPage.amount = '4'`)
+  await waitFor(`payPage.preview.state === 'ready' && payPage.preview.quote.amount === '4.0'`)
+  await evaluate(`await payPage.updateComplete; [...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent === 'Confirm').scrollIntoView({ block: 'center' })`)
+  assert.equal(await evaluate(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent === 'Confirm').disabled`), false)
+  await click(`[...payPage.shadowRoot.querySelectorAll('button')].find(button => button.textContent === 'Confirm')`)
+  await waitFor(`payPage.paymentState === 'submitted' || payPage.paymentState === 'failed'`)
+  assert.equal(await evaluate('payPage.paymentState'), 'submitted', await evaluate('payPage.validationError'))
+  assert.equal(await evaluate('fixtureSignatures'), 1)
+  assert.equal(await evaluate('fixtureSubmissions'), 1)
+  await evaluate(`finishFixturePayment('fixture-transaction')`)
+  await waitFor(`payPage.paymentState === 'confirmed'`)
+  assert.deepEqual(errors, [])
+})
+
+test('payment confirmation rejects a node replacement while signing', {
+  skip: !runShellUiTests, timeout: 15000
+}, async t => {
+  const { evaluate, waitFor, errors } = await createShellFixture(t)
+  const account = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
+  await evaluate(`globalThis.fixtureSubmissions = 0;
+    chain.nativeToken = ${JSON.stringify(account)};
+    chain.createTransaction = async raw => ({ ...raw, nonce: 1, timestamp: 1 });
+    chain.sendTransaction = async () => { fixtureSubmissions++; throw new Error('Must not submit') };
+    globalThis.identityController = { signer: async () => ({ sign: () => new Promise(resolve => { globalThis.finishFixtureSignature = resolve }) }) };
+    location.hash = ${JSON.stringify(`#!/wallet/pay?to=${account}&amount=1`)};`)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-pay')?.preview?.state === 'ready'`)
+  await evaluate(`globalThis.payPage = shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('wallet-pay');
+    await payPage.updateComplete; payPage.shadowRoot.querySelector('button.primary').click()`)
+  await waitFor(`globalThis.finishFixtureSignature`)
+  await evaluate(`globalThis.chain = { ...chain }; finishFixtureSignature(new Uint8Array(67))`)
+  await waitFor(`payPage.paymentState === 'failed'`)
+  assert.equal(await evaluate('fixtureSubmissions'), 0)
+  assert.match(await evaluate('payPage.validationError'), /details changed/)
+  assert.deepEqual(errors, [])
+})
+
+test('payment recipients can be saved without sending and resolve trusted address-book names', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
+  const address = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
+  const name = 'Alice <b>team</b>'
+  await evaluate(`globalThis.fixtureSignatures = 0; globalThis.fixtureSubmissions = 0;
+    chain.nativeToken = ${JSON.stringify(address)};
+    chain.createTransaction = async raw => ({ ...raw, nonce: 1, timestamp: 1 });
+    globalThis.identityController = { signer: async () => { fixtureSignatures++; throw new Error('Saving a contact must never sign') } };
+    chain.sendTransaction = async () => { fixtureSubmissions++; throw new Error('Saving a contact must never send') };
+    location.hash = ${JSON.stringify(`#!/wallet/pay?to=${address}&amount=1&name=Untrusted-request-name`)};`)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-pay')?.preview?.state === 'ready'`)
+  await evaluate(`globalThis.payPage = shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('wallet-pay');
+    globalThis.recipient = payPage.shadowRoot.querySelector('payment-recipient'); await recipient.updateComplete`)
+  assert.equal(await evaluate(`recipient.contact`), null)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.contact-name')`), null)
+  assert.equal(await evaluate(`payPage.shadowRoot.textContent.includes('Balance after payment')`), false)
+  assert.equal(await evaluate(`payPage.shadowRoot.textContent.includes('Total, including fee')`), false)
+  await evaluate(`recipient.shadowRoot.querySelector('.add-contact').click()`)
+  await waitFor(`recipient.shadowRoot.querySelector('dialog').open`)
+  await resize(390, 844)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('dialog').getBoundingClientRect().right <= innerWidth`), true)
+  await evaluate(`recipient.shadowRoot.querySelector('dialog button[type="button"]').click()`)
+  assert.equal(await evaluate(`localStorage.getItem('leofcoin:peach:wallet-address-book:v1')`), null)
+  await evaluate(`recipient.shadowRoot.querySelector('.add-contact').click()`)
+  await waitFor(`recipient.shadowRoot.querySelector('dialog').open`)
+  await evaluate(`const input = recipient.shadowRoot.querySelector('input'); input.value = ${JSON.stringify(name)};
+    input.dispatchEvent(new Event('input', { bubbles: true })); await recipient.updateComplete;
+    recipient.shadowRoot.querySelector('form').requestSubmit()`)
+  await waitFor(`recipient.contact?.name === ${JSON.stringify(name)} && !recipient.shadowRoot.querySelector('dialog').open`)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.contact-name').textContent`), name)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('b') === null`), true, 'contact labels are escaped text')
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('details').open`), false)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.add-contact') === null`), true)
+  await evaluate(`recipient.shadowRoot.querySelector('summary').click()`)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.address').textContent`), address)
+  assert.equal(await evaluate('fixtureSignatures'), 0)
+  assert.equal(await evaluate('fixtureSubmissions'), 0)
+  assert.equal(await evaluate(`localStorage.getItem('leofcoin:mainnet:wallet-address-book:v1')`), null)
+  await evaluate(`location.hash = '#!/wallet/send'`)
+  await waitFor(`shell.shadowRoot.querySelector('wallet-view').selectedRoute === 'send'`)
+  await evaluate(`globalThis.sendPage = shell.shadowRoot.querySelector('wallet-view').shadowRoot.querySelector('wallet-send');
+    sendPage.to = ${JSON.stringify(address)}; sendPage.amount = '2'; await sendPage.updateComplete;
+    sendPage.shadowRoot.querySelector('.review-button').click()`)
+  await waitFor(`sendPage.phase === 'review' && sendPage.shadowRoot.querySelector('payment-recipient')?.contact?.name === ${JSON.stringify(name)}`)
+  assert.equal(await evaluate('fixtureSignatures'), 0)
+  await evaluate(`location.hash = ${JSON.stringify(`#!/wallet/pay?to=${address}&amount=1`)}`)
+  await waitFor(`payPage.isConnected && payPage.shadowRoot.querySelector('payment-recipient')?.contact?.name === ${JSON.stringify(name)}`)
+  await evaluate(`globalThis.recipient = payPage.shadowRoot.querySelector('payment-recipient');
+    localStorage.setItem('leofcoin:peach:wallet-address-book:v1', '{');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'leofcoin:peach:wallet-address-book:v1' }))`)
+  await waitFor(`recipient.error && !recipient.contact`)
+  assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.add-contact').disabled`), true)
   assert.deepEqual(errors, [])
 })
 
@@ -170,6 +319,9 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   await waitFor(`!shell.shadowRoot.querySelector('sync-info')`)
   await evaluate(`shell.shadowRoot.querySelector('.sync-status-pill').click()`)
   await waitFor(`shell.shadowRoot.querySelector('sync-info') === cachedSyncInfo && cachedSyncInfo.open`)
+  await waitFor(`cachedSyncInfo.shadowRoot.querySelector('dialog').open`)
+  await evaluate(`cachedSyncInfo.shadowRoot.querySelector('dialog').dispatchEvent(new Event('close')); await cachedSyncInfo.updateComplete`)
+  assert.equal(await evaluate('cachedSyncInfo.open'), true, 'a stale queued close cannot dismiss a reopened drawer')
   await evaluate(`cachedSyncInfo.shadowRoot.querySelector('dialog').dispatchEvent(new Event('cancel', { cancelable: true }))`)
   await waitFor(`!shell.shadowRoot.querySelector('sync-info')`)
   await evaluate(`globalThis.fixtureWallet = shell.wallet;
@@ -320,6 +472,9 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   await evaluate(`location.hash = '#!/wallet/pay'`)
   await waitFor(`walletView.selectedRoute === 'pay' && walletView.shadowRoot.querySelector('wallet-pay')?.shadowRoot?.querySelector('textarea')`)
   assert.equal(await evaluate(`shell.pages.style.position`), '')
+  assert.equal(await evaluate(`walletView.shadowRoot.querySelector('.wallet-nav') === null`), true)
+  await click(`[...walletView.shadowRoot.querySelector('wallet-pay').shadowRoot.querySelectorAll('button')].find(button => button.textContent === 'Cancel')`)
+  await waitFor(`walletView.selectedRoute === 'send'`)
   await click(`walletView.shadowRoot.querySelector('a[href="#!/wallet/transactions"]')`)
   await waitFor(`walletView.selectedRoute === 'transactions'`)
   assert.equal(await evaluate(`shell.pages.style.position`), '')
@@ -452,7 +607,8 @@ test('faucet has its own testnet-only route and never mounts on mainnet', {
     globalThis.fetch = async (url, options) => {
       if (String(url).endsWith('/status')) {
         faucetReads++;
-        return new Response(JSON.stringify({ network: 'leofcoin:peach', testnet: true, ready: true, amount: '10' }));
+        return new Response(new Uint8Array(${JSON.stringify([...encodeWire('rpc', { network: 'leofcoin:peach', testnet: true, ready: true, amount: '10' })])}),
+          { headers: { 'Content-Type': ${JSON.stringify(BINARY_CONTENT_TYPE)} } });
       }
       return originalFaucetFetch(url, options);
     };

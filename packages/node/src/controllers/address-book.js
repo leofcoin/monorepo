@@ -1,7 +1,7 @@
 import { getSelectedNetwork } from '../network-selection.js'
 import { validateRecipientAddress } from './transfer.js'
 
-const storageKey = (network) => `${network}:wallet-address-book:v1`
+export const addressBookStorageKey = (network) => `${network}:wallet-address-book:v1`
 
 function getStorage(storage) {
   if (!storage) throw new Error('Address book storage is unavailable.')
@@ -9,7 +9,7 @@ function getStorage(storage) {
 }
 
 function readContacts(storage, network) {
-  const value = getStorage(storage).getItem(storageKey(network))
+  const value = getStorage(storage).getItem(addressBookStorageKey(network))
   if (value === null) return []
   const data = JSON.parse(value)
   if (
@@ -28,7 +28,7 @@ function readContacts(storage, network) {
 }
 
 function writeContacts(contacts, storage, network) {
-  getStorage(storage).setItem(storageKey(network), JSON.stringify({ version: 1, contacts }))
+  getStorage(storage).setItem(addressBookStorageKey(network), JSON.stringify({ version: 1, contacts }))
   return contacts
 }
 
@@ -43,9 +43,13 @@ export function listContacts(storage = globalThis.localStorage, network = getSel
   return readContacts(storage, network)
 }
 
+export function findContact(address, storage = globalThis.localStorage, network = getSelectedNetwork().network) {
+  return readContacts(storage, network).find(contact => contact.address === String(address || '').trim()) ?? null
+}
+
 export async function addContact(name, address, storage = globalThis.localStorage, network = getSelectedNetwork().network) {
   name = normalizeName(name)
-  address = await validateRecipientAddress(address)
+  address = await validateRecipientAddress(address, network)
   const contacts = readContacts(storage, network)
   if (contacts.some((contact) => contact.address === address))
     throw new Error('This address is already in your address book.')

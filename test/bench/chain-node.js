@@ -28,10 +28,11 @@ async function packageFile(name, subpath = '.') {
 const load = async (name, subpath) => import(pathToFileURL(await packageFile(name, subpath)).href)
 const send = value => process.send?.(encodeWire('chain-benchmark', value))
 const events = []
-let chain, initial, tracked = []
+let chain, initial, tracked = [], crashTopic
+const blockedTopics = new Set()
 const { default: Node } = await load('@leofcoin/chain', './node')
 const { default: addresses } = await load('@leofcoin/addresses')
-const { BlockMessage, ContractMessage, TransactionMessage } = await load('@leofcoin/messages')
+const { BlockMessage, ContractMessage, TransactionMessage, ProposalMessage } = await load('@leofcoin/messages')
 const lib = await load('@leofcoin/lib')
 const utils = await load('@leofcoin/utils')
 const { default: MultiWallet } = await load('@leofcoin/multi-wallet')
@@ -44,6 +45,22 @@ const node = new Node({ network, networkVersion: 'e2e', root: relative(homedir()
   transport: { kind: 'webrtc', kinds: ['webrtc'], fallback: { enabled: false, order: ['webrtc'] }, webrtc: { backend: 'vandeurenglenn' } }
 }, 'benchmark-test-only')
 await node.ready
+// Test-only faults at real message boundaries; never bypass quorum/validation.
+const peer = globalThis.peernet
+const publish = peer.publish.bind(peer), subscribe = peer.subscribe.bind(peer)
+peer.publish = (topic, ...args) => {
+  if (blockedTopics.has(topic)) return
+  if (topic === 'consensus:propose') send({ type: 'proposal', ...new ProposalMessage(args[0]).decoded })
+  if (crashTopic === topic) {
+    crashTopic = undefined
+    process.send(encodeWire('chain-benchmark', { type: 'injected-crash', topic }), () => process.exit(86))
+    return
+  }
+  return publish(topic, ...args)
+}
+peer.subscribe = (topic, callback, ...rest) => subscribe(topic, (...args) => {
+  if (!blockedTopics.has(topic)) return callback(...args)
+}, ...rest)
 for (const name of ['chain', 'state', 'accounts', 'wallet', 'account', 'contract', 'block', 'transaction', 'transactionPool']) {
   const store = globalThis[`${name}Store`]
   if (store && resolve(store.db?.root || '') !== dataRoot) throw new Error(`Store escaped benchmark root: ${name}`)
@@ -105,20 +122,22 @@ async function seed(input) {
     const message = new ContractMessage(Uint8Array.from(value.split(','), Number))
     await globalThis.contractStore.put(await message.hash(), message.encoded)
   }
-  if (!input) {
+  if (!input?.anchor) {
     const machine = await freshMachine()
     const states = {}
     for (const address of required) states[address] = await machine.get(address, 'state', [])
     await closeMachine(machine)
     const account = globalThis.peernet.selectedAccount
+    const members = [...new Set(input?.members || [account])].sort()
+    assert(members.includes(account), 'Seed creator must be a fixture validator')
     const token = states[addresses.nativeToken], validators = states[addresses.validators]
     const stake = BigInt(validators.minimumBalance)
-    token.balances = { [account]: BigInt(token.totalSupply) - stake, [addresses.validators]: stake }
+    token.balances = { [account]: BigInt(token.totalSupply) - stake * BigInt(members.length), [addresses.validators]: stake * BigInt(members.length) }
     token.holders = 2n
-    validators.validators = [account]; validators.currentValidator = account
-    validators.balances = { [account]: stake }; validators.validatorHistory = { 0: [account] }
+    validators.validators = members; validators.currentValidator = account
+    validators.balances = Object.fromEntries(members.map(member => [member, stake])); validators.validatorHistory = { 0: members }
     const anchor = { index: 0n, previousHash: '0x0', timestamp: 1000, reward: 0n, fees: 0n,
-      transactions: [], validators: [{ address: account, reward: 0n }], producer: account, producerProof: '', protocolVersion: protocol }
+      transactions: [], validators: members.map(address => ({ address, reward: 0n })), producer: account, producerProof: '', protocolVersion: protocol }
     anchor.producerProof = (await lib.signTransaction({ from: account, to: addresses.validators, method: 'produceBlock',
       params: [await new BlockMessage(anchor).hash()], timestamp: anchor.timestamp }, globalThis.peernet.identity)).signature
     const message = new BlockMessage(anchor), hash = await message.hash()
@@ -160,7 +179,7 @@ globalThis.pubsub.subscribe('block-processed', block => {
 })
 async function status() {
   const tip = chain ? await chain.lastBlock : initial?.lastBlock
-  return { account: globalThis.peernet.selectedAccount, pid: process.pid, protocol, version: chainPackage.version,
+  return { account: globalThis.peernet.selectedAccount, peerId: globalThis.peernet.peerId, pid: process.pid, protocol, version: chainPackage.version,
     tip: tip && { index: Number(tip.index), hash: tip.hash }, state: chain?.state,
     pending: await globalThis.transactionPoolStore.keys(),
     peers: Object.values(globalThis.peernet.connections || {}).filter(peer => peer.connected).length,
@@ -206,7 +225,26 @@ process.on('message', bytes => {
           pending.wait?.catch?.(() => {})
           value.push(pending.hash)
         }
-      } else if (request.action === 'participate') value = await chain.participate(initial.account)
+      } else if (request.action === 'participate') value = await chain.participate(globalThis.peernet.selectedAccount)
+      else if (request.action === 'partition') {
+        blockedTopics.clear()
+        const topics = request.input === 'precommit-only' ? ['consensus:precommit']
+          : request.input ? ['consensus:propose', 'consensus:prevote', 'consensus:precommit', 'add-block'] : []
+        for (const topic of topics) blockedTopics.add(topic)
+        value = true
+      }
+      else if (request.action === 'crash-on-precommit') { crashTopic = 'consensus:precommit'; value = true }
+      else if (request.action === 'history') {
+        value = []
+        let hash = (await chain.lastBlock).hash
+        while (hash !== '0x0') {
+          const block = new BlockMessage(await globalThis.blockStore.get(hash))
+          assert.equal(await block.hash(), hash)
+          value.push({ hash, ...block.decoded })
+          hash = block.decoded.previousHash
+        }
+        value.reverse()
+      }
       else if (request.action === 'audit') value = await audit()
       else if (request.action === 'shutdown') {
         if (chain?.machine) await closeMachine(chain.machine)

@@ -3,6 +3,7 @@ import { render } from 'lit-html'
 import generateAccount from '@leofcoin/generate-account'
 import IdentityController from '../controllers/identity.js'
 import { bindWalletToNode } from '../controllers/wallet-bootstrap.js'
+import { getBrowserTestnetResetFailure } from '../controllers/browser-testnet-reset.js'
 import { getSelectedNetwork, installNetworkStoreScope } from '../network-selection.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
@@ -341,6 +342,7 @@ export class LoginScreen extends LiteElement {
     if (globalThis.chain) return
     pubsub.publish('node:starting', true)
     try {
+      if (getBrowserTestnetResetFailure()) throw new Error(getBrowserTestnetResetFailure())
       if (direct) await this.#spawnChain(password)
       else await this.#spawnEndpoint(false)
     } catch (error) {

@@ -30,6 +30,10 @@ import { CustomPages } from '@vandeurenglenn/lite-elements/pages.js'
 
 import { LiteElement, property, query, css, html, customElement } from '@vandeurenglenn/lite'
 import { NotificationController } from './notification/controller.js'
+import {
+  completePendingBrowserTestnetReset,
+  getBrowserTestnetResetFailure
+} from './controllers/browser-testnet-reset.js'
 
 const navigation = [
   { route: 'wallet', label: 'Wallet', icon: 'wallet', group: 'Your wallet' },
@@ -506,6 +510,23 @@ class AppShell extends LiteElement {
 
   async connectedCallback() {
     super.connectedCallback()
+    try {
+      if (await completePendingBrowserTestnetReset()) {
+        await this.rendered
+        this.notificationController.createNotification({
+          title: 'Peach testnet reset complete',
+          message: 'Local chain data was cleared. Your wallet was preserved; unlock it to sync again.',
+          type: 'info'
+        }, 0)
+      }
+    } catch (error) {
+      await this.rendered
+      this.notificationController.createNotification({
+        title: 'Peach testnet reset incomplete',
+        message: getBrowserTestnetResetFailure() || (error instanceof Error ? error.message : String(error)),
+        type: 'error'
+      }, 0)
+    }
     nodeActivity.start()
     const subscribe = (event: string, handler: (...args: any[]) => void, replay = true) => {
       let subscribing = true

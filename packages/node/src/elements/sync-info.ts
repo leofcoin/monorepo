@@ -10,7 +10,13 @@ export class SyncInfo extends LitElement {
   @property({ type: Object }) accessor nodeStatus: NodeStatus
   @property() accessor chainId = ''
 
+  connectedCallback() {
+    super.connectedCallback()
+    this.requestUpdate() // Cached drawers must reconcile the native dialog again.
+  }
+
   updated() {
+    if (!this.isConnected) return
     const dialog = this.shadowRoot.querySelector('dialog')
     if (this.open && !dialog.open) dialog.showModal()
     else if (!this.open && dialog.open) dialog.close()
@@ -57,7 +63,13 @@ export class SyncInfo extends LitElement {
       : status.ready ? knownTarget ? 'Local execution has caught up with the observed network target.' : 'The local chain reports synced and has compatible peer connections.'
       : status.state === 'error' ? 'Chain synchronization was interrupted. Inspect node activity for connection and request errors.'
       : 'Fetching and applying chain data from compatible peers.')
-    return html`<dialog aria-labelledby="sync-title" @cancel=${this.#close} @close=${this.#close}
+    return html`<dialog aria-labelledby="sync-title"
+      @cancel=${(event: Event) => { event.preventDefault(); this.#close() }}
+      @close=${(event: Event) => {
+        // Native close events are queued. An old event must not close a drawer
+        // that has already been reinserted and reopened in the meantime.
+        if (!(event.target as HTMLDialogElement).open) this.#close()
+      }}
       @click=${(event: MouseEvent) => { if (isBackdropClick(event)) this.#close() }}>
       <header><div><span class="eyebrow">${getSelectedNetwork().label} · Network</span><h2 id="sync-title">Node sync</h2><p>A live view of this browser node</p></div>
         <button class="close" aria-label="Close sync details" @click=${this.#close}>×</button></header>

@@ -33,6 +33,20 @@ test('failed checkpoint writes never emit transaction or block success notificat
   assert.deepEqual(observed, [])
 })
 
+test('durable commit clears a losing proposal at the committed height, not only an identical hash', async () => {
+  const proposal = { index: 571, hash: 'losing-proposal', round: 2 }
+  const fixture = createApplicationHarness({ proposal })
+  await fixture.instance.add(fixture.block)
+  assert.deepEqual(fixture.instance.consensusState, { proposal: null, round: 0 })
+})
+
+test('failed checkpoint does not claim proposal cleanup as a successful commit', async () => {
+  const proposal = { index: 571, hash: 'losing-proposal', round: 2 }
+  const fixture = createApplicationHarness({ proposal, snapshotFailure: true })
+  await assert.rejects(fixture.instance.add(fixture.block), /snapshot write failed/)
+  assert.equal(fixture.instance.consensusState.proposal, proposal)
+})
+
 test('sync progress and loaded-block observers cannot turn a successful recovery into an error', async t => {
   t.mock.method(console, 'warn', () => {})
   const fixture = createApplicationHarness(), bus = new LittlePubSub(), observed = []

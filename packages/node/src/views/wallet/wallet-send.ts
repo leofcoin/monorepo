@@ -1,10 +1,11 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
-import { formatUnits } from '@leofcoin/utils'
-import { prepareTransfer, submitTransfer, networkStatus, errorMessage } from '../../controllers/transfer.js'
+import { formatUnits, parseUnits } from '@leofcoin/utils'
+import { previewTransfer, prepareTransfer, submitTransfer, networkStatus, errorMessage } from '../../controllers/transfer.js'
 import { listContacts } from '../../controllers/address-book.js'
 import { saveActivity } from '../../controllers/activity.js'
 import { getSelectedNetwork } from '../../network-selection.js'
+import '../../elements/payment-recipient.js'
 
 @customElement('wallet-send')
 export class WalletSend extends LitElement {
@@ -97,7 +98,7 @@ export class WalletSend extends LitElement {
     this.error = ''
     this.hash = ''
     try {
-      this.prepared = await prepareTransfer({
+      this.prepared = await previewTransfer({
         chain: globalThis.chain,
         peernet: globalThis.peernet,
         identity: globalThis.identityController,
@@ -105,6 +106,7 @@ export class WalletSend extends LitElement {
         to: this.to,
         amount: this.amount
       })
+      if (!this.prepared.affordable) throw new Error('Insufficient balance for the amount and estimated fee.')
       this.phase = 'review'
     } catch (error) {
       this.error = errorMessage(error)
@@ -118,14 +120,26 @@ export class WalletSend extends LitElement {
       this.phase = 'entry'
       return
     }
-    if (!networkStatus(chain, globalThis.peernet).ready) {
+    const activeChain = globalThis.chain
+    const network = getSelectedNetwork().network
+    if (!networkStatus(activeChain, globalThis.peernet).ready) {
       this.error = 'The node lost its connection. Wait for sync before sending.'
       return
     }
     this.phase = 'submitting'
     this.error = ''
     try {
-      await submitTransfer(chain, this.prepared, (event) => {
+      const reviewed = this.prepared
+      const signed = await prepareTransfer({ chain: activeChain, peernet: globalThis.peernet, identity: globalThis.identityController,
+        from: reviewed.from, to: reviewed.to, amount: reviewed.amount })
+      if (this.wallet?.selectedAccount !== reviewed.from) throw new Error('Your selected account changed. Review the transfer again.')
+      if (globalThis.chain !== activeChain || getSelectedNetwork().network !== network || !this.isConnected)
+        throw new Error('The active node or network changed. Review the transfer again.')
+      if (parseUnits(signed.total) > parseUnits(reviewed.total))
+        throw new Error('The fee changed. Review the transfer again before sending.')
+      if (!networkStatus(activeChain, globalThis.peernet).ready) throw new Error('Connection lost. Wait for sync before sending.')
+      this.prepared = signed
+      await submitTransfer(activeChain, signed, (event) => {
         this.phase = event.phase
         this.hash = event.hash || this.hash
         if (event.hash)
@@ -564,7 +578,7 @@ export class WalletSend extends LitElement {
           ? html`<p class="muted">Check these details before signing and sending.</p>
               <dl>
                 <dt>Recipient</dt>
-                <dd>${this.prepared.to}</dd>
+                <dd><payment-recipient .address=${this.prepared.to} .network=${getSelectedNetwork().network} .disabled=${this.busy}></payment-recipient></dd>
                 <dt>Amount</dt>
                 <dd>${this.prepared.amount} LFC</dd>
                 <dt>Network fee</dt>

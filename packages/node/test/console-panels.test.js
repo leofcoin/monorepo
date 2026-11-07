@@ -21,9 +21,12 @@ async function loadComponent(relative) {
     const setTimeout = callback => { timers.set(++nextTimer, callback); return nextTimer; };
     const clearTimeout = id => timers.delete(id);
     class LitElement extends EventTarget {
+      isConnected = true;
       dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
       shadowRoot = { querySelector: () => this.dialog };
       disconnectedCallback() {}
+      connectedCallback() {}
+      requestUpdate() {}
     }
   `
   const { code } = await transform(prefix + source, { loader: 'ts', target: 'es2022', format: 'esm' })
@@ -119,4 +122,22 @@ test('sync drawer has no imaginary height or progress and supports an observed t
   panel.open = false
   panel.updated()
   assert.equal(panel.dialog.open, false)
+})
+
+test('cached sync drawer ignores stale close events and never opens while disconnected', async () => {
+  const { SyncInfo } = await loadComponent('../src/elements/sync-info.ts')
+  const panel = new SyncInfo()
+  panel.isConnected = false
+  panel.open = true
+  panel.updated()
+  assert.equal(panel.dialog.open, false)
+  panel.isConnected = true
+  panel.connectedCallback(); panel.updated()
+  assert.equal(panel.dialog.open, true)
+  const [, close] = panel.render().values
+  close({ target: panel.dialog })
+  assert.equal(panel.open, true, 'queued close from a previous opening must be ignored')
+  panel.dialog.open = false
+  close({ target: panel.dialog })
+  assert.equal(panel.open, false, 'a real native closure still dismisses the panel')
 })

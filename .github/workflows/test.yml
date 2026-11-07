@@ -47,3 +47,7 @@ jobs:
       - name: Verify real transfers, cold sync and restart across isolated nodes
         timeout-minutes: 5
         run: npm run test:chain-benchmark && npm run test:e2e:chain-runtime
+
+      - name: Verify four-validator quorum, partitions and crash recovery
+        timeout-minutes: 5
+        run: npm run test:e2e:consensus-runtime

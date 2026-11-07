@@ -409,6 +409,21 @@ export default class Chain extends VersionControl {
     }
   }
 
+  #armRoundTimer(index: number, round: number) {
+    if (this.#roundTimer) return
+    this.#roundTimer = setTimeout(() => {
+      this.#roundTimer = null
+      void (async () => {
+        const tip = await this.lastBlock
+        if (nextBlockIndex(tip?.index) !== index || this.#consensusRound !== round) return
+        if (this.#proposalInFlight && this.#proposalInFlight.index <= index) this.#proposalInFlight = null
+        this.#consensusRound = round + 1
+        this.#runningEpoch = false
+        if (this.#participating) await this.#runEpoch()
+      })().catch(error => debug('round timeout failed:', (error as Error)?.message ?? error))
+    }, this.#slotTime)
+  }
+
   async #runEpoch(): Promise<void> {
     if (this.#runningEpoch) return
     this.#runningEpoch = true
@@ -448,15 +463,7 @@ export default class Chain extends VersionControl {
 
     if (!isProposer) {
       // Non-proposer: start round-advance timer in case proposer is unresponsive
-      if (!this.#roundTimer) {
-        this.#roundTimer = setTimeout(async () => {
-          this.#roundTimer = null
-          this.#consensusRound++
-          debug(`[consensus] Round timed out, advancing to round ${this.#consensusRound}`)
-          this.#runningEpoch = false
-          if (this.#participating) await this.#runEpoch()
-        }, this.#slotTime)
-      }
+      this.#armRoundTimer(nextIndex, this.#consensusRound)
       this.#runningEpoch = false
       return
     }
@@ -704,6 +711,10 @@ export default class Chain extends VersionControl {
         this.#roundTimer = null
       }
 
+      // A proposer may die after announcing a valid block. Validators still
+      // need a deadline while awaiting votes; receiving a proposal is not finality.
+      this.#armRoundTimer(Number(index), Number(round))
+
       if (validators.includes(peernet.selectedAccount) && !this.#isJailed(peernet.selectedAccount)) {
         await this.#castVote('prevote', blockHash, Number(index), Number(round))
       }
@@ -798,7 +809,7 @@ export default class Chain extends VersionControl {
           await this.#addBlock(blockData)
           this.#committedHeight = numericIndex
           this.#consensusRound = 0
-          if (this.#proposalInFlight?.hash === blockHash) this.#proposalInFlight = null
+          if (this.#proposalInFlight && this.#proposalInFlight.index <= numericIndex) this.#proposalInFlight = null
           if (this.#roundTimer) {
             clearTimeout(this.#roundTimer)
             this.#roundTimer = null
@@ -1222,6 +1233,11 @@ export default class Chain extends VersionControl {
     }
 
     await this.updateState(blockMessage)
+    // Any durable commit supersedes older local proposals, even when another
+    // round/proposer won. Keep observers/sync commits on the same cleanup path.
+    if (this.#proposalInFlight && this.#proposalInFlight.index <= Number(blockMessage.decoded.index)) this.#proposalInFlight = null
+    this.#consensusRound = 0
+    if (this.#roundTimer) { clearTimeout(this.#roundTimer); this.#roundTimer = null }
     debug(`added block: ${hash}`)
     // Announce only durable commits. Observer code cannot poison the writer or
     // prevent later listeners (including transaction waiters) from receiving it.
@@ -1502,14 +1518,7 @@ export default class Chain extends VersionControl {
       await this.#castVote('prevote', hash, block.index, this.#consensusRound)
 
       if (!this.#roundTimer && this.#proposalInFlight?.hash === hash) {
-        this.#roundTimer = setTimeout(async () => {
-          this.#roundTimer = null
-          if (this.#proposalInFlight?.hash !== hash) return
-          this.#proposalInFlight = null
-          this.#consensusRound += 1
-          this.#runningEpoch = false
-          if (this.#participating) await this.#runEpoch()
-        }, this.#slotTime)
+        this.#armRoundTimer(Number(block.index), this.#consensusRound)
       }
     } catch (error) {
       console.log(error)

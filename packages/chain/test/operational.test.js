@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { promisify } from 'node:util'
+import { settleProcesses } from '../../../test/helpers/settle-processes.js'
 
 import MultiWallet from '@leofcoin/multi-wallet'
 import { createTransactionHash, signTransaction } from '@leofcoin/lib'
@@ -111,12 +112,12 @@ test('isolated offline nodes initialize their chain state', async () => {
   try {
     // The child asserts runtime state directly; a failed assertion rejects here
     // through its exit code. Console output is diagnostics only.
-    await Promise.all(
+    await settleProcesses(
       homes.map((home, index) =>
         execFileAsync(process.execPath, ['test/runtime-smoke.js'], {
           cwd: new URL('..', import.meta.url),
           // Cover both terminal modes independently of the caller's environment.
-          env: { ...process.env, HOME: home, FORCE_COLOR: String(index) },
+          env: { ...process.env, LEOFCOIN_SMOKE_DATA_ROOT: home, FORCE_COLOR: String(index) },
           timeout: 30_000
         })
       )

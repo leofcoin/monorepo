@@ -113,12 +113,16 @@ export const createApplicationHarness = (options = {}) => {
     #chainSyncing = false
     #syncState = 'synced'
     #syncErrorCount = 0
+    #proposalInFlight = boundary.proposal
+    #consensusRound = 2
+    #roundTimer
     #lastBlockInQue
     jobber = { busy: false }
     wantList = []
     get shouldSync() { return !this.#chainSyncing }
     get machine() { return this.#machine }
     get loaded() { return this.#loaded }
+    get consensusState() { return { proposal: this.#proposalInFlight, round: this.#consensusRound } }
     removePendingNonce() {}
     async validateTransactionSignature() {}
     async #validateBlockValidators() { await boundary.validate() }
@@ -142,7 +146,7 @@ export const createApplicationHarness = (options = {}) => {
   }`
   const bindings = {
     boundary: {
-      machine, transaction, policy,
+      machine, transaction, policy, proposal: options.proposal,
       loadedBlock: () => ({ ...block.decoded, hash: block.identity, loaded: false }),
       async validate() { if (options.invalid) throw new Error('invalid block') },
       snapshot() {

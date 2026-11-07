@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { prepareTransfer, submitTransfer, networkStatus } from '../src/controllers/transfer.js'
+import { previewTransfer, createTransferPreview, prepareTransfer, submitTransfer, networkStatus } from '../src/controllers/transfer.js'
+import { parseUnits } from '@leofcoin/utils'
 
 const account = 'YTqzdvFjFnk7uX3tA54GaS1FyJXuAqRgnWZESKAsY19FDDDnHRdSN'
 const options = () => ({
@@ -76,4 +77,51 @@ test('does not show confirmation for rejected execution or a missing completion 
     submitTransfer({ sendTransaction: async () => ({ hash: 'tx' }) }, { signed: {} }, () => {}),
     /confirmation handle/
   )
+})
+
+test('preview never requests a private signer and bounds the actual fee', async () => {
+  const o = options()
+  const preview = await previewTransfer({ ...o, identity: { signer: () => { throw new Error('Preview must not sign') } } })
+  const actual = await prepareTransfer(o)
+  assert.equal(preview.affordable, true)
+  assert.equal(preview.amount, actual.amount)
+  assert.ok(parseUnits(preview.fee) >= parseUnits(actual.fee))
+  assert.equal(parseUnits(preview.total), parseUnits(preview.amount) + parseUnits(preview.fee))
+  assert.equal('signed' in preview, false)
+})
+
+test('preview keeps known balance and fee visible when funds are insufficient', async () => {
+  const o = options()
+  o.chain.balanceOf = async () => 1n
+  const quote = await previewTransfer(o)
+  assert.equal(quote.affordable, false)
+  assert.equal(parseUnits(quote.balance), 1n)
+  assert.ok(parseUnits(quote.fee) > 0n)
+  o.chain.balanceOf = async () => undefined
+  await assert.rejects(previewTransfer(o), /balance is not available/)
+})
+
+test('stale preview replies, stale failures and cancelled requests cannot overwrite new input', async () => {
+  const changes = []
+  const controller = createTransferPreview(change => changes.push(change))
+  let resolveOld, rejectOld
+  const old = options()
+  old.chain.createTransaction = () => new Promise((resolve, reject) => { resolveOld = resolve; rejectOld = reject })
+  const pending = controller.update(old)
+  while (!resolveOld) await new Promise(resolve => setImmediate(resolve))
+  await controller.update({ ...options(), amount: '2' })
+  const current = changes.at(-1)
+  assert.equal(parseUnits(current.quote.amount), parseUnits('2'))
+  rejectOld(new Error('Old request failed'))
+  await pending
+  assert.equal(changes.at(-1), current)
+  let finish
+  const cancelled = options()
+  cancelled.chain.createTransaction = tx => new Promise(resolve => { finish = () => resolve({ ...tx, timestamp: 1, nonce: 1 }) })
+  const request = controller.update(cancelled)
+  while (!finish) await new Promise(resolve => setImmediate(resolve))
+  controller.cancel()
+  const at = changes.length
+  finish(); await request
+  assert.equal(changes.length, at)
 })

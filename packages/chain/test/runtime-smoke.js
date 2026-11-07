@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
+import { realpath } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
+import { relative, isAbsolute } from 'node:path'
 
-const root = `.leofcoin-smoke-${process.pid}`
+// Isolate stores explicitly rather than changing HOME for the whole process.
+if (!process.env.LEOFCOIN_SMOKE_DATA_ROOT) throw new Error('An explicit temporary smoke-test data root is required')
+const dataRoot = await realpath(process.env.LEOFCOIN_SMOKE_DATA_ROOT)
+const fromTemp = relative(await realpath(tmpdir()), dataRoot)
+if (!fromTemp || fromTemp.startsWith('..') || isAbsolute(fromTemp)) throw new Error('Smoke-test root must be inside the temporary directory')
+const root = relative(homedir(), dataRoot)
 const { default: addresses } = await import('@leofcoin/addresses')
 const { default: Node } = await import('../exports/node.js')
 const node = new Node(
