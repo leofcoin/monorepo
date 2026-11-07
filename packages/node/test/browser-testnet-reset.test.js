@@ -16,6 +16,7 @@ const sessionStorage = (initial = {}) => {
     values
   }
 }
+const locks = { request: async (_name, _options, callback) => callback({}) }
 
 test('schedules a Peach reset by reloading and refuses other networks', () => {
   const storage = sessionStorage()
@@ -42,8 +43,9 @@ test('reset runs only after reload, clears scoped ledger stores, and preserves w
       this.records = new Map(name === 'wallet' ? [
         ['identity', new Uint8Array([1, 2])],
         ['custom', new Uint8Array([3])],
-        ['beacon/private/old', new Uint8Array([4])],
-        ['beacon/public/old', new Uint8Array([5])]
+        ['beacon/private/leofcoin:peach/old', new Uint8Array([4])],
+        ['beacon/public/leofcoin:peach/old', new Uint8Array([5])],
+        ['beacon/private/leofcoin:mainnet/keep', new Uint8Array([7])]
       ] : [['old', new Uint8Array([6])]])
     }
     async init() {}
@@ -53,12 +55,12 @@ test('reset runs only after reload, clears scoped ledger stores, and preserves w
     async delete(key) { deleted.push(key); this.records.delete(key) }
   }
 
-  assert.equal(await completePendingBrowserTestnetReset({ storage, StorageClass: FakeStorage }), true)
+  assert.equal(await completePendingBrowserTestnetReset({ storage, persistentStorage: sessionStorage(), locks, StorageClass: FakeStorage }), true)
   assert.deepEqual(cleared.sort(), [
     'accounts-peach', 'block-peach', 'chain-peach', 'contract-peach',
     'state-peach', 'transaction-peach', 'transactionPool-peach'
   ])
-  assert.deepEqual(deleted.sort(), ['beacon/private/old', 'beacon/public/old'])
+  assert.deepEqual(deleted.sort(), ['beacon/private/leofcoin:peach/old', 'beacon/public/leofcoin:peach/old'])
   assert.equal(storage.getItem(BROWSER_TESTNET_RESET_KEY), null)
   assert.equal(getBrowserTestnetResetFailure(), '')
 })
@@ -74,7 +76,7 @@ test('a failed reset keeps its retry marker and blocks node startup', async () =
     async delete() {}
   }
 
-  await assert.rejects(completePendingBrowserTestnetReset({ storage, StorageClass: FailingStorage }), /reset incomplete/)
+  await assert.rejects(completePendingBrowserTestnetReset({ storage, persistentStorage: sessionStorage(), locks, StorageClass: FailingStorage }), /operation incomplete/)
   assert.equal(storage.getItem(BROWSER_TESTNET_RESET_KEY), 'peach')
-  assert.match(getBrowserTestnetResetFailure(), /Keep the wallet locked and reload to retry/)
+  assert.match(getBrowserTestnetResetFailure(), /Keep the node stopped and reload to retry/)
 })

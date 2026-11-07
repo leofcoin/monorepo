@@ -44,7 +44,8 @@ const navigation = [
   { route: 'stats', label: 'Node activity', icon: 'analytics', group: 'Network' },
   { route: 'editor', label: 'Contracts', icon: 'edit_note', group: 'Tools & community' },
   { route: 'chat', label: 'Chat', icon: 'chat', group: 'Tools & community' },
-  { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop', group: 'Tools & community' }
+  { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop', group: 'Tools & community' },
+  { route: 'settings', label: 'Settings', icon: 'settings', group: 'Preferences' }
 ]
 const walletRoutes = ['wallet', 'identity', 'chat', 'validator', 'faucet']
 
@@ -514,15 +515,15 @@ class AppShell extends LiteElement {
       if (await completePendingBrowserTestnetReset()) {
         await this.rendered
         this.notificationController.createNotification({
-          title: 'Peach testnet reset complete',
-          message: 'Local chain data was cleared. Your wallet was preserved; unlock it to sync again.',
+          title: 'Local storage updated',
+          message: 'The requested local data was cleared. Your wallet was preserved; unlock it to reconnect.',
           type: 'info'
         }, 0)
       }
     } catch (error) {
       await this.rendered
       this.notificationController.createNotification({
-        title: 'Peach testnet reset incomplete',
+        title: 'Storage operation incomplete',
         message: getBrowserTestnetResetFailure() || (error instanceof Error ? error.message : String(error)),
         type: 'error'
       }, 0)
@@ -1142,6 +1143,7 @@ class AppShell extends LiteElement {
           <span name="playing_cards">@symbol-playing_cards</span>
           <span name="published_with_changes">@symbol-published_with_changes</span>
           <span name="storage">@symbol-storage</span>
+          <span name="settings">@symbol-settings</span>
           <span name="speed">@symbol-speed</span>
           <span name="groups">@symbol-groups</span>
           <span name="network_check">@symbol-network_check</span>

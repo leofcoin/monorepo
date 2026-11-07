@@ -4,6 +4,7 @@ import generateAccount from '@leofcoin/generate-account'
 import IdentityController from '../controllers/identity.js'
 import { bindWalletToNode } from '../controllers/wallet-bootstrap.js'
 import { getBrowserTestnetResetFailure } from '../controllers/browser-testnet-reset.js'
+import { acquireBrowserStorageLease } from '../controllers/browser-storage.js'
 import { getSelectedNetwork, installNetworkStoreScope } from '../network-selection.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
@@ -153,6 +154,7 @@ export class LoginScreen extends LiteElement {
   }
 
   async #handleBeforeLogin(password) {
+    await acquireBrowserStorageLease()
     this.shadowRoot.querySelector<HTMLInputElement>('.wallet-password').value = null
     let wallet
     const { network } = getSelectedNetwork()
@@ -238,6 +240,7 @@ export class LoginScreen extends LiteElement {
     })
 
   async #handleImport(password) {
+    await acquireBrowserStorageLease()
     this.importing = true
     this.shadowRoot.querySelector('input:focus')?.blur()
     this.#pages.select('import')
@@ -278,6 +281,7 @@ export class LoginScreen extends LiteElement {
   }
 
   async #spawnChain(password) {
+    await acquireBrowserStorageLease()
     console.time('loading chain')
     const network = getSelectedNetwork()
     if (!globalThis.accountStore) {

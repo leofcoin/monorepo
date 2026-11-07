@@ -281,6 +281,64 @@ test('payment recipients can be saved without sending and resolve trusted addres
   assert.deepEqual(errors, [])
 })
 
+test('settings storage management confirms, reloads, clears real OPFS chain data and preserves the wallet', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, resize, call, errors } = await createShellFixture(t)
+  await evaluate(`globalThis.FixtureStorage = (await import('/storage.js')).default;
+    for (const name of ['block-peach', 'state-peach', 'chain-peach', 'transactionPool-peach', 'block-mainnet', 'wallet']) {
+      const store = new FixtureStorage(name); await store.init(); await store.put('fixture-record', new Uint8Array([7, 8, 9]));
+      if (name === 'wallet') await store.put('identity', new Uint8Array([42, 43]));
+    }
+    localStorage.setItem('leofcoin:peach:wallet-address-book:v1', JSON.stringify({ version: 1, contacts: [] }));
+    shell.wallet = undefined; location.hash = '#!/settings?action=chain&confirm=DELETE%20BLOCKS';`)
+  await waitFor(`shell.currentRoute === 'settings' && shell.shadowRoot.querySelector('settings-view')?.overview`)
+  await evaluate(`globalThis.settings = shell.shadowRoot.querySelector('settings-view'); await settings.updateComplete`)
+  assert.equal(await evaluate(`shell.shadowRoot.querySelector('login-screen') === null`), true)
+  assert.equal(await evaluate('settings.action'), '', 'URL parameters cannot schedule deletion')
+  assert.equal(await evaluate(`settings.overview.stores.find(store => store.name === 'block-peach').count`), 1)
+  for (const width of [1280, 390]) {
+    await resize(width)
+    assert.equal(await evaluate('settings.scrollWidth <= settings.clientWidth + 1'), true)
+    if (process.env.LFC_UI_SCREENSHOTS) {
+      const shot = await call('Page.captureScreenshot', { format: 'png' })
+      await writeFile(join(process.env.LFC_UI_SCREENSHOTS, `settings-${width}.png`), Buffer.from(shot.data, 'base64'))
+    }
+  }
+  await evaluate(`settings.shadowRoot.querySelector('[data-action="chain"]').click()`)
+  await waitFor(`settings.shadowRoot.querySelector('dialog').open`)
+  assert.equal(await evaluate(`settings.shadowRoot.querySelector('button[type="submit"]').disabled`), true)
+  await evaluate(`const input = settings.shadowRoot.querySelector('input'); input.value = 'DELETE'; input.dispatchEvent(new Event('input'));
+    await settings.updateComplete; settings.shadowRoot.querySelector('form').requestSubmit()`)
+  assert.equal(await evaluate(`sessionStorage.getItem('leofcoin:storage-request:v1')`), null)
+  await evaluate(`settings.shadowRoot.querySelector('dialog button[type="button"]').click()`)
+  assert.equal(await evaluate(`settings.shadowRoot.querySelector('dialog').open`), false)
+  await evaluate(`settings.shadowRoot.querySelector('[data-action="chain"]').click()`)
+  await waitFor(`settings.shadowRoot.querySelector('dialog').open`)
+  const previousDocument = await evaluate('performance.timeOrigin')
+  await evaluate(`settings.confirmation = 'DELETE BLOCKS'; await settings.updateComplete;
+    settings.shadowRoot.querySelector('form').requestSubmit()`)
+  await waitFor(`performance.timeOrigin !== ${previousDocument} && globalThis.fixtureReady && globalThis.shell?.currentRoute === 'wallet' &&
+    sessionStorage.getItem('leofcoin:storage-request:v1') === null && localStorage.getItem('leofcoin:storage-incomplete:v1') === null`)
+  const records = JSON.parse(await evaluate(`
+    globalThis.StorageCheck = (await import('/storage.js')).default;
+    globalThis.checkedRecords = {};
+    for (const name of ['block-peach', 'state-peach', 'chain-peach', 'transactionPool-peach', 'block-mainnet', 'wallet']) {
+      const store = new StorageCheck(name); await store.init(); checkedRecords[name] = await store.keys();
+    }
+    const checkedWallet = new StorageCheck('wallet'); await checkedWallet.init(); checkedRecords.walletValue = [...await checkedWallet.get('fixture-record')];
+    checkedRecords.identityValue = [...await checkedWallet.get('identity')];
+    JSON.stringify(checkedRecords);
+  `))
+  for (const name of ['block-peach', 'state-peach', 'chain-peach', 'transactionPool-peach']) assert.deepEqual(records[name], [], JSON.stringify(records))
+  assert.deepEqual(records['block-mainnet'], ['fixture-record'])
+  assert.deepEqual(records.wallet.sort(), ['fixture-record', 'identity'])
+  assert.deepEqual(records.walletValue, [7, 8, 9])
+  assert.deepEqual(records.identityValue, [42, 43])
+  assert.equal(await evaluate(`Boolean(localStorage.getItem('leofcoin:peach:wallet-address-book:v1'))`), true)
+  assert.deepEqual(errors, [])
+})
+
 test('removed manager route returns to wallet without loading a manager view', {
   skip: !runShellUiTests, timeout: 15000
 }, async t => {
@@ -298,7 +356,7 @@ test('responsive shell, wallet navigation and notification lifecycle', {
 }, async t => {
   const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.isDesktop`), true)
-  assert.equal(await evaluate(`shell.shadowRoot.querySelectorAll('.primary-nav a').length`), 9)
+  assert.equal(await evaluate(`shell.shadowRoot.querySelectorAll('.primary-nav a').length`), 10)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('account-select').networkKey`), 'peach')
   await evaluate(`globalThis.originalConfirm = window.confirm;
     window.confirm = message => { window.networkSwitchPrompt = message; return false };
