@@ -2,7 +2,6 @@ import { LitElement, css, html } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import { nodeActivity } from '../controllers/node-activity.js'
 import { getSelectedNetwork } from '../network-selection.js'
-import { scheduleBrowserTestnetReset } from '../controllers/browser-testnet-reset.js'
 
 export interface NodeStatus {
   state: string
@@ -36,7 +35,6 @@ export class StatsView extends LitElement {
   @state() accessor transport = 'all'
   @state() accessor onlyErrors = false
   @state() accessor paused = false
-  @state() accessor resetError = ''
   #timer: ReturnType<typeof setInterval> | undefined
 
   connectedCallback() {
@@ -94,8 +92,6 @@ export class StatsView extends LitElement {
     .peer { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--lfc-glass-border, #51474e); }
     .peer small { font: 11px var(--lfc-font-family, sans-serif); color: var(--md-sys-color-on-surface-variant, #ccc); }
     .empty { padding: 28px; text-align: center; }
-    .reset-button { border-color: var(--md-sys-color-error, #ffb4ab); color: var(--md-sys-color-error, #ffb4ab); }
-    .reset-error { color: var(--md-sys-color-error, #ffb4ab); }
     @media (max-width: 700px) {
       :host { padding: 14px; }
       .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -104,18 +100,6 @@ export class StatsView extends LitElement {
       .card { padding: 16px; }
     }
   `
-
-  #resetTestnet = () => {
-    this.resetError = ''
-    if (!window.confirm(
-      'Reset this browser’s local Peach testnet data? Local blocks, transactions, contracts and beacon shares will be deleted with no backup. Your wallet and account are preserved. The app reloads before resetting; close other browser tabs using this node first.'
-    )) return
-    try {
-      scheduleBrowserTestnetReset({ network: getSelectedNetwork() })
-    } catch (error) {
-      this.resetError = error instanceof Error ? error.message : String(error)
-    }
-  }
 
   render() {
     const { totals } = this.snapshot
@@ -188,12 +172,6 @@ export class StatsView extends LitElement {
           ${!events.length ? html`<p class="empty muted">No matching activity. Traffic will appear as this node communicates.</p>` : ''}
         </div>
       </section>
-      ${getSelectedNetwork().key === 'peach' ? html`<section class="card">
-        <div class="section-heading"><h2>Reset local testnet</h2></div>
-        <p class="muted">Clear this browser’s Peach ledger and sync it again from the network. Your wallet, account and other local data stay in place.</p>
-        <div class="filters"><button class="reset-button" @click=${this.#resetTestnet}>Reset Peach testnet data</button></div>
-        ${this.resetError ? html`<p class="reset-error" role="alert">${this.resetError}</p>` : ''}
-      </section>` : ''}
     </main>`
   }
 }

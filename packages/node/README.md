@@ -79,11 +79,14 @@ events until **Clear activity** or a page reload. **Pause live view** freezes
 the display, not capture. Payloads, HTTP paths, query strings, credentials and
 wallet secrets are not retained; endpoint URLs are reduced to their origins.
 
-On Peach, **Reset Peach testnet data** in Node activity clears the browser's
-local ledger and beacon shares while preserving the wallet and other stores.
-The app reloads before clearing data so the active browser node stops first.
-Close other tabs using the node before confirming. The reset makes no backup;
-the browser node syncs the ledger again after the wallet is unlocked.
+### Settings and local data
+
+Open **Settings** in the drawer (`#!/settings`) to inspect browser storage and
+manage local chain data. **Remove local blocks** clears this browser's selected
+network ledger while preserving the wallet, identity and other networks. The
+page reloads first and requires a typed confirmation; close other node tabs
+before continuing. See [browser storage management](../../docs/browser-storage.md)
+for details on locking, recovery and the stores affected.
 
 ### Identity and Validator
 
