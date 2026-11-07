@@ -128,16 +128,34 @@ export async function completePendingStorageMaintenance({ storage = globalThis.s
 export async function browserStorageOverview({ networkKey, navigator = globalThis.navigator, limit = 10000 } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 10000) throw new Error('Storage scan limit must be between 1 and 10000')
   const operation = storageOperation('chain', networkKey)
-  const estimate = await navigator?.storage?.estimate?.() || {}
-  const result = { usage: estimate.usage ?? null, quota: estimate.quota ?? null, stores: [] }
-  const root = await navigator.storage.getDirectory()
+  const validBytes = value => Number.isSafeInteger(value) && value >= 0 ? value : null
+  const result = { usage: null, quota: null, stores: [], bytes: 0, incomplete: false, warnings: [] }
+  try {
+    const estimate = await navigator?.storage?.estimate?.() || {}
+    result.usage = validBytes(estimate.usage); result.quota = validBytes(estimate.quota)
+  } catch { result.warnings.push('The browser storage estimate is unavailable.') }
+  let root
+  try { root = await navigator.storage.getDirectory() }
+  catch { return { ...result, bytes: null, incomplete: true, warnings: [...result.warnings, 'Local store sizes are unavailable in this browser.'] } }
   for (const name of operation.stores) {
-    let count = 0, truncated = false
+    let count = 0, bytes = 0, truncated = false, incomplete = false
     try {
       const store = await root.getDirectoryHandle(name, { create: false })
-      for await (const unused of store.keys()) { void unused; if (++count >= limit) { truncated = true; break } }
-    } catch (error) { if (error.name !== 'NotFoundError') throw error }
-    result.stores.push({ name, count, truncated })
+      // Metadata only: never load record contents or open the wallet. Limit work
+      // per store, even on a very large chain. This is a live, non-atomic sample.
+      for await (const handle of store.values()) {
+        count++
+        try {
+          const size = handle.kind === 'file' ? validBytes((await handle.getFile()).size) : null
+          if (size === null || !Number.isSafeInteger(bytes + size)) incomplete = true
+          else bytes += size
+        } catch { incomplete = true } // A live writer may have deleted the file.
+        if (count >= limit) { truncated = true; break }
+      }
+    } catch (error) { if (error.name !== 'NotFoundError') incomplete = true }
+    result.stores.push({ name, count, bytes, truncated, incomplete })
+    result.bytes += bytes
+    result.incomplete ||= truncated || incomplete
   }
   return result
 }

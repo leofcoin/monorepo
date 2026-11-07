@@ -297,6 +297,10 @@ test('settings storage management confirms, reloads, clears real OPFS chain data
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('login-screen') === null`), true)
   assert.equal(await evaluate('settings.action'), '', 'URL parameters cannot schedule deletion')
   assert.equal(await evaluate(`settings.overview.stores.find(store => store.name === 'block-peach').count`), 1)
+  assert.equal(await evaluate(`settings.overview.stores.find(store => store.name === 'block-peach').bytes`), 3)
+  assert.equal(await evaluate('settings.overview.bytes'), 12)
+  assert.equal(await evaluate(`settings.shadowRoot.textContent.includes('Memory & processing')`), true)
+  assert.equal(await evaluate(`settings.shadowRoot.querySelector('[data-action="memory"]').disabled`), true, 'Non-isolated fixture cannot measure app memory')
   for (const width of [1280, 390]) {
     await resize(width)
     assert.equal(await evaluate('settings.scrollWidth <= settings.clientWidth + 1'), true)
@@ -305,6 +309,23 @@ test('settings storage management confirms, reloads, clears real OPFS chain data
       await writeFile(join(process.env.LFC_UI_SCREENSHOTS, `settings-${width}.png`), Buffer.from(shot.data, 'base64'))
     }
   }
+  // Simulated API samples verify UI behavior; the real fixture is not isolated
+  // and cannot provide an actual application-memory measurement.
+  await evaluate(`globalThis.originalIsolation = Object.getOwnPropertyDescriptor(globalThis, 'crossOriginIsolated');
+    globalThis.originalMemory = Object.getOwnPropertyDescriptor(performance, 'measureUserAgentSpecificMemory');
+    Object.defineProperty(globalThis, 'crossOriginIsolated', { configurable: true, value: true });
+    Object.defineProperty(performance, 'measureUserAgentSpecificMemory', { configurable: true, value: async () => ({ bytes: 42 * 1024 ** 2 }) });
+    settings.requestUpdate(); await settings.updateComplete;
+    settings.shadowRoot.querySelector('[data-action="memory"]').click()`)
+  await waitFor('settings.memoryBytes === 42 * 1024 ** 2 && !settings.measuring')
+  assert.equal(await evaluate(`settings.shadowRoot.textContent.includes('42.0 MB')`), true)
+  await evaluate(`Object.defineProperty(performance, 'measureUserAgentSpecificMemory', { configurable: true, value: async () => { throw new Error('Measurement denied') } });
+    settings.shadowRoot.querySelector('[data-action="memory"]').click()`)
+  await waitFor(`settings.memoryError === 'Measurement denied' && !settings.measuring`)
+  assert.equal(await evaluate('settings.memoryBytes'), 42 * 1024 ** 2, 'Failed refresh retains the labeled previous sample')
+  await evaluate(`if (originalIsolation) Object.defineProperty(globalThis, 'crossOriginIsolated', originalIsolation); else delete globalThis.crossOriginIsolated;
+    if (originalMemory) Object.defineProperty(performance, 'measureUserAgentSpecificMemory', originalMemory); else delete performance.measureUserAgentSpecificMemory;
+    settings.requestUpdate(); await settings.updateComplete;`)
   await evaluate(`settings.shadowRoot.querySelector('[data-action="chain"]').click()`)
   await waitFor(`settings.shadowRoot.querySelector('dialog').open`)
   assert.equal(await evaluate(`settings.shadowRoot.querySelector('button[type="submit"]').disabled`), true)

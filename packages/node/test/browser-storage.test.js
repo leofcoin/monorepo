@@ -122,13 +122,49 @@ test('storage overview is bounded, reads no wallet values and never creates stor
       getDirectoryHandle: async (name, options) => {
         requested.push(name); assert.equal(options.create, false)
         if (name !== 'block-peach') throw new DOMException('missing', 'NotFoundError')
-        return { async *keys() { yield 'a'; yield 'b'; throw new Error('scan must stop at bound') } }
+        const file = { kind: 'file', getFile: async () => ({ size: 3, arrayBuffer: () => { throw new Error('must not read contents') } }) }
+        return { async *values() { yield file; yield file; throw new Error('scan must stop at bound') } }
       }
     })
   } } })
   assert.equal(overview.usage, 123)
-  assert.deepEqual(overview.stores.find(store => store.name === 'block-peach'), { name: 'block-peach', count: 2, truncated: true })
+  assert.deepEqual(overview.stores.find(store => store.name === 'block-peach'), { name: 'block-peach', count: 2, bytes: 6, truncated: true, incomplete: false })
+  assert.equal(overview.bytes, 6)
+  assert.equal(overview.incomplete, true)
   assert.equal(requested.some(name => name.includes('wallet') || name.includes('mainnet')), false)
+})
+
+test('storage metrics keep origin usage when OPFS is denied, and reject invalid estimates', async () => {
+  const result = await browserStorageOverview({ networkKey: 'peach', navigator: { storage: {
+    estimate: async () => ({ usage: 512, quota: -1 }), getDirectory: async () => { throw new Error('denied') }
+  } } })
+  assert.equal(result.usage, 512)
+  assert.equal(result.quota, null)
+  assert.equal(result.bytes, null)
+  assert.equal(result.incomplete, true)
+  assert.equal(result.warnings.length, 1)
+})
+
+test('store byte totals are metadata-only lower bounds when files disappear or directories cannot be read', async () => {
+  const result = await browserStorageOverview({ networkKey: 'peach', navigator: { storage: {
+    estimate: async () => { throw new Error('estimate denied') }, getDirectory: async () => ({
+      getDirectoryHandle: async name => {
+        if (name === 'state-peach') throw new Error('denied')
+        if (name !== 'block-peach') throw new DOMException('missing', 'NotFoundError')
+        return { async *values() {
+          yield { kind: 'file', getFile: async () => ({ size: 17 }) }
+          yield { kind: 'file', getFile: async () => { throw new Error('deleted') } }
+          yield { kind: 'directory' }
+        } }
+      }
+    })
+  } } })
+  assert.equal(result.bytes, 17)
+  assert.equal(result.incomplete, true)
+  assert.equal(result.stores[0].count, 3)
+  assert.equal(result.stores[0].incomplete, true)
+  assert.equal(result.usage, null)
+  assert.equal(result.warnings.length, 1)
 })
 
 test('a document-held node lease blocks exclusive maintenance before any stores are touched', async () => {

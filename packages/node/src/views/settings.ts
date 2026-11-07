@@ -4,6 +4,7 @@ import { getSelectedNetwork } from '../network-selection.js'
 import { browserStorageOverview, scheduleStorageMaintenance, storageOperation } from '../controllers/browser-storage.js'
 import { errorMessage } from '../controllers/transfer.js'
 import { viewPolish } from './view-polish.js'
+import { browserResources, measureBrowserMemory } from '../controllers/browser-resources.js'
 
 @customElement('settings-view')
 export class SettingsView extends LitElement {
@@ -13,6 +14,10 @@ export class SettingsView extends LitElement {
   @state() accessor action: 'chain' | 'pool' | '' = ''
   @state() accessor confirmation = ''
   @state() accessor scheduling = false
+  @state() accessor memoryBytes: number | null = null
+  @state() accessor measuring = false
+  @state() accessor memoryError = ''
+  @state() accessor measuredAt = ''
   #networkKey = ''
 
   connectedCallback() { super.connectedCallback(); void this.#refresh() }
@@ -23,6 +28,15 @@ export class SettingsView extends LitElement {
     try { this.overview = await browserStorageOverview({ networkKey: getSelectedNetwork().key }) }
     catch (error) { this.error = errorMessage(error) }
     finally { this.loading = false }
+  }
+  #measureMemory = async () => {
+    if (this.measuring) return
+    this.measuring = true; this.memoryError = ''
+    try {
+      const bytes = await measureBrowserMemory()
+      if (this.isConnected) { this.memoryBytes = bytes; this.measuredAt = new Date().toLocaleTimeString() }
+    } catch (error) { if (this.isConnected) this.memoryError = errorMessage(error) }
+    finally { this.measuring = false }
   }
   #bytes(value?: number) {
     if (typeof value !== 'number' || !Number.isFinite(value)) return 'Unavailable'
@@ -54,6 +68,8 @@ export class SettingsView extends LitElement {
     .heading h1 { margin-top:0; } .heading button { flex-shrink:0; }
     .storage-numbers { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
     .storage-numbers strong { display:block; font-size:26px; margin-top:8px; }
+    .store-metrics { text-align:right; white-space:nowrap; } .store-metrics small { display:block; margin-top:4px; }
+    progress { width:100%; height:8px; accent-color:var(--md-sys-color-primary,#9fc4ff); }
     .store-list { margin:0; padding:0; list-style:none; } .store-list li { display:flex; justify-content:space-between; gap:20px; padding:11px 0; border-top:1px solid var(--lfc-glass-border,#45414c); font-size:13px; }
     code { overflow-wrap:anywhere; } .operation { display:grid; grid-template-columns:1fr auto; align-items:start; gap:20px; padding:20px 0; }
     .operation+.operation { border-top:1px solid var(--lfc-glass-border,#45414c); } .operation h3 { margin-bottom:8px; }
@@ -68,14 +84,28 @@ export class SettingsView extends LitElement {
   render() {
     const network = getSelectedNetwork()
     const locking = Boolean(navigator.locks?.request)
+    const resources = browserResources()
+    const usagePercent = this.overview?.quota > 0 && this.overview?.usage !== null
+      ? Math.min(100, this.overview.usage / this.overview.quota * 100) : null
     const selected = this.action ? storageOperation(this.action, this.#networkKey || network.key) : null
     return html`<main>
-      <header class="heading"><div><span class="eyebrow">Preferences</span><h1>Settings</h1><p class="muted">Manage this browser’s local node storage.</p></div>
+      <header class="heading"><div><span class="eyebrow">Preferences</span><h1>Settings</h1><p class="muted">Local node storage and browser resources.</p></div>
         <button class="secondary" ?disabled=${this.loading} @click=${this.#refresh}>${this.loading ? 'Reading…' : 'Refresh'}</button></header>
       <section class="card"><div class="section-title"><h2>Browser storage</h2><span class="badge">${network.label}</span></div>
         <p class="muted">Usage is a browser estimate for this entire site, including application files. The records below belong only to ${network.label}.</p>
         <div class="storage-numbers"><div><span class="muted">Site storage used</span><strong>${this.#bytes(this.overview?.usage)}</strong></div><div><span class="muted">Browser quota</span><strong>${this.#bytes(this.overview?.quota)}</strong></div></div>
-        <ul class="store-list">${this.overview?.stores.map(store => html`<li><code>${store.name}</code><span>${store.truncated ? '≥ ' : ''}${store.count} ${store.count === 1 ? 'record' : 'records'}</span></li>`)}</ul>
+        ${usagePercent !== null ? html`<progress aria-label="Site storage quota used" max="100" value=${usagePercent}></progress><p class="muted">${usagePercent.toFixed(1)}% of this site’s browser quota. This is not the device’s total disk capacity.</p>` : ''}
+        <div class="storage-numbers"><div><span class="muted">${network.label} store data</span><strong>${this.overview?.incomplete && this.overview?.bytes !== null ? '≥ ' : ''}${this.#bytes(this.overview?.bytes)}</strong></div></div>
+        <p class="muted">Live file sizes, excluding filesystem overhead. At most 10,000 records per store are scanned; incomplete scans are marked ≥. Refresh to update, not continuously in the background.</p>
+        <ul class="store-list">${this.overview?.stores.map(store => html`<li><code>${store.name}</code><span class="store-metrics">${store.truncated || store.incomplete ? '≥ ' : ''}${store.count} ${store.count === 1 ? 'record' : 'records'}<small class="muted">${store.truncated || store.incomplete ? '≥ ' : ''}${this.#bytes(store.bytes)}</small></span></li>`)}</ul>
+        ${this.overview?.warnings.map(warning => html`<p class="muted" role="status">${warning}</p>`)}
+      </section>
+      <section class="card" aria-labelledby="resources-title"><div class="section-title"><h2 id="resources-title">Memory & processing</h2>
+        <button class="secondary" data-action="memory" ?disabled=${this.measuring || Boolean(resources.memoryReason)} @click=${this.#measureMemory}>${this.measuring ? 'Measuring…' : 'Measure memory'}</button></div>
+        <div class="storage-numbers"><div><span class="muted">Application memory estimate</span><strong>${this.#bytes(this.memoryBytes)}</strong></div><div><span class="muted">Logical processors available</span><strong>${resources.threads ?? 'Unavailable'}</strong></div></div>
+        <p class="muted">Memory covers this page and associated workers as reported by the browser, not all browser processes or system RAM. Processor count is a browser hint, not CPU usage.</p>
+        ${resources.memoryReason ? html`<p class="muted">${resources.memoryReason}</p>` : html`<p class="muted">Measured only on request; this may take up to 30 seconds. ${this.measuredAt ? `Last sample: ${this.measuredAt}.` : ''}</p>`}
+        ${this.memoryError ? html`<p class="error" role="status">${this.memoryError}</p>` : ''}
       </section>
       <section class="card"><h2>Local data management</h2>
         <p class="muted">Wallet, identity, password, address book and chat are not deleted. Other networks stay untouched. No backup is made.</p>

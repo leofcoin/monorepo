@@ -279,3 +279,20 @@ Open `http://127.0.0.1:9556`. This separate-origin fixture starts with a simulat
 balance refresh and Activity update. **Disconnect** checks sending is blocked
 when the peer disappears. The fixture lives under `test/` and is excluded from
 the published site.
+
+### Browser resource overview
+
+Open **Settings** in the drawer (`#!/settings`), also available while locked.
+The storage overview separates the whole site's estimated usage/quota from the
+selected network's store file sizes. Sizes use OPFS metadata only, never record
+contents, with a limit of 10,000 entries per store. A `≥` marks an incomplete
+scan; this live sample excludes filesystem overhead and may change while the
+node writes. Refresh updates it; there is no background polling.
+
+**Measure memory** requests an application-memory estimate only when
+`performance.measureUserAgentSpecificMemory()` and cross-origin isolation are
+available. Unsupported or failed measurements remain explicitly unavailable,
+not zero. A measurement can take up to 30 seconds; retrying a timed-out sample
+reuses the pending request. Hosting security headers are not changed by Settings.
+The processor count is the browser's logical-concurrency hint, not CPU load.
+Neither figure represents total system RAM usage or all browser processes.
