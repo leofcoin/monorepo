@@ -223,11 +223,33 @@ live gossip only: they are not archived or replayed to offline members. The
 current version has no member-removal/key-rotation workflow; create a new
 Space and invite the intended devices after membership changes.
 
-The browser node uses the wallet's Peernet ID on every device. Signing in with
-the same wallet therefore keeps the same network identity when moving between
-devices; only one device for a wallet should be connected at a time because
-simultaneous nodes with the same Peernet ID may conflict. Chat encryption keys
-remain local to each device and are not transferred with the wallet.
+Transport routing IDs are separate from the wallet identity. Each installation
+has its own saved routing ID, so a browser and native validator can use the same
+wallet without colliding at discovery. Browser IDs are scoped by network and
+account, not randomized per tab. Chat encryption keys remain local to each
+device and are not transferred with the wallet.
+
+### Main browser tab and following tabs
+
+After unlocking, one tab per browser profile/origin and network becomes the main
+tab. It alone runs the chain workers, writes the shared chain stores and opens
+P2P connections. Other unlocked tabs follow its chain status, tip and peers and
+read public data through bounded binary `Uint8Array` BroadcastChannel messages.
+The header identifies the main/following role. Account selection and signing
+remain local to each tab: only already-signed payments can be forwarded, and
+admission is not reported as confirmation. Validator activation and contract
+deployment must be performed in the main tab, not by remotely invoking its
+signer. No password, secret key or wallet export is shared.
+
+Closing the main tab releases its exclusive Web Lock and lets an unlocked
+follower reopen the existing stores as the new main tab. The same account keeps
+the same routing ID; a different selected account has its own saved ID. All
+accounts' tabs share one chain-state writer per network, rather than running
+competing state machines over the same stores. A stalled/paused main tab is
+shown as unavailable; a heartbeat timeout never bypasses its writer lock.
+Requests are not automatically replayed during handoff. If a payment's outcome
+is unknown after the main tab disappears, check canonical history before retrying.
+Reload all older app tabs when upgrading to this main-tab architecture.
 
 ### Explorer block details
 

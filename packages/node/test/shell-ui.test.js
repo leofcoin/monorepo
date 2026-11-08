@@ -104,7 +104,36 @@ async function createShellFixture(t) {
   await resize(1280)
   await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` })
   await waitFor(`globalThis.fixtureReady && shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-send')?.shadowRoot`)
-  return { evaluate, waitFor, resize, click, call, errors }
+  const newTab = async () => {
+    const { targetId } = await call('Target.createTarget', { url: 'about:blank' })
+    const list = await (await fetch(`${endpoint.replace('ws:', 'http:').split('/devtools/')[0]}/json/list`)).json()
+    const other = new WebSocket(list.find(target => target.id === targetId).webSocketDebuggerUrl)
+    await once(other, 'open')
+    t.after(() => other.close())
+    const requests = new Map(); let id = 0
+    other.addEventListener('message', event => {
+      const message = JSON.parse(event.data)
+      if (message.id) {
+        const task = requests.get(message.id); requests.delete(message.id)
+        if (task) message.error ? task.reject(new Error(message.error.message)) : task.resolve(message.result)
+      }
+      if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text)
+    })
+    const invoke = (method, params = {}) => new Promise((resolve, reject) => {
+      const requestId = ++id; requests.set(requestId, { resolve, reject }); other.send(JSON.stringify({ id: requestId, method, params }))
+    })
+    const evaluateOther = async expression => {
+      const result = await invoke('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, replMode: true })
+      if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text)
+      return result.result.value
+    }
+    await invoke('Runtime.enable')
+    await invoke('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` })
+    for (let i = 0; i < 100; i++) { if (await evaluateOther('Boolean(globalThis.fixtureReady)')) break; await new Promise(resolve => setTimeout(resolve, 30)) }
+    assert.equal(await evaluateOther('Boolean(globalThis.fixtureReady)'), true)
+    return { evaluate: evaluateOther, call: invoke, close: () => call('Target.closeTarget', { targetId }) }
+  }
+  return { evaluate, waitFor, resize, click, call, errors, newTab }
 }
 
 test('payment links preserve query text and enforce the requested network', {
@@ -278,6 +307,77 @@ test('payment recipients can be saved without sending and resolve trusted addres
     window.dispatchEvent(new StorageEvent('storage', { key: 'leofcoin:peach:wallet-address-book:v1' }))`)
   await waitFor(`recipient.error && !recipient.contact`)
   assert.equal(await evaluate(`recipient.shadowRoot.querySelector('.add-contact').disabled`), true)
+  assert.deepEqual(errors, [])
+})
+
+test('two real browser tabs share one main runtime and closing the main tab hands ownership to the follower', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, call, newTab, errors } = await createShellFixture(t)
+  const setup = `
+    globalThis.tabStarts = 0;
+    globalThis.tabsModule = await import('/browser-node-tabs.js');
+    globalThis.followerModule = await import('/browser-node-follower.js');
+    globalThis.routingModule = await import('/chain/routing-identity-browser.js');
+    globalThis.sharedTabs = tabsModule.createBrowserNodeTabs({ network: 'leofcoin:ui-shared-fixture', heartbeatMs: 50,
+      onFollower: session => {
+        globalThis.followerAdapter ||= followerModule.createBrowserNodeFollower(session, { account: () => shell.wallet.selectedAccount });
+        followerAdapter.install();
+      },
+      start: async () => {
+        globalThis.followerAdapter?.uninstall();
+        tabStarts++;
+        const routing = await routingModule.browserRoutingId({ network: 'leofcoin:ui-shared-fixture', routingAccount: shell.wallet.selectedAccount });
+        globalThis.chain = { version: '0.5.0', nativeToken: 'fixture-token', state: { chain: 'loaded', sync: 'synced' },
+          lastBlock: { index: 20n, hash: 'fixture-tip' }, balanceOf: async () => 77n };
+        globalThis.peernet = { id: routing, peerId: 'fixture-wallet-peer', selectedAccount: shell.wallet.selectedAccount,
+          connections: { fixture: { connected: true, version: '0.5.0' } }, subscribe: async () => {} };
+        return { chain, peernet, stores: {} };
+      }
+    }); await sharedTabs.ready; true;`
+  await evaluate(setup)
+  const routing = await evaluate('sharedTabs.status.routingPeer')
+  assert.equal(await evaluate('tabStarts'), 1)
+  const other = await newTab()
+  await other.evaluate(setup)
+  assert.equal(await other.evaluate('sharedTabs.role'), 'follower')
+  assert.equal(await other.evaluate('tabStarts'), 0, 'following tab does not start workers or P2P runtime')
+  assert.equal(await other.evaluate('String(await chain.balanceOf(shell.wallet.selectedAccount))'), '77')
+  assert.equal(await other.evaluate('peernet.id'), routing)
+  const { targetInfo } = await call('Target.getTargetInfo')
+  await other.call('Target.closeTarget', { targetId: targetInfo.targetId })
+  for (let i = 0; i < 100; i++) {
+    if (await other.evaluate('sharedTabs.role === "leader" && sharedTabs.available && tabStarts === 1')) break
+    await new Promise(resolve => setTimeout(resolve, 30))
+  }
+  assert.equal(await other.evaluate('sharedTabs.role'), 'leader')
+  assert.equal(await other.evaluate('tabStarts'), 1)
+  assert.equal(await other.evaluate('sharedTabs.status.routingPeer'), routing, 'same account keeps its routing ID after handoff')
+  assert.deepEqual(errors, [])
+})
+
+test('browser routing identity is shared by account across tabs and survives reload without touching the wallet', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, call, errors } = await createShellFixture(t)
+  const wallet = await evaluate('shell.wallet.selectedAccount')
+  await evaluate(`globalThis.routingModule = await import('/chain/routing-identity-browser.js');
+    globalThis.firstRouting = routingModule.createBrowserRoutingIdentity();
+    globalThis.routingConfig = { network: 'leofcoin:peach', routingAccount: shell.wallet.selectedAccount };
+    globalThis.firstRoutingId = await firstRouting(routingConfig);
+    globalThis.secondRoutingId = await routingModule.createBrowserRoutingIdentity()(routingConfig);`)
+  const first = await evaluate('firstRoutingId'), second = await evaluate('secondRoutingId')
+  assert.match(first, /^lfc-peer-[a-f0-9]{32}$/)
+  assert.equal(first, second, 'tabs of one account share the main node’s routing ID')
+  assert.equal(await evaluate('await firstRouting(routingConfig)'), first)
+  assert.equal(await evaluate('shell.wallet.selectedAccount'), wallet)
+  const previousDocument = await evaluate('performance.timeOrigin')
+  await call('Page.reload')
+  await waitFor(`performance.timeOrigin !== ${previousDocument} && globalThis.fixtureReady`)
+  await evaluate(`globalThis.routingModule = await import('/chain/routing-identity-browser.js');
+    globalThis.reloadedRoutingId = await routingModule.browserRoutingId({ network: 'leofcoin:peach', routingAccount: shell.wallet.selectedAccount });`)
+  assert.equal(await evaluate('reloadedRoutingId'), second, 'reload reuses the account’s persisted ID')
+  assert.equal(await evaluate('shell.wallet.selectedAccount'), wallet)
   assert.deepEqual(errors, [])
 })
 

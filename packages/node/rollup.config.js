@@ -106,7 +106,7 @@ await cp(chainBrowserExports, 'www/chain', { recursive: true })
 
 export default [
   {
-    input: ['./src/shell.ts', ...views, join(storageExports, 'storage.js')],
+    input: ['./src/shell.ts', './src/controllers/browser-node-tabs.js', './src/controllers/browser-node-follower.js', ...views, join(storageExports, 'storage.js')],
     output: {
       dir: './www',
       format: 'es'

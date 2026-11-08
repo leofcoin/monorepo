@@ -16,6 +16,8 @@ export type NodeOptions = {
   storePrefix?: string
   storeNamespace?: string
   freshIdentity?: boolean
+  routingId?: string
+  routingAccount?: string
 }
 
 export const DEFAULT_NODE_OPTIONS = {

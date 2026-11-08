@@ -102,6 +102,7 @@ class AppShell extends LiteElement {
 
   @property({ type: Boolean, provides: true })
   accessor nodeStarted = false
+  @property({ type: String }) accessor browserNodeRole = ''
   @property({ type: Number }) accessor connectedPeers = 0
   @property({ type: Number }) accessor compatiblePeers = 0
   @property({ type: String }) accessor statusLabel = 'Wallet locked'
@@ -1231,7 +1232,7 @@ class AppShell extends LiteElement {
               <span class="page-title"
                 >${navigation.find((item) => item.route === this.currentRoute)?.label || 'Node console'}</span
               >
-              <span class="page-subtitle">${this.chainName} · Browser node</span>
+              <span class="page-subtitle">${this.chainName} · ${this.browserNodeRole === 'follower' ? 'Following main tab' : this.browserNodeRole === 'leader' ? 'Main browser tab' : 'Browser node'}</span>
             </span>
             <button
               class="icon-button notification-toggle"

@@ -33,6 +33,32 @@ Transaction bodies are hash-checked before entering the canonical transaction
 store. Resolving data never applies it: canonical loading still uses the
 serialized state writer and chain-link validation.
 
+## Node routing identities
+
+Every node automatically gets a cryptographically random routing ID, separate
+from its wallet identity. Native nodes persist it in `node-routing-id` under
+their existing data root (home-relative, like the node's stores). Browser nodes
+persist it in browser-local node metadata, scoped by network, data root and
+account. Tabs of the same account reuse the same routing ID. The browser app
+elects one main tab per network with an exclusive Web Lock: only this tab opens
+chain workers, writes chain stores and owns P2P connections. Other unlocked tabs
+follow it through bounded binary BroadcastChannel requests. They sign payments
+locally and forward only signed transactions; passwords and private keys never
+cross the channel. Validator activation and contract deployment stay in the main
+tab. Closing the main tab allows an unlocked follower to take over using its
+selected account; timeouts never create a competing state writer.
+Reloads reuse the account's saved ID. No manual ID is needed.
+
+`peernet.id` and `peernet.client.peerId` identify the transport node;
+`peernet.peerId` still identifies the wallet and `peernet.selectedAccount`
+remains the account used for signing and validator participation. IDs do not
+grant stake or voting power. Wallet keys, backups, addresses, chain IDs and
+genesis are unchanged. Ledger-only resets do not remove routing metadata.
+When cloning a full native data root to a new installation, exclude
+`node-routing-id`; wallet-only imports naturally get a different routing ID.
+Invalid saved routing metadata stops startup instead of silently rotating it
+or falling back to the shared wallet ID.
+
 ## Crash recovery and checkpoints
 
 State snapshots use two alternating, checksummed `checkpoint:0` / `checkpoint:1`

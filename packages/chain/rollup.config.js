@@ -31,6 +31,7 @@ export default [
     input: [
       './src/chain.ts',
       './src/node.ts',
+      './src/routing-identity-node.ts',
       './src/machine.ts',
       './src/helpers/state-checkpoint.ts',
       './src/connection-monitor.ts',
@@ -59,6 +60,7 @@ export default [
     input: [
       './src/chain.ts',
       './src/node-browser.ts',
+      './src/routing-identity-browser.ts',
       './src/consensus/beacon.ts',
       './src/consensus/beacon-wire.ts',
       './src/consensus/beacon-envelope.ts',

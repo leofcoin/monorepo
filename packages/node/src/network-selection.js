@@ -43,20 +43,6 @@ export function installNetworkStoreScope(key, global = globalThis) {
   if (Peernet.networkStoreScope) throw new Error('Peernet stores are already scoped to another network')
 
   class NetworkScopedPeernet extends Peernet {
-    constructor(options, password) {
-      super({ ...options, routingId: undefined }, password)
-    }
-
-    get id() {
-      return this.identity?.id
-    }
-
-    get peerId() {
-      return this.identity?.id
-    }
-
-    set peerId(_value) {}
-
     async addStore(name, prefix, root, isPrivate = true) {
       const storeName = name === 'wallet' ? name : `${name}-${key}`
       const storeIsPrivate = ['block', 'transaction', 'chain', 'data', 'message', 'share'].includes(name)

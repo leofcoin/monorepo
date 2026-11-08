@@ -5,6 +5,7 @@ import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
 import { DEFAULT_NODE_OPTIONS, NodeOptions } from './constants.js'
 import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.js'
+import { browserRoutingId } from './routing-identity-browser.js'
 
 export default class Node {
   #node
@@ -16,7 +17,7 @@ export default class Node {
   async _init(config: NodeOptions = {}, password: string): Promise<this> {
     config = { ...DEFAULT_NODE_OPTIONS, ...config }
     const autoStart = config.autoStart
-    config = { ...config, autoStart: false }
+    config = { ...config, autoStart: false, routingId: await browserRoutingId(config) }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)

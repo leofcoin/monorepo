@@ -5,6 +5,8 @@ import IdentityController from '../controllers/identity.js'
 import { bindWalletToNode } from '../controllers/wallet-bootstrap.js'
 import { getBrowserTestnetResetFailure } from '../controllers/browser-testnet-reset.js'
 import { acquireBrowserStorageLease } from '../controllers/browser-storage.js'
+import { createBrowserNodeTabs, TAB_STORES } from '../controllers/browser-node-tabs.js'
+import { createBrowserNodeFollower } from '../controllers/browser-node-follower.js'
 import { getSelectedNetwork, installNetworkStoreScope } from '../network-selection.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
@@ -280,7 +282,7 @@ export class LoginScreen extends LiteElement {
     }
   }
 
-  async #spawnChain(password) {
+  async #startOwnedChain(password) {
     await acquireBrowserStorageLease()
     console.time('loading chain')
     const network = getSelectedNetwork()
@@ -300,6 +302,7 @@ export class LoginScreen extends LiteElement {
         network: network.network,
         networkName: network.network,
         networkVersion: network.networkVersion,
+        routingAccount: document.querySelector('app-shell').wallet.selectedAccount,
         stars: networks.leofcoin[network.key].stars,
         autoStart: false
       },
@@ -324,8 +327,44 @@ export class LoginScreen extends LiteElement {
       clearTimeout(timer)
     }
     console.timeEnd('loading chain')
+    return { chain: globalThis.chain, peernet: globalThis.peernet, pubsub: globalThis.pubsub,
+      stores: Object.fromEntries(TAB_STORES.map(name => [name, globalThis[`${name}Store`]])) }
+  }
+
+  async #spawnChain(password) {
+    await acquireBrowserStorageLease()
+    const network = getSelectedNetwork()
+    let startupPassword = password
+    password = undefined
+    let follower
+    const session = createBrowserNodeTabs({
+      network: network.network,
+      start: async () => {
+        follower?.uninstall()
+        pubsub.publish('node:starting', true)
+        const credential = startupPassword
+        startupPassword = undefined
+        return this.#startOwnedChain(credential)
+      },
+      onFollower: shared => {
+        follower ||= createBrowserNodeFollower(shared, { account: () => document.querySelector('app-shell').wallet.selectedAccount })
+        follower.install()
+      },
+      onUpdate: (snapshot, role) => {
+        document.querySelector('app-shell').browserNodeRole = role
+        if (snapshot) {
+          pubsub.publish('node:ready', true)
+          pubsub.publish('connection-status', { connected: snapshot.peers.length,
+            compatible: snapshot.peers.length, healthy: snapshot.peers.length > 0 })
+          pubsub.publish('lastBlock', snapshot.lastBlock)
+          if (role === 'follower' && snapshot.syncProgress) pubsub.publish('sync-progress', snapshot.syncProgress)
+        }
+      },
+      onError: error => pubsub.publish('node:start-error', error.message)
+    })
+    Object.assign(globalThis, { browserNodeSession: session })
+    await session.ready
     await this.#spawnEndpoint()
-    // await globalThis.client.init()
   }
 
   async #spawnEndpoint(direct = true) {

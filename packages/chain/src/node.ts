@@ -5,6 +5,7 @@ import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
 import { DEFAULT_NODE_OPTIONS, type NodeOptions } from './constants.js'
 import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.js'
+import { nodeRoutingId } from './routing-identity-node.js'
 
 export default class Node {
   #node
@@ -30,6 +31,7 @@ export default class Node {
       const [network, networkVersion] = config.network.split(':')
       config.root = `.${network}/${networkVersion || config.networkVersion}/${config.storeNamespace}`
     }
+    config = { ...config, routingId: await nodeRoutingId(config) }
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(config, password)
       : await new Peernet(config, password)

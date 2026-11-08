@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
-import { realpath } from 'node:fs/promises'
+import { realpath, readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
-import { relative, isAbsolute } from 'node:path'
+import { relative, isAbsolute, join } from 'node:path'
 
 // Isolate stores explicitly rather than changing HOME for the whole process.
 if (!process.env.LEOFCOIN_SMOKE_DATA_ROOT) throw new Error('An explicit temporary smoke-test data root is required')
@@ -23,6 +23,12 @@ const node = new Node(
 )
 
 await node.ready
+const walletPeer = globalThis.peernet.identity.id
+const account = globalThis.peernet.selectedAccount
+assert.equal(globalThis.peernet.peerId, walletPeer)
+assert.notEqual(globalThis.peernet.id, walletPeer)
+assert.match(globalThis.peernet.id, /^lfc-peer-[a-f0-9]{32}$/)
+assert.equal(await readFile(join(dataRoot, 'node-routing-id'), 'utf8'), globalThis.peernet.id)
 
 // OPFS rejects deletion of an absent file, unlike LevelDB's no-op deletion.
 // Exercise real chain startup with that stricter storage contract, too.
@@ -43,6 +49,8 @@ assert.equal(await chain.ready, true, 'chain.ready must complete successfully')
 assert.equal(chain.loaded, true, 'chain must have finished loading')
 assert.equal(chain.state.chain, 'loaded', 'chain state must be loaded')
 clearTimeout(timeout)
+assert.equal(globalThis.peernet.peerId, walletPeer, 'startup must preserve wallet identity')
+assert.equal(globalThis.peernet.selectedAccount, account, 'startup must preserve the validator account')
 const validators = await chain.staticCall(addresses.validators, 'validators')
 if (!Array.isArray(validators)) throw new Error('validators contract was not ready with chain.ready')
 const identity = await chain.getChainIdentity()
