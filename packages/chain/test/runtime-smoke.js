@@ -24,6 +24,14 @@ const node = new Node(
 
 await node.ready
 
+// OPFS rejects deletion of an absent file, unlike LevelDB's no-op deletion.
+// Exercise real chain startup with that stricter storage contract, too.
+const deleteChainRecord = globalThis.chainStore.delete.bind(globalThis.chainStore)
+globalThis.chainStore.delete = async key => {
+  if (!await globalThis.chainStore.has(key)) throw new DOMException(`Missing chain record: ${key}`, 'NotFoundError')
+  return deleteChainRecord(key)
+}
+
 const { default: Chain } = await import('../exports/chain.js')
 const chain = new Chain({ network: 'leofcoin:peach', networkVersion: 'peach' })
 const timeout = setTimeout(() => {

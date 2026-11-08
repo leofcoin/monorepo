@@ -263,7 +263,9 @@ export default class State extends Contract {
       if (!checkpoint && !history.length) await this.#machine.updateState(true)
       const tip = await this.canonicalTip()
       await globalThis.chainStore.put('lastBlock', tip.hash)
-      await globalThis.chainStore.delete('recoveryTarget')
+      // A fresh node has no recovery marker. OPFS throws NotFoundError when
+      // deleting an absent file, unlike LevelDB's idempotent delete.
+      if (await globalThis.chainStore.has('recoveryTarget')) await globalThis.chainStore.delete('recoveryTarget')
       this.#loaded = true
       this.#chainState = 'loaded'
     } catch (error) {
