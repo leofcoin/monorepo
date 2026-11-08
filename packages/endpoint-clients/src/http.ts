@@ -75,6 +75,10 @@ export default class Client {
     return this._fetch('sendTransaction', transaction)
   }
 
+  submitTransaction(transaction, chainId: string) {
+    return this._fetch('submitTransaction', { transaction, chainId })
+  }
+
   peerId() {
     return this._fetchString('peerId')
   }

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { TransactionMessage } from '@leofcoin/messages'
+import ts from 'typescript'
+import { methods } from '../helpers/canonical-state-harness.js'
 
 import {
   TRANSACTION_FEE_BYTES,
@@ -100,4 +102,26 @@ test('aggregates validator payouts from every transaction', () => {
   )
 
   assert.equal([...totals.values()].reduce((sum, amount) => sum + amount, 0n), 27n)
+})
+
+test('proposal fee entries exclude pending transactions beyond the selected block', async () => {
+  const source = methods('../../src/chain.ts', 'Chain', ['#createBlock'])
+  const ast = ts.createSourceFile('proposal.ts', `class Proposal { ${source} }`, ts.ScriptTarget.Latest, true)
+  const statements = ast.statements[0].members[0].body.statements.filter(statement =>
+    ts.isVariableStatement(statement) && statement.declarationList.declarations.some(declaration =>
+      ['includedHashes', 'feeEntries'].includes(declaration.name.getText(ast))))
+  assert.equal(statements.length, 2)
+  const body = statements.map(statement => statement.getText(ast)).join('\n')
+  const evaluate = new Function('block', 'allTransactions', 'calculateFee', 'supportsTransactionFees',
+    `return (async () => { ${body}; return feeEntries })()`)
+  const pending = Array.from({ length: MAX_BLOCK_TRANSACTIONS + 20 }, (_, index) => ({
+    hash: `tx-${index}`, transaction: { decoded: { fee: BigInt(index + 1) } }
+  }))
+  for (const count of [1, 128, MAX_BLOCK_TRANSACTIONS]) {
+    const selected = pending.slice(0, count)
+    const entries = await evaluate.call({ version: '0.5.0' }, { transactions: selected.map(tx => tx.hash) },
+      pending, async tx => tx.fee, () => true)
+    assert.deepEqual(entries, selected.map(tx => ({ fee: tx.transaction.decoded.fee, transactionHash: tx.hash })))
+    assert.equal(entries.reduce((sum, entry) => sum + entry.fee, 0n), BigInt(count * (count + 1) / 2))
+  }
 })

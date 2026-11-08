@@ -102,7 +102,45 @@ the process:
 leofcoin> account
 leofcoin> balance
 leofcoin> transfer YTq... 1000
+leofcoin> batch
 ```
+
+### interactive testnet batch
+
+Type `batch` in the existing node or validator wallet shell. It uses the already
+unlocked wallet and selected account in that process: **no wallet export, password
+file, extra endpoint, or second node is required**.
+When the node is stopped, `leofcoin batch [options]` opens the existing local
+wallet in a normal non-participating node and starts the same wizard. It requires
+a terminal. Do not run it alongside a node using the same root.
+
+The wizard asks for transaction count (default 100,000), recipient (default self),
+LFC per transaction (default one atom), and concurrency (default 32). Smaller and
+larger positive safe-integer counts are supported. Enter `yes` to prepare; after
+signing and exact fee/balance checks, enter `SEND` to actually enqueue.
+Anything else at either confirmation cancels without sending.
+
+Only a synced, connected Peach node is accepted. Local validator heartbeats are
+paused while the wizard owns the wallet. A transfer already awaiting finalization
+must finish first. Do not use this account from another node, wallet UI or API
+during the batch; the wizard rechecks its nonce before sending but cannot reserve
+the key across other processes.
+
+All transactions are signed before submission; concurrency bounds simultaneous
+admission calls, not total pool size. Submissions do not wait for blocks, and
+`admitted` is not finality. Self-transfers recycle principal but still need the
+transfer amount plus all fees. Preparing very large batches uses time and memory.
+Only load testnets you own or have permission to test.
+
+Receipts are automatically saved under `~/.leofcoin/batch-receipts/` in a unique
+mode-0600 JSONL file. Each attempted transaction records its signed public fields
+before submission, then hash/status after admission. No private keys or passwords
+are stored. Errors stop new calls and drain in-flight work; unknown transactions
+may still finalize. Reconcile the journal and pending/canonical state before
+retrying; no automatic retry or cancellation of admitted transactions occurs.
+
+The standalone [batch script](../../docs/testnet-batch.md) remains available for
+automation with explicit encrypted signer files.
 
 When the node is stopped, a one-shot transfer can start the same local identity,
 finalize the transfer, and exit. It does not register or participate as a validator:

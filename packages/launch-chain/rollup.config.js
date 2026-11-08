@@ -5,6 +5,7 @@ export default [
     input: [
       './src/index.ts',
       './src/node.ts',
+      './src/batch.ts',
       './src/validator.ts',
       './src/cli-options.ts',
       './src/cli.ts',

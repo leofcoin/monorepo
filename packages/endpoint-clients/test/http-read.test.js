@@ -26,3 +26,19 @@ test('HTTP read errors are explicit rather than returned as successful contract 
   globalThis.fetch = async () => new Response(encodeWire('rpc', { error: 'Read-only call attempted to change contract state' }), { status: 422, headers: { 'Content-Type': 'application/octet-stream' } })
   await assert.rejects(new HttpClient('https://fixture.invalid', 'peach').staticCall('contract', 'increment'), /Read-only call/)
 })
+
+test('HTTP burst submission binds the signed transaction to the expected chain identity', async t => {
+  const previous = globalThis.fetch
+  t.after(() => { globalThis.fetch = previous })
+  const transaction = { from: 'sender', signature: 'signed', nonce: 9, params: ['recipient', 1n] }
+  const chainId = 'lfc:' + 'a'.repeat(64)
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'http://fixture.invalid/submitTransaction')
+    assert.deepEqual(decodeWire('rpc', options.body), { transaction, chainId })
+    return new Response(encodeWire('rpc', { status: 'admitted', hash: 'tx', chainId, fee: 10n }),
+      { headers: { 'Content-Type': 'application/octet-stream' } })
+  }
+  const result = await new HttpClient('http://fixture.invalid', 'peach').submitTransaction(transaction, chainId)
+  assert.equal(result.status, 'admitted')
+  assert.equal(result.fee, 10n)
+})

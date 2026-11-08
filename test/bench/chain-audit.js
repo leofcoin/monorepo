@@ -4,7 +4,9 @@ export function validateAudit(audit, hashes, amount) {
   assert.equal(audit.nonce, BigInt(hashes.length), 'Committed account nonce mismatch')
   assert.equal(audit.recipientBalance, amount, 'Transfer effects missing or replayed')
   // Canonical execution also records exactly one validator snapshot per block.
-  assert.equal(audit.totalTransactions, BigInt(hashes.length + 1), 'Execution counter mismatch')
+  const measuredBlocks = audit.measuredBlocks ?? 1
+  assert.ok(Number.isSafeInteger(measuredBlocks) && measuredBlocks > 0, 'Invalid measured block count')
+  assert.equal(audit.totalTransactions, BigInt(hashes.length + measuredBlocks), 'Execution counter mismatch')
   assert.equal(audit.nativeTransfers, BigInt(hashes.length), 'Native transfer counter mismatch')
   assert.equal(audit.balanceSum, audit.supply, 'Supply conservation failed')
   assert.deepEqual([...audit.transactions].sort(), [...hashes].sort(), 'Canonical transaction membership mismatch')
@@ -13,7 +15,8 @@ export function validateAudit(audit, hashes, amount) {
 export function auditEvidence(audit) {
   return { tip: audit.tip, nonce: String(audit.nonce), recipientBalance: String(audit.recipientBalance),
     totalExecutions: String(audit.totalTransactions), userTransfers: String(audit.nativeTransfers),
-    supply: String(audit.supply), balanceSum: String(audit.balanceSum), transactions: audit.transactions }
+    supply: String(audit.supply), balanceSum: String(audit.balanceSum), measuredBlocks: audit.measuredBlocks ?? 1,
+    transactions: audit.transactions }
 }
 
 export function summarize(results) {

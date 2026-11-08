@@ -10,6 +10,8 @@
     "lib": "lib"
   },
   "scripts": {
+    "testnet:batch": "node scripts/testnet-batch.js",
+    "test:testnet-batch": "node --test test/testnet-batch.test.js",
     "benchmark:chain": "node scripts/benchmark-chain.js",
     "benchmark:chain:prepare": "node scripts/prepare-chain-baseline.js",
     "test:chain-benchmark": "node --test test/bench/chain-benchmark.test.js",

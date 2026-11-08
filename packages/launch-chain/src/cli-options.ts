@@ -1,4 +1,4 @@
-export type CliCommand = 'node' | 'validator' | 'account' | 'balance' | 'status' | 'transfer' | 'help' | 'version'
+export type CliCommand = 'node' | 'validator' | 'account' | 'balance' | 'status' | 'transfer' | 'batch' | 'help' | 'version'
 
 export type CliOptions = {
   command: CliCommand
@@ -13,7 +13,7 @@ export type CliOptions = {
   stars?: string[]
 }
 
-const commands = new Set<CliCommand>(['node', 'validator', 'account', 'balance', 'status', 'transfer', 'help', 'version'])
+const commands = new Set<CliCommand>(['node', 'validator', 'account', 'balance', 'status', 'transfer', 'batch', 'help', 'version'])
 
 const port = (name: string, value: string): number => {
   const parsed = Number(value)

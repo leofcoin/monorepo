@@ -961,12 +961,18 @@ test('explorer dashboard wires holder rankings and responsive activity cards', {
   skip: !runShellUiTests, timeout: 30000
 }, async t => {
   const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
+  const { default: systemAddresses } = await import('@leofcoin/addresses')
+  const { createChainIdentity } = await import('@leofcoin/lib/chain-identity')
+  const explorerIdentity = await createChainIdentity('leofcoin:peach', systemAddresses)
   await evaluate(`globalThis.fixtureClient = client;
     globalThis.balanceReads = 0;
+    chain.getChainIdentity = async () => (${JSON.stringify(explorerIdentity)});
     globalThis.client = {
-      lookup: async name => ({ address: name }),
+      lookup: async name => ({ address: name === 'LeofcoinContractFactory' ? ${JSON.stringify(systemAddresses.nameService)} : ${JSON.stringify(systemAddresses.validators)} }),
       staticCall: async (address, method, params = []) => {
         if (!Array.isArray(params)) throw new Error('Invalid read-only contract query');
+        if (method === 'totalContracts' && address !== ${JSON.stringify(systemAddresses.contractFactory)})
+          throw new Error('ContractFactory query reached the wrong contract');
         return method === 'validators' ? [] : 0;
       },
       nativeTransfers: async () => 0, nativeBurns: async () => 0, nativeMints: async () => 0,

@@ -34,3 +34,12 @@ test('invalid samples never contribute performance numbers to the summary', () =
   assert.equal(result.current.confirmation.durationMs, 300)
   assert.equal(result.current.coldSync.durationMs, 200)
 })
+
+test('multi-block audits count validator snapshots and reject duplicate or missing transfers', () => {
+  const multiple = { ...audit, measuredBlocks: 2, totalTransactions: 4n, tip: { index: 2, hash: 'tip' } }
+  assert.doesNotThrow(() => validateAudit(multiple, hashes, 200n))
+  assert.throws(() => validateAudit({ ...multiple, totalTransactions: 3n }, hashes, 200n), /Execution counter/)
+  assert.throws(() => validateAudit({ ...multiple, transactions: ['a', 'a'] }, hashes, 200n), /membership/)
+  assert.throws(() => validateAudit({ ...multiple, measuredBlocks: 0 }, hashes, 200n), /Invalid measured block count/)
+  assert.equal(auditEvidence(multiple).measuredBlocks, 2)
+})

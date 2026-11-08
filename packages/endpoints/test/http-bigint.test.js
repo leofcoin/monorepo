@@ -40,3 +40,41 @@ test('HTTP native binary parameters preserve exact read values and reject mutati
   assert.equal((await post(url, { contract: 'fixture', method: 'name', params: 'not-array' })).status, 400)
   assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: '{}' })).status, 400)
 })
+
+test('Peach admission route returns before finalization and gates network, identity and connectivity', async t => {
+  const identity = { network: 'leofcoin:peach', chainId: 'lfc:' + 'b'.repeat(64) }
+  let calls = 0
+  let fail = false
+  const chain = { state: { sync: 'synced' }, getChainIdentity: async () => identity,
+    sendTransaction: async transaction => {
+      calls++
+      assert.equal(transaction.signature, 'signed')
+      if (fail) throw new Error('admission failed')
+      return { hash: 'test-hash', fee: 2n, wait: new Promise(() => {}) }
+    } }
+  const previous = globalThis.peernet
+  globalThis.peernet = { connections: { fixture: { connected: true } } }
+  const server = http(chain, 0, 'peach')
+  t.after(() => { server.close(); globalThis.peernet = previous })
+  await new Promise(resolve => server.once('listening', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`
+  const body = { chainId: identity.chainId, transaction: { signature: 'signed' } }
+  const response = await post(base + '/submitTransaction', body)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await read(response), { status: 'admitted', hash: 'test-hash', fee: 2n, chainId: identity.chainId })
+  assert.equal((await post(base + '/submitTransaction', { ...body, chainId: 'wrong' })).status, 409)
+  chain.state.sync = 'connectionless'
+  assert.equal((await post(base + '/submitTransaction', body)).status, 503)
+  chain.state.sync = 'synced'
+  globalThis.peernet.connections.fixture.connected = false
+  assert.equal((await post(base + '/submitTransaction', body)).status, 503)
+  globalThis.peernet.connections.fixture.connected = true
+  identity.network = 'leofcoin'
+  assert.equal((await post(base + '/submitTransaction', body)).status, 403)
+  identity.network = 'leofcoin:peach'
+  assert.equal(calls, 1)
+  fail = true
+  const rejected = await post(base + '/submitTransaction', body)
+  assert.equal(rejected.status, 422)
+  assert.match((await read(rejected)).error, /admission failed/)
+})

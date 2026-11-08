@@ -112,6 +112,7 @@ export async function createPublicExplorerSource(network, fetcher = globalThis.f
     }
   })
   return Object.freeze({ kind: 'public', label: `${origin.host} · read-only`, origin: origin.origin, chain, client,
+    identity,
     transactionReader: hash => getContent(hash, 'transaction'),
     peernet: Object.freeze({ get: getContent }),
     transactionPoolStore: Object.freeze({ keys: () => { poolRequest = undefined; return pool() }, has: async hash => (await pool()).includes(hash), get: hash => getContent(hash, 'transaction') }),
@@ -122,6 +123,14 @@ export async function createPublicExplorerSource(network, fetcher = globalThis.f
           !Number.isFinite(holder.share) || holder.share < 0 || holder.share > 100)) throw new Error('Invalid public holder ranking')
       return holders
     } })
+}
+
+/** System contracts are protocol identities, not mutable name-registry entries. */
+export async function explorerSystemContracts(source, network = getSelectedNetwork()) {
+  const identity = await verifyChainIdentity(source.identity || await source.chain.getChainIdentity())
+  if (identity.network !== network.network || (network.chainId && identity.chainId !== network.chainId))
+    throw new Error('Explorer source belongs to a different chain or network')
+  return identity.genesisContracts
 }
 
 export async function getExplorerSource() {

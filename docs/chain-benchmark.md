@@ -22,10 +22,19 @@ For a current-runtime correctness check (no npm baseline installation needed):
 npm run test:e2e:chain-runtime
 # Or three larger, independent runs:
 npm run benchmark:chain -- --current-only --transactions 32 --samples 3
+# Long isolated run with normal consensus limits/cadence:
+npm run benchmark:chain -- --current-only --transactions 100000 --batch-size 128 --samples 1 --timeout-ms 3600000 --output node_modules/.cache/chain-100000.json
 ```
 
 CI runs the current-runtime check after the existing multi-process tests. Current-only
 reports can pass, but always set `comparable: false`: no second release was measured.
+Up to 100,000 transfers are supported with an explicit `--batch-size` (at most
+512; use 128 for the current protocol's transaction count and byte limits).
+Batches are submitted after the preceding batch is committed on both live nodes.
+This bounds the pending pool and signing/IPC payloads; it is not a 100,000-entry
+mempool saturation test. A long run retains the actual block cadence and may take
+over an hour. `--timeout-ms` bounds individual operations and wait phases,
+not the entire run. Progress is emitted after each committed batch.
 The `test:e2e:chain-runtime` script also injects failing synchronous and asynchronous
 observers on every node (`--faulty-observers`). This is a correctness test, not a
 performance run. Omit that flag for an ordinary batch-timing measurement.
@@ -50,10 +59,12 @@ one-validator proposal/vote/block-execution path. Setup installs a trusted test
 anchor at height 0 and stakes a generated test account. This is a synthetic
 checkpoint fixture, **not a new production genesis or a genesis-validation test**.
 
-Presigned transfers enter through a second node and propagate to the producer.
+Signed transfers enter through a second node and propagate to the producer.
 Timing includes admission, signature verification, networking, consensus,
-execution, and producer checkpoint persistence, but excludes signing and fixture
-setup. The old anchor timestamp makes the first block immediately eligible;
+execution, producer checkpoint persistence, and live-follower confirmation.
+Signing is now included and separately reported as `signingMs`; fixture setup is
+excluded. Earlier reports excluded signing and are not directly comparable.
+The old anchor timestamp makes the first block immediately eligible;
 `transactions / elapsed time` is therefore **batch throughput, not sustained TPS**.
 No production timing or economics rules are changed.
 
@@ -63,9 +74,11 @@ After commitment, both nodes must agree on the tip and independently pass:
 - Exact native transfer count; execution count also includes one validator snapshot.
 - Sum of token balances equals total supply, including protocol minting/burning.
 
-A third, cold node must then fetch and execute the measured block from the same
+A third, cold node must then fetch and execute all measured blocks from the same
 anchor, pass the same checks, and retain correct state after a process restart.
-Only one measured block is currently covered, not a long-history sync benchmark.
+Audits check transaction membership over the complete history, with exactly one
+validator snapshot execution per measured block. A multi-batch report records
+the actual block count; no runtime consensus limits are changed.
 
 CPU is sampled for the signaling server, runtime processes and child workers.
 It is CPU time, not instantaneous utilization or electricity consumption.

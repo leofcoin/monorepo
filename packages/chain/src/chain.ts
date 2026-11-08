@@ -1442,9 +1442,10 @@ export default class Chain extends VersionControl {
     const monetaryPolicy = await this.#monetaryPolicy(this.version)
     block.reward = monetaryPolicy.subsidy
 
+    const includedHashes = new Set(block.transactions)
     const feeEntries = supportsTransactionFees(this.version)
       ? await Promise.all(
-          allTransactions.map(async ({ transaction, hash }) => ({
+          allTransactions.filter(({ hash }) => includedHashes.has(hash)).map(async ({ transaction, hash }) => ({
             fee: BigInt(await calculateFee(transaction.decoded)),
             transactionHash: hash
           }))

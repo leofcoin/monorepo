@@ -190,11 +190,20 @@ async function audit() {
   const nonce = await globalThis.accountsStore.has(initial.account)
     ? BigInt(new TextDecoder().decode(await globalThis.accountsStore.get(initial.account))) : 0n
   const tip = await chain.lastBlock
-  const block = new BlockMessage(await globalThis.blockStore.get(tip.hash))
+  const transactions = []
+  let hash = tip.hash
+  let measuredBlocks = 0
+  while (hash !== '0x0') {
+    const block = new BlockMessage(await globalThis.blockStore.get(hash))
+    assert.equal(await block.hash(), hash)
+    transactions.push(...block.decoded.transactions)
+    if (Number(block.decoded.index) > 0) measuredBlocks++
+    hash = String(block.decoded.previousHash)
+  }
   const sum = Object.values(state.balances).reduce((total, value) => total + BigInt(value), 0n)
   return { ...await status(), recipientBalance: BigInt(state.balances[initial.recipient] || 0), nonce,
     totalTransactions: BigInt(await chain.totalTransactions), nativeTransfers: BigInt(await chain.nativeTransfers),
-    supply: BigInt(state.totalSupply), balanceSum: sum, transactions: block.decoded.transactions }
+    supply: BigInt(state.totalSupply), balanceSum: sum, transactions, measuredBlocks }
 }
 let tail = Promise.resolve()
 process.on('message', bytes => {
@@ -210,6 +219,10 @@ process.on('message', bytes => {
       }
       else if (request.action === 'start') { chain = new Chain({ network, networkVersion: 'e2e' }); await chain.ready; value = await status() }
       else if (request.action === 'status') value = await status()
+      else if (request.action === 'progress') {
+        value = { nonce: await globalThis.accountsStore.has(initial.account)
+          ? BigInt(new TextDecoder().decode(await globalThis.accountsStore.get(initial.account))) : 0n }
+      }
       else if (request.action === 'prepare') {
         const start = await chain.getNonce(initial.account)
         tracked = []

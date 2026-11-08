@@ -11,7 +11,7 @@ import { getSelectedNetwork } from '../../network-selection.js'
 import '../../elements/explorer/dashboard-rankings.js'
 import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
 import { errorMessage } from '../../controllers/transfer.js'
-import { getExplorerSource } from '../../controllers/public-explorer.js'
+import { getExplorerSource, explorerSystemContracts } from '../../controllers/public-explorer.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -51,16 +51,14 @@ export default customElements.define(
       if (!client) throw new Error('Node data is not ready yet. Retry after startup.')
       const promises = []
 
-      const lookupValidators = await client.lookup('LeofcoinValidators')
-
-      const lookupFactory = await client.lookup('LeofcoinContractFactory')
-      promises.push(await client.staticCall(lookupValidators.address, 'validators', []))
+      const contracts = await explorerSystemContracts(source)
+      promises.push(await client.staticCall(contracts.validators, 'validators', []))
       promises.push(BigInt(await client.nativeTransfers()).toString())
       promises.push(BigInt(await client.nativeBurns()).toString())
       promises.push(BigInt(await client.nativeMints()).toString())
       promises.push(BigInt(await client.nativeCalls()).toString())
       promises.push(BigInt(await client.totalContracts()).toString())
-      promises.push(BigInt(await client.staticCall(lookupFactory.address, 'totalContracts', [])).toString())
+      promises.push(BigInt(await client.staticCall(contracts.contractFactory, 'totalContracts', [])).toString())
       promises.push(await client.lastBlockHeight())
       promises.push(BigInt(await client.totalTransactions()).toString())
       promises.push(formatBytes(await client.totalSize()))

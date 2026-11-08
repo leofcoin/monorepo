@@ -15,6 +15,21 @@ http(chain, port, networkVersion)
 wss(chain, port, networkVersion)
 ```
 
+## Peach-only burst admission
+
+`POST /submitTransaction` accepts a binary `{ chainId, transaction }` map with a
+client-signed transaction. It requires Peach, the matching chain ID, synced state
+and a connected peer; failures return 403, 409 or 503 respectively.
+Admission errors return 422. Success returns `{ status: 'admitted', hash, fee,
+chainId }` without waiting for a block. Later execution failures are logged.
+This is not finality or a durable manager receipt; use a client-side journal and
+verify canonical membership. `/sendTransaction` keeps its existing wait behavior.
+Unlike Manager submissions, the burst path does not maintain a bounded manager
+receipt collection; it is intended for deliberate high-volume testnet tests.
+The matching HTTP client exposes `submitTransaction(transaction, chainId)`.
+See the [testnet batch script](../../docs/testnet-batch.md) for safety gates,
+encrypted local signing and explicit confirmation.
+
 ## Generic contract reads
 
 POST /staticCall accepts a binary map containing `contract`, `method` and an

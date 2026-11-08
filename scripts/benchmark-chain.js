@@ -18,11 +18,14 @@ const baseline = option('--baseline', process.env.LEOFCOIN_CHAIN_BASELINE)
 const currentOnly = args.includes('--current-only')
 const observerFaults = args.includes('--faulty-observers')
 const count = Number(option('--transactions', '32'))
+const batchSize = Number(option('--batch-size', String(count)))
 const samples = Number(option('--samples', '3'))
 const timeout = Number(option('--timeout-ms', '45000'))
-if ((!baseline && !currentOnly) || !Number.isInteger(count) || count < 1 || count > 512 || !Number.isInteger(samples) || samples < 1 || samples > 9 ||
-  !Number.isInteger(timeout) || timeout < 1000 || timeout > 120000)
-  throw new Error('Use --current-only or --baseline <isolated npm directory> [--transactions 1..512] [--samples 1..9] [--timeout-ms 1000..120000]')
+if ((!baseline && !currentOnly) || !Number.isInteger(count) || count < 1 || count > 100000 ||
+  !Number.isInteger(batchSize) || batchSize < 1 || batchSize > 512 || batchSize > count ||
+  !Number.isInteger(samples) || samples < 1 || samples > 9 ||
+  !Number.isInteger(timeout) || timeout < 1000 || timeout > 3600000)
+  throw new Error('Use --current-only or --baseline <isolated npm directory> [--transactions 1..100000] [--batch-size 1..512, no greater than transactions] [--samples 1..9] [--timeout-ms 1000..3600000]')
 const expectedIntegrity = 'sha512-zb3k5uCEZqTr5JgdIBLORcQ0dOwV6I5mdjc0McmNjFlXN/9FvzJ5Xq+r2w6Z12FEeT2DOX15uiaYAXY59RcBMQ=='
 let baselineRoot, lockBytes
 if (!currentOnly) {
@@ -154,26 +157,42 @@ async function run(runtime, label, sample) {
     const ingress = new NodeProcess(runtime, join(temporary, 'ingress'), star.url); nodes.push(ingress)
     await ingress.ready(); await ingress.request('seed', seed); await ingress.request('start')
     await source.until(async () => (await source.request('status')).peers >= 1, 'peer connection')
-    const signed = await source.request('prepare', count)
     phase = 'confirmation'
     metrics = new TreeMetrics([star.child.pid, source.child.pid, ingress.child.pid])
     await metrics.begin()
     const at = performance.now()
-    const hashes = await ingress.request('submit', signed)
+    const hashes = []
+    let signingMs = 0
+    let measuredBlocks = 0
+    for (let offset = 0; offset < count; offset += batchSize) {
+      const size = Math.min(batchSize, count - offset)
+      const signAt = performance.now()
+      const signed = await source.request('prepare', size)
+      signingMs += performance.now() - signAt
+      const batch = await ingress.request('submit', signed)
+      assert.equal(new Set(batch).size, size)
+      hashes.push(...batch)
+      if (offset === 0) {
+        await source.until(async () => {
+          const pending = new Set((await source.request('status')).pending)
+          return batch.every(hash => pending.has(hash))
+        }, 'transaction propagation')
+        await source.request('participate')
+      }
+      await source.until(async () => (await source.request('status')).tip?.index > measuredBlocks &&
+        Number((await source.request('progress')).nonce) === offset + size, `commit ${offset + size}/${count}`)
+      measuredBlocks = (await source.request('status')).tip.index
+      await ingress.until(async () => Number((await ingress.request('progress')).nonce) === offset + size, 'follower commit')
+      event(`${label} sample ${sample}: committed ${offset + size}/${count} transfers, height ${measuredBlocks}`)
+    }
     assert.equal(new Set(hashes).size, count)
-    await source.until(async () => {
-      const status = await source.request('status')
-      return hashes.every(hash => status.pending.includes(hash))
-    }, 'transaction propagation')
-    const vote = source.request('participate')
-    await source.until(() => source.events.find(event => event.type === 'block' && event.transactions?.length === count), 'canonical commit')
-    await vote
     const durationMs = performance.now() - at
-    result.phases.confirmation = { durationMs, transactionsPerSecond: count * 1000 / durationMs, ...await metrics.end() }
+    result.phases.confirmation = { durationMs, signingMs, transactionsPerSecond: count * 1000 / durationMs, ...await metrics.end() }
+    result.measuredBlocks = measuredBlocks
     metrics = undefined
     const sourceAudit = await source.request('audit')
     check('source', sourceAudit, hashes)
-    await ingress.until(async () => Number((await ingress.request('status')).tip?.index) === 1, 'follower commit')
+    await ingress.until(async () => Number((await ingress.request('status')).tip?.index) === measuredBlocks, 'follower commit')
     const ingressAudit = await ingress.request('audit')
     check('liveFollower', ingressAudit, hashes)
     assert.equal(ingressAudit.tip.hash, sourceAudit.tip.hash)
@@ -240,8 +259,8 @@ const report = { schema: 'leofcoin-chain-benchmark-v1', measuredAt: new Date().t
     lockSha256: createHash('sha256').update(lockBytes).digest('hex') },
   current: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), fingerprint },
   workload: { count, amountPerTransfer: '100', validatorCount: 1, liveNodes: 3, transport: 'loopback WebRTC',
-    trustedCommonAnchor: 'height 0, fixture setup excluded', measuredBlocks: 1, blockTimeMs: 6000,
-    signingIncluded: false, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false,
+    trustedCommonAnchor: 'height 0, fixture setup excluded', batchSize, measuredBlocks: results.map(result => result.measuredBlocks ?? null), blockTimeMs: 6000,
+    signingIncluded: true, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false,
     observerFaultInjection: observerFaults },
   status: allPassed ? 'passed' : 'failed', comparable: !currentOnly && allPassed, summary: summarize(results), results,
   limits: ['One-validator consensus is not a multi-validator mainnet TPS guarantee', 'CPU is sampled over all benchmark descendants; short-lived process tails can be missed',

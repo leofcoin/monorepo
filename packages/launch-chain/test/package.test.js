@@ -44,6 +44,9 @@ test('exports a standalone validator runtime and CLI', async () => {
   assert.match(stdout, /leofcoin status \[options\]/)
   assert.match(stdout, /--password-file/)
   assert.match(stdout, /leofcoin transfer/)
+  assert.match(stdout, /type batch/)
+  assert.match(stdout, /leofcoin batch/)
+  await assert.rejects(run(process.execPath, [cli, 'batch']), /requires a terminal/)
   await assert.rejects(run(process.execPath, [cli, '--password-file', '--interval', '5']), /requires a value/)
 })
 
@@ -67,6 +70,7 @@ test('parses commands and common node options in any order', async () => {
   })
   assert.throws(() => parseCliOptions(['node', '--http-port', '70000']), /valid port/)
   assert.throws(() => parseCliOptions(['wat']), /unknown command/)
+  assert.equal(parseCliOptions(['batch', '--root', '/existing']).command, 'batch')
 })
 
 test('CLI executes through a symlink, including npm bin entry points', async () => {
@@ -107,4 +111,16 @@ test('does not block validator startup on heartbeat finalization', async () => {
   const source = await readFile(new URL('../src/validator.ts', import.meta.url), 'utf8')
   assert.match(source, /void heartbeat\(\)/)
   assert.doesNotMatch(source, /await heartbeat\(\)/)
+})
+
+test('interactive shell exposes batch and validator pauses heartbeats while the wallet is reserved', async () => {
+  const [cli, validator, node] = await Promise.all(['cli', 'validator', 'node'].map(name =>
+    readFile(new URL(`../src/${name}.ts`, import.meta.url), 'utf8')))
+  assert.match(cli, /command === 'batch'/)
+  assert.match(cli, /await handle\.batch/)
+  assert.match(validator, /sending \|\| node\.walletBusy/)
+  assert.match(validator, /batch: node\.batch/)
+  assert.match(node, /if \(activeTransfers\) throw/)
+  assert.match(node, /finally \{ batchActive = false \}/)
+  assert.match(cli, /Batch requires an existing local wallet/)
 })

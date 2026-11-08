@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { readFile } from 'node:fs/promises'
+import { readFile, lstat } from 'node:fs/promises'
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createInterface } from 'node:readline/promises'
 import { parseCliOptions } from './cli-options.js'
@@ -19,6 +19,7 @@ Usage:
   leofcoin balance [address] [options]        Show an LFC balance
   leofcoin status [options]                   Show local chain status
   leofcoin transfer <address> <LFC> [options] Send LFC and await finalization
+  leofcoin batch [options]                   Interactive testnet burst using the local wallet
 
 Options:
   --network <name>        Network (default: leofcoin:peach)
@@ -36,6 +37,8 @@ Options:
 
 Passwords are never accepted as command-line values. Use --password-file,
 LEOFCOIN_PASSWORD_FILE, LEOFCOIN_PASSWORD, or the interactive password prompt.
+In the wallet shell, type batch for an interactive Peach transaction burst
+using the already unlocked wallet (no separate wallet export or endpoint needed).
 `
 
 const packageVersion = async () => {
@@ -92,11 +95,15 @@ const runShell = async (handle: LocalNodeHandle) => {
         const balance = await chain.balanceOf(values[0] ?? handle.account)
         process.stdout.write(`${chain.utils.formatUnits(balance)} LFC\n`)
       } else if (command === 'status') await showStatus(handle)
+      else if (command === 'batch') await handle.batch({
+        question: prompt => shell.question(prompt),
+        log: message => process.stdout.write(`${message}\n`)
+      })
       else if (command === 'transfer') {
         const hash = await handle.transfer(values[0], amountFor(chain, values[1]))
         process.stdout.write(`transfer finalized: ${hash}\n`)
       } else if (command === 'help') {
-        process.stdout.write('account | balance [address] | status | transfer <address> <LFC> | exit\n')
+        process.stdout.write('account | balance [address] | status | transfer <address> <LFC> | batch | exit\n')
       } else if (command === 'exit' || command === 'quit') {
         shell.close()
         break
@@ -111,6 +118,8 @@ export const runCli = async (args = process.argv.slice(2)) => {
   const options = parseCliOptions(args)
   if (options.command === 'help') return void process.stdout.write(help)
   if (options.command === 'version') return void process.stdout.write(`${await packageVersion()}\n`)
+  if (options.command === 'batch' && !process.stdin.isTTY)
+    throw new Error('Interactive batch requires a terminal; use the standalone script with explicit confirmation for automation')
 
   const common = {
     network: options.network ?? process.env.LEOFCOIN_NETWORK,
@@ -119,6 +128,19 @@ export const runCli = async (args = process.argv.slice(2)) => {
     stars: options.stars,
     httpPort: options.httpPort,
     wsPort: options.wsPort
+  }
+  if (options.command === 'batch') {
+    if ((common.network ?? 'leofcoin:peach') !== 'leofcoin:peach')
+      throw new Error('Interactive batch is only available on Peach testnet')
+    const root = resolve(homedir(), common.root || '.leofcoin/peach')
+    for (const name of ['account', 'wallet']) {
+      const marker = join(root, name, 'CURRENT')
+      try {
+        if (!(await lstat(marker)).isFile()) throw new Error(`Invalid existing ${name} store`)
+      } catch (error) {
+        throw new Error(`Batch requires an existing local wallet at ${root}; it will not create a new wallet`, { cause: error })
+      }
+    }
   }
   const handle = options.command === 'validator'
     ? await startValidator({ ...common, intervalMinutes: options.intervalMinutes })
@@ -144,6 +166,19 @@ export const runCli = async (args = process.argv.slice(2)) => {
     if (!to) throw new Error('transfer recipient is required')
     const hash = await nodeHandle.transfer(to, amountFor(chain, options.positionals[1]))
     process.stdout.write(`transfer finalized: ${hash}\n`)
+  } else if (options.command === 'batch') {
+    const shell = createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      await nodeHandle.batch({ question: prompt => shell.question(prompt),
+        log: message => process.stdout.write(`${message}\n`) })
+    } catch (error) {
+      process.exitCode = 1
+      throw error
+    } finally {
+      shell.close()
+      nodeHandle.stop()
+      setTimeout(() => process.exit(process.exitCode ?? 0), 100)
+    }
   } else {
     process.stdout.write(`${options.command} account: ${nodeHandle.account}\n`)
     if (options.shell && process.stdin.isTTY) await runShell(nodeHandle)

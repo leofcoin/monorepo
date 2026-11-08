@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import addresses from '@leofcoin/addresses'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
 import { encodeWire, decodeWire } from '@leofcoin/binary'
-import { createPublicExplorerSource, getExplorerSource } from '../src/controllers/public-explorer.js'
+import { createPublicExplorerSource, getExplorerSource, explorerSystemContracts } from '../src/controllers/public-explorer.js'
 import { SUPPORTED_NETWORKS } from '../src/network-selection.js'
 import { explorerFixture } from './explorer-fixture-data.js'
 
@@ -49,9 +49,13 @@ test('pinned identity and network mismatches are refused without opening any wal
 })
 
 test('local source remains separate and explorer routes no longer require wallet access', async t => {
-  const previous = globalThis.chain
-  globalThis.chain = { readOnlyFixture: true }
-  t.after(() => previous === undefined ? delete globalThis.chain : globalThis.chain = previous)
+  const previous = globalThis.chain, previousClient = globalThis.client
+  globalThis.chain = { readOnlyFixture: true, state: { chain: 'loaded', sync: 'errored' } }
+  globalThis.client = { staticCall() {} }
+  t.after(() => {
+    previous === undefined ? delete globalThis.chain : globalThis.chain = previous
+    previousClient === undefined ? delete globalThis.client : globalThis.client = previousClient
+  })
   const source = await getExplorerSource()
   assert.equal(source.kind, 'local')
   assert.equal(source.chain, globalThis.chain)
@@ -62,4 +66,14 @@ test('local source remains separate and explorer routes no longer require wallet
   const login = await readFile(new URL('../src/screens/login.ts', import.meta.url), 'utf8')
   assert.match(login, /Browse explorer without unlocking/)
   assert.ok(login.indexOf('Browse explorer without unlocking') < login.indexOf('<flex-column data-route="create">'))
+})
+
+test('local system queries use verified genesis addresses, never the broken mutable name registry', async () => {
+  const source = { chain: { getChainIdentity: async () => identity },
+    client: { lookup: () => { throw new Error('Do not trust the name registry for protocol contracts') } } }
+  assert.deepEqual(await explorerSystemContracts(source, network), identity.genesisContracts)
+  assert.equal((await explorerSystemContracts({ identity }, network)).contractFactory, addresses.contractFactory)
+  const wrong = await createChainIdentity('leofcoin:mainnet', addresses)
+  await assert.rejects(explorerSystemContracts({ identity: wrong }, network), /different chain or network/)
+  await assert.rejects(explorerSystemContracts({ identity: { ...identity, chainId: 'lfc:' + '0'.repeat(64) } }, network), /identity|ID/)
 })

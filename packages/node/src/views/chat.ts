@@ -117,12 +117,55 @@ export class ChatView extends LitElement {
   @state() accessor pendingCount = 0
   @state() accessor archiveCount = 0
   @state() accessor device: ChatDevice | undefined
+  @state() accessor search = ''
+  @state() accessor mobileConversation = false
+  @state() accessor sending = false
+  @state() accessor connected = false
+  @state() accessor panel: 'friend' | 'space' | 'settings' | '' = ''
 
   #transport
   #unsubscribe
   #starting = false
   #requestedWallet = ''
   #connected = false
+  #stickToBottom = true
+
+  #scrollToBottom = () => {
+    const list = this.renderRoot.querySelector<HTMLElement>('.messages')
+    if (list) list.scrollTop = list.scrollHeight
+    this.#stickToBottom = true
+  }
+
+  #openPanel = async (panel: 'friend' | 'space' | 'settings') => {
+    this.panel = panel
+    await this.updateComplete
+    this.renderRoot.querySelector<HTMLDialogElement>('dialog')?.showModal()
+  }
+
+  #closePanel = () => {
+    this.renderRoot.querySelector<HTMLDialogElement>('dialog')?.close()
+    this.panel = ''
+  }
+
+  #selectSpace = (spaceId: string) => {
+    this.channel = 'space'
+    this.selectedSpaceId = spaceId
+    this.mobileConversation = true
+    this.#stickToBottom = true
+  }
+
+  #composerInput = (event: Event) => {
+    const input = event.currentTarget as HTMLTextAreaElement
+    this.draft = input.value
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(input.scrollHeight, 160)}px`
+  }
+
+  #composerKeydown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) return
+    event.preventDefault()
+    ;(event.currentTarget as HTMLTextAreaElement).form?.requestSubmit()
+  }
 
   connectedCallback() {
     super.connectedCallback()
@@ -134,6 +177,7 @@ export class ChatView extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback()
     this.#connected = false
+    this.connected = false
     globalThis.pubsub?.unsubscribe('node:ready', this.#onNodeReady)
     this.#unsubscribe?.()
     this.#transport?.stop()
@@ -143,10 +187,11 @@ export class ChatView extends LitElement {
 
   protected updated(changed: Map<PropertyKey, unknown>) {
     if (changed.has('wallet')) void this.#initialize()
-    if (changed.has('messages')) {
-      const messages = this.renderRoot.querySelector<HTMLElement>('.messages')
-      if (messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 160)
-        messages.scrollTop = messages.scrollHeight
+    if ((changed.has('messages') && this.#stickToBottom) || changed.has('selectedSpaceId') || changed.has('selectedFriendPeerId') || changed.has('channel'))
+      this.#scrollToBottom()
+    if (changed.has('draft') && !this.draft) {
+      const input = this.renderRoot.querySelector<HTMLTextAreaElement>('textarea')
+      if (input) input.style.height = 'auto'
     }
   }
 
@@ -169,6 +214,7 @@ export class ChatView extends LitElement {
       this.#transport?.stop()
       this.#unsubscribe = undefined
       this.#transport = undefined
+      this.connected = false
       this.device = undefined
       this.messages = []
       this.devices = []
@@ -176,6 +222,8 @@ export class ChatView extends LitElement {
       this.spaces = []
       this.selectedDeviceId = ''
       this.selectedFriendPeerId = ''
+      this.selectedSpaceId = ''
+      this.draft = ''
     }
     this.#starting = true
     this.#requestedWallet = identityKey
@@ -213,6 +261,7 @@ export class ChatView extends LitElement {
       })
       this.#unsubscribe = this.#transport.subscribe((event: ChatTransportEvent) => this.#handleTransportEvent(event))
       await this.#transport.start()
+      this.connected = true
       this.archiveEnabled = this.#transport.archiveEnabled
       this.pendingCount = this.#transport.pendingCount
       this.archiveCount = this.#transport.archiveCount
@@ -333,8 +382,7 @@ export class ChatView extends LitElement {
           this.device
         )
         this.spaces = await listChatSpaces(this.device.account, network, this.device)
-        this.selectedSpaceId = savedSpace.spaceId
-        this.channel = 'space'
+        this.#selectSpace(savedSpace.spaceId)
         this.status = `Joined ${savedSpace.name}.`
         const receipt = await createDeliveryReceipt({
           messageId: envelope.id,
@@ -394,6 +442,8 @@ export class ChatView extends LitElement {
     this.selectedSpaceId = ''
     this.selectedFriendPeerId = peerId
     this.selectedDeviceId = certificate?.deviceId || ''
+    this.mobileConversation = true
+    this.#stickToBottom = true
     if (!certificate) this.status = 'Friend saved. Waiting for their device to connect to Peernet.'
   }
 
@@ -418,6 +468,7 @@ export class ChatView extends LitElement {
         : 'Friend saved. They will appear when their device connects to Peernet.'
       this.friendAddressDraft = ''
       this.addingFriend = false
+      this.#closePanel()
       this.error = ''
     } catch (error) {
       this.error = errorMessage(error)
@@ -506,9 +557,9 @@ export class ChatView extends LitElement {
         this.device
       )
       this.spaces = await listChatSpaces(this.device.account, this.device.network, this.device)
-      this.selectedSpaceId = space.spaceId
-      this.channel = 'space'
+      this.#selectSpace(space.spaceId)
       this.spaceNameDraft = ''
+      this.#closePanel()
       this.status = `Created ${space.name}. Invite devices to add members.`
       this.error = ''
     } catch (error) {
@@ -546,6 +597,17 @@ export class ChatView extends LitElement {
 
   #send = async (event: SubmitEvent) => {
     event.preventDefault()
+    if (this.sending || !this.connected) return
+    this.sending = true
+    const draft = this.draft
+    try {
+      await this.#sendMessage(draft)
+    } finally {
+      this.sending = false
+    }
+  }
+
+  async #sendMessage(draft: string) {
     if (!this.device || !this.#transport || !this.draft.trim()) return
     if (this.channel === 'space') {
       const space = this.spaces.find((candidate) => candidate.spaceId === this.selectedSpaceId)
@@ -558,7 +620,7 @@ export class ChatView extends LitElement {
         const envelope = await sealSpaceMessage({
           id,
           spaceId: space.spaceId,
-          text: this.draft,
+          text: draft,
           sender: { account: this.device.account, deviceId: this.device.deviceId },
           certificate: this.device.certificate,
           signingKey: this.device.keys.signing.privateKey,
@@ -568,12 +630,13 @@ export class ChatView extends LitElement {
           id,
           sender: this.device.account,
           spaceId: space.spaceId,
-          text: this.draft.trim(),
+          text: draft.trim(),
           timestamp: envelope.timestamp,
           outgoing: true
         })
         await this.#transport.sendSpace(envelope)
-        this.draft = ''
+        if (this.draft === draft) this.draft = ''
+        this.#scrollToBottom()
         this.error = ''
       } catch (error) {
         this.error = errorMessage(error)
@@ -589,7 +652,7 @@ export class ChatView extends LitElement {
       const id = crypto.randomUUID()
       const envelope = await sealDirectMessage({
         id,
-        text: this.draft,
+        text: draft,
         sender: { account: this.device.account, deviceId: this.device.deviceId },
         senderCertificate: this.device.certificate,
         senderSigningKey: this.device.keys.signing.privateKey,
@@ -606,13 +669,14 @@ export class ChatView extends LitElement {
         sender: this.device.account,
         conversationId: recipientCertificate.peerId || recipientCertificate.account,
         conversationAccount: recipientCertificate.account,
-        text: this.draft.trim(),
+        text: draft.trim(),
         timestamp: envelope.timestamp,
         outgoing: true,
         deliveryState: 'queued'
       })
       await this.#transport.sendDirect(envelope)
-      this.draft = ''
+      if (this.draft === draft) this.draft = ''
+      this.#scrollToBottom()
       this.pendingCount = this.#transport.pendingCount
       this.error = ''
     } catch (error) {

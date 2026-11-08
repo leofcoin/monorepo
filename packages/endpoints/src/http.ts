@@ -104,6 +104,36 @@ export default (chain, port, networkVersion, remote: boolean = false) => {
     }
   })
 
+  router.post('/submitTransaction', async (ctx) => {
+    const identity = await chain.getChainIdentity()
+    if (identity.network !== 'leofcoin:peach') {
+      ctx.status = 403
+      ctx.body = { error: 'Admission-only submission is available only on Peach testnet' }
+      return
+    }
+    if (ctx.state.rpcParams.chainId !== identity.chainId) {
+      ctx.status = 409
+      ctx.body = { error: 'Endpoint chain identity changed; review before sending' }
+      return
+    }
+    const connected = Object.values(globalThis.peernet?.connections || {})
+      .some((peer: { connected?: boolean }) => peer.connected)
+    if (chain.state?.sync !== 'synced' || !connected) {
+      ctx.status = 503
+      ctx.body = { error: 'Node must be synced and connected before submission' }
+      return
+    }
+    try {
+      const tx = await chain.sendTransaction(ctx.state.rpcParams.transaction)
+      Promise.resolve(typeof tx.wait === 'function' ? tx.wait() : tx.wait).catch(error =>
+        console.error(`Testnet transaction ${tx.hash} failed after admission:`, error))
+      ctx.body = { status: 'admitted', hash: tx.hash, fee: tx.fee, chainId: identity.chainId }
+    } catch (error) {
+      ctx.status = 422
+      ctx.body = { error: error instanceof Error ? error.message : 'Transaction admission failed' }
+    }
+  })
+
   router.all('/peerId', (ctx) => (ctx.body = globalThis.peernet.peerId))
 
   router.all('/validators', (ctx) => (ctx.body = chain.validators))

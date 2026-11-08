@@ -22,6 +22,8 @@ export type ValidatorHandle = {
   chain: Chain
   endpoints: { http: string[]; ws: string[] }
   transfer: (to: string, amount: bigint) => Promise<string>
+  batch: import('./node.js').LocalNodeHandle['batch']
+  walletBusy: boolean
   stop: () => void
 }
 
@@ -106,7 +108,7 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
 
   let sending = false
   const heartbeat = async () => {
-    if (controller.signal.aborted || sending) return
+    if (controller.signal.aborted || sending || node.walletBusy) return
     sending = true
     try {
       const balance = BigInt(await chainRuntime.balanceOf(account))
@@ -136,5 +138,6 @@ export const startValidator = async (options: ValidatorOptions = {}): Promise<Va
   }
   controller.signal.addEventListener('abort', () => interval && clearInterval(interval), { once: true })
 
-  return { account, chain, endpoints: node.endpoints, transfer, stop }
+  return { account, chain, endpoints: node.endpoints, transfer,
+    batch: node.batch, get walletBusy() { return node.walletBusy }, stop }
 }
