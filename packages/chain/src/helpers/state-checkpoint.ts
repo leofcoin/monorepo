@@ -1,6 +1,7 @@
 import { BlockMessage } from '@leofcoin/messages'
 import { jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import { validateChainLink } from '../consensus/chain-link.js'
+import type { ChainTip } from '../consensus/chain-link.js'
 
 export const CHECKPOINT_KEYS = ['checkpoint:0', 'checkpoint:1']
 const counters = ['nativeCalls', 'nativeMints', 'nativeBurns', 'nativeTransfers', 'totalBurnAmount',
@@ -57,10 +58,10 @@ export async function readCheckpoint(store, chainId: string, requiredContracts: 
 }
 
 /** Read and hash-check complete ancestry before changing any derived account state. */
-export async function recoveryHistory(hash: string, readBlock) {
+export async function recoveryHistory(hash: string, readBlock, anchor: ChainTip = { index: -1, hash: '0x0' }) {
   const reversed = []
   const seen = new Set<string>()
-  while (hash !== '0x0') {
+  while (hash !== '0x0' && hash !== anchor.hash) {
     if (!hash || seen.has(hash)) throw new Error('Invalid or cyclic recovery ancestry')
     seen.add(hash)
     const bytes = await readBlock(hash)
@@ -70,8 +71,10 @@ export async function recoveryHistory(hash: string, readBlock) {
     reversed.push({ ...message.decoded, hash, loaded: false })
     hash = message.decoded.previousHash
   }
+  if (anchor.hash !== '0x0' && hash !== anchor.hash)
+    throw new Error(`Recovery ancestry does not extend canonical tip ${anchor.hash} at index ${anchor.index}`)
   const history = reversed.reverse()
-  let tip = { index: -1, hash: '0x0' }
+  let tip: ChainTip = anchor
   for (const block of history) {
     const index = Number(block.index)
     if (!Number.isSafeInteger(index) || index < 0) throw new Error('Invalid recovery block index')

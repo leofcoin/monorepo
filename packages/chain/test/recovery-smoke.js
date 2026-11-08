@@ -41,6 +41,23 @@ const required = [addresses.contractFactory, addresses.nativeToken, addresses.na
 const { chainId } = await createChainIdentity(network, addresses)
 const close = async machine => { machine?.close(); await db.close() }
 
+const conflictingTarget = async () => {
+  const block = new BlockMessage({
+    index: 0n, previousHash: '0x0', timestamp: 999, reward: 0n, fees: 0n,
+    transactions: [], validators: [], producer: 'conflict-fixture',
+    producerProof: 'conflict-fixture', protocolVersion: '0.5.0'
+  })
+  const hash = await block.hash()
+  await blockStore.put(hash, block.encoded)
+  await chainStore.put('recoveryTarget', hash)
+}
+if (mode === 'set-target-conflict' || mode === 'set-target-missing') {
+  if (mode === 'set-target-conflict') await conflictingTarget()
+  else await chainStore.put('recoveryTarget', 'missing-recovery-block')
+  await close()
+  process.exit(0)
+}
+
 if (mode === 'prepare') {
   for (const encoded of Object.values(bytecodes)) {
     const message = new ContractMessage(Uint8Array.from(encoded.split(','), Number))
@@ -151,6 +168,9 @@ if (mode === 'prepare') {
     for (const key of CHECKPOINT_KEYS) await stateStore.delete(key)
     await chainStore.delete('lastBlock')
   }
+  if (invalid === 'recovery-target-conflict') {
+    await conflictingTarget()
+  }
   await chainStore.put('version', '0.5.0')
   await db.put('fixture:sender', new TextEncoder().encode(sender))
   await close(machine)
@@ -158,6 +178,22 @@ if (mode === 'prepare') {
 }
 
 let triggered = false
+let syncTarget
+if (mode === 'sync-fork') {
+  const hash = new TextDecoder().decode(await chainStore.get('lastBlock'))
+  syncTarget = { ...new BlockMessage(await blockStore.get(hash)).decoded, hash }
+  await chainStore.put('lastBlock', '0x0')
+}
+const recoveryTargetBefore = await chainStore.get('recoveryTarget')
+const checkpointBefore = await readCheckpoint(stateStore, chainId, required)
+const accountsBefore = await accountsStore.keys()
+if (mode === 'recover-target-read-error') {
+  const get = peernet.get
+  peernet.get = async (hash, name) => {
+    if (hash === 'missing-recovery-block') throw new Error('fixture recovery target read failure')
+    return get(hash, name)
+  }
+}
 if (mode.startsWith('crash-')) {
   const target = mode === 'crash-after-marker' ? chainStore : stateStore
   const put = target.put
@@ -178,6 +214,32 @@ const chain = new Chain({})
 try {
   await chain.ready
   assert.equal(chain.loaded, true)
+  assert.equal(await chainStore.has('recoveryTarget'), false)
+  if (mode === 'sync-fork') {
+    assert.equal((await chain.lastBlock).hash, '0x0')
+    peernet.peers = ['fixture-peer']
+    peernet.connections = { fixture: { connected: true, version: chain.version } }
+    const firstHash = syncTarget.previousHash
+    const first = new BlockMessage(await blockStore.get(firstHash))
+    assert.equal(await chain.syncChain({ ...first.decoded, hash: firstHash }), 'synced')
+    const committed = await readCheckpoint(stateStore, chainId, required)
+    const marker = await chainStore.get('lastBlock')
+    await conflictingTarget()
+    const forkParent = new TextDecoder().decode(await chainStore.get('recoveryTarget'))
+    await chainStore.delete('recoveryTarget')
+    const fork = new BlockMessage({ ...syncTarget, previousHash: forkParent })
+    const forkHash = await fork.hash()
+    await blockStore.put(forkHash, fork.encoded)
+    assert.equal(await chain.syncChain({ ...fork.decoded, hash: forkHash }), 'errored')
+    assert.deepEqual(await chainStore.get('lastBlock'), marker)
+    assert.equal(await chainStore.has('recoveryTarget'), false)
+    assert.deepEqual(await readCheckpoint(stateStore, chainId, required), committed)
+    assert.equal(chain.loaded, true)
+    assert.equal(await chain.syncChain(syncTarget), 'synced')
+    assert.equal((await chain.lastBlock).hash, syncTarget.hash)
+    assert.equal(await chainStore.has('recoveryTarget'), false)
+    console.log('SYNC_FORK_REJECTED_WITHOUT_POISONING_RECOVERY')
+  }
   const checkpoint = await readCheckpoint(stateStore, chainId, required)
   const sender = new TextDecoder().decode(await db.get('fixture:sender'))
   const customBytes = await db.get('fixture:custom')
@@ -246,6 +308,11 @@ try {
   await close(chain.machine)
   process.exit(0)
 } catch (error) {
+  if (invalid === 'preserve-target') {
+    assert.deepEqual(await chainStore.get('recoveryTarget'), recoveryTargetBefore)
+    assert.deepEqual(await readCheckpoint(stateStore, chainId, required), checkpointBefore)
+    assert.deepEqual(await accountsStore.keys(), accountsBefore)
+  }
   console.error('RECOVERY_REJECTED', error?.message ?? error)
   await close(chain.machine)
   process.exit(42)

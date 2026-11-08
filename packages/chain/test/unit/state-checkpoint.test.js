@@ -92,6 +92,20 @@ test('recovery hashes and links every block, rejecting missing content and broke
   const history = await recoveryHistory(previousHash, hash => bytes.get(hash))
   assert.deepEqual(history.map(block => block.index), [0n, 1n, 2n])
   assert.ok(history.every(block => block.loaded === false))
+  const reads = []
+  const suffix = await recoveryHistory(previousHash, hash => {
+    reads.push(hash)
+    return bytes.get(hash)
+  }, history[0])
+  assert.deepEqual(suffix.map(block => block.index), [1n, 2n])
+  assert.deepEqual(reads, [history[2].hash, history[1].hash], 'anchored sync must not refetch committed ancestry')
+  assert.deepEqual(await recoveryHistory(history[0].hash, () => assert.fail('duplicate tip must not fetch'), history[0]), [])
+  await assert.rejects(recoveryHistory(previousHash, hash => bytes.get(hash), { index: 0, hash: 'other-genesis' }),
+    /does not extend canonical tip/)
+  await assert.rejects(recoveryHistory(previousHash, hash => bytes.get(hash), { index: 10, hash: history[0].hash }),
+    /Invalid recovery chain link/)
+  await assert.rejects(recoveryHistory(previousHash, () => { throw new Error('ancestry read failed') }, history[0]),
+    /ancestry read failed/)
   await assert.rejects(recoveryHistory(previousHash, () => undefined), /unavailable/)
   await assert.rejects(recoveryHistory('wrong-hash', () => bytes.get(previousHash)), /hash mismatch/)
   const { hash: ignored, ...header } = history[2]

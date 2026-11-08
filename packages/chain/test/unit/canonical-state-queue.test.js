@@ -179,6 +179,44 @@ test('sync failures after mutation also halt gossip retries without charging aga
   assert.equal(fixture.counts.rewards, 1)
 })
 
+for (const failure of ['fork', 'height', 'read']) {
+  test(`sync rejects ${failure} before persisting a recovery target or changing canonical state`, async () => {
+    const fixture = createApplicationHarness()
+    if (failure === 'fork') fixture.options.syncBlocks = [{ ...fixture.loadedBlock(), previousHash: 'other-parent' }]
+    if (failure === 'read') fixture.options.syncReadFailure = true
+    const target = { ...fixture.loadedBlock(), ...(failure === 'height' ? { index: 572n } : {}) }
+    assert.equal(await fixture.instance.sync(target), 'errored')
+    assert.equal(fixture.markers.has('recoveryTarget'), false)
+    assert.equal(fixture.markers.has('lastBlock'), false)
+    assert.equal(fixture.counts.stores, 0)
+    assert.equal(fixture.counts.executions, 0)
+    assert.equal(fixture.counts.snapshots, 0)
+    assert.equal(fixture.instance.loaded, true)
+    fixture.options.syncBlocks = undefined
+    fixture.options.syncReadFailure = false
+    assert.equal(await fixture.instance.sync(), 'synced', 'a rejected fork must not prevent a valid extension')
+    assert.equal(fixture.counts.executions, 1)
+  })
+}
+
+test('restoration applies the verified peer suffix instead of installing an advertised canonical marker', async () => {
+  const fixture = createApplicationHarness()
+  await fixture.instance.restoreChain()
+  assert.equal(fixture.counts.executions, 1)
+  assert.equal(fixture.counts.snapshots, 2, 'block commit and final sync checkpoint both complete')
+  assert.equal(fixture.markers.has('lastBlock'), false, 'only the checkpoint operation may write lastBlock')
+})
+
+test('restoration rejects conflicting ancestry without replacing either durable marker', async () => {
+  const fixture = createApplicationHarness()
+  fixture.options.syncBlocks = [{ ...fixture.loadedBlock(), previousHash: 'other-parent' }]
+  await assert.rejects(fixture.instance.restoreChain(), /unable to restore chain after 3 attempts/)
+  assert.equal(fixture.markers.has('lastBlock'), false)
+  assert.equal(fixture.markers.has('recoveryTarget'), false)
+  assert.equal(fixture.counts.executions, 0)
+  assert.equal(fixture.counts.stores, 0)
+})
+
 test('the writer remains locked until all asynchronous state work finishes', async () => {
   const queue = new CanonicalStateQueue()
   const gate = deferred()

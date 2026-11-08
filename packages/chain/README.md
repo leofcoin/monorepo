@@ -73,6 +73,11 @@ Startup verifies the ancestry of the checkpoint and persisted recovery target,
 restores derived nonces, then replays only the unapplied suffix through the same
 signature, validator, economics and serialized execution path as live blocks.
 A durable recovery target preserves a multi-block replay across another crash.
+If a hash-checked speculative recovery target diverges from an already committed
+checkpoint, startup warns and preserves the committed history. The marker is
+removed only after recovery succeeds; its block bodies are not deleted.
+Conflicting uncheckpointed histories, missing bodies, invalid ancestry and storage
+I/O errors still stop recovery explicitly without discarding the target.
 The tip is checkpointed before updating the chain marker or announcing success.
 Local transaction bytes are not considered evidence of prior execution;
 committed sender nonces prevent executing a transfer twice.
@@ -82,6 +87,19 @@ as coherent checkpoints. On first startup they are rebuilt from their hash-check
 block ancestry and validated transactions, without removing ledger or identity
 files. Missing historical content or invalid execution stops recovery explicitly.
 No new genesis is required for this local storage change.
+
+Peer catch-up verifies that the entire requested suffix extends the local
+canonical tip, checks the advertised target height, and stores the suffix bodies
+before persisting a recovery target. Discovery and restoration do not overwrite
+the committed chain marker with a peer's advertised tip. Resolution alone does not
+remove pending transactions; canonical execution does.
+
+Two nodes using the same signing address represent one validator, not two votes.
+Run only one participating producer per validator key. Node count or a higher
+advertised tip is not proof that a conflicting fork is canonical. This recovery
+logic does not roll back committed checkpoints or implement quorum-proven fork
+selection. Preserve divergent roots for investigation rather than resetting the
+ledger or copying a webnode's state over a validator's state.
 
 Build `@leofcoin/workers` before `@leofcoin/chain` and deploy matching artifacts;
 the worker now exposes a serialized full-snapshot operation and no longer owns a

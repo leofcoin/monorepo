@@ -965,7 +965,10 @@ test('explorer dashboard wires holder rankings and responsive activity cards', {
     globalThis.balanceReads = 0;
     globalThis.client = {
       lookup: async name => ({ address: name }),
-      staticCall: async (address, method) => method === 'validators' ? {} : 0,
+      staticCall: async (address, method, params = []) => {
+        if (!Array.isArray(params)) throw new Error('Invalid read-only contract query');
+        return method === 'validators' ? [] : 0;
+      },
       nativeTransfers: async () => 0, nativeBurns: async () => 0, nativeMints: async () => 0,
       nativeCalls: async () => 0, totalContracts: async () => 0, lastBlockHeight: async () => 0,
       totalTransactions: async () => 0, totalSize: async () => 0,
@@ -981,7 +984,8 @@ test('explorer dashboard wires holder rankings and responsive activity cards', {
     rankDashboard.isNodeReady = true;
     shell.shadowRoot.querySelector('#main-content').replaceChildren(rankDashboard);
     undefined`)
-  await waitFor(`rankDashboard.shadowRoot.querySelector('explorer-dashboard-rankings')?.shadowRoot?.querySelector('ol')`)
+  await waitFor(`rankDashboard.dashboardError || rankDashboard.shadowRoot.querySelector('explorer-dashboard-rankings')?.shadowRoot?.querySelector('ol')`)
+  assert.equal(await evaluate('rankDashboard.dashboardError'), '', 'dashboard contract parameters must use the read-only array schema')
   assert.equal(await evaluate(`balanceReads`), 1)
   await evaluate(`globalThis.rankCards = rankDashboard.shadowRoot.querySelector('explorer-dashboard-rankings'); undefined`)
   assert.equal(await evaluate(`rankCards.shadowRoot.querySelector('ol li .address').textContent`), 'Alice')

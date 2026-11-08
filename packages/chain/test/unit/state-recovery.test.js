@@ -77,6 +77,69 @@ test('invalid proof or failed execution rejects readiness and never becomes a re
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
+test('a conflicting speculative target cannot override a committed checkpoint', { timeout: 30000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-target-conflict-'))
+  try {
+    const prepared = await run(root, 'prepare')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    const baseline = recovered(await run(root, 'recover'))
+    const installed = await run(root, 'set-target-conflict')
+    assert.equal(installed.code, 0, `${installed.stdout}\n${installed.stderr}`)
+    const restart = await run(root, 'recover')
+    assert.match(restart.stderr, /ignoring conflicting recoveryTarget/)
+    const result = recovered(restart)
+    assert.deepEqual(result, baseline)
+    assert.deepEqual(result.info.totalBlocks, { $bigint: '2' })
+    assert.deepEqual(result.info.nativeTransfers, { $bigint: '2' })
+    assert.deepEqual(recovered(await run(root, 'recover')), result, 'startup should stay idempotent after dropping stale marker')
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('conflicting uncheckpointed histories remain explicit and preserve the recovery target', { timeout: 30000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-uncommitted-conflict-'))
+  try {
+    const prepared = await run(root, 'prepare', 'recovery-target-conflict')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await run(root, 'recover', 'preserve-target')
+      assert.equal(result.code, 42, `${result.stdout}\n${result.stderr}`)
+      assert.match(result.stderr, /conflicts with uncheckpointed canonical history/)
+      assert.doesNotMatch(result.stdout, /RECOVERED |\[chain\] init:done/)
+    }
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('missing recovery bodies and I/O failures stop startup without discarding recovery state', { timeout: 30000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-target-unavailable-'))
+  try {
+    const prepared = await run(root, 'prepare')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    recovered(await run(root, 'recover'))
+    const installed = await run(root, 'set-target-missing')
+    assert.equal(installed.code, 0, `${installed.stdout}\n${installed.stderr}`)
+    for (const mode of ['recover', 'recover-target-read-error', 'recover']) {
+      const result = await run(root, mode, 'preserve-target')
+      assert.equal(result.code, 42, `${result.stdout}\n${result.stderr}`)
+      assert.match(result.stderr, /Recovery block unavailable|fixture recovery target read failure/)
+      assert.doesNotMatch(result.stdout, /RECOVERED |\[chain\] init:done/)
+    }
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('real signed catch-up rejects a taller peer fork without poisoning recovery and accepts the valid continuation', { timeout: 30000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-sync-fork-'))
+  try {
+    const prepared = await run(root, 'prepare')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    const synced = await run(root, 'sync-fork')
+    const result = recovered(synced)
+    assert.match(synced.stdout, /SYNC_FORK_REJECTED_WITHOUT_POISONING_RECOVERY/)
+    assert.deepEqual(result.info.totalBlocks, { $bigint: '2' })
+    assert.deepEqual(result.recipient, { $bigint: '200' })
+    assert.deepEqual(recovered(await run(root, 'recover')), result)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('public and nested static calls cannot mutate canonical contracts, counters or checkpoints', { timeout: 30000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'lfc-read-isolation-'))
   try {

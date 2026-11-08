@@ -151,6 +151,16 @@ test('rejects mismatched transaction bytes without caching the block or corrupti
   assert.equal(state.transactions.size, 0)
 })
 
+test('resolving a speculative block does not remove its pending transaction', async () => {
+  const blocks = ancestry(1)
+  const hash = await transaction.hash()
+  blocks.get('block-0').transactions = [hash]
+  const state = harness(blocks, { get: async () => transaction.encoded })
+  state.pool.add(hash)
+  await state.chain.resolveBlock('block-0')
+  assert.equal(state.pool.has(hash), true)
+})
+
 test('stops at the canonical tip and rejects cyclic ancestry', async () => {
   const state = harness(ancestry(4))
   state.chain.tip = { hash: 'block-1' }

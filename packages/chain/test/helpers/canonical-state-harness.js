@@ -5,6 +5,7 @@ import { distributeAmount } from '@leofcoin/lib'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { validateChainLink } from '../../src/consensus/chain-link.ts'
 import { publishObserverEvent } from '../../src/observer-events.ts'
+import { ResolveError } from '@leofcoin/errors'
 
 // Exercise the actual private application methods without starting discovery,
 // using a real wallet, or opening any persistent stores. Authentication and
@@ -23,7 +24,7 @@ const applicationMethods = methods('../../src/chain.ts', 'Chain', [
   '#addBlock', '#applyBlock', 'applyRecoveredBlock', '#executeTransaction', '#handleTransaction'
 ])
 const stateMethods = methods('../../src/state.ts', 'State', [
-  'withCanonicalState', 'canonicalTip', 'syncChain', '#syncChain', '#loadBlocks'
+  'withCanonicalState', 'canonicalTip', 'syncChain', '#syncChain', '#loadBlocks', 'restoreChain'
 ])
 
 export const deferred = () => {
@@ -38,6 +39,7 @@ export const createApplicationHarness = (options = {}) => {
   const balances = { sender: 1000n, recipient: 0n, validator: 0n }
   let tip = { index: 570, hash: 'parent' }
   const transactions = new Set()
+  const markers = new Map()
   const accountNonces = new Map()
   const policy = { subsidy: 100n, burnBasisPoints: 0n }
   const transaction = {
@@ -95,14 +97,15 @@ export const createApplicationHarness = (options = {}) => {
     async put(hash) { transactions.add(hash) }
   }
   Object.assign(globalThis, {
-    blockStore: { async put() { counts.stores++ } },
+    blockStore: { async has() { return false }, async put() { counts.stores++ } },
     transactionPoolStore: pool,
     accountsStore: { async put(key, value) { accountNonces.set(key, value) },
       async has(key) { return accountNonces.has(key) }, async get(key) { return accountNonces.get(key) } },
     peernet: { selectedAccount: 'other', peers: ['peer'], async publish() {} },
     pubsub: { publish() {} },
     chainStore: { async get() { return new TextEncoder().encode(tip.hash) },
-      async has() { return false }, async put() {}, async delete() {} }
+      async has(key) { return markers.has(key) }, async put(key, value) { markers.set(key, value) },
+      async delete(key) { markers.delete(key) } }
   })
   const source = `class Harness {
     #canonicalStateQueue = new CanonicalStateQueue()
@@ -113,12 +116,16 @@ export const createApplicationHarness = (options = {}) => {
     #chainSyncing = false
     #syncState = 'synced'
     #syncErrorCount = 0
+    #resolveErrored = false
+    #resolveErrorCount = 0
+    #resolving = false
     #proposalInFlight = boundary.proposal
     #consensusRound = 2
     #roundTimer
     #lastBlockInQue
     jobber = { busy: false }
     wantList = []
+    knownBlocks = []
     get shouldSync() { return !this.#chainSyncing }
     get machine() { return this.#machine }
     get loaded() { return this.#loaded }
@@ -155,7 +162,19 @@ export const createApplicationHarness = (options = {}) => {
         events.push('snapshot')
       }
     },
-    CanonicalStateQueue, validateChainLink, publishObserverEvent, BlockMessage: AcceptedBlockMessage,
+    CanonicalStateQueue, validateChainLink, publishObserverEvent, ResolveError, BlockMessage: AcceptedBlockMessage,
+    recoveryHistory: async (hash, readBlock, anchor) => {
+      assert.deepEqual(anchor, tip, 'sync must anchor recovery at the canonical worker tip')
+      if (options.syncReadFailure) throw new Error('sync block read failed')
+      const suffix = options.syncBlocks ?? [{ ...block.decoded, hash: block.identity, loaded: false }]
+      let parent = anchor
+      for (const candidate of suffix) {
+        assert.equal(validateChainLink(parent, { ...candidate, index: Number(candidate.index) }), 'append')
+        parent = candidate
+      }
+      assert.equal(parent.hash, hash)
+      return suffix
+    },
     transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet,
     console: { log() {}, error() {} }, debug: message => events.push(message),
     compareTransactionNonces: () => 0, supportsTransactionFees: () => true,
@@ -172,7 +191,7 @@ export const createApplicationHarness = (options = {}) => {
   const instance = new Harness()
   const block = new AcceptedBlockMessage()
   return {
-    instance, block, counts, balances, events, options, transactions, accountNonces,
+    instance, block, counts, balances, events, options, transactions, accountNonces, markers,
     fork: () => Object.assign(new AcceptedBlockMessage(), { identity: 'fork' }),
     loadedBlock: () => ({ ...block.decoded, hash: block.identity, loaded: false })
   }

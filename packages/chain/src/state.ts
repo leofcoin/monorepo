@@ -243,9 +243,16 @@ export default class State extends Contract {
         const target = new TextDecoder().decode(await globalThis.chainStore.get('recoveryTarget'))
         const candidate = await recoveryHistory(target, readBlock)
         const common = Math.min(history.length, candidate.length)
-        if (common && history[common - 1].hash !== candidate[common - 1].hash)
-          throw new Error('Recovery target conflicts with canonical checkpoint history')
-        if (candidate.length > history.length) history = candidate
+        if (common && history[common - 1].hash !== candidate[common - 1].hash) {
+          const checkpointCommon = Math.min(Number(checkpointTip.index) + 1, candidate.length)
+          if (!checkpointCommon || history[checkpointCommon - 1].hash === candidate[checkpointCommon - 1].hash)
+            throw new Error(`Recovery target ${target} conflicts with uncheckpointed canonical history; preserve this data root`)
+          // A speculative target cannot replace an already committed checkpoint.
+          // Keep the marker until canonical recovery has completed successfully.
+          console.warn(`[recovery] ignoring conflicting recoveryTarget ${target}; preserving committed checkpoint ${checkpointTip.hash}`)
+        } else if (candidate.length > history.length) {
+          history = candidate
+        }
       }
       this.#blocks = history
       this.#blockHashMap = new Map(history.map(block => [block.hash, block.index]))
@@ -329,8 +336,6 @@ export default class State extends Contract {
             const transaction = await resolveTransactionReference(hash, data)
             await transactionStore.put(hash, transaction.encoded)
           }
-          const inPool = await transactionPoolStore.has(hash)
-          if (inPool) await transactionPoolStore.delete(hash)
         })
     )
   }
@@ -447,11 +452,9 @@ export default class State extends Contract {
     }
 
     try {
-      const { hash } = await this.#getLatestBlock()
-      await globalThis.chainStore.put('lastBlock', hash)
-      if (hash && hash !== '0x0') {
-        await this.resolveBlock(hash)
-      }
+      const latest = await this.#getLatestBlock()
+      const result = await this.syncChain(latest)
+      if (result === 'errored') throw new ResolveError('Canonical chain restoration failed')
     } catch (error) {
       console.log(error)
       this.#resolveErrored = true
@@ -536,13 +539,7 @@ export default class State extends Contract {
         targetIndex: remoteIndex
       })
 
-      // Get the local state hash from chainStore
-      let localStateHash = '0x0'
-      try {
-        localStateHash = new TextDecoder().decode(await globalThis.chainStore.get('lastBlock'))
-      } catch (error) {
-        debug(`No local state hash found: ${error}`)
-      }
+      const localStateHash = localBlock.hash
 
       debug(`Local block height: ${localIndex}, remote block height: ${remoteIndex}`)
       debug(`Local state hash: ${localStateHash}, remote block hash: ${remoteBlockHash}`)
@@ -577,37 +574,33 @@ export default class State extends Contract {
         // Remote block hash differs from our local state, need to resolve
         debug(`Resolving remote block: ${remoteBlockHash} @${remoteIndex} (differs from local state)`)
 
-        // if we have everything locally, we can load it
-        // if (blocksSynced > 0 && blocksSynced < 1000) {
-        //   const promises = []
-        //   for (let i = 0; i < blocksSynced; i++) {
-        //     promises.push(this.resolveBlock(remoteBlockHash))
-        //   }
-        //   await Promise.all(promises)
-        // } else {
+        const suffix = await recoveryHistory(remoteBlockHash, async (hash: string) =>
+          await globalThis.blockStore.has(hash)
+            ? globalThis.blockStore.get(hash)
+            : globalThis.peernet.get(hash, 'block'), localBlock)
+        const target = suffix.at(-1)
+        if (!target || Number(target.index) !== remoteIndex)
+          throw new Error(`Sync target height does not match block ${remoteBlockHash} at index ${remoteIndex}`)
+        // Resolve and persist only a hash-checked extension before installing its
+        // recovery marker. Rejected peer forks must not poison future restarts.
         await this.resolveBlock(remoteBlockHash)
+        for (const block of suffix) {
+          await globalThis.blockStore.put(block.hash, new BlockMessage(block).encoded)
+        }
         await globalThis.chainStore.put('recoveryTarget', remoteBlockHash)
-        // }
 
         const blocksSynced = remoteIndex - localIndex
         debug(`Resolved ${blocksSynced} new block(s)`)
-        const blocks = this.#blocks
-
         debug(`Loading blocks from index ${localIndex + 1} to ${remoteIndex}`)
-        const start = localIndex + 1
-        if (this.#machine && blocks.length > start) {
-          await this.#loadBlocks(blocks.slice(start), transition)
-        }
+        await this.#loadBlocks(this.#blocks.slice(localIndex + 1, remoteIndex + 1), transition)
 
         // Update state with the latest block
-        if (blocks.length > 0) {
-          const appliedTip = await this.canonicalTip()
-          if (appliedTip.hash !== remoteBlockHash || Number(appliedTip.index) !== remoteIndex) {
-            throw new Error(`Sync did not apply canonical target ${remoteBlockHash} at index ${remoteIndex}`)
-          }
-          transition.markMutating()
-          await this.updateState(new BlockMessage(blocks[blocks.length - 1]))
+        const appliedTip = await this.canonicalTip()
+        if (appliedTip.hash !== remoteBlockHash || Number(appliedTip.index) !== remoteIndex) {
+          throw new Error(`Sync did not apply canonical target ${remoteBlockHash} at index ${remoteIndex}`)
         }
+        transition.markMutating()
+        await this.updateState(new BlockMessage(target))
       } else {
         debug(`Block already in local state. Remote hash: ${remoteBlockHash} matches local state`)
       }
