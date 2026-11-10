@@ -1,4 +1,5 @@
 import { createDeviceCertificate, createDeviceKeys, verifyDeviceCertificate } from './chat-security.js'
+import { encodeWire, decodeWire } from '@leofcoin/binary'
 
 const DATABASE_NAME = 'leofcoin-chat-devices'
 const DATABASE_VERSION = 2
@@ -46,6 +47,8 @@ function validateChatMessage(message) {
     message.text.length > 4_000 ||
     !Number.isFinite(message.timestamp) ||
     typeof message.outgoing !== 'boolean' ||
+    (message.channelId !== undefined && (!message.spaceId || typeof message.channelId !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,80}$/.test(message.channelId))) ||
     !(typeof message.conversationId === 'string' && message.conversationId) &&
       !(typeof message.spaceId === 'string' && message.spaceId)
   )
@@ -141,6 +144,37 @@ async function deriveLocalChatHistoryKey(device) {
   if (!device?.keys?.encryption?.privateKey || !(device.keys.encryption.publicKey instanceof Uint8Array))
     throw new Error('A local chat encryption key is required for message history.')
   return deriveLocalSpaceKey(device)
+}
+
+export function managedSpacesStorageKey(device) {
+  return `${device.network}:chat-managed-spaces:v1:${device.account}:${device.deviceId}`
+}
+
+// Membership, invitation records and group keys are encrypted, not UI preferences.
+export async function loadManagedChatSpaces(device, storage = globalThis.localStorage) {
+  const id = managedSpacesStorageKey(device)
+  const value = storage.getItem(id)
+  if (value === null) return []
+  if (value.length > 2000000) throw new Error('Saved Space management data is too large.')
+  const record = JSON.parse(value)
+  const key = await deriveLocalChatHistoryKey(device)
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decodeBase64(record.iv),
+    additionalData: encoder.encode(id) }, key, decodeBase64(record.ciphertext))
+  const states = decodeWire('space-storage', new Uint8Array(plaintext), { maxBytes: 1000000 })
+  if (!Array.isArray(states) || states.length > 20) throw new Error('Saved Space management data is invalid.')
+  return states
+}
+
+export async function saveManagedChatSpaces(device, states, storage = globalThis.localStorage) {
+  if (!Array.isArray(states) || states.length > 20) throw new Error('At most 20 managed Spaces can be saved.')
+  const body = encodeWire('space-storage', states, { maxBytes: 1000000 })
+  if (body.byteLength > 1000000) throw new Error('Saved Space management data is too large.')
+  const key = await deriveLocalChatHistoryKey(device)
+  const id = managedSpacesStorageKey(device)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv,
+    additionalData: encoder.encode(id) }, key, body))
+  storage.setItem(id, JSON.stringify({ iv: encodeBase64(iv), ciphertext: encodeBase64(ciphertext) }))
 }
 
 export async function listChatMessages(device, storage = globalThis.localStorage) {

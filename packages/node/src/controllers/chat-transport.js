@@ -151,6 +151,8 @@ export class ChatTransport {
     return this.#archiveMode?.pendingCount ?? Object.keys(this.#state.outbox).length
   }
 
+  hasPendingMessage(id) { return Boolean(this.#state.outbox[id]) }
+
   subscribe(handler) {
     if (typeof handler !== 'function') throw new TypeError('A chat event handler is required.')
     this.#handlers.add(handler)

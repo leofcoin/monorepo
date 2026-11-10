@@ -55,3 +55,12 @@ test('unknown routes never inherit parameter rules from Object.prototype', () =>
     assert.deepEqual(page, {})
   }
 })
+
+test('Space invitation routes pass only inert preview data to the chat handler', () => {
+  let received
+  const page = { applyRouteParameters(params) { received = params } }
+  applyRouteParameters(page, 'chat', { invite: 'signed-invitation', wallet: 'fake', connected: 'true', panel: 'manage', innerHTML: 'bad' })
+  assert.deepEqual(received, { invite: 'signed-invitation' })
+  assert.equal(page.wallet, undefined)
+  assert.equal(page.connected, undefined)
+})

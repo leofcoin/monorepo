@@ -1,4 +1,5 @@
 import MultiWallet from '@leofcoin/multi-wallet'
+import { encodeWire, decodeWire } from '@leofcoin/binary'
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -252,11 +253,15 @@ export async function sealDirectMessage({
   senderSigningKey,
   recipient,
   recipientCertificate,
-  recipientEncryptionKey
+  recipientEncryptionKey,
+  control
 }) {
   const message = String(text ?? '').trim()
-  if (!message) throw new Error('Enter a message.')
-  if (message.length > 4000) throw new Error('Messages must be 4,000 characters or fewer.')
+  const body = control === undefined ? encoder.encode(message) : encodeWire('space-control', control, { maxBytes: 12000 })
+  if (control === undefined && !message) throw new Error('Enter a message.')
+  if (control === undefined && message.length > 4000) throw new Error('Messages must be 4,000 characters or fewer.')
+  if (control !== undefined && (!control || control.protocol !== 'lfc-spaces:1' || body.byteLength > 12000))
+    throw new Error('Space control payload is invalid or too large.')
   if (!id || !sender?.account || !sender?.deviceId || !recipient?.account || !recipient?.deviceId)
     throw new Error('Message and device identities are required.')
   if (
@@ -279,6 +284,7 @@ export async function sealDirectMessage({
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const payload = {
     version: 1,
+    ...(control === undefined ? {} : { contentType: 'lfc-spaces:1' }),
     id,
     timestamp: Date.now(),
     senderAccount: sender.account,
@@ -292,7 +298,7 @@ export async function sealDirectMessage({
   }
   const additionalData = encoder.encode(canonical(payload))
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, key, encoder.encode(message))
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, key, body)
   )
   const unsignedEnvelope = { ...payload, ciphertext: encodeBase64(ciphertext) }
   const signature = await crypto.subtle.sign(
@@ -345,12 +351,18 @@ export async function openDirectMessage({
     key,
     decodeBase64(envelope.ciphertext)
   )
+  if (envelope.contentType === 'lfc-spaces:1' && plaintext.byteLength > 12000)
+    throw new Error('Space control payload is too large.')
   return {
     id: envelope.id,
     timestamp: envelope.timestamp,
     sender: { address: envelope.senderAccount, deviceId: envelope.senderDeviceId },
     recipient: { address: envelope.recipientAccount, deviceId: envelope.recipientDeviceId },
-    text: decoder.decode(plaintext)
+    ...(envelope.contentType === 'lfc-spaces:1'
+      ? { text: '', control: decodeWire('space-control', new Uint8Array(plaintext), { maxBytes: 12000 }) }
+      : envelope.contentType === undefined
+        ? { text: decoder.decode(plaintext) }
+        : (() => { throw new Error('Unsupported encrypted message content type.') })())
   }
 }
 
@@ -477,7 +489,7 @@ async function importSpaceKey(spaceKey, usage) {
   throw new Error('A valid 32-byte Space key is required.')
 }
 
-export async function sealSpaceMessage({ id, spaceId, text, sender, certificate, signingKey, spaceKey }) {
+export async function sealSpaceMessage({ id, spaceId, text, sender, certificate, signingKey, spaceKey, spaceEpoch, channelId }) {
   const message = String(text ?? '').trim()
   if (!message) throw new Error('Enter a message.')
   if (message.length > 4000) throw new Error('Messages must be 4,000 characters or fewer.')
@@ -497,6 +509,8 @@ export async function sealSpaceMessage({ id, spaceId, text, sender, certificate,
     version: 1,
     id,
     spaceId,
+    ...(spaceEpoch === undefined ? {} : { spaceEpoch }),
+    ...(channelId === undefined ? {} : { channelId }),
     timestamp: Date.now(),
     senderAccount: sender.account,
     senderDeviceId: sender.deviceId,

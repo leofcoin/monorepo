@@ -12,6 +12,285 @@ import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 // RUN_SHELL_UI_TESTS=1 CHROME_BIN="/path/to/chrome" node --test test/shell-ui.test.js
 const runShellUiTests = process.env.RUN_SHELL_UI_TESTS === '1' && Boolean(process.env.CHROME_BIN)
 
+test('Spaces UI joins, manages moderator channels, keeps histories separate and revokes future access', {
+  skip: !runShellUiTests, timeout: 30000
+}, async t => {
+  const { default: generateAccount } = await import('@leofcoin/generate-account')
+  const { default: IdentityController } = await import('../src/controllers/identity.ts')
+  const { createDeviceCertificate } = await import('../src/controllers/chat-security.js')
+  const network = 'leofcoin:peach'
+  async function testDevice() {
+    const password = 'isolated-spaces-browser-test'
+    const wallet = await generateAccount(password, network)
+    globalThis.walletStore = { get: async () => new TextEncoder().encode(JSON.stringify(wallet.accounts)) }
+    const identity = new IdentityController(network, wallet); await identity.unlock(password)
+    const account = wallet.accounts[0][1], deviceId = crypto.randomUUID(), peerId = `test-${deviceId}`
+    // Extractable keys exist only in this synthetic fixture, never a real wallet or saved device.
+    const encryption = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey'])
+    const signing = await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify'])
+    const keys = {encryption:{privateKey:encryption.privateKey,publicKey:new Uint8Array(await crypto.subtle.exportKey('raw',encryption.publicKey))},
+      signing:{privateKey:signing.privateKey,publicKey:new Uint8Array(await crypto.subtle.exportKey('raw',signing.publicKey))}}
+    const signer = await identity.signer(account)
+    const certificate = await createDeviceCertificate({account,network,deviceId,peerId,keys,signWithAccount:signer.sign})
+    return {account,network,deviceId,peerId,certificate,
+      encryption:await crypto.subtle.exportKey('jwk',encryption.privateKey),signing:await crypto.subtle.exportKey('jwk',signing.privateKey),
+      encryptionPublic:[...keys.encryption.publicKey],signingPublic:[...keys.signing.publicKey]}
+  }
+  const ownerDevice = await testDevice(), memberDevice = await testDevice()
+  const fixture = await createShellFixture(t)
+  const member = await fixture.newTab()
+  const memberWait = expression => member.evaluate(`await new Promise((resolve,reject)=>{let tries=0;const timer=setInterval(()=>{
+    if(${expression}){clearInterval(timer);resolve()}else if(++tries>150){clearInterval(timer);reject(Error(chat.error||'Member UI timed out'))}},20)});true`)
+  async function seed(evaluate, device) {
+    await evaluate(`
+      await import('/chat.js'); shell.style.display='none';
+      const fixtureDevice = ${JSON.stringify(device)};
+      fixtureDevice.keys = {encryption:{privateKey:await crypto.subtle.importKey('jwk',fixtureDevice.encryption,{name:'ECDH',namedCurve:'P-256'},false,['deriveKey']),publicKey:new Uint8Array(fixtureDevice.encryptionPublic)},
+        signing:{privateKey:await crypto.subtle.importKey('jwk',fixtureDevice.signing,{name:'ECDSA',namedCurve:'P-256'},false,['sign']),publicKey:new Uint8Array(fixtureDevice.signingPublic)}};
+      await new Promise((resolve,reject)=>{
+        const request=indexedDB.open('leofcoin-chat-devices',2);
+        request.onupgradeneeded=()=>{request.result.createObjectStore('devices',{keyPath:'id'});request.result.createObjectStore('spaces',{keyPath:'id'})};
+        request.onerror=()=>reject(request.error);
+        request.onsuccess=()=>{const db=request.result,tx=db.transaction('devices','readwrite');
+          tx.objectStore('devices').put({id:fixtureDevice.network+':'+fixtureDevice.account,...fixtureDevice});
+          tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error)};
+      });
+      globalThis.fixturePackets=[]; globalThis.fixtureHeldPackets=[];globalThis.fixtureHoldPackets=false;
+      globalThis.chatBroker=new BroadcastChannel('isolated-chat-spaces-test');
+      globalThis.peernet={id:fixtureDevice.peerId,
+        subscribe:async(topic,handler)=>{chatBroker.onmessage=event=>handler(event.data);return()=>chatBroker.onmessage=null},
+        publish:async(topic,packet)=>{if(!(packet instanceof Uint8Array))throw Error('Non-binary packet');fixturePackets.push(packet);
+          if(fixtureHoldPackets)fixtureHeldPackets.push(packet);else chatBroker.postMessage(packet)}};
+      globalThis.identityController={signer:async()=>({sign:async()=>{throw Error('Saved fixture device must not request wallet signing')}})};
+      globalThis.chat=document.createElement('chat-view');chat.style.cssText='position:fixed;inset:0;font-family:system-ui;background:#191b20';
+      chat.wallet={selectedAccount:fixtureDevice.account};document.body.append(chat);true;
+    `)
+    await evaluate(`await new Promise((resolve,reject)=>{let tries=0;const timer=setInterval(()=>{
+      if(chat.connected){clearInterval(timer);resolve()}else if(++tries>150){clearInterval(timer);reject(Error(chat.error||'Chat startup timeout'))}},20)});true`)
+  }
+  await seed(fixture.evaluate, ownerDevice); await seed(member.evaluate, memberDevice)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="New conversation"]').click();await chat.updateComplete;
+    const friend=chat.shadowRoot.querySelector('dialog input');friend.value=${JSON.stringify(memberDevice.peerId)};friend.dispatchEvent(new Event('input'));
+    await chat.updateComplete;chat.shadowRoot.querySelector('dialog form').requestSubmit();true`)
+  await fixture.waitFor(`chat.friends.includes(${JSON.stringify(memberDevice.peerId)}) && !chat.shadowRoot.querySelector('dialog')`)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('.space-actions button').click();await chat.updateComplete;
+    const input=chat.shadowRoot.querySelector('dialog input');input.value='Community Space';input.dispatchEvent(new Event('input'));
+    await chat.updateComplete;chat.shadowRoot.querySelector('dialog form').requestSubmit();true`)
+  await fixture.waitFor(`chat.shadowRoot.querySelector('dialog')?.textContent.includes('Generate invitation')`)
+  await fixture.evaluate(`[...chat.shadowRoot.querySelectorAll('dialog button')].find(button=>button.textContent.trim()==='Generate invitation').click();true`)
+  await fixture.waitFor(`chat.generatedInvite && chat.inviteQr`)
+  const link = await fixture.evaluate('chat.generatedInvite')
+  assert.match(link, /#!\/chat\?invite=/)
+  assert.equal(await fixture.evaluate(`chat.shadowRoot.querySelector('img.invite-qr').src.startsWith('data:image/png')`), true)
+  await member.evaluate(`chat.applyRouteParameters({invite:${JSON.stringify(new URLSearchParams(new URL(link).hash.split('?')[1]).get('invite'))}});true`)
+  await member.evaluate(`await new Promise(resolve=>{const timer=setInterval(()=>{if(chat.invitePreview){clearInterval(timer);resolve()}},10)});true`)
+  assert.equal(await member.evaluate(`chat.spaces.length`), 0, 'a valid link only opens a preview')
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('dialog').textContent.includes('Community Space')`), true)
+  await member.evaluate(`[...chat.shadowRoot.querySelectorAll('dialog button')].find(button=>button.textContent.trim()==='Request to join').click();true`)
+  await fixture.waitFor(`chat.spaces[0]?.requests?.length === 1`)
+  assert.equal(await member.evaluate(`chat.spaces[0].status`), 'requested')
+  await fixture.evaluate(`[...chat.shadowRoot.querySelectorAll('dialog button')].find(button=>button.textContent.trim()==='Approve').click();true`)
+  await member.evaluate(`await new Promise((resolve,reject)=>{let n=0;const timer=setInterval(()=>{
+    if(chat.spaces[0]?.status==='joined'){clearInterval(timer);resolve()}else if(++n>150){clearInterval(timer);reject(Error(chat.error))}},20)});true`)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Close dialog"]').click();await chat.updateComplete;
+    const input=chat.shadowRoot.querySelector('.composer textarea');input.value='Hello, invited member!';input.dispatchEvent(new Event('input'));
+    await chat.updateComplete;chat.shadowRoot.querySelector('.composer').requestSubmit();true`)
+  await member.evaluate(`await new Promise((resolve,reject)=>{let n=0;const timer=setInterval(()=>{
+    if(chat.messages.some(message=>message.text==='Hello, invited member!')){clearInterval(timer);resolve()}else if(++n>150){clearInterval(timer);reject(Error(chat.error))}},20)});true`)
+  assert.equal(await fixture.evaluate(`fixturePackets.every(packet=>!new TextDecoder().decode(packet).includes('Hello, invited member!'))`), true)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+  await fixture.waitFor(`chat.shadowRoot.querySelector('dialog')?.open`)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('.moderator-role').click();true`)
+  await memberWait(`chat.spaces[0]?.manifest.roles?.length === 1`)
+  await member.evaluate(`chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+  await memberWait(`chat.shadowRoot.querySelector('dialog')?.open`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelectorAll('.moderator-role').length`), 0, 'moderators cannot assign roles')
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('dialog').textContent.includes('Generate invitation')`), false)
+  await fixture.evaluate(`fixtureHoldPackets=true;true`)
+  await member.evaluate(`const name=chat.shadowRoot.querySelector('[aria-label="Channel name"]');name.value='development';name.dispatchEvent(new Event('input'));
+    const topic=chat.shadowRoot.querySelector('[aria-label="Channel topic"]');topic.value='Build together';topic.dispatchEvent(new Event('input'));
+    await chat.updateComplete;chat.shadowRoot.querySelector('.channel-form').requestSubmit();true`)
+  await fixture.waitFor(`chat.spaces[0].manifest.channels.length === 2`)
+  assert.equal(await member.evaluate(`chat.spaces[0].manifest.channels.length`), 1, 'moderator change is pending until owner-signed update arrives')
+  assert.equal(await member.evaluate(`chat.spaces[0].channelRequests.at(-1).status`), 'pending')
+  await fixture.evaluate(`fixtureHoldPackets=false;for(const packet of fixtureHeldPackets.splice(0))chatBroker.postMessage(packet);true`)
+  await memberWait(`chat.spaces[0].manifest.channels.length === 2 && chat.spaces[0].channelRequests.at(-1).status === 'applied'`)
+  const developmentId = await fixture.evaluate(`chat.spaces[0].manifest.channels.find(channel=>channel.name==='development').id`)
+  for (const page of [fixture,member]) await page.evaluate(`chat.shadowRoot.querySelector('[aria-label="Close dialog"]').click();await chat.updateComplete;
+    chat.shadowRoot.querySelector('[data-channel="${developmentId}"]').click();await chat.updateComplete;true`)
+  await fixture.evaluate(`const input=chat.shadowRoot.querySelector('.composer textarea');input.value='Only in development';input.dispatchEvent(new Event('input'));
+    await chat.updateComplete;chat.shadowRoot.querySelector('.composer').requestSubmit();true`)
+  await memberWait(`chat.messages.some(message=>message.text==='Only in development')`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.messages').textContent.includes('Only in development')`),true)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.messages').textContent.includes('Hello, invited member!')`),false)
+  await member.evaluate(`chat.shadowRoot.querySelector('[data-channel="general"]').click();await chat.updateComplete;
+    const input=chat.shadowRoot.querySelector('.composer textarea');input.value='General draft';input.dispatchEvent(new Event('input'));
+    chat.shadowRoot.querySelector('[data-channel="${developmentId}"]').click();await chat.updateComplete;true`)
+  assert.equal(await member.evaluate('chat.draft'),'')
+  await member.evaluate(`const input=chat.shadowRoot.querySelector('.composer textarea');input.value='Development draft';input.dispatchEvent(new Event('input'));
+    chat.shadowRoot.querySelector('[data-channel="general"]').click();await chat.updateComplete;true`)
+  assert.equal(await member.evaluate('chat.draft'),'General draft')
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.messages').textContent.includes('Only in development')`),false)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.messages').textContent.includes('Hello, invited member!')`),true)
+  await member.evaluate(`chat.shadowRoot.querySelector('[data-channel="${developmentId}"]').click();await chat.updateComplete;
+    chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+  await memberWait(`chat.shadowRoot.querySelector('dialog')?.open`)
+  await member.evaluate(`chat.shadowRoot.querySelector('[aria-label="Archive channel development"]').click();true`)
+  await memberWait(`chat.spaces[0].manifest.channels.find(channel=>channel.name==='development').archived`)
+  await member.evaluate(`chat.shadowRoot.querySelector('[aria-label="Close dialog"]').click();await chat.updateComplete;true`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.composer') === null`),true)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.messages').textContent.includes('Only in development')`),true, 'archiving preserves history')
+  await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+  await fixture.waitFor(`chat.shadowRoot.querySelector('dialog')?.open`)
+  await fixture.evaluate(`chat.shadowRoot.querySelector('.moderator-role').click();true`)
+  await memberWait(`chat.spaces[0].manifest.roles.length === 0`)
+  await member.evaluate(`chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+  await memberWait(`chat.shadowRoot.querySelector('dialog')?.open`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.channel-form') === null`),true,'demoted member has no channel controls')
+  await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Restore channel development"]').click();true`)
+  await memberWait(`!chat.spaces[0].manifest.channels.find(channel=>channel.name==='development').archived`)
+  await member.evaluate(`chat.shadowRoot.querySelector('[aria-label="Close dialog"]').click();await chat.updateComplete;true`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.composer') !== null`),true)
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Close dialog"]').click();await chat.updateComplete;true`)
+    const shot = await fixture.call('Page.captureScreenshot',{format:'png'})
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS,'space-channels-desktop.png'),Buffer.from(shot.data,'base64'))
+    await fixture.evaluate(`chat.shadowRoot.querySelector('[aria-label="Conversation settings"]').click();true`)
+    await fixture.waitFor(`chat.shadowRoot.querySelector('dialog')?.open`)
+  }
+  await fixture.evaluate(`[...chat.shadowRoot.querySelectorAll('dialog button')].find(button=>button.textContent.trim()==='Remove').click();await chat.updateComplete;true`)
+  assert.equal(await fixture.evaluate(`chat.spaces[0].manifest.members.length`), 2, 'removal requires confirmation')
+  await fixture.evaluate(`[...chat.shadowRoot.querySelectorAll('dialog button')].find(button=>button.textContent.trim()==='Confirm').click();true`)
+  await member.evaluate(`await new Promise((resolve,reject)=>{let n=0;const timer=setInterval(()=>{
+    if(chat.spaces[0]?.status==='removed'){clearInterval(timer);resolve()}else if(++n>150){clearInterval(timer);reject(Error(chat.error))}},20)});true`)
+  assert.equal(await member.evaluate(`chat.shadowRoot.querySelector('.composer') === null`), true)
+  assert.equal(await fixture.evaluate(`chat.spaces[0].invites.length`), 0)
+  await fixture.resize(390, 844)
+  await fixture.waitFor(`chat.shadowRoot.querySelector('dialog')?.open && !chat.busy`)
+  assert.equal(await fixture.evaluate(`chat.shadowRoot.querySelector('dialog').getBoundingClientRect().right <= innerWidth`), true)
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    const shot = await fixture.call('Page.captureScreenshot',{format:'png'})
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS,'space-members-mobile.png'),Buffer.from(shot.data,'base64'))
+  }
+  assert.deepEqual(fixture.errors, [])
+})
+
+test('chat has compact safe messages, conversation drafts, accessible settings and single-pane mobile navigation', {
+  skip: !runShellUiTests, timeout: 20000
+}, async t => {
+  const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
+  // Render-only data. No wallet, keys, transport, real peers or outbound messages.
+  await evaluate(`
+    await import('/chat.js');
+    shell.style.display = 'none';
+    globalThis.chat = document.createElement('chat-view');
+    chat.style.cssText = 'position:fixed;inset:0;z-index:1000;font-family:system-ui;background:#191b20';
+    document.body.append(chat);
+    chat.device = { account: 'fixture-me', peerId: 'fixture-own-peer', deviceId: 'fixture-self', certificate:{account:'fixture-me',deviceId:'fixture-self',signingKey:'fixture-sign',encryptionKey:'fixture-encryption'} };
+    chat.connected = true;
+    chat.friends = ['fixture-alice', 'fixture-bob'];
+    chat.devices = [{account:'fixture-alice',peerId:'fixture-alice',deviceId:'fixture-alice-device'},
+      {account:'fixture-bob',peerId:'fixture-bob',deviceId:'fixture-bob-device'}];
+    chat.spaces = [{spaceId:'fixture-space',name:'Friends & family',ownerAccount:'fixture-me',status:'joined',keyBytes:new Uint8Array(32),
+      manifest:{members:[chat.device.certificate],authority:chat.device.certificate,revision:1}}];
+    chat.messages = [
+      {id:'1',sender:'fixture-me',spaceId:'fixture-space',text:'test',timestamp:Date.now(),outgoing:true},
+      {id:'2',sender:'fixture-alice',spaceId:'fixture-space',text:'A much better place to catch up.\\nEven with a second line.',timestamp:Date.now(),outgoing:false},
+      {id:'3',sender:'fixture-alice',conversationId:'fixture-alice',text:'Coffee tomorrow?',timestamp:Date.now(),outgoing:false},
+      {id:'4',sender:'fixture-me',conversationId:'fixture-alice',text:'<img src=x onerror=alert(1)>',timestamp:Date.now(),outgoing:true,deliveryState:'queued'}
+    ];
+    await chat.updateComplete;
+    chat.shadowRoot.querySelector('.space-item').click(); await chat.updateComplete; true;
+  `)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.message').getBoundingClientRect().height < 90`), true)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.message-text').textContent`), 'test')
+  assert.equal(await evaluate(`getComputedStyle(chat.shadowRoot.querySelector('.message')).whiteSpace`), 'normal')
+  assert.equal(await evaluate(`getComputedStyle(chat.shadowRoot.querySelector('.message-text')).whiteSpace`), 'pre-wrap')
+  assert.equal(await evaluate(`chat.shadowRoot.querySelectorAll('.day').length`), 1)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.sidebar').textContent.includes('Offline delivery')`), false)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('dialog') === null`), true)
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    const shot = await call('Page.captureScreenshot', { format: 'png' })
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS, 'chat-desktop.png'), Buffer.from(shot.data, 'base64'))
+  }
+  await click(`chat.shadowRoot.querySelector('.friend-item')`)
+  await evaluate(`await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelectorAll('img').length`), 0)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.message-state').textContent`), 'Pending delivery')
+  await evaluate(`chat.shadowRoot.querySelector('textarea').value = 'Only for Alice';
+    chat.shadowRoot.querySelector('textarea').dispatchEvent(new Event('input', {bubbles:true}));
+    chat.shadowRoot.querySelectorAll('.friend-item')[1].click(); await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.draft`), '')
+  await evaluate(`chat.shadowRoot.querySelectorAll('.friend-item')[0].click(); await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.draft`), 'Only for Alice')
+  await evaluate(`globalThis.chatSubmitCount = 0;
+    chat.shadowRoot.querySelector('.composer').addEventListener('submit', event => {
+      event.preventDefault(); event.stopImmediatePropagation(); chatSubmitCount++;
+    }, {capture:true});
+    chat.shadowRoot.querySelector('textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true}));
+    chat.shadowRoot.querySelector('textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true})); true`)
+  assert.equal(await evaluate('chatSubmitCount'), 0)
+  await evaluate(`chat.shadowRoot.querySelector('textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); true`)
+  assert.equal(await evaluate('chatSubmitCount'), 1)
+  await evaluate(`chat.sending = true; await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.send').disabled && chat.shadowRoot.querySelector('textarea').disabled`), true)
+  await evaluate(`chat.sending = false; chat.connected = false; await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.send').disabled`), true)
+  await evaluate(`chat.connected = true; await chat.updateComplete; true`)
+  await click(`chat.shadowRoot.querySelector('[aria-label="Chat settings"]')`)
+  await waitFor(`chat.shadowRoot.querySelector('dialog')?.open`)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('dialog input[type=checkbox]').checked`), false)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('dialog').textContent.includes('verified receipt')`), true)
+  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+  await waitFor(`!chat.shadowRoot.querySelector('dialog')`)
+  await resize(390, 844)
+  assert.equal(await evaluate(`getComputedStyle(chat.shadowRoot.querySelector('.sidebar')).display`), 'none')
+  assert.equal(await evaluate(`chat.shadowRoot.querySelector('.conversation').getBoundingClientRect().width <= innerWidth`), true)
+  await click(`chat.shadowRoot.querySelector('[aria-label="Back to conversations"]')`)
+  await waitFor(`getComputedStyle(chat.shadowRoot.querySelector('.conversation')).display === 'none'`)
+  assert.equal(await evaluate(`getComputedStyle(chat.shadowRoot.querySelector('.sidebar')).display`), 'flex')
+  await evaluate(`chat.search = 'Coffee'; await chat.updateComplete; true`)
+  assert.equal(await evaluate(`chat.shadowRoot.querySelectorAll('.friend-item').length`), 1)
+  await evaluate(`chat.search = ''; await chat.updateComplete;
+    chat.shadowRoot.querySelector('.space-item').click(); await chat.updateComplete; true`)
+  if (process.env.LFC_UI_SCREENSHOTS) {
+    const shot = await call('Page.captureScreenshot', { format: 'png' })
+    await writeFile(join(process.env.LFC_UI_SCREENSHOTS, 'chat-mobile.png'), Buffer.from(shot.data, 'base64'))
+  }
+  for (const width of [320, 390, 700, 900, 1280]) {
+    await resize(width)
+    assert.equal(await evaluate(`chat.shadowRoot.querySelector('.layout').scrollWidth <= innerWidth`), true, `No horizontal overflow at ${width}px`)
+    assert.equal(await evaluate(`chat.shadowRoot.querySelector('.composer').getBoundingClientRect().bottom <= innerHeight`), true)
+  }
+  // Also verify the real shell's header/footer layout, without requesting a signer.
+  await evaluate(`
+    globalThis.chatFixtureState = {friends:chat.friends,devices:chat.devices,spaces:chat.spaces,messages:chat.messages};
+    chat.remove(); shell.style.display = '';
+    globalThis.identityController = {signer:async()=>{throw new Error('No signing in this UI fixture')}};
+    location.hash = '#!/chat'; true;
+  `)
+  await waitFor(`shell.shadowRoot.querySelector('chat-view')?.status === 'Chat could not connect.'`)
+  await evaluate(`globalThis.chat = shell.shadowRoot.querySelector('chat-view');
+    Object.assign(chat,chatFixtureState,{connected:true,error:'',device:{account:'fixture-me',peerId:'fixture-own-peer',deviceId:'fixture-self',certificate:chatFixtureState.spaces[0].manifest.authority}});
+    await chat.updateComplete; chat.shadowRoot.querySelector('.space-item').click(); await chat.updateComplete; true;`)
+  for (const [width, name] of [[1280, 'desktop'], [390, 'mobile']]) {
+    await resize(width, 900)
+    const bounds = await evaluate(`(() => {
+      const page = chat.getBoundingClientRect(), composer = chat.shadowRoot.querySelector('.composer').getBoundingClientRect();
+      return { overflow: chat.shadowRoot.querySelector('.layout').scrollWidth > page.width,
+        bottom: composer.bottom, pageBottom: page.bottom, viewport: innerHeight };
+    })()`)
+    assert.equal(bounds.overflow, false)
+    assert.ok(bounds.bottom <= bounds.pageBottom && bounds.pageBottom <= bounds.viewport)
+    if (process.env.LFC_UI_SCREENSHOTS) {
+      const shot = await call('Page.captureScreenshot', {format:'png'})
+      await writeFile(join(process.env.LFC_UI_SCREENSHOTS, `chat-shell-${name}.png`), Buffer.from(shot.data, 'base64'))
+    }
+  }
+  assert.deepEqual(errors, [])
+})
+
 async function createShellFixture(t) {
   const root = resolve('www')
   const fixture = new URL('./shell-ui-fixture.html', import.meta.url)

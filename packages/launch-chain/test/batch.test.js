@@ -137,7 +137,21 @@ test('journal failure blocks dispatch and closes the journal explicitly', async 
     path: 'failed-journal', append: async () => { throw new Error('disk full') },
     close: async () => f.logs.push('closed failed journal')
   })
+
   await assert.rejects(interactiveBatch(f.wallet, f.interaction), /disk full/)
   assert.equal(f.submitted.length, 0)
   assert.ok(f.logs.includes('closed failed journal'))
+})
+
+test('interactive 100000-transfer burst preserves the full count and nonce range with bounded admission', async () => {
+  const f = await fixture(['100000', '', '', '32', 'yes', 'SEND'])
+  await interactiveBatch(f.wallet, f.interaction)
+  assert.equal(f.submitted.length, 100000)
+  assert.equal(new Set(f.signed).size, 100000)
+  assert.equal(f.signed[0], 8)
+  assert.equal(f.signed.at(-1), 100007)
+  assert.equal(f.maximum, 32)
+  assert.equal(f.entries.at(-1).admitted, 100000)
+  assert.equal(f.entries.at(-1).unsent, 0)
+  assert.equal(f.closed, true)
 })

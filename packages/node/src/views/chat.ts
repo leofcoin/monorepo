@@ -1,9 +1,11 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
+import * as qrcode from 'qrcode'
 import {
   addChatFriend,
   listChatFriends,
   listChatMessages,
+  managedSpacesStorageKey,
   loadOrCreateChatDevice,
   listChatSpaces,
   listKnownChatDevices,
@@ -11,13 +13,11 @@ import {
   rememberChatDevice,
   saveChatDeviceCertificate,
   saveChatMessage,
-  saveChatSpace,
   trustChatDevice
 } from '../controllers/chat-device-store.js'
 import { createChatTransport } from '../controllers/chat-transport.js'
 import {
   createDeliveryReceipt,
-  createSpaceKey,
   openDirectMessage,
   openSpaceMessage,
   sealDirectMessage,
@@ -25,6 +25,7 @@ import {
 } from '../controllers/chat-security.js'
 import { errorMessage } from '../controllers/transfer.js'
 import { getSelectedNetwork } from '../network-selection.js'
+import { ChatSpaces, canSendToSpace, canReceiveSpaceMessage, parseSpaceInvitation, spaceInvitationLink, spaceChannels, spaceRole } from '../controllers/chat-spaces.js'
 
 interface ChatWallet {
   selectedAccount?: string
@@ -35,6 +36,12 @@ interface ChatSpace {
   name: string
   ownerAccount: string
   keyBytes: Uint8Array
+  status?: string
+  manifest?: any
+  invites?: any[]
+  requests?: any[]
+  invitation?: any
+  channelRequests?: any[]
 }
 
 interface ChatCertificate {
@@ -65,6 +72,7 @@ interface ChatMessage {
   conversationId?: string
   conversationAccount?: string
   spaceId?: string
+  channelId?: string
   text: string
   timestamp: number
   outgoing: boolean
@@ -106,13 +114,13 @@ export class ChatView extends LitElement {
   @state() accessor friends: string[] = []
   @state() accessor spaces: ChatSpace[] = []
   @state() accessor selectedSpaceId = ''
+  @state() accessor selectedChannelId = 'general'
   @state() accessor selectedFriendPeerId = ''
   @state() accessor channel: 'direct' | 'space' = 'direct'
   @state() accessor selectedDeviceId = ''
   @state() accessor draft = ''
   @state() accessor spaceNameDraft = ''
   @state() accessor friendAddressDraft = ''
-  @state() accessor addingFriend = false
   @state() accessor archiveEnabled = false
   @state() accessor pendingCount = 0
   @state() accessor archiveCount = 0
@@ -121,14 +129,43 @@ export class ChatView extends LitElement {
   @state() accessor mobileConversation = false
   @state() accessor sending = false
   @state() accessor connected = false
-  @state() accessor panel: 'friend' | 'space' | 'settings' | '' = ''
+  @state() accessor panel: 'friend' | 'space' | 'settings' | 'join' | 'manage' | '' = ''
+  @state() accessor inviteInput = ''
+  @state() accessor invitePreview: any = undefined
+  @state() accessor generatedInvite = ''
+  @state() accessor inviteQr = ''
+  @state() accessor busy = false
+  @state() accessor managerQueue = 0
+  @state() accessor confirmRemoval = ''
+  @state() accessor channelEditingId = ''
+  @state() accessor channelEditingVersion = ''
+  @state() accessor channelNameDraft = ''
+  @state() accessor channelTopicDraft = ''
 
   #transport
+  #spaces: ChatSpaces | undefined
+  #legacySpaces: ChatSpace[] = []
+  #spaceRetry: ReturnType<typeof setInterval> | undefined
   #unsubscribe
   #starting = false
   #requestedWallet = ''
   #connected = false
   #stickToBottom = true
+  #drafts = new Map<string, string>()
+
+  #conversationKey() {
+    return this.channel === 'space' ? `space:${this.selectedSpaceId}:${this.selectedChannelId}` : `direct:${this.selectedFriendPeerId}`
+  }
+
+  #rememberDraft() {
+    this.#drafts.set(this.#conversationKey(), this.draft)
+  }
+
+  #restoreDraft() {
+    this.draft = this.#drafts.get(this.#conversationKey()) || ''
+    const input = this.renderRoot.querySelector<HTMLTextAreaElement>('.composer textarea')
+    if (input) input.style.height = 'auto'
+  }
 
   #scrollToBottom = () => {
     const list = this.renderRoot.querySelector<HTMLElement>('.messages')
@@ -136,7 +173,7 @@ export class ChatView extends LitElement {
     this.#stickToBottom = true
   }
 
-  #openPanel = async (panel: 'friend' | 'space' | 'settings') => {
+  #openPanel = async (panel: 'friend' | 'space' | 'settings' | 'join' | 'manage') => {
     this.panel = panel
     await this.updateComplete
     this.renderRoot.querySelector<HTMLDialogElement>('dialog')?.showModal()
@@ -148,10 +185,51 @@ export class ChatView extends LitElement {
   }
 
   #selectSpace = (spaceId: string) => {
+    this.confirmRemoval = ''
+    this.#rememberDraft()
+    if (spaceId !== this.selectedSpaceId) {
+      this.generatedInvite = ''; this.inviteQr = ''; this.selectedChannelId = 'general'; this.#resetChannelForm()
+    }
     this.channel = 'space'
     this.selectedSpaceId = spaceId
+    this.#restoreDraft()
     this.mobileConversation = true
     this.#stickToBottom = true
+  }
+
+  #selectSpaceChannel = (spaceId: string, channelId: string) => {
+    this.#selectSpace(spaceId)
+    this.#rememberDraft()
+    this.selectedChannelId = channelId
+    this.#restoreDraft()
+    this.#scrollToBottom()
+  }
+
+  #resetChannelForm = () => {
+    this.channelEditingId = ''; this.channelEditingVersion = ''; this.channelNameDraft = ''; this.channelTopicDraft = ''
+  }
+
+  #editChannel = (channel: any) => {
+    this.channelEditingId = channel.id; this.channelEditingVersion = channel.version
+    this.channelNameDraft = channel.name; this.channelTopicDraft = channel.topic
+  }
+
+  #changeChannel = async (operation: any) => {
+    if (!this.#spaces) return
+    const space = this.spaces.find(item => item.spaceId === this.selectedSpaceId)
+    const owner = spaceRole(space, this.device?.certificate) === 'owner'
+    await this.#spaceAction(async () => {
+      const result = await this.#spaces!.changeChannel(this.selectedSpaceId, operation)
+      if (owner && operation.action === 'create') this.#selectSpaceChannel(this.selectedSpaceId, result.channelId)
+      this.#resetChannelForm()
+    }, owner ? 'Channel updated.' : 'Channel change queued. The owner device must open Chat to authorize it.')
+  }
+
+  #saveChannel = async (event: SubmitEvent) => {
+    event.preventDefault()
+    await this.#changeChannel({action:this.channelEditingId ? 'edit' : 'create',
+      ...(this.channelEditingId ? {channelId:this.channelEditingId,expectedVersion:this.channelEditingVersion} : {}),
+      name:this.channelNameDraft,topic:this.channelTopicDraft})
   }
 
   #composerInput = (event: Event) => {
@@ -171,6 +249,7 @@ export class ChatView extends LitElement {
     super.connectedCallback()
     this.#connected = true
     globalThis.pubsub?.subscribe('node:ready', this.#onNodeReady)
+    globalThis.addEventListener('storage', this.#onSpaceStorage)
     void this.#initialize()
   }
 
@@ -178,19 +257,22 @@ export class ChatView extends LitElement {
     super.disconnectedCallback()
     this.#connected = false
     this.connected = false
+    clearInterval(this.#spaceRetry)
     globalThis.pubsub?.unsubscribe('node:ready', this.#onNodeReady)
+    globalThis.removeEventListener('storage', this.#onSpaceStorage)
     this.#unsubscribe?.()
     this.#transport?.stop()
     this.#transport = undefined
+    this.#spaces = undefined
     this.#requestedWallet = ''
   }
 
   protected updated(changed: Map<PropertyKey, unknown>) {
     if (changed.has('wallet')) void this.#initialize()
-    if ((changed.has('messages') && this.#stickToBottom) || changed.has('selectedSpaceId') || changed.has('selectedFriendPeerId') || changed.has('channel'))
+    if ((changed.has('messages') && this.#stickToBottom) || changed.has('selectedSpaceId') || changed.has('selectedChannelId') || changed.has('selectedFriendPeerId') || changed.has('channel'))
       this.#scrollToBottom()
     if (changed.has('draft') && !this.draft) {
-      const input = this.renderRoot.querySelector<HTMLTextAreaElement>('textarea')
+      const input = this.renderRoot.querySelector<HTMLTextAreaElement>('.composer textarea')
       if (input) input.style.height = 'auto'
     }
   }
@@ -214,6 +296,9 @@ export class ChatView extends LitElement {
       this.#transport?.stop()
       this.#unsubscribe = undefined
       this.#transport = undefined
+      this.#spaces = undefined
+      this.#legacySpaces = []
+      clearInterval(this.#spaceRetry)
       this.connected = false
       this.device = undefined
       this.messages = []
@@ -223,7 +308,10 @@ export class ChatView extends LitElement {
       this.selectedDeviceId = ''
       this.selectedFriendPeerId = ''
       this.selectedSpaceId = ''
+      this.selectedChannelId = 'general'
+      this.#resetChannelForm()
       this.draft = ''
+      this.#drafts.clear()
     }
     this.#starting = true
     this.#requestedWallet = identityKey
@@ -247,7 +335,13 @@ export class ChatView extends LitElement {
       trustChatDevice(device.certificate)
       this.devices = listKnownChatDevices(network)
       this.friends = listChatFriends(network, account)
-      this.spaces = await listChatSpaces(account, network, device)
+      this.#legacySpaces = await listChatSpaces(account, network, device)
+      this.#spaces = new ChatSpaces({ device, send: async envelope => {
+        if (!this.#transport) throw new Error('Chat is not connected.')
+        if (!this.#transport.hasPendingMessage(envelope.id)) await this.#transport.sendDirect(envelope)
+      } })
+      this.#spaces.onChange = this.#refreshSpaces
+      await this.#spaces.refresh()
       this.#transport = createChatTransport({
         peernet: globalThis.peernet,
         network,
@@ -262,6 +356,8 @@ export class ChatView extends LitElement {
       this.#unsubscribe = this.#transport.subscribe((event: ChatTransportEvent) => this.#handleTransportEvent(event))
       await this.#transport.start()
       this.connected = true
+      await this.#spaces.flush()
+      this.#spaceRetry = setInterval(() => { void this.#spaces?.flush().catch(error => this.error = errorMessage(error)) }, 30000)
       this.archiveEnabled = this.#transport.archiveEnabled
       this.pendingCount = this.#transport.pendingCount
       this.archiveCount = this.#transport.archiveCount
@@ -290,6 +386,7 @@ export class ChatView extends LitElement {
     if (event.type === 'device' && event.certificate) {
       rememberChatDevice(event.certificate)
       this.devices = listKnownChatDevices(network)
+      await this.#spaces?.flush()
       if (this.selectedFriendPeerId === (event.certificate.peerId || event.certificate.account))
         this.selectedDeviceId = event.certificate.deviceId
       return
@@ -316,6 +413,7 @@ export class ChatView extends LitElement {
       const envelope = event.envelope
       const space = this.spaces.find((candidate) => candidate.spaceId === envelope.spaceId)
       if (!space) return
+      if (!canReceiveSpaceMessage(space, envelope)) return
       try {
         const trustedSenders =
           envelope.senderAccount === this.device.account
@@ -333,6 +431,7 @@ export class ChatView extends LitElement {
             id: opened.id,
             sender: opened.sender.address,
             spaceId: opened.spaceId,
+            channelId: envelope.channelId ?? 'general',
             text: opened.text,
             timestamp: opened.timestamp,
             outgoing: false
@@ -366,32 +465,15 @@ export class ChatView extends LitElement {
         network,
         trustedCertificates: trustedSenders
       })
-      const invite = this.#decodeSpaceInvite(opened.text)
-      if (invite) {
-        if (invite.ownerAccount !== opened.sender.address)
-          throw new Error('Space invitations must be sent by the Space owner.')
-        const savedSpace = await saveChatSpace(
-          {
-            account: this.device.account,
-            network,
-            spaceId: invite.spaceId,
-            name: invite.name,
-            ownerAccount: invite.ownerAccount,
-            keyBytes: invite.keyBytes
-          },
-          this.device
-        )
-        this.spaces = await listChatSpaces(this.device.account, network, this.device)
-        this.#selectSpace(savedSpace.spaceId)
-        this.status = `Joined ${savedSpace.name}.`
-        const receipt = await createDeliveryReceipt({
-          messageId: envelope.id,
-          recipientCertificate: this.device.certificate,
-          signingKey: this.device.keys.signing.privateKey
-        })
-        await this.#transport.acknowledgeDelivery(receipt)
-        this.archiveCount = this.#transport.archiveCount
-        this.pendingCount = this.#transport.pendingCount
+      if (opened.control) {
+        await this.#spaces?.receive(opened.control, envelope.senderCertificate)
+        await this.#acknowledgeControl(envelope)
+        this.error = ''
+        return
+      }
+      if (opened.text.startsWith('LFCSPACE1:')) {
+        this.error = 'This legacy invitation cannot manage membership safely. Ask the owner for a new Space link.'
+        await this.#acknowledgeControl(envelope)
         return
       }
       if (!this.messages.some((message) => message.id === opened.id)) {
@@ -435,6 +517,7 @@ export class ChatView extends LitElement {
   }
 
   #selectFriend = (peerId: string) => {
+    this.#rememberDraft()
     const certificate = this.devices.find(
       (device) => (device.peerId || device.account) === peerId || device.account === peerId
     )
@@ -442,6 +525,7 @@ export class ChatView extends LitElement {
     this.selectedSpaceId = ''
     this.selectedFriendPeerId = peerId
     this.selectedDeviceId = certificate?.deviceId || ''
+    this.#restoreDraft()
     this.mobileConversation = true
     this.#stickToBottom = true
     if (!certificate) this.status = 'Friend saved. Waiting for their device to connect to Peernet.'
@@ -467,7 +551,6 @@ export class ChatView extends LitElement {
         ? 'Friend added. You can start a direct message.'
         : 'Friend saved. They will appear when their device connects to Peernet.'
       this.friendAddressDraft = ''
-      this.addingFriend = false
       this.#closePanel()
       this.error = ''
     } catch (error) {
@@ -490,109 +573,107 @@ export class ChatView extends LitElement {
     }
   }
 
-  #decodeSpaceInvite(text: string) {
-    if (!text.startsWith('LFCSPACE1:')) return undefined
+  #refreshSpaces = () => {
+    const managed = this.#spaces?.spaces || []
+    this.spaces = [...this.#legacySpaces.filter(space => !managed.some(item => item.spaceId === space.spaceId)), ...managed]
+    this.managerQueue = this.#spaces?.queuedCount || 0
+  }
+
+  #onSpaceStorage = (event: StorageEvent) => {
+    if (!this.device || !this.#spaces || event.key !== managedSpacesStorageKey(this.device)) return
+    void this.#spaces.refresh().catch(error => this.error = errorMessage(error))
+  }
+
+  applyRouteParameters(params: Record<string, string>) {
+    if (!params.invite) return
+    this.inviteInput = params.invite
+    void this.#previewInvitation()
+  }
+
+  #spaceAction = async (action: () => Promise<unknown>, message = '') => {
+    if (this.busy) return
+    this.busy = true
+    this.error = ''
     try {
-      const encoded = text.slice('LFCSPACE1:'.length)
-      const binary = atob(encoded)
-      const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0))))
-      if (
-        payload?.version !== 1 ||
-        typeof payload.spaceId !== 'string' ||
-        !payload.spaceId ||
-        typeof payload.name !== 'string' ||
-        !payload.name ||
-        payload.name.length > 80 ||
-        typeof payload.ownerAccount !== 'string' ||
-        typeof payload.key !== 'string'
-      )
-        throw new Error('Space invitation is invalid.')
-      const keyBinary = atob(payload.key)
-      const keyBytes = Uint8Array.from(keyBinary, (char) => char.charCodeAt(0))
-      if (keyBytes.length !== 32) throw new Error('Space invitation key is invalid.')
-      return {
-        spaceId: payload.spaceId,
-        name: payload.name,
-        ownerAccount: payload.ownerAccount,
-        keyBytes
-      }
+      await action()
+      if (message) this.status = message
     } catch (error) {
-      throw new Error('Space invitation could not be decoded.', { cause: error })
+      this.error = errorMessage(error)
+    } finally {
+      this.busy = false
     }
   }
 
-  #encodeSpaceInvite(space: ChatSpace) {
-    const payload = {
-      version: 1,
-      spaceId: space.spaceId,
-      name: space.name,
-      ownerAccount: space.ownerAccount,
-      key: this.#encodeBase64(space.keyBytes)
-    }
-    const bytes = new TextEncoder().encode(JSON.stringify(payload))
-    let binary = ''
-    for (const byte of bytes) binary += String.fromCharCode(byte)
-    return `LFCSPACE1:${btoa(binary)}`
+  #acknowledgeControl = async (envelope: any) => {
+    if (!this.device || !this.#transport) return
+    await this.#transport.acknowledgeDelivery(await createDeliveryReceipt({
+      messageId: envelope.id, recipientCertificate: this.device.certificate,
+      signingKey: this.device.keys.signing.privateKey
+    }))
+    this.pendingCount = this.#transport.pendingCount
   }
 
-  #encodeBase64(value: Uint8Array) {
-    let binary = ''
-    for (const byte of value) binary += String.fromCharCode(byte)
-    return btoa(binary)
+  #previewInvitation = async () => {
+    await this.#spaceAction(async () => {
+      this.invitePreview = undefined
+      const invite = await parseSpaceInvitation(this.inviteInput, getSelectedNetwork().network)
+      this.invitePreview = invite
+      await this.#openPanel('join')
+    })
+  }
+
+  #requestSpaceJoin = async () => {
+    if (!this.#spaces || !this.invitePreview) return
+    await this.#spaceAction(async () => {
+      await this.#spaces!.requestJoin(this.invitePreview)
+      this.#selectSpace(this.invitePreview.spaceId)
+      this.#closePanel()
+    }, 'Join request queued. The owner must open Chat and approve your request.')
   }
 
   #createSpace = async (event: SubmitEvent) => {
     event.preventDefault()
-    if (!this.device || !this.spaceNameDraft.trim()) return
-    try {
-      const space = await saveChatSpace(
-        {
-          account: this.device.account,
-          network: this.device.network,
-          spaceId: crypto.randomUUID(),
-          name: this.spaceNameDraft.trim(),
-          ownerAccount: this.device.account,
-          keyBytes: createSpaceKey()
-        },
-        this.device
-      )
-      this.spaces = await listChatSpaces(this.device.account, this.device.network, this.device)
-      this.#selectSpace(space.spaceId)
+    if (!this.#spaces || !this.spaceNameDraft.trim()) return
+    await this.#spaceAction(async () => {
+      const id = await this.#spaces!.create(this.spaceNameDraft)
+      this.#selectSpace(id)
       this.spaceNameDraft = ''
+      this.generatedInvite = ''
       this.#closePanel()
-      this.status = `Created ${space.name}. Invite devices to add members.`
-      this.error = ''
-    } catch (error) {
-      this.error = errorMessage(error)
-    }
+      await this.#openPanel('manage')
+    }, 'Space created. Generate an invitation to bring your people in.')
+  }
+
+  #generateInvitation = async () => {
+    if (!this.#spaces) return
+    await this.#spaceAction(async () => {
+      const invite = await this.#spaces!.createInvitation(this.selectedSpaceId)
+      this.generatedInvite = spaceInvitationLink(invite)
+      this.inviteQr = await qrcode.toDataURL(this.generatedInvite, { width: 400, margin: 2 })
+    }, 'Invitation created. It expires in 24 hours and still requires owner approval.')
+  }
+
+  #copyInvitation = async () => {
+    await this.#spaceAction(async () => {
+      if (!navigator.clipboard) throw new Error('Clipboard is unavailable. Select and copy the link below.')
+      await navigator.clipboard.writeText(this.generatedInvite)
+    }, 'Invitation link copied.')
   }
 
   #inviteSpace = async (certificate: ChatCertificate) => {
-    const space = this.spaces.find((candidate) => candidate.spaceId === this.selectedSpaceId)
-    if (!space || !this.device || !this.#transport || space.ownerAccount !== this.device.account) return
-    try {
-      const text = this.#encodeSpaceInvite(space)
-      const envelope = await sealDirectMessage({
-        id: crypto.randomUUID(),
-        text,
-        sender: { account: this.device.account, deviceId: this.device.deviceId },
-        senderCertificate: this.device.certificate,
-        senderSigningKey: this.device.keys.signing.privateKey,
-        recipient: {
-          account: certificate.account,
-          deviceId: certificate.deviceId,
-          network: certificate.network
-        },
-        recipientCertificate: certificate,
-        recipientEncryptionKey: this.#decodeBase64(certificate.encryptionKey)
-      })
-      await this.#transport.sendDirect(envelope)
-      this.status = `Space invitation sent to ${certificate.account.slice(0, 8)}…`
-      this.pendingCount = this.#transport.pendingCount
-      this.error = ''
-    } catch (error) {
-      this.error = errorMessage(error)
-    }
+    if (!this.#spaces) return
+    await this.#spaceAction(async () => {
+      const invite = await this.#spaces!.createInvitation(this.selectedSpaceId)
+      await this.#spaces!.offer(invite, certificate)
+    }, 'Invitation queued. The recipient must review it and request to join.')
+  }
+
+  #upgradeSpace = async () => {
+    const space = this.spaces.find(item => item.spaceId === this.selectedSpaceId)
+    if (!space || space.ownerAccount !== this.device?.account || !this.#spaces) return
+    await this.#spaceAction(async () => {
+      await this.#spaces!.create(space.name, space.spaceId)
+    }, 'Space upgraded with a new key. Existing members must join again using a new invitation.')
   }
 
   #send = async (event: SubmitEvent) => {
@@ -601,18 +682,31 @@ export class ChatView extends LitElement {
     this.sending = true
     const draft = this.draft
     try {
-      await this.#sendMessage(draft)
+      await this.#sendMessage(draft, this.#conversationKey())
     } finally {
       this.sending = false
     }
   }
 
-  async #sendMessage(draft: string) {
+  #clearSentDraft(draft: string, conversationKey: string) {
+    if (this.#drafts.get(conversationKey) === draft) this.#drafts.delete(conversationKey)
+    if (this.#conversationKey() === conversationKey && this.draft === draft) {
+      this.draft = ''
+      this.#scrollToBottom()
+    }
+  }
+
+  async #sendMessage(draft: string, conversationKey: string) {
     if (!this.device || !this.#transport || !this.draft.trim()) return
     if (this.channel === 'space') {
       const space = this.spaces.find((candidate) => candidate.spaceId === this.selectedSpaceId)
       if (!space) {
         this.error = 'Choose a Space before sending a message.'
+        return
+      }
+      const channelId = this.selectedChannelId
+      if (!canSendToSpace(space, this.device.certificate, channelId)) {
+        this.error = 'You need current Space membership before sending.'
         return
       }
       try {
@@ -624,19 +718,21 @@ export class ChatView extends LitElement {
           sender: { account: this.device.account, deviceId: this.device.deviceId },
           certificate: this.device.certificate,
           signingKey: this.device.keys.signing.privateKey,
-          spaceKey: space.keyBytes
+          spaceKey: space.keyBytes,
+          spaceEpoch: space.manifest.epoch,
+          channelId
         })
         await this.#saveMessage({
           id,
           sender: this.device.account,
           spaceId: space.spaceId,
+          channelId,
           text: draft.trim(),
           timestamp: envelope.timestamp,
           outgoing: true
         })
         await this.#transport.sendSpace(envelope)
-        if (this.draft === draft) this.draft = ''
-        this.#scrollToBottom()
+        this.#clearSentDraft(draft, conversationKey)
         this.error = ''
       } catch (error) {
         this.error = errorMessage(error)
@@ -675,8 +771,7 @@ export class ChatView extends LitElement {
         deliveryState: 'queued'
       })
       await this.#transport.sendDirect(envelope)
-      if (this.draft === draft) this.draft = ''
-      this.#scrollToBottom()
+      this.#clearSentDraft(draft, conversationKey)
       this.pendingCount = this.#transport.pendingCount
       this.error = ''
     } catch (error) {
@@ -720,406 +815,463 @@ export class ChatView extends LitElement {
     return Uint8Array.from(binary, (character) => character.charCodeAt(0))
   }
 
+  #icon(name: string) {
+    const paths: Record<string, string> = {
+      chat: 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z',
+      plus: 'M12 5v14M5 12h14',
+      search: 'm21 21-4.4-4.4M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
+      back: 'm15 18-6-6 6-6',
+      close: 'm6 6 12 12M6 18 18 6',
+      send: 'm22 2-7 20-4-9-9-4 20-7ZM22 2 11 13',
+      shield: 'M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7l-9-4Zm-4 9 3 3 5-6',
+      settings: 'M4 7h16M4 17h16M8 4v6m8 4v6',
+      copy: 'M9 9h12v12H9zM5 15H3V3h12v2'
+    }
+    return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${paths[name] || paths.chat}></path></svg>`
+  }
+
+  #short(value: string) {
+    return value.length > 22 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value
+  }
+
+  #sameConversation(message: ChatMessage, friend: string) {
+    const account = this.devices.find(device => (device.peerId || device.account) === friend)?.account || friend
+    return !message.spaceId && (message.conversationId === friend || message.conversationAccount === account)
+  }
+
+  #preview(messages: ChatMessage[], fallback: string) {
+    const message = messages.at(-1)
+    return message ? `${message.outgoing ? 'You: ' : ''}${message.text}` : fallback
+  }
+
   static styles = css`
     :host {
-      display: block;
-      height: 100%;
-      min-height: 0;
-      box-sizing: border-box;
-      padding: clamp(12px, 2vw, 24px);
-      color: var(--md-sys-color-on-surface, #eee);
+      display: block; height: 100%; min-height: 0; min-width: 0; box-sizing: border-box;
+      padding: clamp(8px, 1.6vw, 24px); color: var(--md-sys-color-on-surface, #eceef4);
+      --chat-border: var(--lfc-glass-border, #363941);
+      --chat-surface: var(--lfc-glass-surface, #20242b);
+      --chat-muted: var(--md-sys-color-on-surface-variant, #aeb6c6);
+      --chat-accent: var(--md-sys-color-primary, #8dbbff);
     }
-    main {
-      height: 100%;
-      max-width: 1120px;
-      margin: auto;
-      display: grid;
-      grid-template-columns: minmax(220px, 290px) minmax(0, 1fr);
-      gap: 16px;
-    }
-    aside, .conversation {
-      min-height: 0;
-      border: 1px solid var(--lfc-glass-border, #51474e);
-      border-radius: 22px;
-      background: var(--lfc-glass-surface, #242126);
-      overflow: hidden;
-    }
-    aside { display: flex; flex-direction: column; }
-    .conversation { display: flex; flex-direction: column; }
-    header { padding: 22px; border-bottom: 1px solid var(--lfc-glass-border, #51474e); }
-    h1, h2, p { margin: 0; }
-    h1 { font-size: 25px; letter-spacing: -.03em; }
-    h2 { font-size: 16px; }
-    .eyebrow { color: var(--md-sys-color-primary, #8dbbff); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
-    .muted, .status { color: var(--md-sys-color-on-surface-variant, #c8c2cc); font-size: 13px; }
-    .device-list { padding: 12px; display: grid; gap: 8px; overflow: auto; }
-    .device, .archive-card { padding: 14px; border-radius: 14px; background: color-mix(in srgb, var(--md-sys-color-surface, #242126) 76%, transparent); }
-    .device { display: grid; gap: 8px; }
-    .space-list { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--lfc-glass-border, #51474e); }
-    .space-list button { width: 100%; text-align: left; background: transparent; color: inherit; }
-    .space-list button[aria-current="true"] { border-color: var(--md-sys-color-primary, #8dbbff); background: color-mix(in srgb, var(--md-sys-color-primary, #8dbbff) 14%, transparent); }
-    .create-space { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
-    .create-space input, .create-space button { min-width: 0; padding: 7px; font-size: 12px; }
-    .device-id { overflow-wrap: anywhere; font-size: 12px; }
-    .empty { padding: 18px; text-align: center; }
-    .layout { height: 100%; max-width: 1240px; margin: auto; display: grid; grid-template-columns: 68px minmax(230px, 280px) minmax(0, 1fr); gap: 10px; }
-    .server-rail { display: flex; align-items: center; flex-direction: column; gap: 10px; padding: 12px 8px; border: 1px solid var(--lfc-glass-border, #51474e); border-radius: 22px; background: color-mix(in srgb, var(--lfc-glass-surface, #242126) 90%, transparent); }
-    .rail-spacer { flex: 0 0 1px; width: 28px; margin: 4px 0; background: var(--lfc-glass-border, #51474e); }
-    .rail-button { display: grid; place-items: center; width: 46px; height: 46px; min-height: 46px; padding: 0; border: 0; border-radius: 17px; background: color-mix(in srgb, var(--md-sys-color-surface, #242126) 82%, transparent); color: var(--md-sys-color-on-surface-variant, #c8c2cc); font-size: 20px; transition: border-radius .16s ease, background .16s ease; }
-    .rail-button:hover, .rail-button[aria-current="true"] { border-radius: 14px; background: var(--md-sys-color-primary, #3477d2); color: var(--md-sys-color-on-primary, #fff); }
-    .rail-button.add { border: 1px dashed var(--lfc-glass-border, #51474e); background: transparent; color: var(--md-sys-color-primary, #8dbbff); }
-    .sidebar { display: flex; min-height: 0; flex-direction: column; border: 1px solid var(--lfc-glass-border, #51474e); border-radius: 22px; background: var(--lfc-glass-surface, #242126); overflow: hidden; }
-    .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px; }
-    .sidebar-header h1 { font-size: 19px; }
-    .sidebar-header .status { margin-top: 4px; font-size: 11px; }
-    .sidebar-header .add-friend { flex: 0 0 38px; width: 38px; min-height: 38px; padding: 0; border-radius: 13px; font-size: 20px; }
-    .friend-form { display: grid; gap: 8px; padding: 0 12px 12px; }
-    .friend-form button { width: 100%; }
-    .friend-form .copy-id { border-color: var(--lfc-glass-border, #51474e); background: transparent; color: var(--md-sys-color-primary, #8dbbff); }
-    .friend-form .muted { font-size: 11px; line-height: 1.45; }
-    .sidebar-section { display: grid; gap: 6px; padding: 14px 12px; border-top: 1px solid var(--lfc-glass-border, #51474e); }
-    .section-title { display: flex; align-items: center; justify-content: space-between; padding: 0 3px 4px; color: var(--md-sys-color-on-surface-variant, #c8c2cc); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-    .section-title button { width: 28px; min-height: 28px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 18px; }
-    .friend-item, .space-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 7px 10px; border: 0; border-radius: 13px; background: transparent; color: var(--md-sys-color-on-surface-variant, #c8c2cc); text-align: left; font-weight: 550; }
-    .friend-item:hover, .space-item:hover, .friend-item[aria-current="true"], .space-item[aria-current="true"] { background: color-mix(in srgb, var(--md-sys-color-primary, #8dbbff) 13%, transparent); color: var(--md-sys-color-on-surface, #eee); }
-    .friend-avatar, .space-avatar { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 11px; background: color-mix(in srgb, var(--md-sys-color-primary, #8dbbff) 15%, transparent); color: var(--md-sys-color-primary, #8dbbff); font-size: 12px; font-weight: 750; }
-    .friend-copy { display: grid; min-width: 0; gap: 2px; }
-    .friend-copy strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; }
-    .friend-copy small { color: var(--md-sys-color-on-surface-variant, #c8c2cc); font-size: 10px; }
-    .empty-list { display: grid; justify-items: center; gap: 7px; padding: 12px 5px; color: var(--md-sys-color-on-surface-variant, #c8c2cc); font-size: 11px; text-align: center; }
-    .empty-list strong { color: var(--md-sys-color-on-surface, #eee); font-size: 12px; }
-    .empty-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--md-sys-color-primary, #8dbbff) 15%, transparent); color: var(--md-sys-color-primary, #8dbbff); font-size: 18px; }
-    .sidebar-spacer { flex: 1; min-height: 8px; }
-    .sidebar .archive-card { margin: 8px; }
-    .settings-section { padding-top: 8px; padding-bottom: 8px; }
-    .settings-section > summary { cursor: pointer; list-style: none; }
-    .settings-section > summary::-webkit-details-marker { display: none; }
-    .settings-section > summary::after { content: '+'; font-size: 16px; }
-    .settings-section[open] > summary::after { content: '−'; }
-    .archive-card { margin: auto 12px 12px; display: grid; gap: 8px; font-size: 13px; }
-    .archive-setting { display: flex; gap: 8px; align-items: flex-start; }
-    .messages { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 12px; padding: 20px; overflow: auto; }
-    .message { max-width: min(78%, 620px); align-self: flex-start; padding: 12px 14px; border-radius: 16px 16px 16px 4px; background: color-mix(in srgb, var(--md-sys-color-surface, #242126) 74%, transparent); overflow-wrap: anywhere; }
-    .message.outgoing { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--md-sys-color-primary, #8dbbff) 16%, var(--md-sys-color-surface, #242126)); }
-    .message { white-space: pre-wrap; }
-    .message-meta { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; font-size: 11px; color: var(--md-sys-color-on-surface-variant, #c8c2cc); }
-    .message-meta time, .message-state { font-size: 10px; color: var(--md-sys-color-on-surface-variant, #c8c2cc); }
-    form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 14px; border-top: 1px solid var(--lfc-glass-border, #51474e); }
-    input, select, button { min-height: 42px; box-sizing: border-box; border-radius: 12px; border: 1px solid var(--lfc-glass-border, #51474e); background: var(--md-sys-color-surface, #242126); color: inherit; font: inherit; padding: 9px 12px; }
-    button { cursor: pointer; background: var(--md-sys-color-primary, #3477d2); color: var(--md-sys-color-on-primary, #fff); font-weight: 650; }
-    button:disabled { cursor: not-allowed; opacity: .55; }
-    .compose { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
-    .notice { margin: 12px 18px 0; }
-    .error { color: var(--md-sys-color-error, #ffb4ab); }
-    .spaces-note { padding: 15px; border-top: 1px solid var(--lfc-glass-border, #51474e); font-size: 13px; }
+    *, *::before, *::after { box-sizing: border-box; }
+    .layout { display: grid; grid-template-columns: 304px minmax(0, 1fr); width: 100%; height: 100%; min-height: 0;
+      overflow: hidden; border: 1px solid var(--chat-border); border-radius: 20px; background: var(--chat-surface); }
+    .sidebar { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--chat-border); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 23px; letter-spacing: -.04em; }
+    h2 { font-size: 17px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+    h3 { font-size: 15px; }
+    .muted, .status { color: var(--chat-muted); font-size: 12px; line-height: 1.6; }
+    svg { width: 20px; height: 20px; flex-shrink: 0; }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px;
+      border: 1px solid var(--chat-border); border-radius: 12px; background: transparent; padding: 10px 14px; cursor: pointer; }
+    button:hover { background: color-mix(in srgb, var(--chat-accent) 10%, transparent); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--chat-accent); outline-offset: 3px; }
+    .primary { background: var(--chat-accent); color: var(--md-sys-color-on-primary, #142b49); border-color: transparent; font-weight: 700; }
+    .primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--chat-accent); }
+    .icon-button { padding: 10px; width: 42px; flex: 0 0 42px; }
+    .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 18px 16px; gap: 10px; }
+    .sidebar-header p { margin-top: 3px; }
+    .search { display: flex; align-items: center; gap: 8px; margin: 0 16px 16px; padding: 0 12px;
+      border: 1px solid var(--chat-border); border-radius: 12px; color: var(--chat-muted); }
+    .search input { width: 100%; min-width: 0; border: 0; background: transparent; outline-offset: 0; padding: 12px 0; font-size: 13px; }
+    .conversation-list { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 16px; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; padding: 12px 8px 8px;
+      color: var(--chat-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+    .section-title button { border: 0; min-height: 28px; padding: 4px; }
+    .section-title svg { width: 16px; height: 16px; }
+    .conversation-item { width: 100%; min-width: 0; border: 1px solid transparent; padding: 12px 10px; justify-content: flex-start; gap: 12px; text-align: left; }
+    .conversation-item[aria-current="true"] { background: color-mix(in srgb, var(--chat-accent) 13%, transparent); border-color: color-mix(in srgb, var(--chat-accent) 22%, transparent); }
+    .avatar { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px;
+      background: color-mix(in srgb, var(--chat-accent) 14%, transparent); color: var(--chat-accent); font-weight: 700; font-size: 17px; }
+    .avatar.space { border-radius: 12px; background: color-mix(in srgb, #b99aff 14%, transparent); color: #c5acff; }
+    .item-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 5px; }
+    .item-copy strong, .item-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-copy strong { font-size: 13px; font-weight: 650; }
+    .item-copy small { color: var(--chat-muted); font-size: 12px; }
+    .empty-list { padding: 14px 9px 24px; font-size: 12px; color: var(--chat-muted); line-height: 1.6; }
+    .sidebar-footer { border-top: 1px solid var(--chat-border); padding: 12px; display: flex; gap: 8px; align-items: center; }
+    .sidebar-footer > div { flex: 1; min-width: 0; }
+    .sidebar-footer strong { display: block; font-size: 12px; }
+    .sidebar-footer .icon-button { border: 0; }
+    .connection-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: var(--chat-muted); }
+    .connection-dot.ready { background: #86d9b0; }
+    .conversation { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: color-mix(in srgb, #10131b 18%, var(--chat-surface)); }
+    .conversation-header { display: flex; align-items: center; gap: 12px; min-height: 90px; padding: 18px 26px; border-bottom: 1px solid var(--chat-border); }
+    .conversation-header .heading { flex: 1; min-width: 0; }
+    .encryption { display: inline-flex; align-items: center; gap: 5px; color: var(--chat-muted); font-size: 11px; margin-top: 5px; }
+    .encryption svg { width: 13px; height: 13px; }
+    .back { display: none; }
+    .notice { margin: 12px 22px 0; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.6;
+      background: color-mix(in srgb, var(--chat-accent) 7%, transparent); color: var(--chat-muted); overflow-wrap: anywhere; }
+    .error { color: var(--md-sys-color-error, #ffb4ab); background: color-mix(in srgb, #ffb4ab 7%, transparent); }
+    .messages { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 12px; padding: 24px clamp(16px, 3vw, 48px);
+      overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+    .day { align-self: center; flex-shrink: 0; padding: 5px 12px; color: var(--chat-muted); font-size: 10px; border: 1px solid var(--chat-border); border-radius: 20px; margin: 8px 0; }
+    .message { flex: 0 0 auto; width: fit-content; max-width: min(78%, 640px); align-self: flex-start; padding: 11px 15px;
+      border: 1px solid var(--chat-border); border-radius: 15px 15px 15px 4px; background: var(--chat-surface); overflow-wrap: anywhere; }
+    .message.outgoing { align-self: flex-end; border-radius: 15px 15px 4px 15px;
+      border-color: color-mix(in srgb, var(--chat-accent) 17%, transparent); background: color-mix(in srgb, var(--chat-accent) 16%, var(--chat-surface)); }
+    .message-sender { font-size: 11px; font-weight: 650; color: var(--chat-accent); margin-bottom: 5px; }
+    .message-text { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+    .message-meta { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 5px; color: var(--chat-muted); font-size: 10px; }
+    .empty-conversation { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      text-align: center; max-width: 360px; padding: 24px; margin: auto; }
+    .empty-conversation .avatar { width: 64px; height: 64px; flex-basis: 64px; border-radius: 22px; margin-bottom: 4px; }
+    .empty-conversation .avatar svg { width: 28px; height: 28px; }
+    .empty-conversation h3 { font-size: 20px; letter-spacing: -.03em; }
+    .composer { flex-shrink: 0; margin: 0 22px 18px; padding: 12px 14px; border: 1px solid var(--chat-border); border-radius: 16px; background: var(--chat-surface); }
+    .compose { display: flex; gap: 12px; align-items: flex-end; }
+    textarea { display: block; flex: 1; width: 100%; min-width: 0; min-height: 42px; max-height: 160px; resize: none;
+      border: 0; border-radius: 6px; padding: 10px 2px; background: transparent; font-size: 14px; line-height: 22px; }
+    .send { width: 42px; padding: 10px; flex: 0 0 42px; }
+    .compose-hint { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0 0; font-size: 10px; color: var(--chat-muted); }
+    .recipient-device { margin-bottom: 10px; }
+    .recipient-device label { font-size: 11px; color: var(--chat-muted); display: flex; gap: 8px; align-items: center; }
+    select { max-width: 100%; min-width: 0; background: var(--chat-surface); padding: 6px; border-radius: 8px; border: 1px solid var(--chat-border); }
+    dialog { position: fixed; width: min(480px, calc(100vw - 32px)); max-height: min(85dvh, 720px); overflow: auto;
+      color: inherit; background: var(--chat-surface); border: 1px solid var(--chat-border); border-radius: 20px; padding: 24px; }
+    dialog::backdrop { background: #090c14b8; backdrop-filter: blur(4px); }
+    .dialog-header { display: flex; gap: 16px; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .dialog-header h2 { font-size: 21px; }
+    .dialog-form { display: grid; gap: 16px; }
+    .dialog-form label { display: grid; gap: 8px; font-size: 13px; }
+    .dialog-form input { width: 100%; border: 1px solid var(--chat-border); border-radius: 10px; padding: 12px; background: transparent; }
+    .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .settings-group { border-top: 1px solid var(--chat-border); margin-top: 20px; padding-top: 20px; display: grid; gap: 12px; }
+    .device { display: grid; gap: 8px; border: 1px solid var(--chat-border); padding: 12px; border-radius: 12px; }
+    .device-id { color: var(--chat-muted); font-size: 11px; overflow-wrap: anywhere; }
+    .archive-setting { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.5; }
+    .archive-setting input { margin: 3px 0 0; width: 17px; height: 17px; accent-color: var(--chat-accent); flex: 0 0 17px; }
+    .space-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+    .space-actions button { flex: 1; min-height: 34px; padding: 7px 10px; font-size: 12px; }
+    .invite-link { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--chat-border); padding: 12px; font-size: 11px; }
+    .invite-qr { display: block; width: min(320px, 100%); height: auto; padding: 8px; margin: auto; background: white; border-radius: 12px; }
+    .member-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--chat-border); }
+    .member-row > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .member-row button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+    .danger { color: var(--md-sys-color-error, #ffb4ab); }
+    .confirmation { display: grid; gap: 12px; margin-top: 12px; padding: 14px; border: 1px solid var(--chat-border); border-radius: 12px; }
+    .channel-list { display: grid; gap: 3px; margin: 3px 8px 10px 31px; padding-left: 12px; border-left: 1px solid var(--chat-border); }
+    .channel-item { justify-content: flex-start; width: 100%; padding: 7px 9px; min-height: 34px; border-color: transparent; font-size: 12px; color: var(--chat-muted); }
+    .channel-item[aria-current="true"] { color: var(--chat-accent); background: color-mix(in srgb, var(--chat-accent) 10%, transparent); }
+    .channel-item small { margin-left: auto; font-size: 10px; }
+    .channel-topic { font-size: 11px; color: var(--chat-muted); line-height: 1.5; margin-top: 4px; overflow-wrap: anywhere; }
+    .channel-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+    .channel-form { margin-top: 12px; padding: 14px; border: 1px solid var(--chat-border); border-radius: 12px; }
+    .channel-form textarea { border: 1px solid var(--chat-border); padding: 10px; min-height: 74px; }
+    .role-badge { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 6px; background: color-mix(in srgb, var(--chat-accent) 12%, transparent); color: var(--chat-accent); font-size: 10px; }
+    .role-badge.moderator { color: #c5acff; background: color-mix(in srgb, #c5acff 12%, transparent); }
+    .status { overflow-wrap: anywhere; }
+    @media (max-width: 980px) { .layout { grid-template-columns: 260px minmax(0, 1fr); } }
     @media (max-width: 700px) {
-      :host { padding: 8px; }
-      .layout { grid-template-columns: 54px minmax(150px, 38%) minmax(0, 1fr); gap: 6px; }
-      .server-rail { padding: 8px 4px; border-radius: 16px; }
-      .rail-button { width: 40px; height: 40px; min-height: 40px; }
-      .sidebar { border-radius: 16px; }
-      .sidebar-header { padding: 12px 10px; }
-      .sidebar-header h1 { font-size: 15px; }
-      .sidebar-header .status { display: none; }
-      .sidebar-header .add-friend { flex-basis: 32px; width: 32px; min-height: 32px; }
-      .sidebar-section { padding: 10px 7px; }
-      .friend-item, .space-item { gap: 6px; padding: 6px; }
-      .friend-avatar, .space-avatar { flex-basis: 26px; width: 26px; height: 26px; }
-      .friend-copy strong { font-size: 10px; }
-      .friend-copy small { font-size: 9px; }
-      .device-list { padding: 8px; }
-      .sidebar .archive-card { margin: 6px; padding: 9px; }
-      .conversation { border-radius: 16px; }
-      .conversation > header { padding: 14px; }
-      .messages { padding: 12px; }
-      form { gap: 6px; padding: 8px; }
+      :host { padding: 0; }
+      .layout { display: flex; border: 0; border-radius: 0; }
+      .sidebar { width: 100%; border: 0; }
+      .conversation { display: none; width: 100%; }
+      .layout.show-conversation .sidebar { display: none; }
+      .layout.show-conversation .conversation { display: flex; }
+      .back { display: inline-flex; border: 0; flex-basis: 36px; width: 36px; padding: 6px; }
+      .conversation-header { padding: 12px; min-height: 76px; gap: 8px; }
+      .conversation-header .avatar { width: 36px; height: 36px; flex-basis: 36px; font-size: 14px; }
+      .conversation-header h2 { font-size: 15px; }
+      .conversation-header .encryption { font-size: 10px; }
+      .messages { padding: 12px; gap: 10px; }
       .message { max-width: 88%; }
+      .composer { margin: 0 10px 10px; padding: 8px 10px; }
+      .compose-hint .keyboard-hint { display: none; }
+      .notice { margin: 8px 10px 0; }
+      .sidebar-header { padding: 20px 18px; }
+      dialog { padding: 20px; }
     }
   `
 
   render() {
-    const selectedCertificate = this.devices.find((device) => device.deviceId === this.selectedDeviceId)
-    const conversationAccount = selectedCertificate?.account || this.selectedFriendPeerId
-    const selectedSpace = this.spaces.find((space) => space.spaceId === this.selectedSpaceId)
-    const conversationMessages = this.messages.filter(
-      (message) =>
-        this.channel === 'space'
-          ? message.spaceId === this.selectedSpaceId
-          : message.conversationId === this.selectedFriendPeerId ||
-            message.conversationAccount === conversationAccount
-    )
-    const ownPendingDevices = this.devices.filter(
-      (certificate) =>
-        certificate.account === this.device?.account &&
-        certificate.deviceId !== this.device?.deviceId
-    )
-    const recipientDevices = this.devices.filter(
-      (certificate) =>
-        certificate.account !== this.device?.account &&
-        ((certificate.peerId || certificate.account) === this.selectedFriendPeerId ||
-          certificate.account === this.selectedFriendPeerId)
-    )
+    const selectedCertificate = this.devices.find(device => device.deviceId === this.selectedDeviceId)
+    const selectedSpace = this.spaces.find(space => space.spaceId === this.selectedSpaceId)
+    const channels = spaceChannels(selectedSpace)
+    const selectedChannel = channels.find(item => item.id === this.selectedChannelId)
+    const spaceWritable = canSendToSpace(selectedSpace, this.device?.certificate, this.selectedChannelId)
+    const joinedSpace = canSendToSpace(selectedSpace, this.device?.certificate)
+    const role = spaceRole(selectedSpace, this.device?.certificate)
+    const managesChannels = role === 'owner' || role === 'moderator'
+    const pendingChannels = selectedSpace?.channelRequests?.filter(request => request.status === 'pending').length || 0
+    const lastChannelRequest = selectedSpace?.channelRequests?.at(-1)
+    const ownsSpace = Boolean(selectedSpace?.manifest && this.device?.certificate &&
+      selectedSpace.manifest.authority.deviceId === this.device.deviceId &&
+      selectedSpace.manifest.authority.signingKey === this.device.certificate.signingKey)
+    const active = this.channel === 'space' ? Boolean(selectedSpace) : Boolean(this.selectedFriendPeerId)
+    const title = this.channel === 'space' ? selectedSpace?.name : this.#short(this.selectedFriendPeerId)
+    const conversationMessages = active ? this.messages.filter(message => this.channel === 'space'
+      ? message.spaceId === this.selectedSpaceId && (message.channelId ?? 'general') === this.selectedChannelId
+      : this.#sameConversation(message, this.selectedFriendPeerId)) : []
+    const recipientDevices = this.devices.filter(certificate => certificate.account !== this.device?.account &&
+      ((certificate.peerId || certificate.account) === this.selectedFriendPeerId || certificate.account === this.selectedFriendPeerId))
+    const friends = [...new Set([...this.friends, ...this.messages.filter(message => !message.spaceId)
+      .map(message => message.conversationId || message.conversationAccount).filter(Boolean)])] as string[]
+    friends.sort((a, b) => (this.messages.findLast(message => this.#sameConversation(message, b))?.timestamp || 0)
+      - (this.messages.findLast(message => this.#sameConversation(message, a))?.timestamp || 0))
+    const search = this.search.trim().toLowerCase()
+    const filteredFriends = friends.filter(friend => friend.toLowerCase().includes(search) ||
+      this.messages.some(message => this.#sameConversation(message, friend) && message.text.toLowerCase().includes(search)))
+    const filteredSpaces = this.spaces.filter(space => space.name.toLowerCase().includes(search) ||
+      this.messages.some(message => message.spaceId === space.spaceId && message.text.toLowerCase().includes(search)))
+    const canSend = this.connected && Boolean(this.device) && !this.sending && Boolean(this.draft.trim()) &&
+      (this.channel === 'space' ? spaceWritable : Boolean(selectedCertificate))
+    const dateLabel = (timestamp: number) => {
+      const date = new Date(timestamp)
+      const today = new Date()
+      if (date.toDateString() === today.toDateString()) return 'Today'
+      const yesterday = new Date(); yesterday.setDate(today.getDate() - 1)
+      return date.toDateString() === yesterday.toDateString() ? 'Yesterday'
+        : date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
+    }
+
     return html`
-      <main class="layout">
-        <nav class="server-rail" aria-label="Chat navigation">
-          <button
-            class="rail-button"
-            type="button"
-            aria-label="Direct messages"
-            title="Direct messages"
-            aria-current=${this.channel === 'direct' ? 'true' : 'false'}
-            @click=${() => {
-              this.channel = 'direct'
-              this.selectedSpaceId = ''
-            }}
-          >✉</button>
-          <span class="rail-spacer" aria-hidden="true"></span>
-          ${this.spaces.map(
-            (space) => html`
-              <button
-                class="rail-button"
-                type="button"
-                aria-label=${space.name}
-                title=${space.name}
-                aria-current=${this.channel === 'space' && this.selectedSpaceId === space.spaceId ? 'true' : 'false'}
-                @click=${() => {
-                  this.selectedSpaceId = space.spaceId
-                  this.channel = 'space'
-                }}
-              >${Array.from(space.name)[0]?.toUpperCase() || '#'}</button>
-            `
-          )}
-          <button
-            class="rail-button add"
-            type="button"
-            aria-label="Create Space"
-            title="Create Space"
-            @click=${() => this.renderRoot.querySelector<HTMLInputElement>('.create-space input')?.focus()}
-          >+</button>
-        </nav>
-        <aside class="sidebar">
+      <main class=${`layout ${this.mobileConversation ? 'show-conversation' : ''}`}>
+        <aside class="sidebar" aria-label="Conversations">
           <header class="sidebar-header">
-            <div>
-              <p class="eyebrow">Peernet</p>
-              <h1>${this.channel === 'space' ? selectedSpace?.name || 'Spaces' : 'Messages'}</h1>
-              <p class="status">${this.status}</p>
-            </div>
-            <button
-              class="add-friend"
-              type="button"
-              aria-label=${this.addingFriend ? 'Cancel adding friend' : 'Add friend'}
-              title="Add friend"
-              @click=${() => (this.addingFriend = !this.addingFriend)}
-            >${this.addingFriend ? '×' : '+'}</button>
+            <div><h1>Messages</h1><p class="muted">Your people. Your conversations.</p></div>
+            <button class="icon-button primary" type="button" aria-label="New conversation" title="New conversation"
+              @click=${() => this.#openPanel('friend')}>${this.#icon('plus')}</button>
           </header>
-          ${this.addingFriend
-            ? html`<form class="friend-form" @submit=${this.#addFriend}>
-                <input
-                  .value=${this.friendAddressDraft}
-                  @input=${(event: Event) =>
-                    (this.friendAddressDraft = (event.currentTarget as HTMLInputElement).value)}
-                  maxlength="128"
-                  autocomplete="off"
-                  placeholder="Friend's Peernet ID"
-                  aria-label="Friend's Peernet ID"
-                  required
-                />
-                <p class="muted">Ask them to share their Peernet ID. They must be online on the same network for their device to appear.</p>
-                <button type="submit">Add friend</button>
-                <button class="copy-id" type="button" @click=${this.#copyOwnPeernetId}>Copy my Peernet ID</button>
-              </form>`
-            : ''}
-          <section class="sidebar-section">
-            <div class="section-title"><span>Direct messages</span></div>
-            ${this.friends.length
-              ? this.friends.map((friend) => {
-                  const certificate = this.devices.find(
-                    (device) => (device.peerId || device.account) === friend || device.account === friend
-                  )
-                  return html`<button
-                    class="friend-item"
-                    type="button"
-                    aria-current=${this.channel === 'direct' && this.selectedFriendPeerId === friend ? 'true' : 'false'}
-                    @click=${() => this.#selectFriend(friend)}
-                  >
-                    <span class="friend-avatar" aria-hidden="true">${friend.slice(0, 1).toUpperCase()}</span>
-                    <span class="friend-copy">
-                      <strong>${friend.slice(0, 12)}…</strong>
-                      <small>${certificate ? 'Known device' : 'Waiting for device'}</small>
-                    </span>
-                  </button>`
-                })
-              : html`<div class="empty-list">
-                  <span class="empty-icon" aria-hidden="true">✉</span>
-                  <strong>No conversations yet</strong>
-                  <span>Use + to add a friend by Peernet ID.</span>
-                </div>`}
-          </section>
-          <section class="sidebar-section">
-            <div class="section-title">
-              <span>Joined Spaces</span>
-              <button
-                type="button"
-                aria-label="Create Space"
-                title="Create Space"
-                @click=${() => this.renderRoot.querySelector<HTMLInputElement>('.create-space input')?.focus()}
-              >+</button>
-            </div>
-            ${this.spaces.map(
-              (space) => html`<button
-                class="space-item"
-                type="button"
-                aria-current=${this.channel === 'space' && this.selectedSpaceId === space.spaceId ? 'true' : 'false'}
-                @click=${() => {
-                  this.selectedSpaceId = space.spaceId
-                  this.channel = 'space'
-                }}
-              >
-                <span class="space-avatar" aria-hidden="true">#</span>
-                <span>${space.name}</span>
+          <label class="search">${this.#icon('search')}
+            <input type="search" placeholder="Search conversations" aria-label="Search conversations" .value=${this.search}
+              @input=${(event: Event) => this.search = (event.currentTarget as HTMLInputElement).value} />
+          </label>
+          <div class="space-actions"><button type="button" @click=${() => this.#openPanel('space')}>${this.#icon('plus')}Create Space</button>
+            <button type="button" @click=${() => { this.invitePreview = undefined; this.inviteInput = ''; void this.#openPanel('join') }}>Join Space</button></div>
+          <div class="conversation-list">
+            <div class="section-title"><span>Direct messages · ${friends.length}</span></div>
+            ${filteredFriends.map(friend => {
+              const messages = this.messages.filter(message => this.#sameConversation(message, friend))
+              const known = this.devices.some(device => (device.peerId || device.account) === friend || device.account === friend)
+              return html`<button class="conversation-item friend-item" type="button" title=${friend}
+                aria-current=${this.channel === 'direct' && this.selectedFriendPeerId === friend ? 'true' : 'false'}
+                @click=${() => this.#selectFriend(friend)}>
+                <span class="avatar" aria-hidden="true">${this.#icon('chat')}</span>
+                <span class="item-copy"><strong>${this.#short(friend)}</strong><small>${this.#preview(messages, known ? 'Start a conversation' : 'Waiting for device')}</small></span>
               </button>`
-            )}
-            ${this.spaces.length ? '' : html`<p class="muted">Spaces you join will show up here.</p>`}
-            <form class="create-space" @submit=${this.#createSpace}>
-              <input
-                .value=${this.spaceNameDraft}
-                @input=${(event: Event) =>
-                  (this.spaceNameDraft = (event.currentTarget as HTMLInputElement).value)}
-                maxlength="80"
-                placeholder="New Space name"
-                aria-label="New Space name"
-              />
-              <button type="submit" ?disabled=${!this.spaceNameDraft.trim()}>Create</button>
-            </form>
-          </section>
-          <div class="sidebar-spacer"></div>
-          <details class="sidebar-section settings-section">
-            <summary class="section-title">Device settings (${this.devices.length})</summary>
-            <div class="device-list">
-              ${this.devices.length
-                ? this.devices.map(
-                  (certificate) => html`
-                    <article class="device">
-                      <span>${certificate.account.slice(0, 12)}…</span>
-                      <span class="device-id">${certificate.deviceId}</span>
-                      ${certificate.account === this.device?.account &&
-                      certificate.deviceId !== this.device?.deviceId
-                        ? html`<button type="button" @click=${() => this.#approveDevice(certificate)}>
-                            Approve device
-                          </button>`
-                        : ''}
-                      ${this.channel === 'space' &&
-                      selectedSpace?.ownerAccount === this.device?.account &&
-                      certificate.account !== this.device?.account
-                        ? html`<button type="button" @click=${() => this.#inviteSpace(certificate)}>
-                            Invite to ${selectedSpace.name}
-                          </button>`
-                        : ''}
-                    </article>
-                  `
-                )
-                : html`<p class="muted empty">No devices discovered yet. Use the same network and keep Chat open to be discovered.</p>`}
+            })}
+            ${!filteredFriends.length ? html`<p class="empty-list">${search ? 'No matching direct messages.' : 'Start with a friend’s Peernet ID. New conversations will appear here.'}</p>` : ''}
+            <div class="section-title"><span>Spaces · ${this.spaces.length}</span>
+              <button type="button" aria-label="Create Space" title="Create Space" @click=${() => this.#openPanel('space')}>${this.#icon('plus')}</button>
             </div>
-          </details>
-          <details class="sidebar-section settings-section">
-            <summary class="section-title">Offline delivery</summary>
-            <section class="archive-card">
-              <label class="archive-setting">
-                <input
-                  type="checkbox"
-                  .checked=${this.archiveEnabled}
-                  @change=${this.#setArchiveEnabled}
-                />
-                <span><strong>Offer encrypted DM archiving</strong><br />Store ciphertext temporarily for offline devices.</span>
-              </label>
-              <p class="muted">${this.archiveCount} archived · ${this.pendingCount} pending delivery</p>
-              <p class="muted">Archiving is opt-in. Copies are removed after a verified receipt when reachable.</p>
-            </section>
-          </details>
+            ${filteredSpaces.map(space => html`<div class="space-entry"><button class="conversation-item space-item" type="button"
+              aria-current=${this.channel === 'space' && this.selectedSpaceId === space.spaceId ? 'true' : 'false'}
+              @click=${() => this.#selectSpace(space.spaceId)}>
+              <span class="avatar space" aria-hidden="true">#</span>
+              <span class="item-copy"><strong>${space.name}</strong><small>${space.status && space.status !== 'joined'
+                ? ({offered:'Invitation received',requested:'Waiting for approval',left:'You left this Space',removed:'Membership removed',denied:'Request declined'}[space.status] || space.status)
+                : this.#preview(this.messages.filter(message => message.spaceId === space.spaceId), space.manifest ? `${space.manifest.members.length} member devices` : 'Legacy Space · upgrade required')}</small></span>
+            </button>
+            ${this.channel === 'space' && this.selectedSpaceId === space.spaceId && space.status === 'joined' ? html`<nav class="channel-list" aria-label=${`Channels in ${space.name}`}>
+              ${spaceChannels(space).filter(item => !item.archived || item.id === this.selectedChannelId).map(item => html`<button
+                class="channel-item" type="button" data-channel=${item.id} aria-current=${item.id === this.selectedChannelId ? 'true' : 'false'}
+                @click=${() => this.#selectSpaceChannel(space.spaceId, item.id)}><span aria-hidden="true">#</span>${item.name}${item.archived ? html`<small>Archived</small>` : ''}</button>`)}
+              ${managesChannels ? html`<button class="channel-item" type="button" @click=${() => { this.#resetChannelForm(); void this.#openPanel('manage') }}>+ Manage channels</button>` : ''}
+            </nav>` : ''}</div>`)}
+            ${!filteredSpaces.length ? html`<p class="empty-list">${search ? 'No matching Spaces.' : 'A private place for your group. Create a Space or receive an invitation.'}</p>` : ''}
+          </div>
+          <footer class="sidebar-footer">
+            <span class="avatar" aria-hidden="true">${this.#icon('shield')}</span>
+            <div><strong><span class=${`connection-dot ${this.connected ? 'ready' : ''}`}></span>${this.connected ? 'Chat connected' : 'Not connected'}</strong>
+              <span class="muted">${this.pendingCount ? `${this.pendingCount} pending delivery` : 'End-to-end encrypted'}</span></div>
+            <button class="icon-button" type="button" aria-label="Chat settings" title="Chat settings" @click=${() => this.#openPanel('settings')}>${this.#icon('settings')}</button>
+          </footer>
         </aside>
-        <section class="conversation">
-          <header>
-            <p class="eyebrow">${this.channel === 'space' ? 'Space' : 'Direct message'}</p>
-            <h2>${this.channel === 'space'
-              ? selectedSpace?.name || 'Choose a Space'
-              : this.selectedFriendPeerId || 'Choose a friend'}</h2>
-            <p class="muted">
-              ${this.channel === 'space'
-                ? 'End-to-end encrypted for members who received the Space invitation.'
-                : 'End-to-end encrypted between approved device keys.'}
-            </p>
+
+        <section class="conversation" aria-label="Conversation">
+          <header class="conversation-header">
+            <button class="icon-button back" type="button" aria-label="Back to conversations"
+              @click=${() => this.mobileConversation = false}>${this.#icon('back')}</button>
+            <span class=${`avatar ${this.channel === 'space' ? 'space' : ''}`} aria-hidden="true">${this.channel === 'space' ? '#' : this.#icon('chat')}</span>
+            <div class="heading"><h2 title=${this.channel === 'direct' ? this.selectedFriendPeerId : ''}>${title || 'Your conversations'}${this.channel === 'space' && selectedChannel ? html` · #${selectedChannel.name}` : ''}</h2>
+              <span class="encryption">${this.#icon('shield')}${active ? 'End-to-end encrypted' : 'Private by design'}</span>
+              ${this.channel === 'space' && selectedChannel?.topic ? html`<p class="channel-topic">${selectedChannel.topic}</p>` : ''}</div>
+            ${active ? html`<button class="icon-button" type="button" aria-label="Conversation settings" title="Devices and invitations"
+              @click=${() => this.#openPanel(this.channel === 'space' ? 'manage' : 'settings')}>${this.#icon('settings')}</button>` : ''}
           </header>
           ${this.error ? html`<p class="notice error" role="alert">${this.error}</p>` : ''}
-          ${this.channel === 'direct' && conversationAccount && !selectedCertificate
-            ? html`<p class="notice muted">This friend is offline. Messages can be sent when one of their devices announces on this network.</p>`
-            : ''}
-          ${ownPendingDevices.length
-            ? html`<p class="notice muted">Approve only devices you recognize and control.</p>`
-            : ''}
-          <div class="messages" aria-live="polite">
-            ${conversationMessages.length
-              ? conversationMessages.map(
-                  (message) => html`
-                    <article class=${message.outgoing ? 'message outgoing' : 'message'}>
-                      <span class="message-meta">
-                        <span>${message.outgoing ? 'You' : message.sender}</span>
-                        <time datetime=${new Date(message.timestamp).toISOString()}>
-                          ${new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </time>
-                      </span>
-                      <span>${message.text}</span>
-                      ${message.deliveryState
-                        ? html`<small class="message-state">
-                            ${message.deliveryState === 'delivered'
-                                ? 'Delivered'
-                                : 'Waiting for delivery'}
-                          </small>`
-                        : ''}
-                    </article>
-                  `
-                )
-              : html`<p class="muted empty">
-                  ${this.channel === 'space'
-                    ? 'No messages in this Space yet. Send one while the other members are online.'
-                    : this.selectedFriendPeerId
-                      ? 'No messages yet. Say hello.'
-                      : this.friends.length
-                        ? 'Choose a friend to view your conversation.'
-                        : 'Add a friend with their Peernet ID to start a conversation.'}
-                </p>`}
+          ${active && !this.connected ? html`<p class="notice" role="status">${this.status}</p>` : ''}
+          ${this.channel === 'space' && active && !spaceWritable ? html`<section class="notice" role="status">
+            ${joinedSpace && selectedChannel?.archived ? html`This channel is archived. Its local history is still available, but new messages are disabled.`
+              : !selectedSpace?.manifest && !selectedSpace?.status ? html`This legacy Space needs managed membership before you can send.
+              <button type="button" @click=${() => this.#openPanel('manage')}>View upgrade options</button>`
+              : selectedSpace?.status === 'requested' ? html`Waiting for owner approval. Keep Chat open; the owner must open Chat to process your request.
+                <button type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(() => this.#spaces!.leave(this.selectedSpaceId), 'Join request cancelled.')}>Cancel request</button>`
+                : html`${selectedSpace?.status === 'offered' ? 'You have been invited. Review the invitation before requesting access.' : 'You do not have current membership in this Space.'}
+                  ${selectedSpace?.invitation ? html`<button type="button" @click=${() => { this.inviteInput = spaceInvitationLink(selectedSpace.invitation); void this.#previewInvitation() }}>Review invitation</button>` : ''}`}
+          </section>` : ''}
+          ${this.managerQueue ? html`<p class="notice" role="status">${this.managerQueue} Space update(s) queued for sending. Keep Chat open to retry.</p>` : ''}
+          ${this.channel === 'space' && pendingChannels ? html`<p class="notice" role="status">${pendingChannels} channel change(s) awaiting the owner device. Keep Chat open; the owner must be online to authorize them.</p>` : ''}
+          ${this.channel === 'space' && lastChannelRequest?.status === 'rejected' ? html`<p class="notice error" role="alert">Channel change declined: ${lastChannelRequest.error}</p>` : ''}
+          ${this.channel === 'direct' && active && !selectedCertificate
+            ? html`<p class="notice">Waiting for a recipient device. Keep Chat open on the same network to discover each other.</p>` : ''}
+          <div class="messages" role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions text"
+            @scroll=${(event: Event) => {
+              const list = event.currentTarget as HTMLElement
+              this.#stickToBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100
+            }}>
+            ${conversationMessages.length ? conversationMessages.map((message, index) => html`
+              ${index === 0 || new Date(conversationMessages[index - 1].timestamp).toDateString() !== new Date(message.timestamp).toDateString()
+                ? html`<span class="day">${dateLabel(message.timestamp)}</span>` : ''}
+              <article class=${message.outgoing ? 'message outgoing' : 'message'} aria-label=${message.outgoing ? 'Your message' : 'Received message'}>
+                ${!message.outgoing && this.channel === 'space' ? html`<p class="message-sender" title=${message.sender}>${this.#short(message.sender)}</p>` : ''}
+                <p class="message-text">${message.text}</p>
+                <footer class="message-meta"><time datetime=${new Date(message.timestamp).toISOString()}>${new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                  ${message.deliveryState ? html`<span class="message-state">${message.deliveryState === 'delivered' ? 'Delivered' : 'Pending delivery'}</span>` : ''}
+                </footer>
+              </article>`)
+              : html`<div class="empty-conversation"><span class="avatar" aria-hidden="true">${this.#icon('chat')}</span>
+                  <h3>${active ? 'Say hello' : 'A little closer, wherever you are.'}</h3>
+                  <p class="muted">${active ? this.channel === 'space'
+                    ? 'Only invited members can read this Space. Send the first message while they’re online.'
+                    : 'Your conversation starts here. Messages are encrypted between your device keys.'
+                    : 'Message a friend or bring your people together in a private Space.'}</p>
+                  ${!active ? html`<button class="primary" type="button" @click=${() => this.#openPanel('friend')}>${this.#icon('plus')}New conversation</button>` : ''}
+                </div>`}
           </div>
-          <form @submit=${this.#send}>
-            ${this.channel === 'direct'
-              ? html`<select .value=${this.selectedDeviceId} @change=${this.#selectDevice} aria-label="Recipient device">
-                  <option value="">Choose recipient device</option>
-                  ${recipientDevices.map(
-                      (certificate) =>
-                        html`<option value=${certificate.deviceId}>
-                          ${certificate.account.slice(0, 12)}… · ${certificate.deviceId.slice(0, 8)}
-                        </option>`
-                    )}
-                </select>`
-              : html`<span class="muted"># ${selectedSpace?.name || 'Select a Space'}</span>`}
-            <div class="compose">
-              <input
-                .value=${this.draft}
-                @input=${(event: Event) => (this.draft = (event.currentTarget as HTMLInputElement).value)}
-                maxlength="4000"
-                placeholder="Write a message…"
-                aria-label="Message"
-              />
-              <button
-                type="submit"
-                ?disabled=${(this.channel === 'direct' && !this.selectedDeviceId) ||
-                (this.channel === 'space' && !this.selectedSpaceId) ||
-                !this.draft.trim()}
-              >
-                Send
-              </button>
-            </div>
-          </form>
+          ${active && (this.channel === 'direct' || spaceWritable) ? html`<form class="composer" @submit=${this.#send} aria-label="Send message">
+            ${this.channel === 'direct' && recipientDevices.length > 1 ? html`<div class="recipient-device"><label>Send to device
+              <select .value=${this.selectedDeviceId} @change=${this.#selectDevice} aria-label="Recipient device">
+                ${recipientDevices.map(certificate => html`<option value=${certificate.deviceId}>${certificate.deviceId.slice(0, 12)}</option>`)}
+              </select></label></div>` : ''}
+            <div class="compose"><textarea .value=${this.draft} rows="1" maxlength="4000" placeholder="Write a message…"
+              aria-label="Message" @input=${this.#composerInput} @keydown=${this.#composerKeydown}
+              ?disabled=${!this.connected || this.sending || (this.channel === 'direct' && !selectedCertificate)}></textarea>
+              <button class="send primary" type="submit" aria-label=${this.sending ? 'Sending message' : 'Send message'} title="Send message"
+                ?disabled=${!canSend}>${this.#icon('send')}</button></div>
+            <div class="compose-hint"><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span><span>${this.sending ? 'Sending…' : `${this.draft.length} / 4000`}</span></div>
+          </form>` : ''}
         </section>
       </main>
+
+      ${this.panel ? html`<dialog aria-labelledby="chat-dialog-title" @cancel=${(event: Event) => { event.preventDefault(); this.#closePanel() }} @close=${(event: Event) => {
+        const dialog = event.currentTarget as HTMLDialogElement
+        if (!dialog.open && dialog === this.renderRoot.querySelector('dialog')) this.panel = ''
+      }}>
+        <header class="dialog-header"><h2 id="chat-dialog-title">${this.panel === 'friend' ? 'New conversation' : this.panel === 'space' ? 'Create a Space' : this.panel === 'join' ? 'Join a Space' : this.panel === 'manage' ? selectedSpace?.name || 'Space settings' : 'Chat settings'}</h2>
+          <button class="icon-button" type="button" aria-label="Close dialog" @click=${this.#closePanel}>${this.#icon('close')}</button></header>
+        ${this.panel === 'friend' ? html`<form class="dialog-form" @submit=${this.#addFriend}>
+          <label>Friend’s Peernet ID<input .value=${this.friendAddressDraft} autofocus required maxlength="128" autocomplete="off"
+            placeholder="Paste a Peernet ID" @input=${(event: Event) => this.friendAddressDraft = (event.currentTarget as HTMLInputElement).value} /></label>
+          <p class="muted">Ask your friend to copy their ID from Chat settings. Both devices need to open Chat on the same network to discover each other.</p>
+          <div class="dialog-actions"><button type="button" @click=${this.#closePanel}>Cancel</button><button class="primary" type="submit"
+            ?disabled=${!this.device || !this.friendAddressDraft.trim()}>Start conversation</button></div></form>` : ''}
+        ${this.panel === 'space' ? html`<form class="dialog-form" @submit=${this.#createSpace}>
+          <label>Space name<input .value=${this.spaceNameDraft} autofocus required maxlength="80" placeholder="e.g. Friends & family"
+            @input=${(event: Event) => this.spaceNameDraft = (event.currentTarget as HTMLInputElement).value} /></label>
+          <p class="muted">An encrypted group for people you invite. Generate a shareable link after creating it, then approve requests to join.</p>
+          <div class="dialog-actions"><button type="button" @click=${this.#closePanel}>Cancel</button><button class="primary" type="submit"
+            ?disabled=${this.busy || !this.device || !this.spaceNameDraft.trim()}>Create Space</button></div></form>` : ''}
+        ${this.panel === 'join' ? html`<form class="dialog-form" @submit=${(event: SubmitEvent) => { event.preventDefault(); void this.#previewInvitation() }}>
+          <label>Invitation link<input autofocus .value=${this.inviteInput} maxlength="16000" placeholder="Paste a Space invitation link"
+            @input=${(event: Event) => { this.inviteInput = (event.currentTarget as HTMLInputElement).value; this.invitePreview = undefined }} /></label>
+          <p class="muted">Opening a link never joins automatically. A link contains public Space information, not the encryption key.</p>
+          <button type="submit" ?disabled=${this.busy || !this.inviteInput.trim()}>Preview invitation</button>
+          ${this.invitePreview ? html`<section class="settings-group"><span class="avatar space" aria-hidden="true">#</span><h3>${this.invitePreview.name}</h3>
+            <p class="device-id">Owner: ${this.invitePreview.ownerAccount}</p><p class="muted">Network: ${this.invitePreview.network}<br />Expires: ${new Date(this.invitePreview.expiresAt).toLocaleString()}</p>
+            <p class="muted">The owner must approve your device before it receives a group key. Current limit: 8 member devices per Space.</p>
+            <div class="dialog-actions"><button type="button" @click=${this.#closePanel}>Cancel</button>
+              <button class="primary" type="button" ?disabled=${this.busy || !this.connected} @click=${this.#requestSpaceJoin}>Request to join</button></div>
+          </section>` : ''}
+        </form>` : ''}
+        ${this.panel === 'manage' && selectedSpace ? html`
+          <p class="status" role="status">${this.status}</p>
+          ${!selectedSpace.manifest && selectedSpace.status ? html`<section class="settings-group"><h3>Membership: ${selectedSpace.status}</h3>
+            <p class="muted">Opening an invitation is not membership. Review the link and request access, then wait for the owner to approve your device.</p>
+            ${selectedSpace.invitation && selectedSpace.status !== 'requested' ? html`<button type="button" @click=${() => {
+              this.inviteInput = spaceInvitationLink(selectedSpace.invitation); void this.#previewInvitation()
+            }}>Review invitation</button>` : ''}
+          </section>` : !selectedSpace.manifest ? html`<section class="settings-group"><h3>Upgrade legacy membership</h3>
+            <p class="muted">The old Space format cannot revoke membership. Upgrading preserves local messages but creates a fresh key. Existing members must request access again.</p>
+            ${selectedSpace.ownerAccount === this.device?.account ? html`<button class="primary" type="button" ?disabled=${this.busy} @click=${this.#upgradeSpace}>Upgrade Space</button>`
+              : html`<p class="muted">Ask the owner for a new invitation link.</p>`}</section>` : html`
+            <p class="muted">${selectedSpace.manifest.members.length} / 8 member devices · Membership revision ${selectedSpace.manifest.revision}</p>
+            <section class="settings-group"><h3>Channels · ${channels.length} / 12</h3>
+              <p class="muted">Channels organize conversations inside this Space. Every member can read every channel; these are not private permission groups.</p>
+              ${role === 'moderator' ? html`<p class="muted">You can manage channels. Changes become active after the owner device verifies and signs them. You cannot change roles or membership.</p>` : ''}
+              ${channels.map(item => html`<div class="member-row"><div><strong>#${item.name}${item.archived ? ' · Archived' : ''}</strong>
+                ${item.topic ? html`<p class="muted">${item.topic}</p>` : ''}</div>
+                <div class="channel-controls"><button type="button" aria-label=${`Open channel ${item.name}`} @click=${() => {
+                  this.#selectSpaceChannel(selectedSpace.spaceId,item.id); this.#closePanel()
+                }}>${item.archived ? 'Open history' : 'Open'}</button>
+                ${managesChannels ? html`<button type="button" aria-label=${`Edit channel ${item.name}`} @click=${() => this.#editChannel(item)}>Edit</button>
+                  ${item.id !== 'general' ? html`<button type="button" ?disabled=${this.busy} aria-label=${`${item.archived ? 'Restore' : 'Archive'} channel ${item.name}`}
+                    @click=${() => this.#changeChannel({action:item.archived ? 'restore' : 'archive',channelId:item.id,expectedVersion:item.version})}>${item.archived ? 'Restore' : 'Archive'}</button>` : ''}` : ''}</div></div>`)}
+              ${managesChannels ? html`<form class="dialog-form channel-form" @submit=${this.#saveChannel}>
+                <h3>${this.channelEditingId ? 'Edit channel' : 'Create channel'}</h3>
+                <label>Channel name<input aria-label="Channel name" .value=${this.channelNameDraft} required maxlength="32" placeholder="e.g. development"
+                  @input=${(event: Event) => this.channelNameDraft = (event.currentTarget as HTMLInputElement).value} /></label>
+                <label>Topic<textarea aria-label="Channel topic" .value=${this.channelTopicDraft} maxlength="120" rows="2" placeholder="What is this conversation about?"
+                  @input=${(event: Event) => this.channelTopicDraft = (event.currentTarget as HTMLTextAreaElement).value}></textarea></label>
+                <div class="dialog-actions">${this.channelEditingId ? html`<button type="button" @click=${this.#resetChannelForm}>Cancel editing</button>` : ''}
+                  <button class="primary" type="submit" ?disabled=${this.busy || !this.channelNameDraft.trim() || (!this.channelEditingId && channels.length >= 12)}>${this.channelEditingId ? 'Save channel' : 'Create channel'}</button></div>
+              </form>` : ''}
+              ${(selectedSpace.channelRequests || []).slice(-3).map(request => html`<p class=${request.status === 'rejected' ? 'muted danger' : 'muted'} role="status">
+                Channel change: ${request.status}${request.error ? ` — ${request.error}` : ''}</p>`)}
+            </section>
+            ${ownsSpace ? html`<section class="settings-group"><h3>Invite people</h3>
+              <p class="muted">Links expire after 24 hours. You approve each join request from this owner device. Keep Chat open to process requests.</p>
+              <button class="primary" type="button" ?disabled=${this.busy} @click=${this.#generateInvitation}>Generate invitation</button>
+              ${this.generatedInvite ? html`<label class="muted">Shareable invitation<textarea class="invite-link" readonly .value=${this.generatedInvite} aria-label="Space invitation link"></textarea></label>
+                <button type="button" @click=${this.#copyInvitation}>${this.#icon('copy')}Copy invitation link</button>
+                ${this.inviteQr ? html`<img class="invite-qr" src=${this.inviteQr} alt="QR code for the Space invitation" />` : ''}` : ''}
+              ${(selectedSpace.invites || []).map(invite => html`<div class="member-row"><div><strong>Invitation ${invite.id.slice(0,8)}</strong><p class="muted">Expires ${new Date(invite.expiresAt).toLocaleString()}</p></div>
+                <button type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(async () => { await this.#spaces!.revokeInvitation(selectedSpace.spaceId, invite.id); this.generatedInvite = ''; this.inviteQr = '' }, 'Invitation revoked. It can no longer be approved.')}>Revoke</button></div>`)}
+            </section><section class="settings-group"><h3>Join requests · ${selectedSpace.requests?.length || 0}</h3>
+              ${(selectedSpace.requests || []).map(request => html`<article class="device"><strong>${this.#short(request.certificate.account)}</strong><span class="device-id">Device ${request.certificate.deviceId}</span>
+                <div class="dialog-actions"><button type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(() => this.#spaces!.deny(selectedSpace.spaceId, request.requestId), 'Join request declined.')}>Decline</button>
+                  <button class="primary" type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(() => this.#spaces!.approve(selectedSpace.spaceId, request.requestId), 'Membership approved. Encrypted key update queued for delivery.')}>Approve</button></div></article>`)}
+              ${selectedSpace.requests?.length ? '' : html`<p class="muted">People who request access through your invitations appear here.</p>`}</section>` : ''}
+            <section class="settings-group"><h3>Members</h3>
+              ${selectedSpace.manifest.members.map(member => html`<div class="member-row"><div><strong>${this.#short(member.account)}</strong>
+                <p class="device-id">${member.deviceId}</p><span class=${`role-badge ${spaceRole(selectedSpace,member.account) === 'moderator' ? 'moderator' : ''}`}>${member.account === selectedSpace.ownerAccount ? 'Owner' : spaceRole(selectedSpace,member.account) === 'moderator' ? 'Moderator' : 'Member'}</span></div>
+                ${ownsSpace && member.account !== selectedSpace.ownerAccount ? html`<div class="channel-controls">
+                  <button class="moderator-role" type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(() => this.#spaces!.setModerator(selectedSpace.spaceId,member.account,spaceRole(selectedSpace,member.account) !== 'moderator'),
+                    'Moderator role updated. Signed permissions are queued for delivery.')}>${spaceRole(selectedSpace,member.account) === 'moderator' ? 'Remove moderator' : 'Make moderator'}</button>
+                  <button class="danger" type="button" ?disabled=${this.busy} @click=${() => this.confirmRemoval = member.account}>Remove</button></div>` : ''}</div>`)}
+              ${ownsSpace ? html`<p class="muted">Moderators can manage channels, not roles, invitations or membership. The role applies to that account’s current member devices.</p>` : ''}
+              <p class="muted">Membership changes rotate the key for future messages. Removed members may retain messages and keys they already received. Removal also revokes existing invitation links.</p>
+              ${!ownsSpace && selectedSpace.status === 'joined' ? html`<button class="danger" type="button" @click=${() => this.confirmRemoval = 'self'}>Leave Space</button>` : ''}
+              ${this.confirmRemoval ? html`<div class="confirmation"><strong>${this.confirmRemoval === 'self' ? 'Leave this Space?' : 'Remove this member’s devices?'}</strong>
+                <div class="dialog-actions"><button type="button" @click=${() => this.confirmRemoval = ''}>Cancel</button>
+                  <button class="danger" type="button" ?disabled=${this.busy} @click=${() => this.#spaceAction(async () => {
+                    if (this.confirmRemoval === 'self') await this.#spaces!.leave(selectedSpace.spaceId)
+                    else await this.#spaces!.remove(selectedSpace.spaceId, this.confirmRemoval)
+                    this.confirmRemoval = ''; this.generatedInvite = ''; this.inviteQr = ''
+                  }, 'Membership updated. Key changes are queued for delivery.')}>Confirm</button></div></div>` : ''}
+            </section>`}
+            ${selectedSpace.status && selectedSpace.status !== 'joined' && selectedSpace.status !== 'requested' ? html`<section class="settings-group">
+              <button type="button" ?disabled=${this.busy || Boolean(this.managerQueue)} @click=${() => this.#spaceAction(async () => {
+                await this.#spaces!.forget(selectedSpace.spaceId); this.selectedSpaceId = ''; this.mobileConversation = false; this.#closePanel()
+              }, 'Space removed from this device.')}>Forget Space on this device</button></section>` : ''}
+        ` : ''}
+        ${this.panel === 'settings' ? html`
+          <p class="status" role="status">${this.status}</p>
+          <section class="settings-group"><h3>Your Peernet ID</h3><p class="device-id">${this.device?.peerId || 'Connect to the node first.'}</p>
+            <button type="button" ?disabled=${!this.device} @click=${this.#copyOwnPeernetId}>${this.#icon('copy')}Copy my ID</button></section>
+          <section class="settings-group"><h3>Offline delivery</h3>
+            <label class="archive-setting"><input type="checkbox" .checked=${this.archiveEnabled} ?disabled=${!this.connected}
+              @change=${this.#setArchiveEnabled} /><span><strong>Offer encrypted DM archiving</strong><br />Temporarily store ciphertext for offline devices.</span></label>
+            <p class="muted">${this.archiveCount} archived · ${this.pendingCount} pending delivery</p>
+            <p class="muted">Opt-in only. Reachable copies are removed after a verified receipt. This does not guarantee every copy is erased.</p></section>
+          <section class="settings-group"><h3>Discovered devices · ${this.devices.length}</h3>
+            <p class="muted">Approve only devices you recognize and control. Discovery does not mean a device is currently online.</p>
+            ${this.devices.map(certificate => html`<article class="device"><strong>${this.#short(certificate.account)}</strong><span class="device-id">${certificate.deviceId}</span>
+              ${certificate.account === this.device?.account && certificate.deviceId !== this.device?.deviceId
+                ? html`<button type="button" @click=${() => this.#approveDevice(certificate)}>Approve device</button>` : ''}
+              ${this.channel === 'space' && ownsSpace && certificate.account !== this.device?.account
+                ? html`<button type="button" @click=${() => this.#inviteSpace(certificate)}>Invite to ${selectedSpace.name}</button>` : ''}
+            </article>`)}
+            ${!this.devices.length ? html`<p class="muted">No devices discovered yet. Keep Chat open on the same network.</p>` : ''}
+          </section>` : ''}
+        ${this.error ? html`<p class="notice error" role="alert">${this.error}</p>` : ''}
+      </dialog>` : ''}
     `
   }
 }

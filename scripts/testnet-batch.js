@@ -15,7 +15,7 @@ export const help = `Submit a deliberate Peach testnet transaction burst (never 
   npm run testnet:batch -- --endpoint http://127.0.0.1:8080 --from <address> --to <address> --count 100000
   npm run testnet:batch -- --endpoint http://127.0.0.1:8080 --from <address> --to <address> --count 100000 --amount 1 --concurrency 32 --wallet-file <encrypted-export> --password-file <file> --output <new-receipts.jsonl> --confirm-testnet-send
 
-Default: read-only preview. Amount is positive integer atoms per transfer.
+With endpoint options: read-only preview by default. Amount is integer atoms per transfer.
 Count: any positive safe integer; concurrency: 1..1024 (default 32).
 All transfers are signed before submission and queued without waiting for blocks.
 Concurrency limits in-flight HTTP requests, not the total pending transaction pool.

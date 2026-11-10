@@ -570,7 +570,7 @@ export default class Chain extends VersionControl {
 
     globalThis.peernet.subscribe('add-block', this.#addBlock.bind(this))
 
-    globalThis.peernet.subscribe('invalid-transaction', bytes => this.#invalidTransaction(decodeWire('invalid-transaction', bytes)))
+    globalThis.peernet.subscribe('invalid-transaction', this.#invalidTransaction.bind(this))
 
     globalThis.peernet.subscribe('send-transaction', this.#sendTransaction.bind(this))
 
@@ -591,14 +591,21 @@ export default class Chain extends VersionControl {
     this.readyResolve(true)
   }
 
-  async #invalidTransaction(hash) {
-    hash = new TextDecoder().decode(hash)
-    if (!(await globalThis.transactionPoolStore.has(hash))) {
-      debug(`transaction ${hash} not in pool`)
-      return
+  async #invalidTransaction(bytes: Uint8Array) {
+    try {
+      const hash: unknown = decodeWire('invalid-transaction', bytes)
+      if (typeof hash !== 'string' || !hash) throw new Error('Invalid transaction hash in invalid-transaction message')
+      if (!(await globalThis.transactionPoolStore.has(hash))) {
+        debug(`transaction ${hash} not in pool`)
+        return
+      }
+      console.log(`removing invalid transaction: ${hash}`)
+      await globalThis.transactionPoolStore.delete(hash)
+    } catch (error) {
+      // Pubsub does not await async handlers; report rejection without crashing
+      // the node on malformed peer data or a failed local pool operation.
+      console.error('Failed to handle invalid-transaction message:', error)
     }
-    console.log(`removing invalid transaction: ${hash}`)
-    await globalThis.transactionPoolStore.delete(hash)
   }
 
   async #validatorTimeout(validatorInfo: { address?: string; timeout?: number }): Promise<void> {

@@ -9,6 +9,7 @@ export interface Selectable extends HTMLElement {
 }
 
 const queryFields: Record<string, string[]> = {
+  chat: ['invite'],
   'wallet/pay': ['to', 'amount', 'description', 'protocol', 'network', 'networkName'],
   'explorer/block': ['selected', 'index'],
   'explorer/transaction': ['selected', 'blockIndex', 'blockHash'],
@@ -27,7 +28,7 @@ export function parseHashRoute(hash: string, origin: string) {
 export function applyRouteParameters(page: Selectable, path: string, params: Record<string, string>) {
   const fields = Object.hasOwn(queryFields, path) ? queryFields[path] : []
   const allowed = Object.fromEntries(fields.filter(key => Object.hasOwn(params, key)).map(key => [key, params[key]]))
-  if (path === 'wallet/pay') {
+  if (path === 'wallet/pay' || path === 'chat') {
     if (typeof page.applyRouteParameters !== 'function') throw new Error('Payment view is not ready for request parameters')
     page.applyRouteParameters(allowed)
     return

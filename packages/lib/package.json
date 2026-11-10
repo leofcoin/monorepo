@@ -50,7 +50,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/multi-wallet": "^3.1.11",
+    "@leofcoin/multi-wallet": "^3.1.12",
     "@leofcoin/addresses": "^1.1.0",
     "@leofcoin/messages": "^2.0.0",
     "@leofcoin/peernet": "^4.0.0",
@@ -63,8 +63,8 @@
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-typescript": "^12.3.1",
-    "rollup": "^4.66.0",
-    "tslib": "^2.8.1"
+    "rollup": "^4.68.0",
+    "tslib": "^2.9.1"
   },
   "repository": {
     "type": "git",

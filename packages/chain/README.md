@@ -61,6 +61,10 @@ or falling back to the shared wallet ID.
 
 ## Crash recovery and checkpoints
 
+Invalid-transaction gossip is decoded once at the binary boundary. Malformed
+payloads and pool storage failures are logged without an unhandled asynchronous
+pubsub rejection; notification handling does not change canonical block validity.
+
 State snapshots use two alternating, checksummed `checkpoint:0` / `checkpoint:1`
 records. Each record binds the chain ID and canonical tip to the **complete**
 contract state, committed account nonces and financial counters. An interrupted
