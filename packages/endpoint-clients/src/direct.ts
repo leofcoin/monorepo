@@ -170,7 +170,7 @@ export default class Client {
     }
 
     return {
-      version: peernet.networkVersion,
+      version: chain.version,
       peers: peernet.peers.map(([id, peer]) => id),
       accounts: await accountsStore.length(),
       accountsHolding,

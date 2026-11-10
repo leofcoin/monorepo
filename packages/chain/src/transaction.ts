@@ -1,4 +1,5 @@
 import Protocol from './protocol.js'
+import { chainNetwork } from './ledger-network.js'
 import { TransactionMessage, BlockMessage } from '@leofcoin/messages'
 import {
   calculateFee,
@@ -227,7 +228,7 @@ export default class Transaction extends Protocol {
     if (!signature || typeof signature !== 'string') throw new Error('transaction not signed')
 
     try {
-      const network = globalThis.peernet?.network || 'leofcoin'
+      const network = chainNetwork('leofcoin')
       const verifier = new MultiWallet(network)
       await verifier.fromAddress(from, null, network)
       const valid = await verifier.verify(fromBase58(signature), await createTransactionHash(message))

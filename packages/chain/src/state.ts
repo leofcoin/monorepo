@@ -1,4 +1,5 @@
 import { createDebugger } from '@vandeurenglenn/debug'
+import { chainNetwork } from './ledger-network.js'
 import {
   ContractMessage,
   TransactionMessage,
@@ -211,7 +212,7 @@ export default class State extends Contract {
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
     await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
     try {
-      const identity = await createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+      const identity = await createChainIdentity(chainNetwork(), addresses)
       const required = [addresses.contractFactory, addresses.nativeToken, addresses.nameService, addresses.validators]
       const checkpoint = await readCheckpoint(globalThis.stateStore, identity.chainId, required)
       const checkpointTip = checkpoint?.snapshot.lastBlock ?? { index: -1, hash: '0x0' }

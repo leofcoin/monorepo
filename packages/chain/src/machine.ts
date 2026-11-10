@@ -1,4 +1,5 @@
 import addresses, { contractFactory } from '@leofcoin/addresses'
+import { chainNetwork } from './ledger-network.js'
 import { randombytes } from '@leofcoin/crypto'
 import EasyWorker from '@leofcoin/workers/binary-worker'
 import { ContractMessage } from '@leofcoin/messages'
@@ -187,7 +188,7 @@ export default class Machine {
   }
 
   async #init(blocks, checkpoint?): Promise<void> {
-    const identity = await createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+    const identity = await createChainIdentity(chainNetwork(), addresses)
     this.#chainId = identity.chainId
     if (checkpoint) {
       this.#checkpointGeneration = checkpoint.generation

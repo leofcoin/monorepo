@@ -162,4 +162,21 @@ Pool admission and pubsub publication are not validator acknowledgements.
 the updated chain runtime to intermediate nodes and validators as well as the
 browser to enable relay and reconnect recovery throughout the network.
 
+## Application-scoped discovery
+
+Peernet's discovery API is `network` plus `protocolVersion`. Internally the chain
+uses its fixed application UUID (`CHAIN_APP_ID`) and the selected network name,
+plus its genesis-derived `chainId`. Star needs no app/network configuration.
+
+The chain wrapper retains the existing ledger name (for example
+`leofcoin:peach`), signature domain, wallet provider, account derivation and data
+root. It translates these to the app-scoped Peernet network without regenerating
+genesis. Generic SDK options `protocol`, `networkVersion`, `version` and
+`discoveryNetwork` are no longer accepted by Peernet; existing chain/launcher
+configuration is adapted at the chain boundary, not forwarded as SDK aliases.
+
+Upgrade Swarm/Star, then Peernet, then the chain/launcher dependency minimums and
+rebuild. Nodes reject old SDKs before opening wallet/data stores. No published
+version numbers are implied by these source changes.
+
 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons Licence" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/">Creative Commons Attribution-NonCommercial 4.0 International License</a>.

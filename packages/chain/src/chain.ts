@@ -1,4 +1,5 @@
 import { encodeWire, decodeWire } from '@leofcoin/binary'
+import { chainNetwork } from './ledger-network.js'
 import { decodeResponsePayload } from './helpers/response.js'
 import { createDebugger } from '@vandeurenglenn/debug'
 import { Codec } from '@leofcoin/codec-format-interface'
@@ -131,7 +132,7 @@ export default class Chain extends VersionControl {
 
   /** Immutable bundled genesis identity, independent of the current chain tip. */
   getChainIdentity() {
-    return createChainIdentity(globalThis.peernet?.network || 'leofcoin:peach', addresses)
+    return createChainIdentity(chainNetwork(), addresses)
   }
 
   async findChain(chainId: string) {
@@ -202,7 +203,7 @@ export default class Chain extends VersionControl {
     type: 'proposal' | 'prevote' | 'precommit',
     message: { blockHash: unknown; index: unknown; round: unknown; from: unknown; signature?: unknown }
   ): Promise<boolean> {
-    return verifyConsensusMessage(addresses.validators, type, message, globalThis.peernet?.network || 'leofcoin')
+    return verifyConsensusMessage(addresses.validators, type, message, chainNetwork('leofcoin'))
   }
 
   async #getConsensusValidators(nextBlockIndex?: number): Promise<string[]> {
@@ -273,7 +274,7 @@ export default class Chain extends VersionControl {
       params: [unsignedBlockHash],
       timestamp: Number(blockMessage.decoded.timestamp)
     })
-    const network = globalThis.peernet?.network || 'leofcoin'
+    const network = chainNetwork('leofcoin')
     const verifier = new MultiWallet(network)
     await verifier.fromAddress(blockMessage.decoded.producer, null, network)
     const validProducerProof = await verifier.verify(fromBase58(blockMessage.decoded.producerProof), proofPayload)

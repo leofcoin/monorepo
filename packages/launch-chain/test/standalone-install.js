@@ -35,11 +35,11 @@ try {
     if (artifacts.has(path)) continue
     assert.ok(!entry.link, `unexpected workspace link: ${path}`)
     assert.ok(!/^(git\+|git:|github:|file:)/.test(entry.resolved ?? ''), `not from registry: ${path}`)
-    if (path.endsWith('/@leofcoin/peernet')) assert.equal(entry.version, '3.1.0')
-    if (path.endsWith('/@netpeer/swarm')) assert.equal(entry.version, '0.10.0')
   }
-  assert.equal(lock.packages['node_modules/@leofcoin/peernet'].version, '3.1.0')
-  assert.equal(lock.packages['node_modules/@netpeer/swarm'].version, '0.10.0')
+  for (const name of ['@leofcoin/peernet','@netpeer/swarm']) {
+    assert.ok(lock.packages[`node_modules/${name}`],`missing registry dependency: ${name}`)
+    assert.equal(Object.keys(lock.packages).filter(path=>path.endsWith(`/node_modules/${name}`)||path===`node_modules/${name}`).length,1,`${name} must be deduplicated`)
+  }
   const cli = join(temporary, 'node_modules/@leofcoin/launch-chain/exports/cli.js')
   assert.match(run(process.execPath, [cli, '--help'], temporary), /leofcoin node/)
   const smoke = readFileSync(new URL('./installed-smoke.mjs', import.meta.url), 'utf8')
@@ -49,7 +49,7 @@ try {
   const output = run(process.execPath, [smokePath], temporary, 30_000)
   assert.match(output, /STANDALONE_LAUNCH_READY/)
   console.log(output.trim())
-  console.log('PASS: packed launcher starts a real-genesis offline node with registry peernet 3.1 / swarm 0.10')
+  console.log(`PASS: real-genesis offline launcher with registry peernet ${lock.packages['node_modules/@leofcoin/peernet'].version} / swarm ${lock.packages['node_modules/@netpeer/swarm'].version}`)
 } catch (error) {
   // Preserve useful subprocess diagnostics without ever inspecting real stores.
   if (error.stdout) process.stderr.write(error.stdout)

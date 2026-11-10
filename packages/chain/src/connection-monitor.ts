@@ -1,4 +1,5 @@
 import Peer from '@netpeer/swarm/peer'
+import { chainNetwork } from './ledger-network.js'
 import { Codec } from '@leofcoin/codec-format-interface'
 import { requestTimeout } from './protocol.js'
 
@@ -439,7 +440,7 @@ export default class ConnectionMonitor {
 
       // Approach 3: Explicitly dial star servers if available (only if client.reinit() didn't succeed)
       try {
-        const networkName = globalThis.peernet?.network
+        const networkName = chainNetwork()
         if (networkName && typeof networkName === 'string') {
           // Try to import network config
           const { default: networks } = await import('@leofcoin/networks')

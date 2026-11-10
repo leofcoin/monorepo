@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { satisfies } from 'semver'
 import { ContractMessage } from '@leofcoin/messages'
 import { CodecHash } from '@leofcoin/codec-format-interface'
 import { assertHashFormatState, PROTOCOL_VERSION } from '../../exports/hash-format-state.js'
@@ -13,14 +14,19 @@ const store = (values = {}) => ({
 
 test('monorepo resolves one canonical codec and automatic-transport peernet graph', async () => {
   const lock = JSON.parse(await readFile(new URL('../../../../package-lock.json', import.meta.url), 'utf8'))
-  for (const [dependency, version] of Object.entries({
-    '@leofcoin/codec-format-interface': '2.0.0',
-    '@leofcoin/peernet': '3.1.1',
-    '@netpeer/swarm': '0.10.1'
-  })) {
+  for (const dependency of ['@leofcoin/codec-format-interface','@leofcoin/peernet','@netpeer/swarm']) {
     const entries = Object.entries(lock.packages).filter(([name]) => name.endsWith(`/node_modules/${dependency}`) || name === `node_modules/${dependency}`)
     assert.equal(entries.length, 1, dependency)
-    assert.equal(entries[0][1].version, version, dependency)
+    for (const [consumer,entry] of Object.entries(lock.packages)) {
+      const range = entry.dependencies?.[dependency]
+      if (range) {
+        assert.ok(satisfies(entries[0][1].version,range),`${consumer} requires ${dependency}@${range}`)
+        if (consumer.startsWith('packages/') && !consumer.includes('/node_modules/')) {
+          const manifest = JSON.parse(await readFile(new URL(`../../../../${consumer}/package.json`,import.meta.url),'utf8'))
+          assert.equal(range,manifest.dependencies?.[dependency],`${consumer} lockfile dependency must match its manifest`)
+        }
+      }
+    }
     assert.ok(entries[0][1].resolved.startsWith('https://registry.npmjs.org/'), dependency)
   }
   for (const [name, entry] of Object.entries(lock.packages)) {
