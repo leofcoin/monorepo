@@ -5,6 +5,8 @@ import { browserStorageOverview, scheduleStorageMaintenance, storageOperation } 
 import { errorMessage } from '../controllers/transfer.js'
 import { viewPolish } from './view-polish.js'
 import { browserResources, measureBrowserMemory } from '../controllers/browser-resources.js'
+import { WalletPasskeys, passkeyError } from '../controllers/wallet-passkeys.js'
+import IdentityController from '../controllers/identity.js'
 
 @customElement('settings-view')
 export class SettingsView extends LitElement {
@@ -18,10 +20,50 @@ export class SettingsView extends LitElement {
   @state() accessor measuring = false
   @state() accessor memoryError = ''
   @state() accessor measuredAt = ''
+  @state() accessor passkeyStatus: { configured: boolean; enabled: boolean; reason: string } | undefined
+  @state() accessor passkeyBusy = false
+  @state() accessor passkeyMessage = ''
+  @state() accessor passkeyFailure = ''
+  #passkeyRequest: AbortController | undefined
   #networkKey = ''
 
-  connectedCallback() { super.connectedCallback(); void this.#refresh() }
-  disconnectedCallback() { super.disconnectedCallback(); this.shadowRoot?.querySelector('dialog')?.close() }
+  connectedCallback() { super.connectedCallback(); void this.#refresh(); void this.#refreshPasskeys() }
+  disconnectedCallback() { this.#passkeyRequest?.abort(); super.disconnectedCallback(); this.shadowRoot?.querySelector('dialog')?.close() }
+  #refreshPasskeys = async () => {
+    const status = await new WalletPasskeys().status()
+    if (this.isConnected) this.passkeyStatus = status
+  }
+  #enablePasskey = async (event: SubmitEvent) => {
+    event.preventDefault()
+    if (this.passkeyBusy) return
+    const input = this.shadowRoot.querySelector<HTMLInputElement>('[name="passkey-password"]')
+    let password = input.value
+    input.value = ''
+    this.passkeyBusy = true; this.passkeyMessage = ''; this.passkeyFailure = ''
+    this.#passkeyRequest = new AbortController()
+    const store = globalThis.walletStore
+    try {
+      await new WalletPasskeys({ store, verifyPassword: async currentPassword => {
+        const raw = await store.get('identity')
+        const identity = JSON.parse(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
+        await new IdentityController(getSelectedNetwork().network, { identity }).unlock(currentPassword)
+      } }).enable(password, { signal: this.#passkeyRequest.signal })
+      this.passkeyMessage = 'Passkey enabled. Keep your wallet password and encrypted backup for recovery.'
+    } catch (error) { this.passkeyFailure = passkeyError(error) }
+    finally {
+      password = undefined; this.#passkeyRequest = undefined; this.passkeyBusy = false
+      if (this.isConnected) await this.#refreshPasskeys()
+    }
+  }
+  #removePasskey = async () => {
+    if (this.passkeyBusy || !window.confirm('Remove passkey unlock from this browser? Your wallet stays intact and your password still works.')) return
+    this.passkeyBusy = true; this.passkeyFailure = ''; this.passkeyMessage = ''
+    try {
+      await new WalletPasskeys().remove()
+      this.passkeyMessage = 'Passkey unlock removed from this browser. The passkey itself can be deleted in your device’s password manager.'
+    } catch (error) { this.passkeyFailure = passkeyError(error) }
+    finally { this.passkeyBusy = false; if (this.isConnected) await this.#refreshPasskeys() }
+  }
   async #refresh() {
     if (this.loading) return
     this.loading = true; this.error = ''
@@ -74,6 +116,8 @@ export class SettingsView extends LitElement {
     code { overflow-wrap:anywhere; } .operation { display:grid; grid-template-columns:1fr auto; align-items:start; gap:20px; padding:20px 0; }
     .operation+.operation { border-top:1px solid var(--lfc-glass-border,#45414c); } .operation h3 { margin-bottom:8px; }
     .danger { background:transparent; border-color:var(--md-sys-color-error,#ffb4ab); color:var(--md-sys-color-error,#ffb4ab); }
+    .passkey-form { display:grid; gap:12px; margin-top:20px; max-width:480px; }
+    .passkey-form label { display:grid; gap:8px; } .passkey-form input { box-sizing:border-box; width:100%; }
     .warning { margin-top:16px; padding:14px; border:1px solid var(--lfc-glass-border,#45414c); border-radius:12px; }
     dialog { width:min(540px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; margin:auto; padding:24px;
       color:inherit; border:1px solid var(--lfc-glass-border,#45414c); border-radius:20px; background:var(--md-sys-color-surface-container,#222127); }
@@ -89,8 +133,23 @@ export class SettingsView extends LitElement {
       ? Math.min(100, this.overview.usage / this.overview.quota * 100) : null
     const selected = this.action ? storageOperation(this.action, this.#networkKey || network.key) : null
     return html`<main>
-      <header class="heading"><div><span class="eyebrow">Preferences</span><h1>Settings</h1><p class="muted">Local node storage and browser resources.</p></div>
-        <button class="secondary" ?disabled=${this.loading} @click=${this.#refresh}>${this.loading ? 'Reading…' : 'Refresh'}</button></header>
+      <header class="heading"><div><span class="eyebrow">Preferences</span><h1>Settings</h1><p class="muted">Wallet security, local storage and browser resources.</p></div>
+        <button class="secondary" ?disabled=${this.loading} @click=${() => { void this.#refresh(); void this.#refreshPasskeys() }}>${this.loading ? 'Reading…' : 'Refresh'}</button></header>
+      <section class="card" aria-labelledby="passkey-title"><div class="section-title"><h2 id="passkey-title">Passkey unlock</h2>
+        <span class="badge">${this.passkeyStatus?.enabled ? 'Enabled' : 'Optional'}</span></div>
+        <p class="muted">Unlock this wallet with Face ID, Touch ID, a fingerprint or your device PIN. Your device chooses the verification method; biometric data never reaches Leofcoin.</p>
+        <p class="muted">Your passkey encrypts a local copy of your wallet password. Your existing wallet, accounts and encrypted backup stay unchanged. Keep your password and backup: a passkey alone cannot restore lost browser data.</p>
+        ${this.passkeyStatus?.reason ? html`<p class="muted" role="status">${this.passkeyStatus.reason}</p>` : ''}
+        ${this.passkeyStatus && !this.passkeyStatus.configured && !this.passkeyStatus.reason ? html`
+          <form class="passkey-form" @submit=${this.#enablePasskey}>
+            <label>Current wallet password<input type="password" name="passkey-password" autocomplete="current-password" required ?disabled=${this.passkeyBusy}></label>
+            <button type="submit" ?disabled=${this.passkeyBusy}>${this.passkeyBusy ? 'Follow your device prompts…' : 'Enable passkey unlock'}</button>
+          </form>` : ''}
+        ${this.passkeyStatus?.configured ? html`<button class="secondary" data-action="remove-passkey" ?disabled=${this.passkeyBusy} @click=${this.#removePasskey}>Remove passkey unlock</button>` : ''}
+        ${this.passkeyBusy ? html`<button class="secondary" data-action="cancel-passkey" @click=${() => this.#passkeyRequest?.abort()}>Cancel passkey setup</button>` : ''}
+        ${this.passkeyMessage ? html`<p role="status">${this.passkeyMessage}</p>` : ''}
+        ${this.passkeyFailure ? html`<p class="error" role="alert">${this.passkeyFailure}</p>` : ''}
+      </section>
       <section class="card"><div class="section-title"><h2>Browser storage</h2><span class="badge">${network.label}</span></div>
         <p class="muted">Usage is a browser estimate for this entire site, including application files. The records below belong only to ${network.label}.</p>
         <div class="storage-numbers"><div><span class="muted">Site storage used</span><strong>${this.#bytes(this.overview?.usage)}</strong></div><div><span class="muted">Browser quota</span><strong>${this.#bytes(this.overview?.quota)}</strong></div></div>

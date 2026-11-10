@@ -31,6 +31,40 @@ Wallet, Identity, Chat, Validator and Faucet automatically open the existing
 create/import/unlock dialog when no wallet is loaded, without an intermediate
 card. After unlocking, the original route, including its subview, is restored.
 Public views do not force a login on every app load.
+
+### Optional passkey unlock
+
+Open **Settings → Passkey unlock**, enter the current wallet password and select
+**Enable passkey unlock**. Follow the device prompts; setup creates a credential
+and then verifies an assertion with PRF before storing anything. On subsequent
+unlocks choose **Unlock with passkey**, or continue using the password field.
+Face ID, Touch ID, fingerprint, a security key or a device PIN may be offered by
+the operating system. The app requires user verification but cannot force a
+particular biometric method. Unsupported PRF credentials fail closed, leaving
+password access unchanged. Enrollment may leave a credential in the password
+manager even when PRF verification fails; no unlock envelope is saved then.
+
+The passkey's WebAuthn PRF output derives a non-extractable AES-256-GCM wrapping
+key through HKDF-SHA-256. Only a versioned encrypted copy of the **existing wallet
+password**, a random salt/IV and public credential/binding metadata are saved in
+the local wallet store. Neither the password, PRF output nor wrapping key is
+persisted in plaintext, sent to a server, or broadcast to follower tabs. The
+envelope is bound to the exact origin, RP, encrypted wallet identity and
+credential. Unlock still goes through the existing wallet decryption and node
+startup path; it does not generate accounts, change genesis, or confirm a payment.
+
+Keep your **wallet password and encrypted backup**. The local envelope is not a
+wallet backup: clearing site data, switching sites or losing the credential may
+require password-based recovery. Credential syncing depends on the passkey
+provider; it does not sync this local envelope. Removing passkey unlock removes
+only that envelope, not the wallet or the credential in the device's password
+manager. Clearing local blocks or the pending pool does not clear it.
+
+WebAuthn needs a secure context (HTTPS, or localhost for development). This is
+local cryptographic unlock, not remote account authentication. A compromised
+page/extension or already-unlocked session can still access secrets in memory;
+biometrics do not replace origin security or make wallet code immune to XSS.
+
 Sending is enabled only after chain sync and a peer connection. Review shows
 the recipient, amount, signed transaction fee and total. Acceptance by the local
 node is shown as pending; only canonical completion shows confirmed.

@@ -12,6 +12,80 @@ import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 // RUN_SHELL_UI_TESTS=1 CHROME_BIN="/path/to/chrome" node --test test/shell-ui.test.js
 const runShellUiTests = process.env.RUN_SHELL_UI_TESTS === '1' && Boolean(process.env.CHROME_BIN)
 
+test('passkey settings and unlock use real WebAuthn PRF, retain accounts and preserve password fallback', {
+  skip: !runShellUiTests, timeout: 45000
+}, async t => {
+  const { default: generateAccount } = await import('@leofcoin/generate-account')
+  const password = 'isolated-passkey-ui-password'
+  const wallet = await generateAccount(password, 'leofcoin:peach')
+  const { evaluate, waitFor, call, resize, errors } = await createShellFixture(t)
+  await call('WebAuthn.enable', { enableUI: false })
+  const { authenticatorId } = await call('WebAuthn.addVirtualAuthenticator', { options: {
+    protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal',
+    hasResidentKey: true, hasUserVerification: true, hasPrf: true,
+    isUserVerified: true, automaticPresenceSimulation: true
+  } })
+  await evaluate(`globalThis.fixturePasskeyWallet = ${JSON.stringify(wallet)};
+    globalThis.fixturePasskeyData = new Map(Object.entries({
+      identity: JSON.stringify(fixturePasskeyWallet.identity), accounts: JSON.stringify(fixturePasskeyWallet.accounts),
+      selectedAccount: fixturePasskeyWallet.accounts[0][1], selectedAccountIndex: '0'
+    }));
+    globalThis.walletStore = { has: async key => fixturePasskeyData.has(key),
+      get: async key => new TextEncoder().encode(fixturePasskeyData.get(key)),
+      put: async (key,value) => fixturePasskeyData.set(key,value), delete: async key => fixturePasskeyData.delete(key) };
+    location.hash = '#!/settings'; true`)
+  await waitFor(`shell.shadowRoot.querySelector('settings-view')?.passkeyStatus`)
+  await evaluate(`globalThis.settings = shell.shadowRoot.querySelector('settings-view'); true`)
+  assert.equal(await evaluate('settings.passkeyStatus.reason'), '')
+  await evaluate(`settings.shadowRoot.querySelector('[name="passkey-password"]').value = 'wrong-password';
+    settings.shadowRoot.querySelector('.passkey-form').requestSubmit(); true`)
+  await waitFor('!settings.passkeyBusy && settings.passkeyFailure')
+  assert.match(await evaluate('settings.passkeyFailure'), /Check your password/)
+  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 0)
+  await evaluate(`settings.shadowRoot.querySelector('[name="passkey-password"]').value = ${JSON.stringify(password)};
+    settings.shadowRoot.querySelector('.passkey-form').requestSubmit(); true`)
+  await waitFor('!settings.passkeyBusy && (settings.passkeyStatus.enabled || settings.passkeyFailure)')
+  assert.equal(await evaluate('settings.passkeyFailure'), '')
+  assert.equal(await evaluate('settings.passkeyStatus.enabled'), true)
+  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 1)
+  assert.equal(await evaluate(`fixturePasskeyData.get('passkey-unlock-v1').includes(${JSON.stringify(password)})`), false)
+  for (const width of [1280, 390, 320]) {
+    await resize(width)
+    assert.equal(await evaluate('settings.scrollWidth <= settings.clientWidth'), true, `Passkey settings overflow at ${width}`)
+  }
+  await evaluate(`globalThis.passkeyLogin = document.createElement('login-screen'); document.body.append(passkeyLogin);
+    globalThis.fixtureUnlocks = 0;
+    passkeyLogin.loadChain = async password => { if(password !== ${JSON.stringify(password)}) throw Error('Unexpected fixture password'); fixtureUnlocks++ };
+    void passkeyLogin.requestLogin(true); true`)
+  await waitFor(`passkeyLogin.passkeyEnabled && passkeyLogin.shadowRoot.querySelector('[data-route-action="passkey"]')`)
+  await evaluate(`passkeyLogin.shadowRoot.querySelector('[data-route-action="passkey"]').click(); true`)
+  await waitFor('!passkeyLogin.busy && (!passkeyLogin.shown || passkeyLogin.loginError)')
+  assert.equal(await evaluate('passkeyLogin.loginError'), '')
+  assert.equal(await evaluate('fixtureUnlocks'), 1)
+  assert.equal(await evaluate('shell.wallet.selectedAccount'), wallet.accounts[0][1])
+  const signatureLength = await evaluate(`const signer = await identityController.signer(shell.wallet.selectedAccount);
+    (await signer.sign(new Uint8Array(32))).length`)
+  assert.ok(signatureLength >= 64, 'real original wallet is usable, not just a dismissed login screen')
+  await evaluate(`void passkeyLogin.requestLogin(true); true`)
+  await waitFor('passkeyLogin.shown && !passkeyLogin.busy')
+  await call('WebAuthn.setAutomaticPresenceSimulation', { authenticatorId, enabled: false })
+  await evaluate(`passkeyLogin.shadowRoot.querySelector('[data-route-action="passkey"]').click(); true`)
+  await waitFor(`passkeyLogin.busy && passkeyLogin.shadowRoot.textContent.includes('Cancel passkey unlock')`)
+  await evaluate(`Array.from(passkeyLogin.shadowRoot.querySelectorAll('button')).find(button => button.textContent === 'Cancel passkey unlock').click(); true`)
+  await waitFor('!passkeyLogin.busy && passkeyLogin.loginError')
+  assert.match(await evaluate('passkeyLogin.loginError'), /cancelled or timed out/)
+  assert.equal(await evaluate('fixtureUnlocks'), 1)
+  await evaluate(`passkeyLogin.shadowRoot.querySelector('.wallet-password').value = ${JSON.stringify(password)};
+    passkeyLogin.shadowRoot.querySelector('[data-route-action="login"]').click(); true`)
+  await waitFor('!passkeyLogin.busy && !passkeyLogin.shown')
+  assert.equal(await evaluate('fixtureUnlocks'), 2)
+  await evaluate(`window.confirm = () => true; settings.shadowRoot.querySelector('[data-action="remove-passkey"]').click(); true`)
+  await waitFor('!settings.passkeyBusy && !settings.passkeyStatus.configured')
+  assert.equal(await evaluate(`fixturePasskeyData.has('identity') && fixturePasskeyData.has('accounts') && !fixturePasskeyData.has('passkey-unlock-v1')`), true)
+  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 1, 'removal does not silently delete the OS credential')
+  assert.deepEqual(errors, [])
+})
+
 test('Spaces UI joins, manages moderator channels, keeps histories separate and revokes future access', {
   skip: !runShellUiTests, timeout: 30000
 }, async t => {
@@ -315,6 +389,8 @@ async function createShellFixture(t) {
   const chrome = spawn(process.env.CHROME_BIN, [
     '--headless=new', '--no-first-run', '--no-default-browser-check',
     '--disable-background-networking', '--remote-debugging-port=0',
+    // Only the disposable CI fixture opts out of the Linux runner sandbox.
+    ...(process.env.SHELL_UI_CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
     `--user-data-dir=${profile}`, 'about:blank'
   ], { stdio: ['ignore', 'ignore', 'pipe'] })
   t.after(async () => {

@@ -35,6 +35,17 @@ jobs:
       - name: Test shared genesis planner and browser controllers
         run: npm test -w @leofcoin/lib -w @leofcoin/node
 
+      - name: Test browser wallet and passkey unlock
+        timeout-minutes: 8
+        working-directory: packages/node
+        env:
+          RUN_SHELL_UI_TESTS: '1'
+          SHELL_UI_CHROME_NO_SANDBOX: '1'
+        run: |
+          export CHROME_BIN="$(command -v google-chrome)"
+          test -n "$CHROME_BIN"
+          node --test test/shell-ui.test.js
+
       - name: Test packed launcher with registry transports and real genesis
         run: npm run test:package -w @leofcoin/launch-chain
 

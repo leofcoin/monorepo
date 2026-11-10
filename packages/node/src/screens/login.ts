@@ -7,6 +7,7 @@ import { getBrowserTestnetResetFailure } from '../controllers/browser-testnet-re
 import { acquireBrowserStorageLease } from '../controllers/browser-storage.js'
 import { createBrowserNodeTabs, TAB_STORES } from '../controllers/browser-node-tabs.js'
 import { createBrowserNodeFollower } from '../controllers/browser-node-follower.js'
+import { WalletPasskeys, passkeyError, walletIdentityFingerprint } from '../controllers/wallet-passkeys.js'
 import { getSelectedNetwork, installNetworkStoreScope } from '../network-selection.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
@@ -43,6 +44,8 @@ export class LoginScreen extends LiteElement {
   accessor subline
   @property() accessor loginError = ''
   @property({ type: Boolean }) accessor busy = false
+  @property({ type: Boolean }) accessor passkeyEnabled = false
+  #passkeyRequest: AbortController | undefined
 
   @property()
   accessor decodedMnemonic: string
@@ -55,6 +58,7 @@ export class LoginScreen extends LiteElement {
   #viewPassword: () => void
 
   disconnectedCallback() {
+    this.#passkeyRequest?.abort()
     this.shadowRoot.querySelector('input:focus')?.blur()
     super.disconnectedCallback()
   }
@@ -81,8 +85,11 @@ export class LoginScreen extends LiteElement {
 
   _keydown(event: KeyboardEvent) {
     if (event.composedPath().some(element => (element as HTMLElement)?.classList?.contains('browse-explorer'))) return
+    // Native buttons handle Enter themselves, including the passkey action.
+    if (event.composedPath().some(element => element instanceof HTMLButtonElement)) return
     const { key } = event
     if (key === 'Enter' && !this.busy) {
+      event.preventDefault()
       this.shadowRoot.querySelector(`[data-route-action="${this.hasWallet ? 'login' : 'create'}"]`)?.click()
     }
   }
@@ -91,10 +98,12 @@ export class LoginScreen extends LiteElement {
     return new Promise(async (resolve, reject) => {
       this.addEventListener('keydown', this._keydown)
       this.shown = true
+      this.loginError = ''
       this.hasWallet = await this._hasWallet()
+      this.passkeyEnabled = this.hasWallet && (await new WalletPasskeys().status()).enabled
       if (this.hasWallet) {
         this.headline = 'Welcome back!'
-        this.subline = 'Enter password to unlock wallet'
+        this.subline = this.passkeyEnabled ? 'Use a passkey or your wallet password' : 'Enter password to unlock wallet'
       } else {
         this.headline = 'Welcome!'
         this.subline = 'Create a wallet or import one to continue'
@@ -103,14 +112,21 @@ export class LoginScreen extends LiteElement {
       const onClick = async (event) => {
         const target = event.composedPath().find((element: any) => element?.dataset?.routeAction) as HTMLElement
         const routeAction = target?.dataset.routeAction
-        if (!routeAction || this.busy) return
-        const password = this.shadowRoot.querySelector<HTMLInputElement>('.wallet-password').value
+        if (!['create', 'import', 'login', 'passkey'].includes(routeAction) || this.busy) return
+        let password = this.shadowRoot.querySelector<HTMLInputElement>('.wallet-password').value
         try {
           this.busy = true
           this.loginError = ''
           if (routeAction) {
-            if (routeAction !== 'login' && password.length < 8)
+            if ((routeAction === 'create' || routeAction === 'import') && password.length < 8)
               throw new Error('Use a password with at least 8 characters.')
+            if (routeAction === 'passkey') {
+              this.#passkeyRequest = new AbortController()
+              const unlocked = await new WalletPasskeys().unlock({ signal: this.#passkeyRequest.signal })
+              password = unlocked.password
+              unlocked.password = undefined
+              await this.#handleLogin(password, unlocked.walletHash)
+            }
             if (routeAction === 'create') await this.#handleCreate(password)
             if (routeAction === 'import') await this.#handleImport(password)
             if (routeAction === 'login') await this.#handleLogin(password)
@@ -118,9 +134,11 @@ export class LoginScreen extends LiteElement {
             resolve()
           }
         } catch (error) {
-          this.loginError =
+          this.loginError = routeAction === 'passkey' ? passkeyError(error) :
             error instanceof Error ? error.message : 'Could not unlock the wallet. Check your password or backup.'
         } finally {
+          password = undefined
+          this.#passkeyRequest = undefined
           this.busy = false
         }
       }
@@ -204,6 +222,7 @@ export class LoginScreen extends LiteElement {
   }
 
   #dismiss() {
+    this.#passkeyRequest?.abort()
     this.shadowRoot.querySelector('input:focus')?.blur()
     this.shown = false
     this.dispatchEvent(new CustomEvent('login-dismiss', { bubbles: true, composed: true }))
@@ -396,10 +415,12 @@ export class LoginScreen extends LiteElement {
     }
   }
 
-  async #handleLogin(password) {
+  async #handleLogin(password, expectedWalletHash?: string) {
     const wallet = await this.#handleBeforeLogin(password)
 
     try {
+      if (expectedWalletHash && expectedWalletHash !== await walletIdentityFingerprint(wallet.identity))
+        throw new Error('Wallet changed during passkey unlock. Use your wallet password.')
       await globalThis.identityController.unlock(password)
 
       await this.#handleAfterLogin(wallet)
@@ -448,6 +469,10 @@ export class LoginScreen extends LiteElement {
   get #hasWalletTemplate() {
     return html`
       <form class="entry-form" method="post" action="#" @submit=${this.#preventSubmit}>
+        ${this.passkeyEnabled ? html`<button class="primary-button" type="button" data-route-action="passkey" ?disabled=${this.busy}>
+          ${this.busy ? 'Unlocking…' : 'Unlock with passkey'}
+        </button><p class="passkey-hint">Use Face ID, Touch ID, a fingerprint or your device PIN.</p>` : ''}
+        ${this.busy && this.#passkeyRequest ? html`<button class="secondary-button" type="button" @click=${() => this.#passkeyRequest?.abort()}>Cancel passkey unlock</button>` : ''}
         ${this.#walletUsername}
         <input
           class="wallet-password"
@@ -457,7 +482,7 @@ export class LoginScreen extends LiteElement {
           aria-label="Wallet password"
           tabindex="0"
           autocomplete="current-password" />
-        <button class="primary-button" type="submit" data-route-action="login">Unlock wallet</button>
+        <button class=${this.passkeyEnabled ? 'secondary-button' : 'primary-button'} type="submit" data-route-action="login" ?disabled=${this.busy}>Unlock with password</button>
       </form>
     `
   }
@@ -478,6 +503,8 @@ export class LoginScreen extends LiteElement {
         transition: opacity 180ms ease, background 180ms ease;
         z-index: -1;
       }
+
+      .passkey-hint { margin: 0 0 8px; font-size: 13px; text-align: center; line-height: 1.5; }
 
       :host([shown]) {
         opacity: 1;
