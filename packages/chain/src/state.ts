@@ -274,7 +274,23 @@ export default class State extends Contract {
       this.#machine = machine
       await restoreAccountNonces(globalThis.accountsStore, checkpoint?.snapshot.accounts ?? {})
       for (const block of prefix) this.#blocks[Number(block.index)].loaded = true
-      await this.withCanonicalState(transition => this.#loadBlocks(history.slice(prefix.length), transition))
+      try {
+        await this.withCanonicalState(transition => this.#loadBlocks(history.slice(prefix.length), transition))
+      } catch (error) {
+        if (!checkpoint || !(error instanceof Error) ||
+          !error.message.startsWith('Transaction nonce already committed:')) throw error
+
+        console.warn('[recovery] checkpoint nonce conflicts with verified history; rebuilding derived nonces')
+        const checkpointNonces = await this.deriveAccountNonces(prefix)
+        this.#machine.close()
+        this.#machine = new Machine(prefix, checkpoint)
+        await this.#machine.ready
+        await restoreAccountNonces(globalThis.accountsStore, checkpointNonces)
+        this.#canonicalStateQueue = new CanonicalStateQueue()
+        this.#blocks = history.map((block, index) => ({ ...block, loaded: index < prefix.length }))
+        await this.withCanonicalState(transition =>
+          this.#loadBlocks(this.#blocks.slice(prefix.length), transition))
+      }
       if (!checkpoint && !history.length) await this.#machine.updateState(true)
       const tip = await this.canonicalTip()
       await globalThis.chainStore.put('lastBlock', tip.hash)
@@ -720,6 +736,10 @@ export default class State extends Contract {
 
   protected async applyRecoveredBlock(block: BlockMessage, transition: CanonicalTransition): Promise<void> {
     throw new Error('Canonical block application is not implemented')
+  }
+
+  protected async deriveAccountNonces(blocks: BlockInMemory[]): Promise<Record<string, string>> {
+    throw new Error('Canonical account nonce recovery is not implemented')
   }
 
   async #loadBlocks(blocks: BlockInMemory[], transition: CanonicalTransition): Promise<boolean> {

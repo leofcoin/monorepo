@@ -55,6 +55,7 @@ import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
 import { publishObserverEvent } from './observer-events.js'
 import { createChainIdentity, findChainPresence, assertChainId } from '@leofcoin/lib/chain-identity'
+import type { BlockInMemory } from './types.js'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -1111,6 +1112,19 @@ export default class Chain extends VersionControl {
       globalThis.pubsub.publish(`transaction.completed.${hash}`, { status: 'fail', hash, error: error })
       throw { error, hash, from, to, params, nonce }
     }
+  }
+
+  protected async deriveAccountNonces(blocks: BlockInMemory[]): Promise<Record<string, string>> {
+    const accounts: Record<string, string> = {}
+    for (const block of blocks) {
+      for (const hash of block.transactions) {
+        const transaction = await resolveTransactionReference(hash, await globalThis.peernet.get(hash, 'transaction'))
+        await this.validateTransactionSignature(transaction)
+        const { from, nonce } = transaction.decoded
+        if (BigInt(nonce) > BigInt(accounts[from] ?? '0')) accounts[from] = String(nonce)
+      }
+    }
+    return accounts
   }
 
   async #addBlock(block) {

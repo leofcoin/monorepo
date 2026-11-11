@@ -184,3 +184,16 @@ test('a split legacy snapshot is rebuilt from genesis without preserving ahead-o
     assert.deepEqual(recovered(await run(root, 'recover')), result)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
+
+test('a checkpoint nonce ahead of verified history is rebuilt from committed transactions', { timeout: 30000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-stale-nonce-'))
+  try {
+    const prepared = await run(root, 'prepare', 'stale-nonce')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    const result = recovered(await run(root, 'recover'))
+    assert.deepEqual(result.tip.index, { $bigint: '1' })
+    assert.deepEqual(result.recipient, { $bigint: '200' })
+    assert.ok(Object.values(result.accounts).every(nonce => nonce === '2'))
+    assert.deepEqual(recovered(await run(root, 'recover')), result)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})

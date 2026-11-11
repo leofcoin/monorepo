@@ -104,6 +104,7 @@ if (mode === 'prepare') {
   validators.validators = [sender]
   validators.currentValidator = sender
   validators.validatorHistory = { 0: [sender] }
+  if (invalid === 'stale-nonce') checkpoint.snapshot.accounts[sender] = '11167'
   const customContracts = []
   for (const initial of ['7', '11']) {
     const definition = new ContractMessage({ creator: sender, constructorParameters: [initial],
