@@ -35,8 +35,11 @@ Public views do not force a login on every app load.
 ### Optional passkey unlock
 
 Open **Settings → Passkey unlock**, enter the current wallet password and select
-**Enable passkey unlock**. Follow the device prompts; setup creates a credential
-and then verifies an assertion with PRF before storing anything. On subsequent
+**Enable passkey unlock**. Follow the device prompt to create a credential, then
+select **Verify passkey** and approve the second prompt to finish setup. This
+explicit second action lets browsers that require a fresh user gesture perform
+the verification. Setup verifies an assertion with PRF before storing anything;
+creating a credential alone does not enable wallet unlock. On subsequent
 unlocks choose **Unlock with passkey**, or continue using the password field.
 Face ID, Touch ID, fingerprint, a security key or a device PIN may be offered by
 the operating system. The app requires user verification but cannot force a
@@ -123,6 +126,13 @@ network ledger while preserving the wallet, identity and other networks. The
 page reloads first and requires a typed confirmation; close other node tabs
 before continuing. See [browser storage management](../../docs/browser-storage.md)
 for details on locking, recovery and the stores affected.
+
+Browser node stores put bulk reads (`keys`, `values`, `entries`, `size`) on
+the storage backend's existing per-store operation queue, alongside individual
+reads, writes and deletes. Different stores remain independent. This prevents
+OPFS file snapshots from becoming unreadable during concurrent writes or deletes.
+Failed bulk reads report the store and operation; no ledger data is discarded
+or reset.
 
 ### Identity and Validator
 

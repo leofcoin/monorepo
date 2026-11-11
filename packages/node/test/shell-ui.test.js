@@ -26,6 +26,25 @@ test('passkey settings and unlock use real WebAuthn PRF, retain accounts and pre
     hasResidentKey: true, hasUserVerification: true, hasPrf: true,
     isUserVerified: true, automaticPresenceSimulation: true
   } })
+  await evaluate(`const fixtureCreateCredential = navigator.credentials.create.bind(navigator.credentials);
+    const fixtureGetCredential = navigator.credentials.get.bind(navigator.credentials);
+    globalThis.fixturePasskeyAssertionGestures = [];
+    navigator.credentials.create = async options => {
+      const credential = await fixtureCreateCredential(options);
+      if (navigator.userActivation.isActive) {
+        const popup = window.open('about:blank');
+        if (!popup) throw Error('Could not consume fixture user activation');
+        popup.close();
+      }
+      if (navigator.userActivation.isActive) throw Error('Fixture user activation was not consumed');
+      return credential;
+    };
+    navigator.credentials.get = options => {
+      const active = navigator.userActivation.isActive;
+      fixturePasskeyAssertionGestures.push(active);
+      if (!active) return Promise.reject(new DOMException('Fresh user gesture required', 'NotAllowedError'));
+      return fixtureGetCredential(options);
+    }; true`)
   await evaluate(`globalThis.fixturePasskeyWallet = ${JSON.stringify(wallet)};
     globalThis.fixturePasskeyData = new Map(Object.entries({
       identity: JSON.stringify(fixturePasskeyWallet.identity), accounts: JSON.stringify(fixturePasskeyWallet.accounts),
@@ -45,10 +64,24 @@ test('passkey settings and unlock use real WebAuthn PRF, retain accounts and pre
   assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 0)
   await evaluate(`settings.shadowRoot.querySelector('[name="passkey-password"]').value = ${JSON.stringify(password)};
     settings.shadowRoot.querySelector('.passkey-form').requestSubmit(); true`)
+  await waitFor('settings.passkeyVerificationPending || settings.passkeyFailure')
+  assert.equal(await evaluate('settings.passkeyFailure'), '')
+  assert.equal(await evaluate(`fixturePasskeyData.has('passkey-unlock-v1')`), false)
+  await call('Runtime.evaluate', { expression: `if (navigator.userActivation.isActive) window.open('about:blank')?.close();
+    settings.shadowRoot.querySelector('[data-action="verify-passkey"]').click()`, userGesture: false })
+  await waitFor('!settings.passkeyBusy && settings.passkeyFailure')
+  assert.match(await evaluate('settings.passkeyFailure'), /Passkey created, but verification was blocked/)
+  assert.equal(await evaluate('settings.passkeyStatus.enabled'), false)
+  assert.equal(await evaluate(`fixturePasskeyData.has('passkey-unlock-v1')`), false)
+  await evaluate(`settings.shadowRoot.querySelector('[name="passkey-password"]').value = ${JSON.stringify(password)};
+    settings.shadowRoot.querySelector('.passkey-form').requestSubmit(); true`)
+  await waitFor('settings.passkeyVerificationPending || settings.passkeyFailure')
+  assert.equal(await evaluate('settings.passkeyFailure'), '')
+  await evaluate(`settings.shadowRoot.querySelector('[data-action="verify-passkey"]').click(); true`)
   await waitFor('!settings.passkeyBusy && (settings.passkeyStatus.enabled || settings.passkeyFailure)')
   assert.equal(await evaluate('settings.passkeyFailure'), '')
   assert.equal(await evaluate('settings.passkeyStatus.enabled'), true)
-  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 1)
+  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 2)
   assert.equal(await evaluate(`fixturePasskeyData.get('passkey-unlock-v1').includes(${JSON.stringify(password)})`), false)
   for (const width of [1280, 390, 320]) {
     await resize(width)
@@ -83,7 +116,19 @@ test('passkey settings and unlock use real WebAuthn PRF, retain accounts and pre
   await evaluate(`window.confirm = () => true; settings.shadowRoot.querySelector('[data-action="remove-passkey"]').click(); true`)
   await waitFor('!settings.passkeyBusy && !settings.passkeyStatus.configured')
   assert.equal(await evaluate(`fixturePasskeyData.has('identity') && fixturePasskeyData.has('accounts') && !fixturePasskeyData.has('passkey-unlock-v1')`), true)
-  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 1, 'removal does not silently delete the OS credential')
+  assert.equal((await call('WebAuthn.getCredentials', { authenticatorId })).credentials.length, 2, 'removal does not silently delete the OS credential')
+  await call('WebAuthn.setAutomaticPresenceSimulation', { authenticatorId, enabled: true })
+  await evaluate(`settings.shadowRoot.querySelector('[name="passkey-password"]').value = ${JSON.stringify(password)};
+    settings.shadowRoot.querySelector('.passkey-form').requestSubmit(); true`)
+  await waitFor('settings.passkeyVerificationPending || settings.passkeyFailure')
+  assert.equal(await evaluate('settings.passkeyVerificationPending'), true)
+  await evaluate(`settings.shadowRoot.querySelector('[data-action="cancel-passkey"]').click(); true`)
+  await waitFor('!settings.passkeyBusy && settings.passkeyFailure')
+  assert.match(await evaluate('settings.passkeyFailure'), /cancelled or timed out/)
+  assert.equal(await evaluate('settings.passkeyVerificationPending'), false)
+  assert.equal(await evaluate(`Boolean(settings.shadowRoot.querySelector('[data-action="verify-passkey"]'))`), false)
+  assert.equal(await evaluate(`fixturePasskeyData.has('passkey-unlock-v1')`), false)
+  assert.deepEqual(await evaluate('fixturePasskeyAssertionGestures'), [false, true, true, true])
   assert.deepEqual(errors, [])
 })
 

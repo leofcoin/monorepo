@@ -43,6 +43,8 @@ See the [relay operator guide](https://github.com/netpeer/swarm/blob/main/docs/w
 This dependency update does not change the Peach genesis, protocol version,
 account identities, passwords or data directory. Do not delete existing stores.
 Stop the existing process before upgrading and restart using the same data root.
+If startup fails, the CLI reports the error and exits with status 1 even when
+partially started workers or transports still hold the process open.
 
 For development, after building, `npm run test:package -w @leofcoin/launch-chain`
 checks a clean tarball install, npm CLI entry and real-genesis offline startup

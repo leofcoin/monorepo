@@ -14,13 +14,13 @@ async function fixture() {
   const values = new Map([['identity', JSON.stringify({ multiWIF: 'fixture-encrypted-identity', walletId: 'unchanged' })], ['accounts', 'fixture-accounts']])
   const store = { has: async key => values.has(key), get: async key => encoder.encode(values.get(key)),
     put: async (key, value) => values.set(key, value), delete: async key => values.delete(key) }
-  const requests = [], state = { modify: credential => credential, beforeGet: async () => {}, createError: null }
+  const requests = [], state = { modify: credential => credential, beforeGet: async () => {}, createError: null, createExtensions: {} }
   const credentials = {
     create: async options => {
       requests.push(['create', options])
       if (state.createError) throw state.createError
       // No PRF on create: enrollment must prove support through get().
-      return { type: 'public-key', id: b64(id), rawId: id.buffer, getClientExtensionResults: () => ({}) }
+      return { type: 'public-key', id: b64(id), rawId: id.buffer, getClientExtensionResults: () => state.createExtensions }
     },
     get: async options => {
       requests.push(['get', options]); await state.beforeGet()
@@ -67,6 +67,53 @@ test('a wrong password never creates a credential or writes an unlock record', a
   const f = await fixture()
   await assert.rejects(f.api.enable('wrong-password'), /Incorrect wallet password/)
   assert.equal(f.requests.length, 0)
+  assert.equal(f.values.has(PASSKEY_STORE_KEY), false)
+})
+
+test('enrollment waits for explicit verification before requesting PRF or saving unlock data', async () => {
+  const f = await fixture()
+  let verify
+  const ready = new Promise(resolve => { verify = resolve })
+  let confirm
+  const confirmation = new Promise(resolve => { confirm = resolve })
+  const enabled = f.api.enable(password, { confirmVerification: () => { verify(); return confirmation } })
+  await ready
+  assert.deepEqual(f.requests.map(([type]) => type), ['create'])
+  assert.equal(f.values.has(PASSKEY_STORE_KEY), false)
+  confirm()
+  await enabled
+  assert.deepEqual(f.requests.map(([type]) => type), ['create', 'get'])
+  assert.equal((await f.api.unlock()).password, password)
+})
+
+test('cancellation between creation and verification never requests an assertion or saves unlock data', async () => {
+  const f = await fixture(), abort = new AbortController()
+  await assert.rejects(f.api.enable(password, {
+    signal: abort.signal, confirmVerification: () => abort.abort()
+  }), { name: 'AbortError' })
+  assert.deepEqual(f.requests.map(([type]) => type), ['create'])
+  assert.equal(f.values.has(PASSKEY_STORE_KEY), false)
+})
+
+test('a provider explicitly lacking PRF is rejected before asking for verification', async () => {
+  const f = await fixture()
+  f.state.createExtensions = { prf: { enabled: false } }
+  await assert.rejects(f.api.enable(password, {
+    confirmVerification: () => assert.fail('Unsupported passkeys must not reach verification')
+  }), { name: 'NotSupportedError' })
+  assert.deepEqual(f.requests.map(([type]) => type), ['create'])
+  assert.equal(f.values.has(PASSKEY_STORE_KEY), false)
+})
+
+test('a blocked assertion explains that creation succeeded but wallet unlock is not enabled', async () => {
+  const f = await fixture()
+  f.state.beforeGet = async () => { throw new DOMException('User gesture required', 'NotAllowedError') }
+  await assert.rejects(f.api.enable(password), error => {
+    assert.match(passkeyError(error), /Passkey created, but verification was blocked/)
+    assert.match(passkeyError(error), /Wallet unlock is not enabled/)
+    assert.equal(error.cause.name, 'NotAllowedError')
+    return true
+  })
   assert.equal(f.values.has(PASSKEY_STORE_KEY), false)
 })
 

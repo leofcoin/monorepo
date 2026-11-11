@@ -44,20 +44,21 @@ export const compareTransactionNonces = (
   return 0
 }
 
-/** Remove transactions from the pending pool once they are already canonical. */
+/** Remove canonical transactions and entries superseded by committed nonces. */
 export const pruneCanonicalTransactions = async <T extends HashableTransaction>(
   transactions: T[],
   latestTransactionHashes: Iterable<string>,
   isStored: (hash: string) => Promise<boolean>,
-  removePending: (hash: string) => Promise<unknown>
+  removePending: (hash: string, transaction: T) => Promise<unknown>,
+  isObsolete: (transaction: T) => Promise<boolean> = async () => false
 ): Promise<PendingTransaction<T>[]> => {
   const latest = new Set(latestTransactionHashes)
   const pending: PendingTransaction<T>[] = []
 
   for (const transaction of transactions) {
     const hash = await transaction.hash()
-    if (latest.has(hash) || (await isStored(hash))) {
-      await removePending(hash)
+    if (latest.has(hash) || (await isStored(hash)) || (await isObsolete(transaction))) {
+      await removePending(hash, transaction)
       continue
     }
     pending.push({ transaction, hash })

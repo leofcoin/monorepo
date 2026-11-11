@@ -1,3 +1,5 @@
+import { queueBrowserStoreReads } from './controllers/browser-store-queue.js'
+
 export const NETWORK_STORAGE_KEY = 'leofcoin:selected-network:v1'
 
 export const SUPPORTED_NETWORKS = Object.freeze({
@@ -49,6 +51,7 @@ export function installNetworkStoreScope(key, global = globalThis) {
         ? false
         : isPrivate
       await super.addStore(storeName, prefix, root, storeIsPrivate)
+      queueBrowserStoreReads(global[`${storeName}Store`])
       if (storeName !== name) {
         global[`${name}Store`] = global[`${storeName}Store`]
         const index = this.stores.lastIndexOf(storeName)

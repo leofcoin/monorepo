@@ -65,6 +65,11 @@ Invalid-transaction gossip is decoded once at the binary boundary. Malformed
 payloads and pool storage failures are logged without an unhandled asynchronous
 pubsub rejection; notification handling does not change canonical block validity.
 
+Local proposal failures propagate to the participation caller with their original
+cause instead of entering an immediate retry loop. The epoch-running flag is
+released on failure, so an explicit activation retry remains possible. Proposal
+errors retain their underlying storage or signing message.
+
 State snapshots use two alternating, checksummed `checkpoint:0` / `checkpoint:1`
 records. Each record binds the chain ID and canonical tip to the **complete**
 contract state, committed account nonces and financial counters. An interrupted
@@ -85,6 +90,11 @@ I/O errors still stop recovery explicitly without discarding the target.
 The tip is checkpointed before updating the chain marker or announcing success.
 Local transaction bytes are not considered evidence of prior execution;
 committed sender nonces prevent executing a transfer twice.
+Proposal preparation also removes pending entries at or below each sender's
+committed nonce, even when their hashes differ from the committed transactions.
+An existing recovery block containing such an obsolete nonce still rejects
+startup; the error identifies the transaction, nonce, committed nonce and block
+height. Preserve that data root for recovery rather than bypassing replay checks.
 
 Older, split `lastBlock` / `states` / `accounts` / `info` snapshots are not trusted
 as coherent checkpoints. On first startup they are rebuilt from their hash-checked

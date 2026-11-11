@@ -118,7 +118,7 @@ export class WalletPasskeys {
       { name: 'AES-GCM', length: 256 }, false, usages)
     } finally { output.fill(0) }
   }
-  async enable(password, { signal } = {}) {
+  async enable(password, { signal, confirmVerification } = {}) {
     this.#requireAvailable()
     if (typeof password !== 'string' || !password || encoder.encode(password).length > 4096) fail('Enter your current wallet password.')
     if (typeof this.verifyPassword !== 'function') fail('Wallet password verification is required.')
@@ -140,9 +140,16 @@ export class WalletPasskeys {
       const credentialId = encode(created.rawId)
       if (created.id !== credentialId) fail('Invalid passkey response.')
       decode(credentialId, 1, 1024)
+      if (created.getClientExtensionResults()?.prf?.enabled === false) throw new DOMException('Passkey does not support PRF.', 'NotSupportedError')
       const record = { version: 1, origin: this.origin, rpId, walletHash, credentialId, salt: encode(this.#random(32)) }
-      // Always test get(), including PRF and UV, before persisting anything.
-      const output = await this.#assertion(record, signal)
+      // A fresh user gesture may be required for get() after create().
+      if (confirmVerification) await confirmVerification(signal)
+      let output
+      try { output = await this.#assertion(record, signal) }
+      catch (error) {
+        if (error?.name === 'NotAllowedError') throw new Error('Passkey created, but verification was blocked, cancelled or timed out. Wallet unlock is not enabled. Try setup again and approve the verification prompt; your wallet password still works.', { cause: error })
+        throw error
+      }
       const key = await this.#key(output, record, ['encrypt'])
       const iv = this.#random(12), plaintext = encoder.encode(password)
       let ciphertext
