@@ -8,6 +8,7 @@ import { type NodeOptions } from './constants.js'
 import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.js'
 import { browserRoutingId } from './routing-identity-browser.js'
 import { chainDiscoveryOptions, chainPeernetOptions, assertDiscoveryNamespace } from './star-namespace.js'
+import { startRecoveryTransport } from './recovery-transport.js'
 
 export default class Node {
   #node
@@ -34,14 +35,11 @@ export default class Node {
     await nodeConfig(config)
     if (autoStart) {
       this.#node.autoStart = true
-      await this.#node.start()
+      await startRecoveryTransport(this.#node)
     }
 
-    globalThis.pubsub.subscribe('chain:ready', async () => {
-      if (!this.#node.autoStart) {
-        await this.#node.start()
-        pubsub.publish('node:ready', true)
-      }
+    globalThis.pubsub.subscribe('chain:ready', () => {
+      pubsub.publish('node:ready', true)
     })
     return this
     // this.config = await config()

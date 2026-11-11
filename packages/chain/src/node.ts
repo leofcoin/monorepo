@@ -8,6 +8,7 @@ import { type NodeOptions } from './constants.js'
 import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.js'
 import { nodeRoutingId } from './routing-identity-node.js'
 import { chainDiscoveryOptions, chainPeernetOptions, assertDiscoveryNamespace } from './star-namespace.js'
+import { startRecoveryTransport } from './recovery-transport.js'
 
 export default class Node {
   #node
@@ -48,15 +49,13 @@ export default class Node {
     await nodeConfig(config)
     if (autoStart) {
       this.#node.autoStart = true
-      await this.#node.start()
+      await startRecoveryTransport(this.#node)
     }
 
-    globalThis.pubsub.subscribe('chain:ready', async () => {
-      // when autostart is false the node will only be started after the chain is ready (this is here so we can just use node for communication)
-      if (!this.#node.autoStart) {
-        await this.#node.start()
-        pubsub.publish('node:ready', true)
-      }
+    globalThis.pubsub.subscribe('chain:ready', () => {
+      // Recovery starts transport separately. This event still means the local
+      // chain is usable, not merely that a socket or Star connection is open.
+      pubsub.publish('node:ready', true)
     })
     return this
     // this.config = await config()

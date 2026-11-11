@@ -23,6 +23,7 @@ import { CanonicalStateQueue, type CanonicalTransition } from './consensus/canon
 import { validateChainLink } from './consensus/chain-link.js'
 import { resolveTransactionReference } from './consensus/transaction-reference.js'
 import { publishObserverEvent } from './observer-events.js'
+import { startRecoveryTransport } from './recovery-transport.js'
 
 declare type SyncState = 'syncing' | 'synced' | 'errored' | 'connectionless'
 declare type ChainState = 'loading' | 'loaded'
@@ -211,6 +212,12 @@ export default class State extends Contract {
     await globalThis.peernet.addRequestHandler('lastBlock', this.#lastBlockHandler)
     await globalThis.peernet.addRequestHandler('knownBlocks', this.#knownBlocksHandler)
     await globalThis.peernet.addRequestHandler('chainState', this.#chainStateHandler)
+    // Recovery may need block/transaction bodies before chain:ready exists.
+    // Start only the data transport. Local, complete history can still recover
+    // offline; a missing body waits for startup/discovery with a fixed deadline.
+    void startRecoveryTransport(globalThis.peernet).catch(error => {
+      console.warn('[recovery] transport unavailable:', (error as Error)?.message ?? error)
+    })
     try {
       const identity = await createChainIdentity(chainNetwork(), addresses)
       const required = [addresses.contractFactory, addresses.nativeToken, addresses.nameService, addresses.validators]

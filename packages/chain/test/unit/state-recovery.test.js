@@ -32,6 +32,25 @@ test('worker deployment and read errors reject promptly without poisoning later 
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 
+test('recovery connects before readiness, fetches a late transaction provider and preserves canonical validation', { timeout: 60000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-early-transport-'))
+  try {
+    const seed = join(root, 'seed'), baselineRoot = join(root, 'baseline'), recoveredRoot = join(root, 'peer-body'), rejectedRoot = join(root, 'peer-corrupt')
+    const prepared = await run(seed, 'prepare')
+    assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
+    for (const target of [baselineRoot, recoveredRoot, rejectedRoot]) await cp(seed, target, { recursive: true })
+    const baseline = recovered(await run(baselineRoot, 'recover'))
+    const result = await run(recoveredRoot, 'recover-peer-body')
+    assert.match(result.stdout, /RECOVERY_EARLY_TRANSPORT_OK/)
+    assert.deepEqual(recovered(result), baseline, 'fetched transactions must execute exactly like local canonical bodies')
+    assert.deepEqual(recovered(await run(recoveredRoot, 'recover')), baseline, 'restart must not repeat fees or transfers')
+    const corrupt = await run(rejectedRoot, 'recover-peer-corrupt')
+    assert.equal(corrupt.code, 42, `${corrupt.stdout}\n${corrupt.stderr}`)
+    assert.match(corrupt.stderr, /RECOVERY_REJECTED/)
+    assert.doesNotMatch(corrupt.stdout, /RECOVERED |\[chain\] init:done/)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('real worker and signed blocks recover exactly once across process crashes at every checkpoint boundary', { timeout: 60000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-'))
   try {

@@ -2,6 +2,7 @@ import Peer from '@netpeer/swarm/peer'
 import { chainNetwork } from './ledger-network.js'
 import { Codec } from '@leofcoin/codec-format-interface'
 import { requestTimeout } from './protocol.js'
+import { requestRecoveryContent } from './recovery-transport.js'
 
 const INITIAL_RECONNECT_DELAY = 5000
 const MAX_RECONNECT_DELAY = 30000
@@ -91,40 +92,24 @@ export const guardProviderDiscovery = (peernet) => {
     }
     const probe = await peernet.prepareMessage(new peernet.protos['peernet-dht']({ hash, store: storeName }))
     const request = await peernet.prepareMessage(new peernet.protos['peernet-data']({ hash, store: storeName }))
-    const connections: Record<string, Peer> = peernet.connections
-    const requests = Object.entries(connections).filter(
-      ([id, peer]) => id !== peernet.id && peer.connected
-    ).map(async ([id, peer]) => {
-      let timeout: ReturnType<typeof setTimeout> | undefined
-      try {
-        const fetch = async () => {
-          const availability = await peer.request(probe.encoded)
-          if (!(availability instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
-          const probeBytes = availability
-          if (new Codec(probeBytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
-          const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded
-          if (provider.hash !== hash || !provider.has) throw new Error('peer does not provide content in requested store')
-          const result = await peer.request(request.encoded)
-          const bytes = result instanceof Uint8Array ? result : new Uint8Array(Object.values(result))
-          if (new Codec(bytes).name !== 'peernet-data-response') throw new Error('invalid data response codec')
-          const response = new peernet.protos['peernet-data-response'](bytes).decoded
-          if (response.hash !== hash || !(response.data instanceof Uint8Array) || response.data.length === 0) {
-            throw new Error('invalid content response')
-          }
-          return response.data
-        }
-        return await Promise.race([
-          fetch(),
-          new Promise<never>((_, reject) => {
-            timeout = setTimeout(() => reject(new Error(`content request timed out for ${id}`)), requestTimeout)
-          })
-        ])
-      } finally {
-        clearTimeout(timeout)
-      }
-    })
     try {
-      return await Promise.any(requests)
+      return await requestRecoveryContent(peernet, async (_id, peer: Peer) => {
+        const availability = await peer.request(probe.encoded)
+        if (!(availability instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
+        const probeBytes = availability
+        if (new Codec(probeBytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
+        const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded
+        if (provider.hash !== hash || !provider.has) throw new Error('peer does not provide content in requested store')
+        const result = await peer.request(request.encoded)
+        if (!(result instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
+        const bytes = result
+        if (new Codec(bytes).name !== 'peernet-data-response') throw new Error('invalid data response codec')
+        const response = new peernet.protos['peernet-data-response'](bytes).decoded
+        if (response.hash !== hash || !(response.data instanceof Uint8Array) || response.data.length === 0) {
+          throw new Error('invalid content response')
+        }
+        return response.data
+      })
     } catch (error) {
       throw new Error(`Content unavailable in ${storeName}: ${hash}`, { cause: error })
     }
