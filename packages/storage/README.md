@@ -24,19 +24,20 @@ The main export and `@leofcoin/storage/store` remain available.
 `@leofcoin/storage/browser-store` exposes the OPFS backend; the legacy
 `@leofcoin/storage/brower-store` spelling aliases it.
 
-## Browser queue
+## Operation queues
 
-The OPFS backend owns one operation queue per store instance. Every operation,
-including `has`, `clear` and `iterate`, uses that queue. Bulk reads and iteration
-return byte snapshots before a queued write or deletion can invalidate them.
-Read limits are honored. `has` returns `false` only for a missing key; storage
-errors remain visible and retain their original name and cause, with the
-store/operation included in the message. Different store instances remain
-independent. Applications no longer need to wrap or patch the backend.
+Both backends serialize operations through one queue per store instance.
+Individual reads/writes/deletes, `has`, `clear`, and scans use that queue.
+Bulk reads and iteration return byte snapshots before a later write or deletion
+can invalidate them. Read limits are honored. `has` returns `false` only for a
+missing key; storage errors remain visible and retain their original name and
+cause, with the store/operation included in the message. Different store
+instances remain independent. Calls made through the storage API do not need
+additional application-side queues.
 
-This queue coordinates operations on one instance, not independent browser
-tabs or multiple instances opening the same directory. The webnode's existing
-single-writer ownership is still required. No data reset is needed.
+The queues do not coordinate direct access through `.db` or independent
+instances. In the browser, the webnode's existing single-writer ownership is
+still required across tabs. No data reset is needed.
 
 ## Development
 

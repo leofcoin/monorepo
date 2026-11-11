@@ -120,8 +120,8 @@ export default class LeofcoinStorage {
     return this.db.iterate()
   }
 
-  entries(): Promise<[string, Uint8Array][]> {
-    return this.db.entries()
+  entries(limit = -1): Promise<[string, Uint8Array][]> {
+    return this.db.entries(limit)
   }
 }
 

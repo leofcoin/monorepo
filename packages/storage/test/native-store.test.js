@@ -6,6 +6,13 @@ import test from 'node:test'
 import { ClassicLevel } from 'classic-level'
 import Storage from '@leofcoin/storage'
 
+const deferred = () => {
+  let resolve
+  const promise = new Promise(done => { resolve = done })
+  return { promise, resolve }
+}
+const turn = () => new Promise(resolve => setImmediate(resolve))
+
 test('workspace storage reopens existing ClassicLevel bytes without changing locations or encoding', async t => {
   const root = await mkdtemp(join(tmpdir(), 'leofcoin-storage-'))
   const directory = join(root, 'ledger')
@@ -49,4 +56,49 @@ test('native batch access, bounded reads, deletion and clear retain the storage 
   assert.equal(await store.has('b'), false)
   await store.clear()
   assert.deepEqual(await store.keys(), [])
+})
+
+test('native operations share a queue and iterate returns a stable snapshot', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'leofcoin-storage-queue-'))
+  const store = new Storage('records', root, { homedir: false })
+  await store.init()
+  const database = store.db.db
+  t.after(async () => {
+    await database.close()
+    await rm(root, { recursive: true, force: true })
+  })
+  await store.put('key', 'old')
+
+  const entered = deferred(), gate = deferred()
+  const originalPut = database.put
+  database.put = async function (...args) {
+    entered.resolve()
+    await gate.promise
+    return originalPut.apply(this, args)
+  }
+  const write = store.put('key', 'new')
+  await entered.promise
+  let readStarted = false
+  const read = store.get('key').then(value => {
+    readStarted = true
+    return value
+  })
+  await turn()
+  assert.equal(readStarted, false)
+  gate.resolve()
+  await write
+  assert.equal(new TextDecoder().decode(await read), 'new')
+  database.put = originalPut
+
+  const snapshot = await store.iterate()
+  await store.put('key', 'latest')
+  const entries = []
+  for await (const entry of snapshot) entries.push(entry)
+  assert.deepEqual(entries, [['key', new TextEncoder().encode('new')]])
+
+  const originalGet = database.get
+  const error = new Error('injected read failure')
+  database.get = async () => { throw error }
+  await assert.rejects(store.has('key'), failure => failure.cause === error)
+  database.get = originalGet
 })
