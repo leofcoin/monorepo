@@ -60,7 +60,9 @@ provider; it does not sync this local envelope. Removing passkey unlock removes
 only that envelope, not the wallet or the credential in the device's password
 manager. Clearing local blocks or the pending pool does not clear it.
 
-WebAuthn needs a secure context (HTTPS, or localhost for development). This is
+WebAuthn needs a secure context and a domain (HTTPS, or `http://localhost` for
+development). Loopback IP URLs such as `http://127.0.0.1` are not valid passkey
+RP domains; use the same localhost URL consistently for setup and unlock. This is
 local cryptographic unlock, not remote account authentication. A compromised
 page/extension or already-unlocked session can still access secrets in memory;
 biometrics do not replace origin security or make wallet code immune to XSS.

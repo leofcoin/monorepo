@@ -76,6 +76,17 @@ test('enrollment without password verification is forbidden', async () => {
   assert.equal(f.requests.length, 0)
 })
 
+test('passkey enrollment rejects IP origins before asking the authenticator, while localhost remains supported', async () => {
+  const f = await fixture()
+  for (const origin of ['https://127.0.0.1', 'http://127.0.0.1', 'https://[::1]', 'http://wallet.example.test']) {
+    const api = new WalletPasskeys({ ...f.options, origin })
+    assert.match(api.unavailableReason, /domain name/)
+    await assert.rejects(api.enable(password), /domain name/)
+  }
+  assert.equal(f.requests.length, 0)
+  assert.equal(new WalletPasskeys({ ...f.options, origin: 'http://localhost:9556' }).unavailableReason, '')
+})
+
 const corruptClient = (credential, change) => {
   const data = JSON.parse(new TextDecoder().decode(credential.response.clientDataJSON))
   credential.response.clientDataJSON = encoder.encode(JSON.stringify({ ...data, ...change }))

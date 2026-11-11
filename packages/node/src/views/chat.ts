@@ -846,7 +846,7 @@ export class ChatView extends LitElement {
 
   static styles = css`
     :host {
-      display: block; height: 100%; min-height: 0; min-width: 0; box-sizing: border-box;
+      display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; box-sizing: border-box;
       padding: clamp(8px, 1.6vw, 24px); color: var(--md-sys-color-on-surface, #eceef4);
       --chat-border: var(--lfc-glass-border, #363941);
       --chat-surface: var(--lfc-glass-surface, #20242b);
@@ -854,7 +854,7 @@ export class ChatView extends LitElement {
       --chat-accent: var(--md-sys-color-primary, #8dbbff);
     }
     *, *::before, *::after { box-sizing: border-box; }
-    .layout { display: grid; grid-template-columns: 304px minmax(0, 1fr); width: 100%; height: 100%; min-height: 0;
+    .layout { display: grid; flex: 1; grid-template-columns: 304px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; min-height: 0;
       overflow: hidden; border: 1px solid var(--chat-border); border-radius: 20px; background: var(--chat-surface); }
     .sidebar { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--chat-border); }
     h1, h2, h3, p { margin: 0; }

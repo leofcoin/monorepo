@@ -73,5 +73,5 @@ createServer(async (request, response) => {
     response.end('Not found')
   }
 }).listen(port, '127.0.0.1', () =>
-  console.log(`UI fixtures: http://127.0.0.1:${port} (no real node or transactions)`)
+  console.log(`UI fixtures: http://localhost:${port} (no real node or transactions)`)
 )

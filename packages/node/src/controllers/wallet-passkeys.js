@@ -37,6 +37,11 @@ export class WalletPasskeys {
   get unavailableReason() {
     if (!this.secure || !this.origin || !this.publicKeyCredential || !this.crypto?.subtle ||
       !this.credentials?.create || !this.credentials?.get) return 'Passkey unlock is unavailable here. Use HTTPS and a browser with passkey support.'
+    let url
+    try { url = new URL(this.origin) } catch { return 'Passkeys require a trusted HTTPS domain, or localhost for development.' }
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && url.hostname === 'localhost')) ||
+      /^\d+(\.\d+){3}$/.test(url.hostname) || url.hostname.includes(':') || !url.hostname)
+      return 'Passkeys require a domain name, not an IP address. For local development, open this site using localhost.'
     return ''
   }
   #store() {
