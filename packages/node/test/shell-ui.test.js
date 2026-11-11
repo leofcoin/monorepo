@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { resolve, join, extname, sep } from 'node:path'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { fileURLToPath } from 'node:url'
 import { encodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 
 // Opt in after `npm run build`; uses only a local fixture and native CDP.
@@ -356,7 +357,7 @@ test('chat has compact safe messages, conversation drafts, accessible settings a
         bottom: composer.bottom, pageBottom: page.bottom, viewport: innerHeight };
     })()`)
     assert.equal(bounds.overflow, false)
-    assert.ok(bounds.bottom <= bounds.pageBottom && bounds.pageBottom <= bounds.viewport)
+    assert.ok(bounds.bottom <= bounds.pageBottom && bounds.pageBottom <= bounds.viewport, JSON.stringify({ width, ...bounds }))
     if (process.env.LFC_UI_SCREENSHOTS) {
       const shot = await call('Page.captureScreenshot', {format:'png'})
       await writeFile(join(process.env.LFC_UI_SCREENSHOTS, `chat-shell-${name}.png`), Buffer.from(shot.data, 'base64'))
@@ -366,7 +367,7 @@ test('chat has compact safe messages, conversation drafts, accessible settings a
 })
 
 async function createShellFixture(t) {
-  const root = resolve('www')
+  const root = resolve(fileURLToPath(new URL('../www/', import.meta.url)))
   const fixture = new URL('./shell-ui-fixture.html', import.meta.url)
   const server = createServer(async (request, response) => {
     try {
@@ -385,6 +386,9 @@ async function createShellFixture(t) {
   }).listen(0, '127.0.0.1')
   t.after(() => { server.closeAllConnections(); server.close() })
   await once(server, 'listening')
+  // WebAuthn RP IDs must be domains. Loopback IPs are secure contexts but are
+  // not valid RP IDs; localhost is the supported development exception.
+  const fixtureOrigin = `http://localhost:${server.address().port}`
   const profile = await mkdtemp(join(tmpdir(), 'leofcoin-shell-ui-'))
   const chrome = spawn(process.env.CHROME_BIN, [
     '--headless=new', '--no-first-run', '--no-default-browser-check',
@@ -393,12 +397,15 @@ async function createShellFixture(t) {
     ...(process.env.SHELL_UI_CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
     `--user-data-dir=${profile}`, 'about:blank'
   ], { stdio: ['ignore', 'ignore', 'pipe'] })
+  const closed = new Promise(resolve => chrome.once('close', resolve))
   t.after(async () => {
-    if (chrome.exitCode === null) {
+    if (chrome.exitCode === null && chrome.signalCode === null) {
       chrome.kill()
-      await once(chrome, 'exit')
     }
-    await rm(profile, { recursive: true, force: true })
+    // exit precedes closed stdio/child processes; removing the profile earlier
+    // races Chromium's final file writes, particularly on Linux CI runners.
+    await closed
+    await rm(profile, { recursive: true, force: true, maxRetries: 8, retryDelay: 100 })
   })
   const endpoint = await new Promise((accept, reject) => {
     let output = ''
@@ -446,18 +453,32 @@ async function createShellFixture(t) {
   }
   const resize = async (width, height = 900) => {
     await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
   }
   const click = async expression => {
-    const { x, y } = await evaluate(`(() => {
-      const rect = (${expression}).getBoundingClientRect()
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+    const { x, y } = await evaluate(`(async () => {
+      const target = (${expression});
+      if (!target) throw new Error('Click target is missing');
+      // Follow composed ancestors too: a drawer can be transitioning while its
+      // link has no animation of its own. Never wait on decorative infinite animations.
+      const animations = [];
+      for (let node = target; node; node = node.parentElement || node.getRootNode()?.host) {
+        for (const animation of node.getAnimations?.() || []) {
+          if (animation.effect?.getComputedTiming().iterations !== Infinity) animations.push(animation.finished.catch(() => {}));
+        }
+      }
+      await Promise.all(animations);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (!target.isConnected) throw new Error('Click target was replaced');
+      const rect = target.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
     })()`)
     await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 })
     await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 })
   }
   await call('Runtime.enable')
   await resize(1280)
-  await call('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` })
+  await call('Page.navigate', { url: `${fixtureOrigin}/` })
   await waitFor(`globalThis.fixtureReady && shell.shadowRoot.querySelector('wallet-view')?.shadowRoot?.querySelector('wallet-send')?.shadowRoot`)
   const newTab = async () => {
     const { targetId } = await call('Target.createTarget', { url: 'about:blank' })
@@ -483,7 +504,7 @@ async function createShellFixture(t) {
       return result.result.value
     }
     await invoke('Runtime.enable')
-    await invoke('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` })
+    await invoke('Page.navigate', { url: `${fixtureOrigin}/` })
     for (let i = 0; i < 100; i++) { if (await evaluateOther('Boolean(globalThis.fixtureReady)')) break; await new Promise(resolve => setTimeout(resolve, 30)) }
     assert.equal(await evaluateOther('Boolean(globalThis.fixtureReady)'), true)
     return { evaluate: evaluateOther, call: invoke, close: () => call('Target.closeTarget', { targetId }) }

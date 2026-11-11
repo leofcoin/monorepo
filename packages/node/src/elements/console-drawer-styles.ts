@@ -28,7 +28,8 @@ export const consoleDrawerStyles = css`
   button:hover:not(:disabled), .action:hover { background: var(--md-sys-color-surface-container-high, #383139); }
   button:focus-visible, a:focus-visible { outline: 2px solid var(--md-sys-color-primary, #9fc4ff); outline-offset: 3px; }
   button:disabled { opacity: .45; cursor: default; }
-  @keyframes drawer-enter { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+  /* Even the first animation frame stays inside the narrowest 8px inset. */
+  @keyframes drawer-enter { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
   @media (max-width: 639px) {
     dialog { inset: 8px; width: calc(100vw - 16px); height: calc(100dvh - 16px); border-radius: 20px; }
     header { padding: 20px; }
