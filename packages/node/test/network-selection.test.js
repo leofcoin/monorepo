@@ -54,8 +54,7 @@ test('preserves distinct routing IDs while sharing the wallet identity and scopi
     }
     async addStore(name, prefix, root, isPrivate) {
       created.push([name, prefix, root, isPrivate])
-      storeGlobal[`${name}Store`] = { name, db: { queue: [], runQueue() {},
-        keys() {}, values() {}, entries() {}, size() {} } }
+      storeGlobal[`${name}Store`] = { name }
       if (!isPrivate) this.stores.push(name)
     }
   }

@@ -17,6 +17,10 @@ cache. Use `--jobs` to bound parallel builds. `npm run build` / `build:core`
 remain available for the existing core-only build used during releases.
 Building packages does not start a node or change genesis, identities or chain data.
 
+`@leofcoin/storage` is maintained locally in [packages/storage](./packages/storage).
+Both core build/test scripts include it before dependent packages; existing
+package imports and on-disk data remain compatible.
+
 ## Local validator
 
 After building the workspace and creating genesis credentials, run the local `peach` validator with:

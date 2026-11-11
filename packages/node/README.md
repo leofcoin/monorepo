@@ -127,11 +127,11 @@ page reloads first and requires a typed confirmation; close other node tabs
 before continuing. See [browser storage management](../../docs/browser-storage.md)
 for details on locking, recovery and the stores affected.
 
-Browser node stores put bulk reads (`keys`, `values`, `entries`, `size`) on
-the storage backend's existing per-store operation queue, alongside individual
-reads, writes and deletes. Different stores remain independent. This prevents
-OPFS file snapshots from becoming unreadable during concurrent writes or deletes.
-Failed bulk reads report the store and operation; no ledger data is discarded
+The workspace [storage library](../storage/README.md) queues bulk reads (`keys`,
+`values`, `entries`, `size`) alongside individual reads, writes and deletes.
+Different stores remain independent. This prevents OPFS file snapshots from
+becoming unreadable during concurrent writes or deletes, without a webnode
+adapter. Failed reads report the store and operation; no ledger data is discarded
 or reset.
 
 ### Identity and Validator
@@ -157,11 +157,23 @@ different outcomes. All refreshed screens respect `prefers-reduced-motion`.
 
 ### Explorer navigation and ledger
 
-Explorer does **not** require wallet login. If a local wallet-backed node is
-already running, it reads that node; otherwise it opens a separate read-only
-HTTP source. This never assigns the remote source to the global signer, chain,
-client or peer state, never opens wallet/account stores and never publishes
-`node:ready`. Sending and validator actions still require the real local wallet.
+Explorer does **not** require wallet login. **Settings → Explorer node
+preference** controls its read-only data source. The default, **Try local node
+first**, probes `http://localhost:8080` (launch-chain's default HTTP endpoint),
+then uses the browser-owned chain if running, then Peach's configured public
+HTTP source. **Prefer browser node** skips the local endpoint probe. A local
+node must serve the selected network; a different network is rejected rather
+than silently replaced. The login screen shows a detected node's network,
+chain ID, sync state, tip and peer count so the data-source preference can be
+chosen there too. An HTTPS-hosted app may be prevented by browser policy from
+accessing local HTTP; use a browser-supported local/secure endpoint in that
+case.
+
+This preference does not change wallet signing or browser-node startup: after
+unlock, the browser-owned node still handles wallet actions. Explorer reads
+never assign a remote endpoint to the global signer, chain, client or peer
+state, open wallet/account stores, or publish `node:ready`. Sending and
+validator actions still require the real local wallet.
 The initial create/unlock screen also offers **Browse explorer without
 unlocking**; this is not shown during required wallet-backup acknowledgements.
 

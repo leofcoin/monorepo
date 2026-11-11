@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
-import { getSelectedNetwork } from '../network-selection.js'
+import { getExplorerSourcePreference, getSelectedNetwork, setExplorerSourcePreference } from '../network-selection.js'
 import { browserStorageOverview, scheduleStorageMaintenance, storageOperation } from '../controllers/browser-storage.js'
 import { errorMessage } from '../controllers/transfer.js'
 import { viewPolish } from './view-polish.js'
@@ -13,6 +13,8 @@ export class SettingsView extends LitElement {
   @state() accessor overview: any
   @state() accessor loading = false
   @state() accessor error = ''
+  @state() accessor explorerSourcePreference = 'local-first'
+  @state() accessor explorerPreferenceError = ''
   @state() accessor action: 'chain' | 'pool' | '' = ''
   @state() accessor confirmation = ''
   @state() accessor scheduling = false
@@ -29,7 +31,13 @@ export class SettingsView extends LitElement {
   #verifyPasskey: (() => void) | undefined
   #networkKey = ''
 
-  connectedCallback() { super.connectedCallback(); void this.#refresh(); void this.#refreshPasskeys() }
+  connectedCallback() {
+    super.connectedCallback()
+    try { this.explorerSourcePreference = getExplorerSourcePreference() }
+    catch (error) { this.explorerPreferenceError = errorMessage(error) }
+    void this.#refresh()
+    void this.#refreshPasskeys()
+  }
   disconnectedCallback() { this.#passkeyRequest?.abort(); super.disconnectedCallback(); this.shadowRoot?.querySelector('dialog')?.close() }
   #refreshPasskeys = async () => {
     const status = await new WalletPasskeys().status()
@@ -88,6 +96,12 @@ export class SettingsView extends LitElement {
     catch (error) { this.error = errorMessage(error) }
     finally { this.loading = false }
   }
+  #changeExplorerSource = (event: Event) => {
+    try {
+      this.explorerSourcePreference = setExplorerSourcePreference((event.target as HTMLSelectElement).value)
+      this.explorerPreferenceError = ''
+    } catch (error) { this.explorerPreferenceError = errorMessage(error) }
+  }
   #measureMemory = async () => {
     if (this.measuring) return
     this.measuring = true; this.memoryError = ''
@@ -135,6 +149,9 @@ export class SettingsView extends LitElement {
     .danger { background:transparent; border-color:var(--md-sys-color-error,#ffb4ab); color:var(--md-sys-color-error,#ffb4ab); }
     .passkey-form { display:grid; gap:12px; margin-top:20px; max-width:480px; }
     .passkey-form label { display:grid; gap:8px; } .passkey-form input { box-sizing:border-box; width:100%; }
+    .preference-field { display:grid; gap:8px; max-width:480px; margin-top:16px; }
+    .preference-field select { box-sizing:border-box; min-height:44px; padding:8px 12px; border:1px solid var(--lfc-glass-border,#45414c);
+      border-radius:10px; background:var(--md-sys-color-surface-container-low,#1d1b20); color:inherit; font:inherit; }
     .warning { margin-top:16px; padding:14px; border:1px solid var(--lfc-glass-border,#45414c); border-radius:12px; }
     dialog { width:min(540px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; margin:auto; padding:24px;
       color:inherit; border:1px solid var(--lfc-glass-border,#45414c); border-radius:20px; background:var(--md-sys-color-surface-container,#222127); }
@@ -169,6 +186,18 @@ export class SettingsView extends LitElement {
         ${this.passkeyBusy ? html`<button class="secondary" data-action="cancel-passkey" @click=${() => this.#passkeyRequest?.abort()}>Cancel passkey setup</button>` : ''}
         ${this.passkeyMessage ? html`<p role="status">${this.passkeyMessage}</p>` : ''}
         ${this.passkeyFailure ? html`<p class="error" role="alert">${this.passkeyFailure}</p>` : ''}
+      </section>
+      <section class="card" aria-labelledby="explorer-source-title">
+        <div class="section-title"><h2 id="explorer-source-title">Explorer node preference</h2></div>
+        <p class="muted">Choose which node supplies read-only explorer data. This does not change wallet signing or browser-node startup.</p>
+        <label class="preference-field">Explorer data source
+          <select data-action="explorer-source" .value=${this.explorerSourcePreference} @change=${this.#changeExplorerSource}>
+            <option value="local-first">Try local node first (localhost:8080)</option>
+            <option value="browser">Prefer browser node, then public endpoint</option>
+          </select>
+        </label>
+        ${this.explorerSourcePreference === 'local-first' ? html`<p class="muted">A matching local node is read-only for this explorer. If it is unavailable, the browser node is used when running, then Peach falls back to the public endpoint.</p>` : ''}
+        ${this.explorerPreferenceError ? html`<p class="error" role="alert">${this.explorerPreferenceError}</p>` : ''}
       </section>
       <section class="card"><div class="section-title"><h2>Browser storage</h2><span class="badge">${network.label}</span></div>
         <p class="muted">Usage is a browser estimate for this entire site, including application files. The records below belong only to ${network.label}.</p>

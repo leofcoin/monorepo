@@ -62,7 +62,16 @@ test('explorer exposes one automatic search field and its form routes both hash 
 function runtime(t) {
   const keys = ['chain', 'transactionStore', 'transactionPoolStore', 'peernet', 'pubsub']
   const original = Object.fromEntries(keys.map(key => [key, globalThis[key]]))
-  t.after(() => { for (const key of keys) original[key] === undefined ? delete globalThis[key] : globalThis[key] = original[key] })
+  const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: key => key === 'leofcoin:explorer-source:v1' ? 'browser' : null }
+  })
+  t.after(() => {
+    for (const key of keys) original[key] === undefined ? delete globalThis[key] : globalThis[key] = original[key]
+    if (originalLocalStorage) Object.defineProperty(globalThis, 'localStorage', originalLocalStorage)
+    else delete globalThis.localStorage
+  })
   Object.assign(globalThis, { chain: { nativeToken: data.nativeToken, lastBlock: data.blocks.at(-1),
     getBlocks: async (from, to) => data.blocks.slice(from, to) }, transactionStore: data.transactionStore,
     transactionPoolStore: data.transactionPoolStore, pubsub: new Pubsub(true) })

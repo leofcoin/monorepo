@@ -1,6 +1,6 @@
-import { queueBrowserStoreReads } from './controllers/browser-store-queue.js'
-
 export const NETWORK_STORAGE_KEY = 'leofcoin:selected-network:v1'
+export const EXPLORER_SOURCE_STORAGE_KEY = 'leofcoin:explorer-source:v1'
+export const EXPLORER_SOURCE_PREFERENCES = Object.freeze(['local-first', 'browser'])
 
 export const SUPPORTED_NETWORKS = Object.freeze({
   mainnet: Object.freeze({
@@ -36,6 +36,17 @@ export function setSelectedNetwork(key, storage = globalThis.localStorage) {
   return network
 }
 
+export function getExplorerSourcePreference(storage = globalThis.localStorage) {
+  const preference = storage?.getItem(EXPLORER_SOURCE_STORAGE_KEY)
+  return EXPLORER_SOURCE_PREFERENCES.includes(preference) ? preference : 'local-first'
+}
+
+export function setExplorerSourcePreference(preference, storage = globalThis.localStorage) {
+  if (!EXPLORER_SOURCE_PREFERENCES.includes(preference)) throw new Error(`Unsupported explorer source preference: ${preference}`)
+  storage.setItem(EXPLORER_SOURCE_STORAGE_KEY, preference)
+  return preference
+}
+
 export function installNetworkStoreScope(key, global = globalThis) {
   const network = SUPPORTED_NETWORKS[key]
   if (!network) throw new Error(`Unsupported network: ${key}`)
@@ -51,7 +62,6 @@ export function installNetworkStoreScope(key, global = globalThis) {
         ? false
         : isPrivate
       await super.addStore(storeName, prefix, root, storeIsPrivate)
-      queueBrowserStoreReads(global[`${storeName}Store`])
       if (storeName !== name) {
         global[`${name}Store`] = global[`${storeName}Store`]
         const index = this.stores.lastIndexOf(storeName)

@@ -1,0 +1,51 @@
+{
+  "name": "@leofcoin/storage",
+  "version": "3.5.38",
+  "description": "Leofcoin storage for Node.js and browsers",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./exports/storage.d.ts",
+      "import": "./exports/storage.js"
+    },
+    "./browser-store": {
+      "types": "./exports/browser-store.d.ts",
+      "import": "./exports/browser-store.js"
+    },
+    "./brower-store": {
+      "types": "./exports/browser-store.d.ts",
+      "import": "./exports/browser-store.js"
+    },
+    "./store": {
+      "types": "./exports/store.d.ts",
+      "import": "./exports/store.js"
+    }
+  },
+  "files": ["exports/*.js", "exports/*.d.ts", "LICENSE"],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "node --test test/*.test.js",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leofcoin/monorepo.git",
+    "directory": "packages/storage"
+  },
+  "bugs": {
+    "url": "https://github.com/leofcoin/monorepo/issues"
+  },
+  "homepage": "https://github.com/leofcoin/monorepo/tree/master/packages/storage",
+  "dependencies": {
+    "classic-level": "^3.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "@vandeurenglenn/debug": "^1.2.6",
+    "rollup": "^4.44.2",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3"
+  }
+}

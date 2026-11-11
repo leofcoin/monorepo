@@ -7,8 +7,14 @@ import { getBrowserTestnetResetFailure } from '../controllers/browser-testnet-re
 import { acquireBrowserStorageLease } from '../controllers/browser-storage.js'
 import { createBrowserNodeTabs, TAB_STORES } from '../controllers/browser-node-tabs.js'
 import { createBrowserNodeFollower } from '../controllers/browser-node-follower.js'
+import { discoverLocalNode } from '../controllers/public-explorer.js'
 import { WalletPasskeys, passkeyError, walletIdentityFingerprint } from '../controllers/wallet-passkeys.js'
-import { getSelectedNetwork, installNetworkStoreScope } from '../network-selection.js'
+import {
+  getExplorerSourcePreference,
+  getSelectedNetwork,
+  installNetworkStoreScope,
+  setExplorerSourcePreference
+} from '../network-selection.js'
 import '@material/web/button/elevated-button.js'
 import networks from '@leofcoin/networks'
 import QrScanner from 'qr-scanner'
@@ -28,6 +34,16 @@ declare global {
   var client: Client
   var chain: Chain
 }
+
+type LocalNodeInfo = {
+  endpoint: string
+  network: string
+  chainId: string
+  synced: boolean
+  tipIndex: number | bigint
+  connectedPeers: number
+}
+
 @customElement('login-screen')
 export class LoginScreen extends LiteElement {
   @property({ type: Boolean, reflect: true })
@@ -45,7 +61,12 @@ export class LoginScreen extends LiteElement {
   @property() accessor loginError = ''
   @property({ type: Boolean }) accessor busy = false
   @property({ type: Boolean }) accessor passkeyEnabled = false
+  @property() accessor explorerSourcePreference: 'local-first' | 'browser' = 'local-first'
+  @property() accessor localNodeStatus: 'checking' | 'connected' | 'unavailable' | 'error' = 'unavailable'
+  @property() accessor localNode: LocalNodeInfo | undefined
+  @property() accessor localNodeError = ''
   #passkeyRequest: AbortController | undefined
+  #localNodeProbe = 0
 
   @property()
   accessor decodedMnemonic: string
@@ -59,6 +80,7 @@ export class LoginScreen extends LiteElement {
 
   disconnectedCallback() {
     this.#passkeyRequest?.abort()
+    this.#localNodeProbe++
     this.shadowRoot.querySelector('input:focus')?.blur()
     super.disconnectedCallback()
   }
@@ -99,6 +121,10 @@ export class LoginScreen extends LiteElement {
       this.addEventListener('keydown', this._keydown)
       this.shown = true
       this.loginError = ''
+      this.explorerSourcePreference = getExplorerSourcePreference()
+      this.localNodeStatus = 'checking'
+      this.localNode = undefined
+      this.localNodeError = ''
       this.hasWallet = await this._hasWallet()
       this.passkeyEnabled = this.hasWallet && (await new WalletPasskeys().status()).enabled
       if (this.hasWallet) {
@@ -109,7 +135,24 @@ export class LoginScreen extends LiteElement {
         this.subline = 'Create a wallet or import one to continue'
       }
       await this.requestRender()
+      void this.#probeLocalNode()
       const onClick = async (event) => {
+        const nodePreferenceTarget = event.composedPath().find((element: any) => element?.dataset?.nodePreference) as HTMLElement
+        if (nodePreferenceTarget) {
+          if (this.busy) return
+          try {
+            this.explorerSourcePreference = setExplorerSourcePreference(nodePreferenceTarget.dataset.nodePreference)
+            this.loginError = ''
+          } catch (error) {
+            this.loginError = error instanceof Error ? error.message : String(error)
+          }
+          return
+        }
+        const probeTarget = event.composedPath().find((element: any) => element?.dataset?.probeLocalNode === 'true')
+        if (probeTarget) {
+          if (!this.busy) void this.#probeLocalNode()
+          return
+        }
         const target = event.composedPath().find((element: any) => element?.dataset?.routeAction) as HTMLElement
         const routeAction = target?.dataset.routeAction
         if (!['create', 'import', 'login', 'passkey'].includes(routeAction) || this.busy) return
@@ -144,6 +187,23 @@ export class LoginScreen extends LiteElement {
       }
       this.addEventListener('click', onClick)
     })
+  }
+
+  #probeLocalNode = async () => {
+    const probe = ++this.#localNodeProbe
+    this.localNodeStatus = 'checking'
+    this.localNode = undefined
+    this.localNodeError = ''
+    try {
+      const localNode = await discoverLocalNode(getSelectedNetwork())
+      if (probe !== this.#localNodeProbe) return
+      this.localNode = localNode
+      this.localNodeStatus = localNode ? 'connected' : 'unavailable'
+    } catch (error) {
+      if (probe !== this.#localNodeProbe) return
+      this.localNodeStatus = 'error'
+      this.localNodeError = error instanceof Error ? error.message : String(error)
+    }
   }
 
   async requestPassword(hasWallet) {
@@ -487,6 +547,38 @@ export class LoginScreen extends LiteElement {
     `
   }
 
+  get #nodeSourceTemplate() {
+    const network = getSelectedNetwork()
+    return html`
+      <section class="node-source" aria-label="Chain information source">
+        <p class="node-source-heading">Chain information source</p>
+        ${this.localNode ? html`
+          <button class="source-option" type="button" data-node-preference="local-first"
+            aria-pressed=${this.explorerSourcePreference === 'local-first'} ?disabled=${this.busy}>
+            <span>Local node · connected</span>
+            <small>${network.label} · ${this.localNode.synced ? 'Synced' : 'Syncing'} · block ${String(this.localNode.tipIndex)} · ${this.localNode.connectedPeers} peers</small>
+            <code title=${this.localNode.chainId}>${this.localNode.chainId.slice(0, 15)}…${this.localNode.chainId.slice(-8)}</code>
+          </button>
+        ` : html`
+          <p class="source-status" role=${this.localNodeStatus === 'error' ? 'alert' : 'status'}>
+            ${this.localNodeStatus === 'checking' ? 'Checking for a matching local node…' :
+              this.localNodeStatus === 'error' ? `Local node not selected: ${this.localNodeError}` :
+                'No matching local node found at localhost:8080.'}
+          </p>
+        `}
+        <button class="source-option" type="button" data-node-preference="browser"
+          aria-pressed=${this.explorerSourcePreference === 'browser'} ?disabled=${this.busy}>
+          <span>Browser node</span>
+          <small>Use the browser’s node for explorer data.</small>
+        </button>
+        <button class="source-refresh" type="button" data-probe-local-node="true" ?disabled=${this.busy || this.localNodeStatus === 'checking'}>
+          ${this.localNodeStatus === 'checking' ? 'Checking…' : 'Check local node again'}
+        </button>
+        <p class="source-note">This only selects read-only explorer data. Your wallet and signing stay in the browser; unlocking still starts the browser node.</p>
+      </section>
+    `
+  }
+
   static styles = [
     css`
       :host {
@@ -505,6 +597,16 @@ export class LoginScreen extends LiteElement {
       }
 
       .passkey-hint { margin: 0 0 8px; font-size: 13px; text-align: center; line-height: 1.5; }
+      .node-source { display:grid; gap:8px; width:100%; margin:12px 0; text-align:left; }
+      .node-source-heading { margin:0; font-size:12px; font-weight:700; }
+      .source-option { display:grid; gap:4px; min-width:0; padding:10px 12px; border-color:var(--md-sys-color-outline-variant);
+        color:var(--md-sys-color-on-surface); background:color-mix(in srgb,var(--md-sys-color-surface-container-high) 70%,transparent);
+        text-align:left; font-size:13px; }
+      .source-option[aria-pressed="true"] { border-color:var(--md-sys-color-primary); background:color-mix(in srgb,var(--md-sys-color-primary) 12%,transparent); }
+      .source-option small, .source-status, .source-note { margin:0; color:var(--md-sys-color-on-surface-variant); font-size:11px; font-weight:400; line-height:1.45; }
+      .source-option code { overflow-wrap:anywhere; font-size:10px; font-weight:400; }
+      .source-refresh { min-height:34px; padding:6px; border:0; color:var(--md-sys-color-primary); background:transparent; font-size:12px; }
+      .source-option:disabled, .source-refresh:disabled { opacity:.55; cursor:default; }
 
       :host([shown]) {
         opacity: 1;
@@ -921,6 +1023,7 @@ export class LoginScreen extends LiteElement {
           <flex-column data-route="login" center>
             <flex-it flex="2"></flex-it>
             ${this.hasWallet ? this.#hasWalletTemplate : this.#defaultTemplate}
+            ${this.#nodeSourceTemplate}
             <button class="browse-explorer" type="button" ?disabled=${this.busy}
               @click=${() => { if (!this.busy) { this.#dismiss(); location.hash = '#!/explorer/blocks' } }}>
               Browse explorer without unlocking
