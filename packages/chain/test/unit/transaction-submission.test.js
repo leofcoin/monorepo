@@ -63,3 +63,25 @@ test('failure during propagation is observed before the caller receives its wait
   await assert.rejects(pending.wait, result => result.error.message === 'invalid')
   assert.equal(state.pubsub.subscriberCount('block-processed'), 0)
 })
+
+test('pending nonces never become committed state and storage failures are not treated as zero', async () => {
+  const source = `return class Nonces {
+    getMaxPendingNonce() { return 100 }
+    getPendingNonces() { return new Set() }
+    ${methods('../../src/transaction.ts', 'Transaction', ['getNonce', 'validateNonce'])}
+  }`
+  let written = false
+  const accountsStore = {
+    async has() { return false },
+    async put() { written = true },
+    async get() { throw new Error('unexpected read') }
+  }
+  const Nonces = new Function('globalThis', ts.transpile(source, { target: ts.ScriptTarget.ES2022 }))({ accountsStore })
+  const instance = new Nonces()
+  assert.equal(await instance.getNonce('sender'), 100)
+  await instance.validateNonce('sender', 1)
+  assert.equal(written, false)
+  accountsStore.has = async () => { throw new Error('nonce store unavailable') }
+  await assert.rejects(instance.getNonce('sender'), /nonce store unavailable/)
+  await assert.rejects(instance.validateNonce('sender', 1), /nonce store unavailable/)
+})

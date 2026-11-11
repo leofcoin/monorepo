@@ -2,6 +2,7 @@ import { installBinaryPeerProtocol } from './binary-peer-protocol.js'
 // import config from './config/config'
 import Peernet from '@leofcoin/peernet/browser'
 import Identity from '@leofcoin/peernet/browser/identity'
+import Storage from '@leofcoin/storage'
 import nodeConfig from '@leofcoin/lib/node-config'
 import networks from '@leofcoin/networks'
 import { type NodeOptions } from './constants.js'
@@ -9,6 +10,10 @@ import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.
 import { browserRoutingId } from './routing-identity-browser.js'
 import { chainDiscoveryOptions, chainPeernetOptions, assertDiscoveryNamespace } from './star-namespace.js'
 import { startRecoveryTransport } from './recovery-transport.js'
+
+declare global {
+  var LeofcoinStorage: typeof Storage
+}
 
 export default class Node {
   #node
@@ -24,6 +29,7 @@ export default class Node {
     const autoStart = config.autoStart
     config = { ...config, autoStart: false, routingId: await browserRoutingId(config) }
     const peerOptions = {...chainPeernetOptions(config),identity:new Identity(config.network)}
+    globalThis.LeofcoinStorage = Storage
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(peerOptions, password)
       : await new Peernet(peerOptions, password)

@@ -13,6 +13,7 @@ const source = ts.transpile(`
   return class Harness {
     #participating = false
     #runningEpoch = false
+    #pendingTransactionsRevision = 0
     #acceptingChainTraffic = true
     #peerHandshakes = new Map()
     loaded = true
@@ -45,12 +46,14 @@ const source = ts.transpile(`
 const createNode = () => {
   const pending = new Map()
   const canonical = new Map()
+  const committed = new Map()
   const messages = []
   const logs = []
   const timers = []
   const neighbours = []
   const store = (map) => ({
     async has(hash) { return map.has(hash) },
+    async get(hash) { return map.get(hash) },
     async put(hash, bytes) { map.set(hash, bytes) },
     async keys() { return [...map.keys()] }
   })
@@ -78,7 +81,8 @@ const createNode = () => {
   const globals = {
     peernet,
     transactionPoolStore: store(pending),
-    transactionStore: store(canonical)
+    transactionStore: store(canonical),
+    accountsStore: store(committed)
   }
   const Harness = new Function(
     'globalThis', 'peernet', 'TransactionMessage', 'enqueueTransaction',
@@ -89,7 +93,7 @@ const createNode = () => {
     (...args) => logs.push(args), callback => timers.push(callback),
     async decoded => ({ decoded }), { log() {}, error() {} }
   )
-  return { chain: new Harness(), pending, canonical, messages, logs, timers, neighbours, peernet }
+  return { chain: new Harness(), pending, canonical, committed, messages, logs, timers, neighbours, peernet, globals }
 }
 
 const transaction = (overrides = {}) => new TransactionMessage({
@@ -142,11 +146,20 @@ test('does not reintroduce or relay a canonically confirmed transaction', async 
   const message = transaction()
   const hash = await message.hash()
   node.canonical.set(hash, message.encoded)
+  node.committed.set('sender', new TextEncoder().encode('1'))
 
   assert.equal(await node.chain.receive(message.encoded), hash)
   assert.equal(node.pending.size, 0)
   assert.deepEqual(node.messages, [])
   assert.deepEqual(node.chain.nonces, [])
+})
+
+test('reports committed nonce storage failures without broadcasting an invalid transaction', async () => {
+  const node = createNode()
+  node.globals.accountsStore.has = async () => { throw new Error('disk unavailable') }
+  await assert.rejects(node.chain.receive(transaction().encoded), /transaction admission failed: disk unavailable/)
+  assert.deepEqual(node.messages, [])
+  assert.equal(node.pending.size, 0)
 })
 
 test('logs asynchronous relay failure but retains the accepted pool entry for recovery', async () => {
@@ -220,7 +233,7 @@ test('recovers pending transactions from compatible peers before the first block
   assert.deepEqual(receiver.chain.synced, [])
 })
 
-test('pool recovery skips already-pending and canonical hashes', async () => {
+test('pool recovery uses locally available bodies and skips already committed or pending transactions', async () => {
   const browser = createNode()
   const validator = createNode()
   const message = transaction()
@@ -228,13 +241,14 @@ test('pool recovery skips already-pending and canonical hashes', async () => {
   browser.pending.set(hash, message.encoded)
   validator.neighbours.push(browser)
   validator.canonical.set(hash, message.encoded)
-  validator.peernet.get = async () => { throw new Error('must not fetch') }
-
+  validator.peernet.get = async () => { throw new Error('must use local body') }
+  assert.deepEqual(await validator.chain.getPeerTransactionPool(validator.peernet.getConnection('browser')), [hash])
+  assert.deepEqual(validator.pending.get(hash), message.encoded)
   assert.deepEqual(await validator.chain.getPeerTransactionPool(validator.peernet.getConnection('browser')), [])
-  validator.canonical.clear()
-  validator.pending.set(hash, message.encoded)
-  assert.deepEqual(await validator.chain.getPeerTransactionPool(validator.peernet.getConnection('browser')), [])
-  assert.deepEqual(validator.chain.nonces, [])
+  validator.pending.clear()
+  validator.committed.set('sender', new TextEncoder().encode('1'))
+  assert.deepEqual(await validator.chain.getPeerTransactionPool(validator.peernet.getConnection('browser')), [hash])
+  assert.equal(validator.pending.size, 0)
 })
 
 test('pool recovery logs unavailable entries and continues', async () => {

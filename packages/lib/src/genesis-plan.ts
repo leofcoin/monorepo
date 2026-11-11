@@ -10,7 +10,7 @@ export { parseGenesisAllocations, validateGenesisSupply } from './genesis-alloca
 export const GENESIS_PLAN_SCHEMA = 'leofcoin:genesis-plan'
 export const GENESIS_PLAN_MAX_BYTES = 1_048_576
 export const GENESIS_RUNTIME = Object.freeze({
-  network: 'leofcoin:peach', networkVersion: 'peach', protocolVersion: '0.4.0',
+  network: 'leofcoin:peach', networkVersion: 'peach', protocolVersion: '0.6.0',
   token: Object.freeze({ name: 'Leofcoin', symbol: 'LFC', decimals: 18 })
 })
 export type GenesisPlan = {

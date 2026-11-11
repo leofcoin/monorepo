@@ -51,6 +51,7 @@ function activationFixture(stage) {
   const boundary = { stage, failure }
   const source = `class Activation {
     #runningEpoch = false
+    #pendingTransactionsRevision = 0
     #participating = false
     #proposalInFlight = null
     #lastProposalAt = 0
@@ -73,14 +74,22 @@ function activationFixture(stage) {
       return true
     }
     async #getConsensusValidators() { this.fail('validators'); return ['validator'] }
+    #assertRecoveryComplete() {}
     #isJailed() { return false }
     async #sleep() {}
     #armRoundTimer() {}
     async #createBlock() {
       this.proposals++
       this.fail('proposal')
+      if (this.proposals === 1 && boundary.stage === 'gap') return false
+      if (this.proposals === 1 && boundary.stage === 'gap-arrival') {
+        this.#pendingTransactionsRevision++
+        return false
+      }
       this.#proposalInFlight = { index: 0 }
+      return true
     }
+    async arrive() { this.#pendingTransactionsRevision++; await this.#runEpoch() }
     ${activationMethods}
   }`
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
@@ -98,9 +107,24 @@ test('participation surfaces storage failures without an automatic retry or a st
       assert.equal(error.cause, failure)
       return true
     })
+
     assert.deepEqual(chain.state, { running: false, participating: false })
     assert.equal(chain.proposals, stage === 'validators' ? 0 : 1)
     assert.equal(await chain.participate('validator'), true)
     assert.deepEqual(chain.state, { running: false, participating: true })
   }
+})
+
+test('nonce gaps stop retrying until a missing transaction arrives', async () => {
+  const { chain } = activationFixture('gap')
+  assert.equal(await chain.participate('validator'), true)
+  assert.equal(chain.proposals, 1)
+  await chain.arrive()
+  assert.equal(chain.proposals, 2)
+})
+
+test('a transaction arriving during gap selection triggers another attempt', async () => {
+  const { chain } = activationFixture('gap-arrival')
+  assert.equal(await chain.participate('validator'), true)
+  assert.equal(chain.proposals, 2)
 })

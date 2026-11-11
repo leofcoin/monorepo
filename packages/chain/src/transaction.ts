@@ -1,6 +1,6 @@
 import Protocol from './protocol.js'
 import { chainNetwork } from './ledger-network.js'
-import { TransactionMessage, BlockMessage } from '@leofcoin/messages'
+import { TransactionMessage } from '@leofcoin/messages'
 import {
   calculateFee,
   createTransactionHash,
@@ -104,62 +104,6 @@ export default class Transaction extends Protocol {
     return transactions
   }
 
-  /**
-   * When a nonce isn't found for an address fallback to just checking the transactionnPoolStore
-   * @param {Address} address
-   * @returns {Number} nonce
-   */
-  async #getNonceFallback(address) {
-    let transactions = await globalThis.transactionPoolStore.values()
-    transactions = await this.promiseTransactions(transactions)
-    transactions = transactions.filter((tx) => tx.decoded.from === address)
-    transactions = await this.promiseTransactionsContent(transactions)
-    // @ts-ignore
-    if (this.lastBlock?.hash && transactions.length === 0 && this.lastBlock.hash !== '0x0') {
-      // @ts-ignore
-      let blockHash = this.lastBlock.hash
-      try {
-        while (blockHash && blockHash !== '0x0' && transactions.length === 0) {
-          let rawBlock
-          try {
-            rawBlock = await globalThis.blockStore.get(blockHash)
-          } catch {
-            rawBlock = await globalThis.peernet.get(blockHash, 'block')
-          }
-          if (!rawBlock) break
-
-          const block = await new BlockMessage(rawBlock)
-          const blockTransactions = await Promise.all(
-            block.decoded.transactions.map(async (hash) => {
-              let rawTransaction
-              try {
-                rawTransaction = await globalThis.transactionStore.get(hash)
-              } catch {
-                // Fall through to the network lookup below.
-              }
-              if (!rawTransaction) rawTransaction = await globalThis.peernet.get(hash, 'transaction')
-              return rawTransaction ? new TransactionMessage(rawTransaction) : undefined
-            })
-          )
-          transactions = blockTransactions
-            .filter((transaction): transaction is TransactionMessage => Boolean(transaction))
-            .filter((transaction) => transaction.decoded.from === address)
-            .map((transaction) => transaction.decoded)
-          blockHash = block.decoded.previousHash
-        }
-      } catch {
-        return 0
-      }
-    }
-    if (transactions.length === 0) return 0
-
-    // Optimize: find max nonce instead of sorting entire array
-    let maxNonce = 0
-    for (const tx of transactions) {
-      if (tx.nonce > maxNonce) maxNonce = tx.nonce
-    }
-    return maxNonce
-  }
 
   /**
    * Get amount of transactions by address
@@ -167,42 +111,18 @@ export default class Transaction extends Protocol {
    * @returns {Number} nonce
    */
   async getNonce(address) {
-    // DO NOT use nonce cache here - multiple parallel calls could create race conditions
-    // Instead, optimize the store queries and pool filtering
-    try {
-      if (!(await globalThis.accountsStore.has(address))) {
-        const nonce = await this.#getNonceFallback(address)
-        await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
-      }
-    } catch (error) {
-      const nonce = await this.#getNonceFallback(address)
-      await globalThis.accountsStore.put(address, new TextEncoder().encode(String(nonce)))
-    }
-    // Fast path: Use pending nonce index instead of full pool scan (O(1) vs O(n))
-    let nonce = await globalThis.accountsStore.get(address)
-    nonce = Number(new TextDecoder().decode(nonce))
+    const raw = await globalThis.accountsStore.has(address) ? await globalThis.accountsStore.get(address) : undefined
+    const nonce = raw === undefined ? 0 : Number(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     const maxPending = this.getMaxPendingNonce(address)
-    if (maxPending > nonce) {
-      return maxPending
-    }
-    return nonce
+    return Math.max(nonce, maxPending)
   }
 
   async validateNonce(address, nonce) {
     // Compare only against the COMMITTED nonce (accountsStore), not the pool max.
     // The pool may hold many future nonces from batch sends — rejecting lower nonces
     // because a higher one is already queued would break concurrent batch submission.
-    let committedNonce: number
-    try {
-      if (await globalThis.accountsStore.has(address)) {
-        const raw = await globalThis.accountsStore.get(address)
-        committedNonce = Number(new TextDecoder().decode(raw))
-      } else {
-        committedNonce = await this.#getNonceFallback(address)
-      }
-    } catch {
-      committedNonce = 0
-    }
+    const raw = await globalThis.accountsStore.has(address) ? await globalThis.accountsStore.get(address) : undefined
+    const committedNonce = raw === undefined ? 0 : Number(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
 
     if (committedNonce >= nonce) throw new Error(`a transaction with the same nonce already exists`)
 

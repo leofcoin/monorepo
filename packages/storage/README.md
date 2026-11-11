@@ -19,6 +19,8 @@ Native stores use `root/name` under the home directory by default; pass
 `{ homedir: false }` as the third constructor argument for an explicit root.
 Browser stores retain their existing origin-private directories named after
 the store; the root argument does not relocate browser data.
+The storage API passes encoded bytes to its backend, including when browser
+bundles load the API and OPFS backend as separate modules.
 
 The main export and `@leofcoin/storage/store` remain available.
 `@leofcoin/storage/browser-store` exposes the OPFS backend; the legacy

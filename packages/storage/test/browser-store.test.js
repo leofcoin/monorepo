@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import Storage from '@leofcoin/storage'
+import { rollup } from 'rollup'
+import { fileURLToPath } from 'node:url'
 
 const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
 let BrowserStore
@@ -21,7 +23,7 @@ const deferred = () => {
 }
 const turn = () => new Promise(resolve => setImmediate(resolve))
 
-async function fixture() {
+async function fixture(StorageClass = Storage) {
   const records = new Map([['tx', { bytes: Uint8Array.of(1), revision: 0 }]])
   const readStarted = deferred(), writeStarted = deferred()
   const state = { readGate: undefined, writeGate: undefined, error: undefined, handleError: undefined, writing: false,
@@ -73,7 +75,7 @@ async function fixture() {
     },
     async *entries() { for (const key of records.keys()) yield [key, handle(key)] }
   }
-  const store = new Storage('transactionPool-peach')
+  const store = new StorageClass('transactionPool-peach')
   store.db = backend
   backend.name = store.name
   return { store, state, readStarted, writeStarted }
@@ -133,6 +135,25 @@ test('has waits for queued writes and does not turn storage failures into missin
     return true
   })
   await assert.rejects(f.store.hasValue('tx'), failure => failure.cause === error)
+})
+
+test('storage passes bytes across independently bundled browser backend boundaries', async () => {
+  const bundle = await rollup({
+    input: fileURLToPath(new URL('../exports/storage.js', import.meta.url)),
+    external: ['./browser-store.js', './store.js', 'path', 'os', 'fs/promises']
+  })
+  const { output } = await bundle.generate({ format: 'es' })
+  await bundle.close()
+  const source = Buffer.from(output[0].code).toString('base64')
+  const { default: BundledStorage } = await import(`data:text/javascript;base64,${source}`)
+  const { store } = await fixture(BundledStorage)
+  const key = new TextEncoder().encode('contract')
+  const value = Uint8Array.of(0, 127, 255)
+  await store.put(key, value)
+  assert.equal(await store.has('contract'), true)
+  assert.deepEqual(await store.get(key), value)
+  await store.delete('contract')
+  assert.equal(await store.has(key), false)
 })
 
 test('an active scan only holds its own store queue, not operations on another store', async () => {

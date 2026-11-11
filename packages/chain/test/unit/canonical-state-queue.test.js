@@ -72,7 +72,7 @@ test('locally available transaction bodies are executed, not mistaken for canoni
 test('a committed sender nonce rejects a repeated transaction before another transfer or fee', async () => {
   const fixture = createApplicationHarness()
   fixture.accountNonces.set('sender', new TextEncoder().encode('1'))
-  await assert.rejects(fixture.instance.add(fixture.block), /nonce already committed/)
+  await assert.rejects(fixture.instance.add(fixture.block), /nonce out of sequence/)
   assert.equal(fixture.counts.executions, 0)
   assert.equal(fixture.counts.fees, 0)
   assert.equal(fixture.counts.rewards, 0)

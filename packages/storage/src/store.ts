@@ -63,14 +63,14 @@ export default class Store {
     }
   }
 
-  async #get(key: KeyPath) {
+  async #get(key: string | Uint8Array | KeyPath) {
     const value = await this.db.get(this.toKeyPath(key))
     if (value === undefined || value.length === 0)
       throw new DOMException(`Key not found: ${this.toKeyPath(key)}`, 'NotFoundError')
     return this.toUint8Array(value)
   }
 
-  has(key: KeyPath): Promise<boolean> {
+  has(key: string | Uint8Array | KeyPath): Promise<boolean> {
     return this.#enqueue('has', async () => {
       try {
         await this.#get(key)
@@ -82,15 +82,15 @@ export default class Store {
     })
   }
 
-  get(key: KeyPath): Promise<Uint8Array> {
+  get(key: string | Uint8Array | KeyPath): Promise<Uint8Array> {
     return this.#enqueue('get', () => this.#get(key))
   }
 
-  put(key: KeyPath, value: KeyValue): Promise<void> {
+  put(key: string | Uint8Array | KeyPath, value: string | Uint8Array | KeyValue): Promise<void> {
     return this.#enqueue('put', async () => this.db.put(this.toKeyPath(key), this.toKeyValue(value)))
   }
 
-  delete(key: KeyPath): Promise<void> {
+  delete(key: string | Uint8Array | KeyPath): Promise<void> {
     return this.#enqueue('delete', async () => this.db.del(this.toKeyPath(key)))
   }
 

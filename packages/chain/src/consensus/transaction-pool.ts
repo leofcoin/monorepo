@@ -15,7 +15,6 @@ interface EnqueueableTransaction extends HashableTransaction {
 export interface TransactionPoolOps {
   putToPool: (hash: string, data: Uint8Array) => Promise<unknown>
   hasInPool: (hash: string) => Promise<boolean>
-  hasInStore: (hash: string) => Promise<boolean>
   addPendingNonce: (address: string, nonce: number) => void
 }
 
@@ -25,7 +24,7 @@ export const enqueueTransaction = async <T extends EnqueueableTransaction>(
   ops: TransactionPoolOps
 ): Promise<string> => {
   const hash = await transaction.hash()
-  if (!(await ops.hasInPool(hash)) && !(await ops.hasInStore(hash))) {
+  if (!(await ops.hasInPool(hash))) {
     await ops.putToPool(hash, transaction.encoded)
   }
   ops.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
@@ -44,11 +43,31 @@ export const compareTransactionNonces = (
   return 0
 }
 
+type NonceTransaction = { decoded: { from: string; nonce: number | bigint | string; priority?: boolean } }
+
+export const compareExecutionTransactions = (left: NonceTransaction, right: NonceTransaction): number =>
+  compareTransactionNonces(left.decoded.nonce, right.decoded.nonce) ||
+  Number(Boolean(right.decoded.priority)) - Number(Boolean(left.decoded.priority))
+
+export async function validateConsecutiveNonces(
+  transactions: NonceTransaction[],
+  readCommitted: (address: string) => Promise<bigint>
+): Promise<void> {
+  const nonces = new Map<string, bigint>()
+  for (const transaction of [...transactions].sort(compareExecutionTransactions)) {
+    const { from, nonce } = transaction.decoded
+    const committed = nonces.has(from) ? nonces.get(from)! : await readCommitted(from)
+    const actual = BigInt(nonce)
+    if (actual !== committed + 1n)
+      throw new Error(`Transaction nonce out of sequence for ${from}: expected ${committed + 1n}, got ${actual}`)
+    nonces.set(from, actual)
+  }
+}
+
 /** Remove canonical transactions and entries superseded by committed nonces. */
 export const pruneCanonicalTransactions = async <T extends HashableTransaction>(
   transactions: T[],
   latestTransactionHashes: Iterable<string>,
-  isStored: (hash: string) => Promise<boolean>,
   removePending: (hash: string, transaction: T) => Promise<unknown>,
   isObsolete: (transaction: T) => Promise<boolean> = async () => false
 ): Promise<PendingTransaction<T>[]> => {
@@ -57,7 +76,7 @@ export const pruneCanonicalTransactions = async <T extends HashableTransaction>(
 
   for (const transaction of transactions) {
     const hash = await transaction.hash()
-    if (latest.has(hash) || (await isStored(hash)) || (await isObsolete(transaction))) {
+    if (latest.has(hash) || (await isObsolete(transaction))) {
       await removePending(hash, transaction)
       continue
     }

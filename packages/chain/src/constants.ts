@@ -1,8 +1,8 @@
 import networks from '@leofcoin/networks'
 
-// Consensus-breaking activation: binary-only typed messages and new content addresses.
-// Do not reuse 0.4.x ledger state or connect it to this protocol.
-export const PROTOCOL_VERSION = '0.5.0'
+// Consensus-breaking activation: transactions must use consecutive sender nonces.
+// Older ledger roots require an explicit migration or testnet reset.
+export const PROTOCOL_VERSION = '0.6.0'
 // Stable application identity, independent of protocol releases and genesis.
 export const CHAIN_APP_ID = 'e0e759e2-3f0b-4d6b-9bb6-b547f655545b'
 export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes

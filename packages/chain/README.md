@@ -90,6 +90,19 @@ I/O errors still stop recovery explicitly without discarding the target.
 The tip is checkpointed before updating the chain marker or announcing success.
 Local transaction bytes are not considered evidence of prior execution;
 committed sender nonces prevent executing a transfer twice.
+Protocol 0.6 requires each sender's nonces to be consecutive from the parent
+state. Validators check this before prevoting and before any block mutation;
+proposers defer later transactions until missing earlier nonces arrive. Priority
+does not override a sender's nonce order. A missing nonce can therefore stall
+that sender until the missing transaction is submitted; an otherwise empty
+proposal waits for new transactions rather than retrying indefinitely. Stored
+transaction bytes alone do not prove that a transaction was committed.
+
+0.6 is consensus-incompatible with 0.5. All validators must upgrade together
+and start from a new testnet ledger. The user-selected genesis contracts and
+network name (and therefore the chain ID) remain unchanged: the chain ID alone
+cannot distinguish the old and new histories. Preserve the old root and wallet;
+do not reset existing data without an explicit backup and operator approval.
 Proposal preparation also removes pending entries at or below each sender's
 committed nonce, even when their hashes differ from the committed transactions.
 An existing recovery block containing such an obsolete nonce still rejects

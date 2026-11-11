@@ -47,7 +47,7 @@ export default class LeofcoinStorage {
   get(keys: KeyInput[]): Promise<Uint8Array[]>
   async get(key: KeyInput | KeyInput[]): Promise<Uint8Array | Uint8Array[]> {
     if (Array.isArray(key)) return this.many('get', key)
-    return this.db.get(new Path(key))
+    return this.db.get(new Path(key).uint8Array)
   }
 
   put(key: KeyInput, value: ValueInput): Promise<WriteResult>
@@ -56,14 +56,14 @@ export default class LeofcoinStorage {
     if (typeof key !== 'string' && !(key instanceof Uint8Array) && !(key instanceof Path))
       return this.many('put', key)
     if (value === undefined) throw new Error('A storage value is required')
-    return this.db.put(new Path(key), new KeyValue(value))
+    return this.db.put(new Path(key).uint8Array, new KeyValue(value).uint8Array)
   }
 
   has(key: KeyInput): Promise<boolean>
   has(keys: KeyInput[]): Promise<boolean[]>
   async has(key: KeyInput | KeyInput[]): Promise<boolean | boolean[]> {
     if (Array.isArray(key)) return this.many('has', key)
-    return Boolean(await this.db.has(new Path(key)))
+    return Boolean(await this.db.has(new Path(key).uint8Array))
   }
 
   hasValue(key: KeyInput): Promise<boolean>
@@ -80,7 +80,7 @@ export default class LeofcoinStorage {
   }
 
   async delete(key: KeyInput) {
-    return this.db.delete(new Path(key))
+    return this.db.delete(new Path(key).uint8Array)
   }
 
   keys(limit = -1) {

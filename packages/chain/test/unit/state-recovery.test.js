@@ -82,7 +82,7 @@ test('real worker and signed blocks recover exactly once across process crashes 
 test('invalid proof or failed execution rejects readiness and never becomes a recovered tip', { timeout: 60000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'lfc-recovery-reject-'))
   try {
-    for (const invalid of ['proof', 'execution', 'missing', 'tampered', 'no-anchor', 'contract', 'nested-static']) {
+    for (const invalid of ['proof', 'execution', 'missing', 'tampered', 'no-anchor', 'contract', 'nested-static', 'nonce-gap']) {
       const scenario = join(root, invalid)
       const prepared = await run(scenario, 'prepare', invalid)
       assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
@@ -90,6 +90,7 @@ test('invalid proof or failed execution rejects readiness and never becomes a re
         const result = await run(scenario, 'recover')
         assert.equal(result.code, 42, `${invalid}\n${result.stdout}\n${result.stderr}`)
         assert.match(result.stderr, /RECOVERY_REJECTED/)
+        if (invalid === 'nonce-gap') assert.match(result.stderr, /nonce out of sequence/)
         assert.doesNotMatch(result.stdout, /RECOVERED |\[chain\] init:done/)
       }
     }

@@ -47,9 +47,10 @@ import { resolveTransactionReference } from './consensus/transaction-reference.j
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
 import {
-  compareTransactionNonces,
+  compareExecutionTransactions,
   enqueueTransaction,
-  pruneCanonicalTransactions
+  pruneCanonicalTransactions,
+  validateConsecutiveNonces
 } from './consensus/transaction-pool.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
@@ -75,6 +76,7 @@ export default class Chain extends VersionControl {
 
   /** {Boolean} */
   #runningEpoch = false
+  #pendingTransactionsRevision = 0
 
   /** Block height at which current epoch started (for block-based epoch timing) */
   #currentEpochStartHeight: number = 0
@@ -315,6 +317,11 @@ export default class Chain extends VersionControl {
         return transaction
       })
     )
+    await validateConsecutiveNonces(transactions, async address => {
+      if (!(await globalThis.accountsStore.has(address))) return 0n
+      const raw = await globalThis.accountsStore.get(address)
+      return BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
+    })
     const feesEnabled = supportsTransactionFees(blockMessage.decoded.protocolVersion)
     if (feesEnabled) await this.#assertFeeBurnSupported(blockMessage.decoded.protocolVersion)
     const adaptivePolicy = supportsMonetaryPolicy(blockMessage.decoded.protocolVersion)
@@ -472,8 +479,12 @@ export default class Chain extends VersionControl {
       }
 
       this.#lastProposalAt = Date.now()
-      await this.#createBlock()
-      hasMore = await this.hasTransactionToHandle()
+      const revision = this.#pendingTransactionsRevision
+      const proposed = await this.#createBlock()
+      if (proposed || revision !== this.#pendingTransactionsRevision) {
+        hasMore = await this.hasTransactionToHandle()
+        hasMore ||= revision !== this.#pendingTransactionsRevision
+      }
     } finally {
       this.#runningEpoch = false
     }
@@ -704,13 +715,15 @@ export default class Chain extends VersionControl {
           return
         }
 
-        validateChainLink(localBlock, {
-          index: Number(blockMessage.decoded.index),
-          hash: actualHash,
-          previousHash: String(blockMessage.decoded.previousHash)
+        await this.withCanonicalState(async () => {
+          if (validateChainLink(await this.canonicalTip(), {
+            index: Number(blockMessage.decoded.index),
+            hash: actualHash,
+            previousHash: String(blockMessage.decoded.previousHash)
+          }) !== 'append') throw new Error('Proposal no longer extends the canonical tip')
+          await this.#validateBlockValidators(blockMessage)
+          await this.#resolveBlockTransactions(blockMessage)
         })
-        await this.#validateBlockValidators(blockMessage)
-        await this.#resolveBlockTransactions(blockMessage)
       } catch (e) {
         debug(`[consensus] Invalid proposed block ${blockHash}:`, (e as Error)?.message)
         return
@@ -892,9 +905,10 @@ export default class Chain extends VersionControl {
     const recovered: string[] = []
     for (const hash of new Set<string>(transactionsInPool)) {
       if (await globalThis.transactionPoolStore.has(hash)) continue
-      if (await globalThis.transactionStore.has(hash)) continue
       try {
-        const txData = await globalThis.peernet.get(hash, 'transactionPool')
+        const txData = await globalThis.transactionStore.has(hash)
+          ? await globalThis.transactionStore.get(hash)
+          : await globalThis.peernet.get(hash, 'transactionPool')
         if (txData === undefined) throw new Error('pending transaction body unavailable')
         const transaction = await resolveTransactionReference(hash, txData)
         recovered.push(await this.#sendTransaction(transaction))
@@ -1206,17 +1220,7 @@ export default class Chain extends VersionControl {
     }
 
     // Combine and sort all transactions deterministically
-    const allTransactions = transactions.sort((a, b) => {
-      // Primary: by priority (true first)
-      if (a.decoded.priority !== b.decoded.priority) {
-        return (b.decoded.priority ? 1 : 0) - (a.decoded.priority ? 1 : 0)
-      }
-      // Secondary: by nonce
-      const nonceDiff = compareTransactionNonces(a.decoded?.nonce, b.decoded?.nonce)
-      if (nonceDiff !== 0) return nonceDiff
-      // Tertiary: in stable order (insertion order preserved)
-      return 0
-    })
+    const allTransactions = transactions.sort(compareExecutionTransactions)
     const monetaryPolicy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
 
     // Contract calls share global state, so every node must execute the complete
@@ -1354,7 +1358,8 @@ export default class Chain extends VersionControl {
       const raw = await globalThis.accountsStore.get(transaction.decoded.from)
       committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-    if (nonce <= committed) throw new Error(`Transaction nonce already committed: ${hash} (nonce ${nonce}, committed ${committed}, block ${block?.index ?? 'unknown'})`)
+    if (nonce !== committed + 1n)
+      throw new Error(`Transaction nonce out of sequence: ${hash} (nonce ${nonce}, expected ${committed + 1n}, block ${block?.index ?? 'unknown'})`)
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
@@ -1385,16 +1390,15 @@ export default class Chain extends VersionControl {
     }
   }
 
-  // todo filter tx that need to wait on prev nonce
   async #createBlock(limit = this.transactionLimit) {
-    if (this.#proposalInFlight) return
+    if (this.#proposalInFlight) return false
 
     // vote for transactions
-    if ((await globalThis.transactionPoolStore.size()) === 0) return
+    if ((await globalThis.transactionPoolStore.size()) === 0) return false
 
-    let transactions = await globalThis.transactionPoolStore.values(this.transactionLimit)
+    let transactions = await globalThis.transactionPoolStore.values()
 
-    if (Object.keys(transactions)?.length === 0) return
+    if (Object.keys(transactions)?.length === 0) return false
 
     const timestamp = Date.now()
 
@@ -1423,7 +1427,6 @@ export default class Chain extends VersionControl {
     const pendingTransactions = await pruneCanonicalTransactions(
       transactions,
       latestTransactions,
-      (hash) => globalThis.transactionStore.has(hash),
       async (hash, transaction) => {
         await globalThis.transactionPoolStore.delete(hash)
         this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
@@ -1439,22 +1442,17 @@ export default class Chain extends VersionControl {
     )
 
     // Combine priority and normal transactions, then sort deterministically
-    const allTransactions = pendingTransactions.sort((a, b) => {
-      // Primary: by priority (true first)
-      if (a.transaction.decoded.priority !== b.transaction.decoded.priority) {
-        return (b.transaction.decoded.priority ? 1 : 0) - (a.transaction.decoded.priority ? 1 : 0)
-      }
-      // Secondary: by nonce
-      const nonceDiff = compareTransactionNonces(a.transaction.decoded?.nonce, b.transaction.decoded?.nonce)
-      if (nonceDiff !== 0) return nonceDiff
-      // Tertiary: in stable order (insertion order preserved)
-      return 0
-    })
+    const allTransactions = pendingTransactions.sort((a, b) =>
+      compareExecutionTransactions(a.transaction, b.transaction) ||
+      (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0))
 
     // A proposal only validates and publishes transaction data. Canonical
     // execution happens in #addBlock after quorum is reached.
     let blockTransactionBytes = 0
+    const selectedNonces = new Map(committedNonces)
     for (const { transaction, hash } of allTransactions) {
+      const { from, nonce } = transaction.decoded
+      if (BigInt(nonce) !== (selectedNonces.get(from) ?? 0n) + 1n) continue
       const transactionBytes = transaction.encoded.length
       if (transactionBytes > MAX_TRANSACTION_BYTES) {
         await globalThis.transactionPoolStore.delete(hash)
@@ -1467,13 +1465,14 @@ export default class Chain extends VersionControl {
         break
       await this.validateTransactionSignature(transaction)
       block.transactions.push(hash)
+      selectedNonces.set(from, BigInt(nonce))
       blockTransactionBytes += transactionBytes
       if (supportsTransactionFees(this.version)) block.fees += BigInt(await calculateFee(transaction.decoded))
       await globalThis.peernet.put(hash, transaction.encoded, 'transaction')
     }
 
     // don't add empty block
-    if (block.transactions.length === 0) return
+    if (block.transactions.length === 0) return false
 
     const localBlock = await this.lastBlock
     block.index = nextBlockIndex(localBlock?.index)
@@ -1575,6 +1574,7 @@ export default class Chain extends VersionControl {
     } catch (error) {
       throw new Error(`block proposal #${block.index} failed: ${(error as Error)?.message ?? error}`, { cause: error })
     }
+    return true
     // data = await this.machine.execute(to, method, params)
     // transactionStore.put(message.hash, message.encoded)
   }
@@ -1586,14 +1586,17 @@ export default class Chain extends VersionControl {
 
     try {
       hash = await transaction.hash()
-      if (await globalThis.transactionStore.has(hash)) return hash
+      const { from, nonce } = transaction.decoded
+      const raw = await globalThis.accountsStore.has(from) ? await globalThis.accountsStore.get(from) : undefined
+      const committed = raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
+      if (BigInt(nonce) <= committed) return hash
       const alreadyPending = await globalThis.transactionPoolStore.has(hash)
       hash = await enqueueTransaction(transaction, {
         putToPool: (txHash, data) => globalThis.transactionPoolStore.put(txHash, data),
         hasInPool: (txHash) => globalThis.transactionPoolStore.has(txHash),
-        hasInStore: (txHash) => globalThis.transactionStore.has(txHash),
         addPendingNonce: (address, nonce) => this.addPendingNonce(address, nonce)
       })
+      this.#pendingTransactionsRevision++
       // Peernet pubsub delivers only to direct neighbours; relay new entries once.
       if (!alreadyPending) {
         try {
@@ -1609,14 +1612,7 @@ export default class Chain extends VersionControl {
       }
       return hash
     } catch (e) {
-      if (hash) {
-        try {
-          await globalThis.peernet.publish('invalid-transaction', encodeWire('invalid-transaction', hash))
-        } catch (publishError) {
-          debug('peernet publish failed: invalid-transaction', (publishError as Error)?.message ?? publishError)
-        }
-      }
-      throw new Error('invalid transaction')
+      throw new Error(`transaction admission failed: ${(e as Error)?.message ?? e}`, { cause: e })
     }
   }
   /**
