@@ -430,64 +430,53 @@ export default class Chain extends VersionControl {
   async #runEpoch(): Promise<void> {
     if (this.#runningEpoch) return
     this.#runningEpoch = true
-    const validators = await this.#getConsensusValidators()
-
-    if (this.#isJailed(peernet.selectedAccount)) {
-      this.#runningEpoch = false
-      return
-    }
-
-    if (!validators.includes(peernet.selectedAccount)) {
-      this.#runningEpoch = false
-      return
-    }
-
-    // Apply cadence before every attempt. The canonical timestamp prevents a
-    // newly triggered epoch from proposing too soon after the previous block;
-    // the local timestamp also throttles empty/failed proposal attempts.
-    let localBlock = await this.lastBlock
-    const delay = proposalDelay({
-      now: Date.now(),
-      lastBlockTimestamp: Number(localBlock?.timestamp ?? 0),
-      lastProposalAt: this.#lastProposalAt,
-      blockTime: this.#blockTime
-    })
-    if (delay > 0) await this.#sleep(delay)
-
-    // Re-read the canonical tip after waiting: a peer may have committed the
-    // next height and changed the deterministic proposer in the meantime.
-    localBlock = await this.lastBlock
-
-    // Phase 1: Deterministic proposer selection
-    // proposer = validators[(nextBlockIndex + round) % validators.length]
-    const nextIndex = nextBlockIndex(localBlock?.index)
-    const proposerIdx = (nextIndex + this.#consensusRound) % validators.length
-    const isProposer = validators[proposerIdx] === peernet.selectedAccount
-
-    if (!isProposer) {
-      // Non-proposer: start round-advance timer in case proposer is unresponsive
-      this.#armRoundTimer(nextIndex, this.#consensusRound)
-      this.#runningEpoch = false
-      return
-    }
-
-    // We are the proposer — clear any stale round-advance timer
-    if (this.#roundTimer) {
-      clearTimeout(this.#roundTimer)
-      this.#roundTimer = null
-    }
-
-    this.#lastProposalAt = Date.now()
-
+    let hasMore = false
     try {
+      const validators = await this.#getConsensusValidators()
+
+      if (this.#isJailed(peernet.selectedAccount) || !validators.includes(peernet.selectedAccount)) return
+
+      // Apply cadence before every attempt. The canonical timestamp prevents a
+      // newly triggered epoch from proposing too soon after the previous block;
+      // the local timestamp also throttles empty/failed proposal attempts.
+      let localBlock = await this.lastBlock
+      const delay = proposalDelay({
+        now: Date.now(),
+        lastBlockTimestamp: Number(localBlock?.timestamp ?? 0),
+        lastProposalAt: this.#lastProposalAt,
+        blockTime: this.#blockTime
+      })
+      if (delay > 0) await this.#sleep(delay)
+
+      // Re-read the canonical tip after waiting: a peer may have committed the
+      // next height and changed the deterministic proposer in the meantime.
+      localBlock = await this.lastBlock
+
+      // Phase 1: Deterministic proposer selection
+      // proposer = validators[(nextBlockIndex + round) % validators.length]
+      const nextIndex = nextBlockIndex(localBlock?.index)
+      const proposerIdx = (nextIndex + this.#consensusRound) % validators.length
+      const isProposer = validators[proposerIdx] === peernet.selectedAccount
+
+      if (!isProposer) {
+        // Non-proposer: start round-advance timer in case proposer is unresponsive
+        this.#armRoundTimer(nextIndex, this.#consensusRound)
+        return
+      }
+
+      // We are the proposer — clear any stale round-advance timer
+      if (this.#roundTimer) {
+        clearTimeout(this.#roundTimer)
+        this.#roundTimer = null
+      }
+
+      this.#lastProposalAt = Date.now()
       await this.#createBlock()
-    } catch (error) {
-      console.error(error)
+      hasMore = await this.hasTransactionToHandle()
+    } finally {
+      this.#runningEpoch = false
     }
 
-    const hasMore = await this.hasTransactionToHandle()
-
-    this.#runningEpoch = false
     if (hasMore && !this.#proposalInFlight) return this.#runEpoch()
   }
 
@@ -1329,13 +1318,13 @@ export default class Chain extends VersionControl {
         this.#participating = false
         return false
       }
+      this.#participating = true
+      if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
+      return true
     } catch (error) {
       this.#participating = false
-      throw new Error(`validator participation failed: ${(error as Error)?.message ?? error}`)
+      throw new Error(`validator participation failed: ${(error as Error)?.message ?? error}`, { cause: error })
     }
-    this.#participating = true
-    if ((await this.hasTransactionToHandle()) && !this.#runningEpoch && this.#participating) await this.#runEpoch()
-    return true
   }
 
   async #handleTransaction(transaction, latestTransactions, block?, feePayments = { payments: [], burned: 0n }) {
@@ -1351,7 +1340,7 @@ export default class Chain extends VersionControl {
       const raw = await globalThis.accountsStore.get(transaction.decoded.from)
       committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-    if (nonce <= committed) throw new Error(`Transaction nonce already committed: ${hash}`)
+    if (nonce <= committed) throw new Error(`Transaction nonce already committed: ${hash} (nonce ${nonce}, committed ${committed}, block ${block?.index ?? 'unknown'})`)
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {
@@ -1416,11 +1405,23 @@ export default class Chain extends VersionControl {
     // A transaction that already exists in canonical state is not pending.
     // Prune it before signature validation so stale pools cannot repeatedly
     // decode and validate the same transactions forever.
+    const committedNonces = new Map<string, bigint>()
     const pendingTransactions = await pruneCanonicalTransactions(
       transactions,
       latestTransactions,
       (hash) => globalThis.transactionStore.has(hash),
-      (hash) => globalThis.transactionPoolStore.delete(hash)
+      async (hash, transaction) => {
+        await globalThis.transactionPoolStore.delete(hash)
+        this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+      },
+      async (transaction) => {
+        const { from, nonce } = transaction.decoded
+        if (!committedNonces.has(from)) {
+          const raw = await globalThis.accountsStore.has(from) ? await globalThis.accountsStore.get(from) : undefined
+          committedNonces.set(from, raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw)))
+        }
+        return BigInt(nonce) <= committedNonces.get(from)
+      }
     )
 
     // Combine priority and normal transactions, then sort deterministically
@@ -1558,9 +1559,7 @@ export default class Chain extends VersionControl {
         this.#armRoundTimer(Number(block.index), this.#consensusRound)
       }
     } catch (error) {
-      console.log(error)
-
-      throw new Error(`invalid block ${block}`)
+      throw new Error(`block proposal #${block.index} failed: ${(error as Error)?.message ?? error}`, { cause: error })
     }
     // data = await this.machine.execute(to, method, params)
     // transactionStore.put(message.hash, message.encoded)

@@ -60,6 +60,29 @@ test('parses commands and common node options in any order', async () => {
     wsPort: false,
     shell: true
   })
+
+  test('CLI startup failures exit even when partially started runtimes leave open handles', async () => {
+    const nodeUrl = new URL('../exports/node.js', import.meta.url).href
+    const validatorUrl = new URL('../exports/validator.js', import.meta.url).href
+    const hook = `import { registerHooks } from 'node:module';
+      registerHooks({ load(url, context, next) {
+        if (url === ${JSON.stringify(nodeUrl)} || url === ${JSON.stringify(validatorUrl)})
+          return { format: 'module', shortCircuit: true,
+            source: 'export async function startNode() { setInterval(() => {}, 1000); throw new Error("fixture startup rejected") }; export const startValidator = startNode;' };
+        return next(url, context);
+      } });`
+    for (const entry of ['cli.js', 'validator-cli.js']) {
+      await assert.rejects(run(process.execPath, [
+        '--import', `data:text/javascript,${encodeURIComponent(hook)}`,
+        fileURLToPath(new URL(`../exports/${entry}`, import.meta.url)), 'validator'
+      ], { timeout: 5000 }), error => {
+        assert.equal(error.killed, false, `${entry} must exit without the test killing it`)
+        assert.equal(error.code, 1)
+        assert.match(error.stderr, /fixture startup rejected/)
+        return true
+      })
+    }
+  })
   assert.deepEqual(parseCliOptions(['transfer', 'YTq-recipient', '12.5', '--star', 'wss://one', '--star', 'wss://two']), {
     command: 'transfer',
     positionals: ['YTq-recipient', '12.5'],

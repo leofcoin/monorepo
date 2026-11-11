@@ -207,5 +207,6 @@ if (isCliEntry()) {
   runCli().catch((error) => {
     process.stderr.write(`leofcoin: ${(error as Error)?.message ?? error}\n`)
     process.exitCode = 1
+    setTimeout(() => process.exit(1), 100)
   })
 }

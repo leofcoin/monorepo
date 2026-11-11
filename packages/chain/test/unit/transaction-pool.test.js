@@ -41,6 +41,31 @@ test('stores validated incoming transactions and tracks their pending nonce', as
     addPendingNonce: (address, nonce) => pending.push([address, nonce])
   })
 
+  test('prunes lower and equal committed nonces even when their hashes are not canonical', async () => {
+    const removed = []
+    const entries = [334, 11167, 11168].map(nonce => ({
+      decoded: { from: 'sender', nonce },
+      hash: async () => `tx-${nonce}`
+    }))
+    const pending = await pruneCanonicalTransactions(
+      entries, [], async () => false,
+      async (hash, transaction) => removed.push([hash, transaction.decoded.nonce]),
+      async transaction => BigInt(transaction.decoded.nonce) <= 11167n
+    )
+    assert.deepEqual(removed, [['tx-334', 334], ['tx-11167', 11167]])
+    assert.deepEqual(pending.map(({ hash }) => hash), ['tx-11168'])
+  })
+
+  test('a failed committed nonce read stops proposal preparation instead of assuming zero', async () => {
+    const removed = []
+    await assert.rejects(pruneCanonicalTransactions(
+      [transaction('pending')], [], async () => false,
+      async hash => removed.push(hash),
+      async () => { throw new Error('nonce store unavailable') }
+    ), /nonce store unavailable/)
+    assert.deepEqual(removed, [])
+  })
+
   assert.equal(hash, 'tx-1')
   assert.deepEqual(stored, [['tx-1', tx.encoded]])
   assert.deepEqual(pending, [['alice', 7]])

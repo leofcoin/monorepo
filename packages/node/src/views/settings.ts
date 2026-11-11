@@ -24,7 +24,9 @@ export class SettingsView extends LitElement {
   @state() accessor passkeyBusy = false
   @state() accessor passkeyMessage = ''
   @state() accessor passkeyFailure = ''
+  @state() accessor passkeyVerificationPending = false
   #passkeyRequest: AbortController | undefined
+  #verifyPasskey: (() => void) | undefined
   #networkKey = ''
 
   connectedCallback() { super.connectedCallback(); void this.#refresh(); void this.#refreshPasskeys() }
@@ -33,6 +35,21 @@ export class SettingsView extends LitElement {
     const status = await new WalletPasskeys().status()
     if (this.isConnected) this.passkeyStatus = status
   }
+  #confirmPasskeyVerification = (signal: AbortSignal) => new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      signal.removeEventListener('abort', abort)
+      this.#verifyPasskey = undefined
+      this.passkeyVerificationPending = false
+    }
+    const abort = () => {
+      cleanup()
+      reject(new DOMException('Passkey operation cancelled.', 'AbortError'))
+    }
+    this.#verifyPasskey = () => { cleanup(); resolve() }
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) abort()
+    else this.passkeyVerificationPending = true
+  })
   #enablePasskey = async (event: SubmitEvent) => {
     event.preventDefault()
     if (this.passkeyBusy) return
@@ -47,7 +64,7 @@ export class SettingsView extends LitElement {
         const raw = await store.get('identity')
         const identity = JSON.parse(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
         await new IdentityController(getSelectedNetwork().network, { identity }).unlock(currentPassword)
-      } }).enable(password, { signal: this.#passkeyRequest.signal })
+      } }).enable(password, { signal: this.#passkeyRequest.signal, confirmVerification: this.#confirmPasskeyVerification })
       this.passkeyMessage = 'Passkey enabled. Keep your wallet password and encrypted backup for recovery.'
     } catch (error) { this.passkeyFailure = passkeyError(error) }
     finally {
@@ -146,6 +163,9 @@ export class SettingsView extends LitElement {
             <button type="submit" ?disabled=${this.passkeyBusy}>${this.passkeyBusy ? 'Follow your device prompts…' : 'Enable passkey unlock'}</button>
           </form>` : ''}
         ${this.passkeyStatus?.configured ? html`<button class="secondary" data-action="remove-passkey" ?disabled=${this.passkeyBusy} @click=${this.#removePasskey}>Remove passkey unlock</button>` : ''}
+        ${this.passkeyVerificationPending ? html`
+          <p role="status">Passkey created. Verify it once more to finish enabling wallet unlock.</p>
+          <button type="button" data-action="verify-passkey" @click=${() => this.#verifyPasskey?.()}>Verify passkey</button>` : ''}
         ${this.passkeyBusy ? html`<button class="secondary" data-action="cancel-passkey" @click=${() => this.#passkeyRequest?.abort()}>Cancel passkey setup</button>` : ''}
         ${this.passkeyMessage ? html`<p role="status">${this.passkeyMessage}</p>` : ''}
         ${this.passkeyFailure ? html`<p class="error" role="alert">${this.passkeyFailure}</p>` : ''}
