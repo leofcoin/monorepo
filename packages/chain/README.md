@@ -166,6 +166,31 @@ Pool admission and pubsub publication are not validator acknowledgements.
 the updated chain runtime to intermediate nodes and validators as well as the
 browser to enable relay and reconnect recovery throughout the network.
 
+## Transport during startup recovery
+
+Peernet starts its data transport during local state recovery, after stores,
+binary message guards, version/genesis identity and read-only recovery handlers
+are installed. Transport startup does not depend on `chain:ready`. A complete
+local history can still recover offline; a missing block or transaction body
+starts/awaits transport and queries connected peers, including peers that join
+late, within one 30-second request deadline. Negative responses cannot hide a
+later valid provider. Responses stay binary and all existing content-hash,
+signature, chain-link and execution validation remains mandatory.
+
+Consensus/gossip subscriptions, public transaction submission and validator
+participation remain disabled until recovery has succeeded. `chain:ready` and
+`node:ready` retain their chain-ready meaning, not socket-open meaning. Peers
+that connected during recovery are handshaken after readiness without requiring
+a reconnect. Failed recovery preserves its recovery target/checkpoint and does
+not silently delete local data, skip a transaction or reset genesis.
+
+Regression coverage runs through the existing GitHub Actions chain suite:
+`test/unit/recovery-transport.test.js`, `test/unit/provider-discovery.test.js`
+and `test/unit/state-recovery.test.js`. The last uses signed blocks and a real
+worker/checkpoint replay with a deliberately missing local transaction, a late
+synthetic provider and a corrupt-body rejection case. Existing multi-node E2E
+and consensus workflows remain enabled. No local test run is needed.
+
 ## Application-scoped discovery
 
 Peernet's discovery API is `network` plus `protocolVersion`. Internally the chain

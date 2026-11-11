@@ -114,6 +114,8 @@ export default class Chain extends VersionControl {
   // ────────────────────────────────────────────────────────────────────────────
 
   #connectionMonitor: ConnectionMonitor
+  #acceptingChainTraffic = false
+  #peerHandshakes = new Map<string, { peer: unknown; promise: Promise<void> }>()
   readyResolve: (value: boolean | PromiseLike<boolean>) => void
   readyReject: (reason: unknown) => void
   ready = new Promise<boolean>((resolve, reject) => {
@@ -536,6 +538,14 @@ export default class Chain extends VersionControl {
 
     this.utils = { formatUnits, parseUnits }
 
+    // Identity/version are safe during recovery and must be registered before
+    // transport connects. Mutating gossip and consensus are subscribed only
+    // after super.init() has validated and replayed the canonical history.
+    await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
+    await globalThis.peernet.addRequestHandler('chainIdentity', async () =>
+      new globalThis.peernet.protos['peernet-response']({ response: await this.getChainIdentity() })
+    )
+
     // this.#state = new State()
     console.log('init')
 
@@ -556,10 +566,6 @@ export default class Chain extends VersionControl {
     // })
 
     await globalThis.peernet.addRequestHandler('transactionPool', this.#transactionPoolHandler.bind(this))
-    await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
-    await globalThis.peernet.addRequestHandler('chainIdentity', async () =>
-      new globalThis.peernet.protos['peernet-response']({ response: await this.getChainIdentity() })
-    )
     await globalThis.peernet.addRequestHandler('stateInfo', async () => {
       const lastblock = (await this.lastBlock) || { index: 0, hash: '0x0', previousHash: '0x0' }
       const values = this.machine?.states?.info || {}
@@ -585,10 +591,17 @@ export default class Chain extends VersionControl {
 
     globalThis.pubsub.subscribe('peer:connected', this.#peerConnected.bind(this))
 
+    this.#acceptingChainTraffic = true
     globalThis.pubsub.publish('chain:ready', true)
 
     console.log('[chain] init:done')
     this.readyResolve(true)
+    // Connections established during recovery emitted their event before the
+    // chain subscribed. Catch them up now; new events share the same in-flight
+    // handshake so a peer cannot trigger two concurrent sync attempts.
+    for (const [id, peer] of Object.entries(globalThis.peernet.connections || {}) as [string, any][]) {
+      if (peer?.connected) void this.#peerConnected(id)
+    }
   }
 
   async #invalidTransaction(bytes: Uint8Array) {
@@ -903,12 +916,26 @@ export default class Chain extends VersionControl {
   }
 
   async #peerConnected(peerId) {
+    if (!this.#acceptingChainTraffic || !this.loaded) return
     if (typeof peerId !== 'string' || !peerId.trim() || peerId === 'undefined') {
       debug('ignored peer connection without a valid peer id')
       return
     }
+    const peer = globalThis.peernet.connections?.[peerId]
+    const existing = this.#peerHandshakes.get(peerId)
+    if (existing && existing.peer === peer) return existing.promise
+    const handshake = this.#connectRecoveredPeer(peerId).catch(error => {
+      debug(`peer handshake failed: ${peerId}:`, (error as Error)?.message ?? error)
+    }).finally(() => {
+      if (this.#peerHandshakes.get(peerId)?.promise === handshake) this.#peerHandshakes.delete(peerId)
+    })
+    this.#peerHandshakes.set(peerId, { peer, promise: handshake })
+    return handshake
+  }
+
+  async #connectRecoveredPeer(peerId) {
     debug(`peer connected: ${peerId}`)
-    const peer = peernet.getConnection(peerId)
+    const peer = peernet.getConnection?.(peerId) ?? peernet.connections?.[peerId]
 
     if (!peer) {
       debug(`peer not found: ${peerId}`)
@@ -1260,6 +1287,7 @@ export default class Chain extends VersionControl {
   }
 
   async participate(address) {
+    this.#assertRecoveryComplete()
     // TODO: validate participant
     // hold min amount of 50k ART for 7 days
     // lock the 50k
@@ -1584,6 +1612,7 @@ export default class Chain extends VersionControl {
    * error is thrown on error so undefined data doesn't mean there is an error...
    **/
   async sendTransaction(transaction) {
+    this.#assertRecoveryComplete()
     const { hash: ignoredHash, ...payload } = transaction instanceof TransactionMessage ? transaction.decoded : transaction
     // A caller-supplied cached hash is metadata, never authority for signed bytes.
     const transactionMessage = await new TransactionMessage(payload)
@@ -1596,6 +1625,11 @@ export default class Chain extends VersionControl {
       debug('peernet publish failed: send-transaction', (publishError as Error)?.message ?? publishError)
     }
     return event
+  }
+
+  #assertRecoveryComplete() {
+    if (!this.#acceptingChainTraffic || !this.loaded)
+      throw new Error('Chain recovery is not complete; transactions and validator participation are disabled')
   }
 
   async addContract(transaction, contractMessage) {

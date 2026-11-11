@@ -29,10 +29,11 @@ const store = name => ({
 for (const name of ['state', 'chain', 'block', 'contract', 'transaction', 'transactionPool', 'accounts']) globalThis[`${name}Store`] = store(name)
 globalThis.pubsub = new Pubsub()
 const handlers = new Map()
+const requestHandlers = new Map()
 const network = 'leofcoin:peach'
 globalThis.peernet = {
   network, peerId: 'recovery-fixture', peers: [], connections: {}, selectedAccount: 'fixture-observer',
-  addRequestHandler: async () => {}, subscribe: (topic, callback) => handlers.set(topic, callback),
+  addRequestHandler: async (name, callback) => requestHandlers.set(name, callback), subscribe: (topic, callback) => handlers.set(topic, callback),
   get: (hash, name) => globalThis[`${name}Store`].get(hash),
   has: async hash => blockStore.has(hash),
   put: (hash, bytes, name) => globalThis[`${name}Store`].put(hash, bytes), publish: async () => {}
@@ -187,6 +188,73 @@ if (mode === 'sync-fork') {
 const recoveryTargetBefore = await chainStore.get('recoveryTarget')
 const checkpointBefore = await readCheckpoint(stateStore, chainId, required)
 const accountsBefore = await accountsStore.keys()
+let recoveryTransportStarts = 0
+let recoveredBodyHash
+let earlyPeerHandshake
+let earlyPeerHandshakeDone
+if (mode === 'recover-peer-body' || mode === 'recover-peer-corrupt') {
+  const { BinaryFormat, LastBlockMessage } = await import('@leofcoin/messages')
+  const { Codec } = await import('@leofcoin/codec-format-interface')
+  const { guardProviderDiscovery } = await import('../exports/connection-monitor.js')
+  const proto = (name, schema) => class extends BinaryFormat {
+    constructor(value) { super(value, schema, { name }) }
+  }
+  Object.assign(peernet, { id: 'recovery-fixture', stars: ['isolated-fixture-star'],
+    protos: { 'peernet-dht': proto('peernet-dht', { hash: '', 'store?': '' }),
+      'peernet-dht-response': proto('peernet-dht-response', { hash: '', has: false }),
+      'peernet-data': proto('peernet-data', { hash: '', 'store?': '' }),
+      'peernet-data-response': proto('peernet-data-response', { hash: '', data: new Uint8Array() }),
+      'peernet-request': proto('peernet-request', { request: '' }),
+      'peernet-response': proto('peernet-response', { response: undefined }) },
+    prepareMessage: async message => ({ encoded: message.encoded }),
+    handleData: async () => {}, sendMessage: async () => {}, requestData: async () => { throw new Error('unguarded request') },
+    getConnection: id => peernet.connections[id],
+    start: async () => {
+      recoveryTransportStarts++
+      for (const name of ['version', 'chainIdentity', 'lastBlock', 'knownBlocks', 'chainState'])
+        assert.equal(typeof requestHandlers.get(name), 'function', `${name} must be available before connecting`)
+      assert.equal(handlers.size, 0, 'no consensus, pool or block subscriptions before recovery')
+    } })
+  const bodyHashes = await transactionStore.keys()
+  let firstBlock = new BlockMessage(await blockStore.get(new TextDecoder().decode(await chainStore.get('lastBlock'))))
+  while (firstBlock.decoded.previousHash !== '0x0') firstBlock = new BlockMessage(await blockStore.get(firstBlock.decoded.previousHash))
+  recoveredBodyHash = firstBlock.decoded.transactions[0]
+  const body = await transactionStore.get(recoveredBodyHash)
+  const other = await transactionStore.get(bodyHashes.find(hash => hash !== recoveredBodyHash))
+  await transactionStore.delete(recoveredBodyHash)
+  earlyPeerHandshakeDone = new Promise(resolve => { earlyPeerHandshake = resolve })
+  const provider = { connected: true, request: async encoded => {
+    const name = new Codec(encoded).name
+    if (name === 'peernet-request') {
+      assert.equal(chain.loaded, true, 'chain handshake must wait for successful recovery')
+      const { request } = new peernet.protos[name](encoded).decoded
+      if (request === 'version') return new peernet.protos['peernet-response']({ response: chain.version }).encoded
+      assert.equal(request, 'lastBlock')
+      earlyPeerHandshake()
+      return new peernet.protos['peernet-response']({ response: new LastBlockMessage({ index: -1n, hash: '0x0', previousHash: '0x0' }).encoded }).encoded
+    }
+    const { hash, store } = new peernet.protos[name](encoded).decoded
+    assert.equal(chain.loaded, false)
+    assert.equal(handlers.has('consensus:propose'), false)
+    assert.equal(handlers.has('send-transaction'), false)
+    assert.equal(store, 'transaction')
+    assert.equal(hash, recoveredBodyHash)
+    if (name === 'peernet-dht') return new peernet.protos['peernet-dht-response']({ hash, has: true }).encoded
+    return new peernet.protos['peernet-data-response']({ hash, data: mode === 'recover-peer-corrupt' ? other : body }).encoded
+  } }
+  peernet.get = async (hash, name) => {
+    if (await globalThis[`${name}Store`].has(hash)) return globalThis[`${name}Store`].get(hash)
+    assert.equal(recoveryTransportStarts, 1, 'transport must start before requesting a missing transaction')
+    await assert.rejects(chain.sendTransaction({}), /recovery is not complete/)
+    await assert.rejects(chain.participate('fixture-validator'), /recovery is not complete/)
+    setTimeout(() => {
+      peernet.connections.provider = provider
+      pubsub.publish('peer:connected', 'provider')
+    }, 25)
+    return peernet.requestData(hash, name)
+  }
+  guardProviderDiscovery(peernet)
+}
 if (mode === 'recover-target-read-error') {
   const get = peernet.get
   peernet.get = async (hash, name) => {
@@ -213,6 +281,14 @@ if (mode.startsWith('crash-')) {
 const chain = new Chain({})
 try {
   await chain.ready
+  if (mode === 'recover-peer-body') {
+    assert.equal(recoveryTransportStarts, 1)
+    assert.equal(await transactionStore.has(recoveredBodyHash), true, 'verified transaction is durable after replay')
+    let timer
+    try { await Promise.race([earlyPeerHandshakeDone, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('early peer was not handshaken after recovery')), 2000) })]) }
+    finally { clearTimeout(timer) }
+    console.log('RECOVERY_EARLY_TRANSPORT_OK')
+  }
   assert.equal(chain.loaded, true)
   assert.equal(await chainStore.has('recoveryTarget'), false)
   if (mode === 'sync-fork') {
@@ -308,6 +384,13 @@ try {
   await close(chain.machine)
   process.exit(0)
 } catch (error) {
+  if (mode === 'recover-peer-corrupt') {
+    assert.equal(chain.loaded, false)
+    assert.equal(await transactionStore.has(recoveredBodyHash), false)
+    assert.deepEqual(await readCheckpoint(stateStore, chainId, required), checkpointBefore)
+    assert.equal(handlers.has('consensus:propose'), false)
+    assert.equal(handlers.has('send-transaction'), false)
+  }
   if (invalid === 'preserve-target') {
     assert.deepEqual(await chainStore.get('recoveryTarget'), recoveryTargetBefore)
     assert.deepEqual(await readCheckpoint(stateStore, chainId, required), checkpointBefore)

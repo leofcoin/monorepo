@@ -7,12 +7,15 @@ import { resolveTransactionReference } from '../../src/consensus/transaction-ref
 import { methods } from '../helpers/canonical-state-harness.js'
 
 const production = methods('../../src/chain.ts', 'Chain', [
-  '#sendTransaction', 'getPeerTransactionPool', '#peerConnected'
+  '#sendTransaction', 'getPeerTransactionPool', '#peerConnected', '#connectRecoveredPeer'
 ])
 const source = ts.transpile(`
   return class Harness {
     #participating = false
     #runningEpoch = false
+    #acceptingChainTraffic = true
+    #peerHandshakes = new Map()
+    loaded = true
     wantList = []
     machine = { states: {} }
     version = '0.4.0'
@@ -33,6 +36,7 @@ const source = ts.transpile(`
     addPendingNonce(address, nonce) { this.nonces.push([address, nonce]) }
     receive(transaction) { return this.#sendTransaction(transaction) }
     connect(id) { return this.#peerConnected(id) }
+    recoveryComplete(value) { this.#acceptingChainTraffic = value; this.loaded = value }
     participate() { this.#participating = true }
     ${production}
   }
@@ -97,6 +101,17 @@ const transaction = (overrides = {}) => new TransactionMessage({
   nonce: 1,
   signature: 'signature',
   ...overrides
+})
+
+test('peer handshakes and pool catch-up stay disabled until recovery completes', async () => {
+  const node = createNode()
+  node.chain.recoveryComplete(false)
+  await node.chain.connect('fixture-peer')
+  assert.deepEqual(node.timers, [])
+  assert.deepEqual(node.chain.synced, [])
+  node.chain.recoveryComplete(true)
+  await node.chain.connect('fixture-peer')
+  assert.equal(node.timers.length, 1, 'ready peer can schedule pool catch-up')
 })
 
 test('relays a browser transaction through an intermediate node to a validator without loops', async () => {

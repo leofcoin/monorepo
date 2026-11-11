@@ -32,6 +32,7 @@ export default [
       './src/chain.ts',
       './src/node.ts',
       './src/star-namespace.ts',
+      './src/recovery-transport.ts',
       './src/routing-identity-node.ts',
       './src/machine.ts',
       './src/helpers/state-checkpoint.ts',
