@@ -98,11 +98,30 @@ that sender until the missing transaction is submitted; an otherwise empty
 proposal waits for new transactions rather than retrying indefinitely. Stored
 transaction bytes alone do not prove that a transaction was committed.
 
-0.6 is consensus-incompatible with 0.5. All validators must upgrade together
-and start from a new testnet ledger. The user-selected genesis contracts and
-network name (and therefore the chain ID) remain unchanged: the chain ID alone
-cannot distinguish the old and new histories. Preserve the old root and wallet;
-do not reset existing data without an explicit backup and operator approval.
+0.6 is consensus-incompatible with 0.5. For the Peach ledger whose verified
+checkpoint is block 13 (`HNYQASBKOIRVRRHMLIPF6NTXDS2HAPVDFIPAKF2LYC67TPIUOP7SNJK62J`),
+`scripts/migrate-peach-0.5-to-0.6.js` supports a guarded recovery: it verifies the
+checkpoint and the 256-transaction block-14 nonce conflict, creates a private
+full-root backup, advances the protocol marker, and removes only the speculative
+`recoveryTarget`. Block 14 and its transactions remain stored but are not
+executed. Run it only while the validator is stopped, with an explicit backup
+path and the checkpoint hash confirmation. Run the same coordinated upgrade on
+every validator with this exact checkpoint; nodes with a different tip must
+not apply this migration.
+
+Example (first run `--dry-run`, then repeat without it):
+
+```sh
+node packages/chain/scripts/migrate-peach-0.5-to-0.6.js \
+  --root="$HOME/.leofcoin/peach" \
+  --backup="$HOME/.leofcoin/peach-0.5-before-0.6-20261111" \
+  --confirm-checkpoint=HNYQASBKOIRVRRHMLIPF6NTXDS2HAPVDFIPAKF2LYC67TPIUOP7SNJK62J \
+  --dry-run
+```
+
+The user-selected genesis contracts and network name (and therefore the chain
+ID) remain unchanged: the chain ID alone cannot distinguish the old and new
+histories. Keep the backup and wallet identity. Do not reset existing data.
 Proposal preparation also removes pending entries at or below each sender's
 committed nonce, even when their hashes differ from the committed transactions.
 An existing recovery block containing such an obsolete nonce still rejects
