@@ -46,7 +46,7 @@ const conflictingTarget = async () => {
   const block = new BlockMessage({
     index: 0n, previousHash: '0x0', timestamp: 999, reward: 0n, fees: 0n,
     transactions: [], validators: [], producer: 'conflict-fixture',
-    producerProof: 'conflict-fixture', protocolVersion: '0.6.0'
+    producerProof: 'conflict-fixture', protocolVersion: '0.5.0'
   })
   const hash = await block.hash()
   await blockStore.put(hash, block.encoded)
@@ -154,7 +154,7 @@ if (mode === 'prepare') {
     const earned = payments.reduce((sum, payment) => sum + payment.amount, 0n)
     const block = { index: BigInt(index), previousHash, timestamp, reward: policy.subsidy, fees: fee,
       transactions: [hash], validators: [{ address: sender, reward: policy.subsidy + earned }],
-      producer: sender, producerProof: '', protocolVersion: '0.6.0' }
+      producer: sender, producerProof: '', protocolVersion: '0.5.0' }
     const unsignedHash = await new BlockMessage(block).hash()
     block.producerProof = (await signTransaction({ from: sender, to: addresses.validators,
       method: 'produceBlock', params: [unsignedHash], timestamp }, wallet)).signature
@@ -365,7 +365,7 @@ try {
     const earned = distributeTransactionFee(fee, await body.hash(), [sender], policy.burnBasisPoints).payments.reduce((sum, payment) => sum + payment.amount, 0n)
     const block = { index: 2n, previousHash: before.lastBlock.hash, timestamp: 2000, fees: fee, reward: policy.subsidy,
       transactions: [pending.hash], validators: [{ address: sender, reward: policy.subsidy + earned }],
-      producer: sender, producerProof: '', protocolVersion: '0.6.0' }
+      producer: sender, producerProof: '', protocolVersion: '0.5.0' }
     block.producerProof = (await signTransaction({ from: sender, to: addresses.validators, method: 'produceBlock',
       params: [await new BlockMessage(block).hash()], timestamp: block.timestamp }, signer)).signature
     await handlers.get('add-block')(new BlockMessage(block).encoded)

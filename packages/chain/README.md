@@ -90,15 +90,21 @@ I/O errors still stop recovery explicitly without discarding the target.
 The tip is checkpointed before updating the chain marker or announcing success.
 Local transaction bytes are not considered evidence of prior execution;
 committed sender nonces prevent executing a transfer twice.
-Protocol 0.6 requires each sender's nonces to be consecutive from the parent
-state. Validators check this before prevoting and before any block mutation;
-proposers defer later transactions until missing earlier nonces arrive. Priority
-does not override a sender's nonce order. A missing nonce can therefore stall
-that sender until the missing transaction is submitted; an otherwise empty
-proposal waits for new transactions rather than retrying indefinitely. Stored
-transaction bytes alone do not prove that a transaction was committed.
+Protocol 0.6 activates at block 14. Blocks 0 through 13 remain verifiable under
+their 0.5 protocol rules so a new node can replay the legacy history; block 14
+and later must use 0.6. From block 14, each sender's nonces must be consecutive
+from the parent state. Validators check this before prevoting and before any
+block mutation; proposers defer later transactions until missing earlier nonces
+arrive. Priority does not override a sender's nonce order. A missing nonce can
+therefore stall that sender until the missing transaction is submitted; an
+otherwise empty proposal waits for new transactions rather than retrying
+indefinitely. Stored transaction bytes alone do not prove that a transaction
+was committed.
 
-0.6 is consensus-incompatible with 0.5. For the Peach ledger whose verified
+The block-14 protocol transition is consensus-incompatible with continuing the
+old 0.5 history. An empty 0.6 node may replay blocks 0–13, but it will refuse a
+0.5 block 14; peers must expose the same migrated block-13 tip and coordinate
+the new 0.6 block 14 before validators resume. For the Peach ledger whose verified
 checkpoint is block 13 (`HNYQASBKOIRVRRHMLIPF6NTXDS2HAPVDFIPAKF2LYC67TPIUOP7SNJK62J`),
 `scripts/migrate-peach-0.5-to-0.6.js` supports a guarded recovery: it verifies the
 checkpoint and the 256-transaction block-14 nonce conflict, creates a private

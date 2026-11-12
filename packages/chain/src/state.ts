@@ -277,8 +277,12 @@ export default class State extends Contract {
       try {
         await this.withCanonicalState(transition => this.#loadBlocks(history.slice(prefix.length), transition))
       } catch (error) {
+        const nonceConflict =
+          error instanceof Error &&
+          (error.message.startsWith('Transaction nonce out of sequence') ||
+            error.message.startsWith('Transaction nonce already committed'))
         if (!checkpoint || !(error instanceof Error) ||
-          !error.message.startsWith('Transaction nonce out of sequence')) throw error
+          !nonceConflict) throw error
 
         console.warn('[recovery] checkpoint nonce conflicts with verified history; rebuilding derived nonces')
         const checkpointNonces = await this.deriveAccountNonces(prefix)

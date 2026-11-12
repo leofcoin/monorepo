@@ -49,6 +49,11 @@ export const compareExecutionTransactions = (left: NonceTransaction, right: Nonc
   compareTransactionNonces(left.decoded.nonce, right.decoded.nonce) ||
   Number(Boolean(right.decoded.priority)) - Number(Boolean(left.decoded.priority))
 
+/** Preserve the original 0.5 priority-first order when replaying historical blocks. */
+export const compareLegacyExecutionTransactions = (left: NonceTransaction, right: NonceTransaction): number =>
+  Number(Boolean(right.decoded.priority)) - Number(Boolean(left.decoded.priority)) ||
+  compareTransactionNonces(left.decoded.nonce, right.decoded.nonce)
+
 export async function validateConsecutiveNonces(
   transactions: NonceTransaction[],
   readCommitted: (address: string) => Promise<bigint>

@@ -47,11 +47,17 @@ import { resolveTransactionReference } from './consensus/transaction-reference.j
 import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
 import { nextBlockIndex, proposalDelay } from './consensus/cadence.js'
 import {
+  compareLegacyExecutionTransactions,
   compareExecutionTransactions,
   enqueueTransaction,
   pruneCanonicalTransactions,
   validateConsecutiveNonces
 } from './consensus/transaction-pool.js'
+import {
+  isBlockProtocolCompatibleAtHeight,
+  PROTOCOL_ACTIVATION_HEIGHT,
+  usesConsecutiveNoncesAtHeight
+} from './consensus/protocol-activation.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
 import { publishObserverEvent } from './observer-events.js'
@@ -245,10 +251,16 @@ export default class Chain extends VersionControl {
       throw new Error(`Block ${blockMessage.decoded.index} does not have a valid protocolVersion field`)
     }
 
-    if (!this.isVersionCompatible(blockMessage.decoded.protocolVersion)) {
+    if (
+      !isBlockProtocolCompatibleAtHeight(
+        blockMessage.decoded.index,
+        blockMessage.decoded.protocolVersion,
+        this.version
+      )
+    ) {
       throw new Error(
         `Block ${blockMessage.decoded.index} uses incompatible protocol version: ${blockMessage.decoded.protocolVersion} ` +
-          `(local: ${this.version}). Major.minor version must match.`
+          `(local: ${this.version}; activation height: ${PROTOCOL_ACTIVATION_HEIGHT}).`
       )
     }
 
@@ -317,11 +329,13 @@ export default class Chain extends VersionControl {
         return transaction
       })
     )
-    await validateConsecutiveNonces(transactions, async address => {
-      if (!(await globalThis.accountsStore.has(address))) return 0n
-      const raw = await globalThis.accountsStore.get(address)
-      return BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
-    })
+    if (usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)) {
+      await validateConsecutiveNonces(transactions, async address => {
+        if (!(await globalThis.accountsStore.has(address))) return 0n
+        const raw = await globalThis.accountsStore.get(address)
+        return BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
+      })
+    }
     const feesEnabled = supportsTransactionFees(blockMessage.decoded.protocolVersion)
     if (feesEnabled) await this.#assertFeeBurnSupported(blockMessage.decoded.protocolVersion)
     const adaptivePolicy = supportsMonetaryPolicy(blockMessage.decoded.protocolVersion)
@@ -1220,7 +1234,11 @@ export default class Chain extends VersionControl {
     }
 
     // Combine and sort all transactions deterministically
-    const allTransactions = transactions.sort(compareExecutionTransactions)
+    const allTransactions = transactions.sort(
+      usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)
+        ? compareExecutionTransactions
+        : compareLegacyExecutionTransactions
+    )
     const monetaryPolicy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
 
     // Contract calls share global state, so every node must execute the complete
@@ -1358,8 +1376,16 @@ export default class Chain extends VersionControl {
       const raw = await globalThis.accountsStore.get(transaction.decoded.from)
       committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-    if (nonce !== committed + 1n)
-      throw new Error(`Transaction nonce out of sequence: ${hash} (nonce ${nonce}, expected ${committed + 1n}, block ${block?.index ?? 'unknown'})`)
+    const legacyBlock = block && !usesConsecutiveNoncesAtHeight(block.index)
+    if (legacyBlock ? nonce <= committed : nonce !== committed + 1n) {
+      if (legacyBlock)
+        throw new Error(
+          `Transaction nonce already committed: ${hash} (nonce ${nonce}, committed ${committed}, block ${block.index})`
+        )
+      throw new Error(
+        `Transaction nonce out of sequence: ${hash} (nonce ${nonce}, expected ${committed + 1n}, block ${block?.index ?? 'unknown'})`
+      )
+    }
 
     // if (timestamp + this.#slotTime > Date.now()) {
     try {

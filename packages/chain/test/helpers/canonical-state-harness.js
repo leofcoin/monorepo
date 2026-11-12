@@ -5,7 +5,11 @@ import { distributeAmount } from '@leofcoin/lib'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { validateChainLink } from '../../src/consensus/chain-link.ts'
 import { publishObserverEvent } from '../../src/observer-events.ts'
-import { compareExecutionTransactions } from '../../src/consensus/transaction-pool.ts'
+import {
+  compareExecutionTransactions,
+  compareLegacyExecutionTransactions
+} from '../../src/consensus/transaction-pool.ts'
+import { usesConsecutiveNoncesAtHeight } from '../../src/consensus/protocol-activation.ts'
 import { ResolveError } from '@leofcoin/errors'
 
 // Exercise the actual private application methods without starting discovery,
@@ -178,7 +182,8 @@ export const createApplicationHarness = (options = {}) => {
     },
     transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet,
     console: { log() {}, error() {} }, debug: message => events.push(message),
-    compareExecutionTransactions, supportsTransactionFees: () => true,
+    compareExecutionTransactions, compareLegacyExecutionTransactions, usesConsecutiveNoncesAtHeight,
+    supportsTransactionFees: () => true,
     supportsMonetaryPolicy: () => true, calculateFee: async () => 10n,
     distributeTransactionFee: () => ({ payments: [{ to: 'validator', amount: 10n }], burned: 0n }),
     distributeAmount, calculateMonetaryPolicy: () => policy,

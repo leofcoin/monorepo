@@ -5,6 +5,7 @@ import { methods } from '../helpers/canonical-state-harness.js'
 
 import {
   compareTransactionNonces,
+  compareLegacyExecutionTransactions,
   compareExecutionTransactions,
   enqueueTransaction,
   pruneCanonicalTransactions,
@@ -109,6 +110,15 @@ test('block nonces must be consecutive per sender, independent of priority or ar
   await assert.rejects(validateConsecutiveNonces([tx('alice', 11167)], read), /expected 14, got 11167/)
   await assert.rejects(validateConsecutiveNonces([tx('alice', 14), tx('alice', 14)], read), /expected 15, got 14/)
   await assert.rejects(validateConsecutiveNonces([tx('bob', 1)], async () => { throw new Error('disk failure') }), /disk failure/)
+})
+
+test('historical blocks preserve 0.5 priority-first transaction execution order', () => {
+  const tx = (nonce, priority = false) => ({ decoded: { nonce, priority } })
+  const transactions = [tx(1), tx(2, true), tx(1, true), tx(0)]
+  assert.deepEqual(
+    transactions.sort(compareLegacyExecutionTransactions).map(({ decoded }) => [decoded.priority, decoded.nonce]),
+    [[true, 1], [true, 2], [false, 0], [false, 1]]
+  )
 })
 
 test('real proposal selection finds the missing nonce beyond the old pool limit and defers gaps', async () => {

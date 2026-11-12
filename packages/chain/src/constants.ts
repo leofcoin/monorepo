@@ -1,7 +1,6 @@
 import networks from '@leofcoin/networks'
 
-// Consensus-breaking activation: transactions must use consecutive sender nonces.
-// Older ledger roots require an explicit migration or testnet reset.
+// Consecutive sender nonces activate at block 14; earlier 0.5 blocks remain replayable.
 export const PROTOCOL_VERSION = '0.6.0'
 // Stable application identity, independent of protocol releases and genesis.
 export const CHAIN_APP_ID = 'e0e759e2-3f0b-4d6b-9bb6-b547f655545b'
