@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/storage",
-  "version": "3.5.38",
+  "version": "3.5.39",
   "description": "Leofcoin storage for Node.js and browsers",
   "type": "module",
   "exports": {
@@ -21,7 +21,11 @@
       "import": "./exports/store.js"
     }
   },
-  "files": ["exports/*.js", "exports/*.d.ts", "LICENSE"],
+  "files": [
+    "exports/*.js",
+    "exports/*.d.ts",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "rollup -c",
     "test": "node --test test/*.test.js",
