@@ -105,6 +105,21 @@ if (mode === 'prepare') {
   validators.currentValidator = sender
   validators.validatorHistory = { 0: [sender] }
   if (invalid === 'stale-nonce') checkpoint.snapshot.accounts[sender] = '11167'
+  if (invalid === 'nonce-gap') {
+    let previousHash = '0x0'
+    for (let index = 0; index < 14; index++) {
+      const historicalBlock = new BlockMessage({
+        index: BigInt(index), previousHash, timestamp: index, reward: 0n, fees: 0n,
+        transactions: [], validators: [], producer: sender, producerProof: '',
+        protocolVersion: '0.5.0'
+      })
+      previousHash = await historicalBlock.hash()
+      await blockStore.put(previousHash, historicalBlock.encoded)
+    }
+    checkpoint.snapshot.lastBlock = { index: 13, hash: previousHash }
+    checkpoint.snapshot.info.totalBlocks = 14n
+    checkpoint.snapshot.accounts[sender] = '11167'
+  }
   const customContracts = []
   for (const initial of ['7', '11']) {
     const definition = new ContractMessage({ creator: sender, constructorParameters: [initial],
@@ -137,14 +152,15 @@ if (mode === 'prepare') {
   if (invalid === 'contract') await contractStore.put(customContracts[0], await contractStore.get(addresses.nativeToken))
   await writeCheckpoint(stateStore, checkpoint.snapshot, 0, required)
   let supply = BigInt(token.totalSupply)
-  let previousHash = '0x0'
+  let previousHash = checkpoint.snapshot.lastBlock.hash
   const transactionHashes = []
-  for (let index = 0; index < 2; index++) {
+  const firstBlock = invalid === 'nonce-gap' ? 14 : 0
+  for (let index = firstBlock; index < firstBlock + 2; index++) {
     const timestamp = 1000 + index
     const nested = invalid === 'nested-static'
     const transaction = new TransactionMessage(await signTransaction({ from: sender, to: nested ? customContracts[0] : addresses.nativeToken,
       method: nested ? 'nestedRead' : 'transfer', params: nested ? [customContracts[1]] : [recipient, invalid === 'execution' ? supply + 1n : 100n],
-      timestamp, nonce: invalid === 'nonce-gap' ? index + 2 : index + 1 }, wallet))
+      timestamp, nonce: invalid === 'nonce-gap' ? 334 : index - firstBlock + 1 }, wallet))
     const hash = await transaction.hash()
     transactionHashes.push(hash)
     await transactionStore.put(hash, transaction.encoded)
@@ -154,7 +170,7 @@ if (mode === 'prepare') {
     const earned = payments.reduce((sum, payment) => sum + payment.amount, 0n)
     const block = { index: BigInt(index), previousHash, timestamp, reward: policy.subsidy, fees: fee,
       transactions: [hash], validators: [{ address: sender, reward: policy.subsidy + earned }],
-      producer: sender, producerProof: '', protocolVersion: '0.5.0' }
+      producer: sender, producerProof: '', protocolVersion: index >= 14 ? '0.6.0' : '0.5.0' }
     const unsignedHash = await new BlockMessage(block).hash()
     block.producerProof = (await signTransaction({ from: sender, to: addresses.validators,
       method: 'produceBlock', params: [unsignedHash], timestamp }, wallet)).signature
