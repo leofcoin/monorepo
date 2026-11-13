@@ -87,6 +87,8 @@ const chain = new Chain({ network, networkVersion })
 await chain.ready
 
 const { BlockMessage } = await import('@leofcoin/messages')
+const { LEGACY_PROTOCOL_VERSION, usesConsecutiveNoncesAtHeight } =
+  await import('../../packages/chain/src/consensus/protocol-activation.ts')
 const { createContractMessage, signTransaction, calculateMonetaryPolicy } = await import('@leofcoin/lib')
 const { default: addresses } = await import('@leofcoin/addresses')
 const { readFile } = await import('node:fs/promises')
@@ -122,7 +124,7 @@ const appendFixtureBlock = async () => {
     validators: [{ address: producer, reward: policy.subsidy }],
     producer,
     producerProof: '',
-    protocolVersion: chain.version
+    protocolVersion: usesConsecutiveNoncesAtHeight(index) ? chain.version : LEGACY_PROTOCOL_VERSION
   }
   const unsignedBlockHash = await new BlockMessage(block).hash()
   const proof = await signTransaction(
