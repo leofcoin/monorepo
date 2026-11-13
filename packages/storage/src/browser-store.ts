@@ -2,6 +2,7 @@ import KeyPath from './path.js'
 import KeyValue from './value.js'
 import { isNotFoundError } from './utils.js'
 import { createDebugger } from '@vandeurenglenn/debug'
+import type { StorageBatchOperation } from './storage.js'
 
 export type KeyInput = string | Uint8Array | KeyPath
 export type ValueInput = string | Uint8Array | KeyValue
@@ -26,8 +27,10 @@ export default class BrowserStore {
   root!: FileSystemDirectoryHandle
   inWorker = false
   version = 1
-  #busy = false
-  #queue: (() => Promise<void>)[] = []
+  #activeReads = 0
+  #activeWrite = false
+  #queue: { mode: 'read' | 'write'; run: () => Promise<void> }[] = []
+  #syncReadTails = new Map<string, Promise<void>>()
 
   async init(name = 'storage', root = '.leofcoin', version = 1, inWorker = false, homedir = true) {
     this.version = version
@@ -45,36 +48,48 @@ export default class BrowserStore {
     return new KeyValue(value).uint8Array
   }
 
-  #enqueue<T>(operation: string, task: () => Promise<T>): Promise<T> {
+  #enqueue<T>(operation: string, task: () => Promise<T>, mode: 'read' | 'write' = 'write'): Promise<T> {
     const result = new Promise<T>((resolve, reject) => {
-      this.#queue.push(async () => {
-        try {
-          resolve(await task())
-        } catch (error) {
-          const failure = new Error(
-            `Browser store ${this.name} ${operation} failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
-            { cause: error }
-          )
-          if (error instanceof Error) failure.name = error.name
-          reject(failure)
+      this.#queue.push({
+        mode,
+        run: async () => {
+          try {
+            resolve(await task())
+          } catch (error) {
+            const failure = new Error(
+              `Browser store ${this.name} ${operation} failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+              { cause: error }
+            )
+            if (error instanceof Error) failure.name = error.name
+            reject(failure)
+          }
         }
       })
     })
-    void this.#runQueue()
+    this.#drainQueue()
     return result
   }
 
-  async #runQueue() {
-    if (this.#busy) return
-    this.#busy = true
-    try {
-      for (let next = this.#queue.shift(); next; next = this.#queue.shift()) {
-        await next()
-      }
-    } finally {
-      this.#busy = false
-      if (this.#queue.length) void this.#runQueue()
-    }
+  #drainQueue() {
+    if (this.#activeWrite) return
+    // Reads may overlap, but never pass a queued write.
+    while (this.#queue[0]?.mode === 'read') this.#startRead(this.#queue.shift()!)
+    if (this.#activeReads || !this.#queue.length) return
+
+    const next = this.#queue.shift()!
+    this.#activeWrite = true
+    void next.run().finally(() => {
+      this.#activeWrite = false
+      this.#drainQueue()
+    })
+  }
+
+  #startRead(task: { mode: 'read' | 'write'; run: () => Promise<void> }) {
+    this.#activeReads++
+    void task.run().finally(() => {
+      this.#activeReads--
+      this.#drainQueue()
+    })
   }
 
   has(key: KeyInput): Promise<boolean> {
@@ -88,14 +103,19 @@ export default class BrowserStore {
         if (isNotFoundError(error)) return false
         throw error
       }
-    })
+    }, 'read')
   }
 
   get(key: KeyInput): Promise<Uint8Array> {
-    return this.#enqueue('get', async () => {
-      debug(`get ${this.toKeyPath(key)}`)
-      const file = await this.db.getFileHandle(this.toKeyPath(key))
-      if (this.inWorker) {
+    return this.#enqueue('get', () => this.#get(key), 'read')
+  }
+
+  async #get(key: KeyInput): Promise<Uint8Array> {
+    const path = this.toKeyPath(key)
+    debug(`get ${path}`)
+    const file = await this.db.getFileHandle(path)
+    if (this.inWorker) {
+      return this.#withSyncReadLock(path, async () => {
         if (!supportsSyncAccess(file)) throw new Error('Synchronous OPFS access is unavailable')
         const handle = await file.createSyncAccessHandle()
         try {
@@ -105,31 +125,83 @@ export default class BrowserStore {
         } finally {
           handle.close()
         }
-      }
-      return new Uint8Array(await (await file.getFile()).arrayBuffer())
-    })
+      })
+    }
+    return new Uint8Array(await (await file.getFile()).arrayBuffer())
+  }
+
+  async #withSyncReadLock<T>(path: string, read: () => Promise<T>): Promise<T> {
+    const previous = this.#syncReadTails.get(path) ?? Promise.resolve()
+    let release!: () => void
+    const hold = new Promise<void>(resolve => { release = resolve })
+    const tail = previous.then(() => hold)
+    this.#syncReadTails.set(path, tail)
+    await previous
+    try {
+      return await read()
+    } finally {
+      release()
+      if (this.#syncReadTails.get(path) === tail) this.#syncReadTails.delete(path)
+    }
   }
 
   put(key: KeyInput, value: ValueInput) {
-    return this.#enqueue('put', async () => {
-      debug(`put ${this.toKeyPath(key)}`)
-      const file = await this.db.getFileHandle(this.toKeyPath(key), { create: true })
-      const bytes = this.toKeyValue(value)
-      if (this.inWorker) {
-        if (!supportsSyncAccess(file)) throw new Error('Synchronous OPFS access is unavailable')
-        const handle = await file.createSyncAccessHandle()
-        try {
-          if (handle.write(bytes) !== bytes.length) throw new Error('Incomplete OPFS write')
-        } finally {
-          handle.close()
-        }
-      } else {
-        const writable = await file.createWritable()
-        await writable.write(Uint8Array.from(bytes))
-        await writable.close()
+    return this.#enqueue('put', () => this.#put(key, value))
+  }
+
+  async #put(key: KeyInput, value: ValueInput) {
+    debug(`put ${this.toKeyPath(key)}`)
+    const file = await this.db.getFileHandle(this.toKeyPath(key), { create: true })
+    const bytes = this.toKeyValue(value)
+    if (this.inWorker) {
+      if (!supportsSyncAccess(file)) throw new Error('Synchronous OPFS access is unavailable')
+      const handle = await file.createSyncAccessHandle()
+      try {
+        if (handle.write(bytes) !== bytes.length) throw new Error('Incomplete OPFS write')
+      } finally {
+        handle.close()
       }
-      return true
-    })
+    } else {
+      const writable = await file.createWritable()
+      await writable.write(Uint8Array.from(bytes))
+      await writable.close()
+    }
+    return true
+  }
+
+  batch(operations: StorageBatchOperation[]): Promise<Uint8Array[]> {
+    const mode = operations.every(operation => operation.type === undefined || operation.type === 'get') ? 'read' : 'write'
+    return this.#enqueue('batch', async () => {
+      const writes: ({ type: 'put'; key: KeyInput; value: ValueInput } | { type: 'del' | 'delete'; key: KeyInput })[] = []
+      const changes = new Map<string, Uint8Array | undefined>()
+      const reads: Promise<Uint8Array>[] = []
+
+      for (const operation of operations) {
+        const path = this.toKeyPath(operation.key)
+        if (operation.type === 'put') {
+          const value = this.toKeyValue(operation.value)
+          changes.set(path, value)
+          writes.push({ type: 'put', key: operation.key, value })
+        } else if (operation.type === 'del' || operation.type === 'delete') {
+          changes.set(path, undefined)
+          writes.push({ type: operation.type, key: operation.key })
+        } else if (changes.has(path)) {
+          const value = changes.get(path)
+          reads.push(value === undefined
+            ? Promise.reject(new DOMException(`Key not found: ${path}`, 'NotFoundError'))
+            : Promise.resolve(value))
+        } else {
+          reads.push(this.#get(operation.key))
+        }
+      }
+
+      const results = await this.#readAll(reads)
+      for (const operation of writes) {
+        if (operation.type === 'put') await this.#put(operation.key, operation.value)
+        else await this.#deleteFile(this.toKeyPath(operation.key))
+      }
+      return results
+    }, mode)
   }
 
   delete(key: KeyInput) {
@@ -185,7 +257,7 @@ export default class BrowserStore {
         if (limit >= 0 && files.length >= limit) break
       }
       return this.#readAll(files.map(async file => new Uint8Array(await (await file.getFile()).arrayBuffer())))
-    })
+    }, 'read')
   }
 
   size(): Promise<number> {
@@ -196,7 +268,7 @@ export default class BrowserStore {
         size += (await cursor.getFile()).size
       }
       return size
-    })
+    }, 'read')
   }
 
   keys(limit = -1): Promise<string[]> {
@@ -208,16 +280,16 @@ export default class BrowserStore {
         if (limit >= 0 && keys.length >= limit) break
       }
       return keys
-    })
+    }, 'read')
   }
 
   async iterate(): Promise<AsyncGenerator<[string, Uint8Array]>> {
-    const snapshot = await this.#enqueue('iterate', () => this.#snapshotEntries())
+    const snapshot = await this.#enqueue('iterate', () => this.#snapshotEntries(), 'read')
     return (async function* () { yield* snapshot })()
   }
 
   entries(limit = -1): Promise<[string, Uint8Array][]> {
-    return this.#enqueue('entries', () => this.#snapshotEntries(limit))
+    return this.#enqueue('entries', () => this.#snapshotEntries(limit), 'read')
   }
 
   async #snapshotEntries(limit = -1): Promise<[string, Uint8Array][]> {

@@ -7,6 +7,10 @@ import KeyValue from './value.js'
 type KeyInput = string | Uint8Array | Path
 type ValueInput = string | Uint8Array | KeyValue
 type WriteResult = void | boolean
+export type StorageBatchOperation =
+  | { type?: 'get'; key: KeyInput }
+  | { type: 'put'; key: KeyInput; value: ValueInput }
+  | { type: 'del' | 'delete'; key: KeyInput }
 
 export type DefaultOptions = {
   inWorker: boolean
@@ -81,6 +85,18 @@ export default class LeofcoinStorage {
 
   async delete(key: KeyInput) {
     return this.db.delete(new Path(key).uint8Array)
+  }
+
+  /** Returns get results in operation order; an omitted type means get. */
+  async batch(operations: StorageBatchOperation[]): Promise<Uint8Array[]> {
+    return this.db.batch(operations.map(operation => {
+      const key = new Path(operation.key).uint8Array
+      if (operation.type === 'put')
+        return { type: operation.type, key, value: new KeyValue(operation.value).uint8Array }
+      if (operation.type === 'del' || operation.type === 'delete') return { type: operation.type, key }
+      if (operation.type === undefined || operation.type === 'get') return { type: operation.type, key }
+      throw new TypeError('Unknown storage batch operation')
+    }))
   }
 
   keys(limit = -1) {

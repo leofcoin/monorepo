@@ -175,6 +175,7 @@ export default class State extends Contract {
 
   async clearPool() {
     await globalThis.transactionPoolStore.clear()
+    this.clearPendingTransactionIndex()
   }
 
   /**
@@ -187,6 +188,7 @@ export default class State extends Contract {
     await globalThis.transactionStore.clear()
     await globalThis.stateStore.clear()
     await globalThis.transactionPoolStore.clear()
+    this.clearPendingTransactionIndex()
   }
 
   #chainStateHandler = () => {

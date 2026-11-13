@@ -5,15 +5,18 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'node:net'
 import { once } from 'node:events'
+import { performance } from 'node:perf_hooks'
 import { encodeWire, decodeWire } from '@leofcoin/binary'
 
 const runtime = fileURLToPath(new URL('../../', import.meta.url))
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export class RuntimeNode {
-  constructor(data, star, timeout = 45000) {
+  constructor(data, star, timeout = 45000, blockTimeMs) {
     this.data = data; this.timeout = timeout; this.events = []; this.pending = new Map(); this.sequence = 0; this.logs = ''
     this.child = fork(join(runtime, 'test/bench/chain-node.js'), [], { cwd: runtime, execArgv: [], serialization: 'advanced',
-      env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star },
+      env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star,
+        LEOFCOIN_BENCH_BLOCK_TIME_MS: blockTimeMs === undefined ? '' : String(blockTimeMs),
+        LEOFCOIN_BENCH_OBSERVER_FAULTS: '0' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
     const capture = bytes => { this.logs = (this.logs + bytes.toString()).slice(-12000) }
     this.child.stdout.on('data', capture); this.child.stderr.on('data', capture)
@@ -24,7 +27,7 @@ export class RuntimeNode {
           const request = this.pending.get(event.id)
           if (request) { clearTimeout(request.timer); this.pending.delete(event.id); event.error ? request.reject(new Error(event.error)) : request.resolve(event.value) }
         } else {
-          this.events.push(event)
+          this.events.push({ ...event, receivedAt: performance.now() })
           if (event.type === 'fatal') this.error = new Error(event.error)
         }
       } catch (error) { this.error = error }
@@ -72,7 +75,9 @@ export class RuntimeNode {
   }
 }
 
-export async function createRuntimeNetwork() {
+export async function createRuntimeNetwork({ blockTimeMs } = {}) {
+  if (blockTimeMs !== undefined && blockTimeMs !== 1000 && blockTimeMs !== 6000)
+    throw new Error('Isolated benchmark block time must be 1000 or 6000 ms')
   const directory = await mkdtemp(join(tmpdir(), 'leofcoin-consensus-runtime-'))
   const nodes = []
   let star
@@ -95,7 +100,7 @@ export async function createRuntimeNetwork() {
       nodes,
       add(name) {
         if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Invalid isolated node name')
-        const node = new RuntimeNode(join(directory, name), `ws://127.0.0.1:${port}`)
+        const node = new RuntimeNode(join(directory, name), `ws://127.0.0.1:${port}`, 45000, blockTimeMs)
         nodes.push(node); return node
       },
       async close() {

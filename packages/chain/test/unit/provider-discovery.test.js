@@ -54,6 +54,29 @@ const installStore = (t, name, store) => {
   })
 }
 
+test('block and transaction payloads use separate store-specific requests without bundle probes', async () => {
+  const contents = { block: Uint8Array.of(1, 2), transaction: Uint8Array.of(3, 4) }
+  const requests = []
+  const { peernet } = setup({ provider: peer(async bytes => {
+    const name = new Codec(bytes).name
+    const request = name === 'peernet-dht' ? new Request(bytes).decoded : new DataRequest(bytes).decoded
+    requests.push([name, request.hash, request.store])
+    assert.equal(request.hash, `${request.store}-hash`)
+    if (name === 'peernet-dht') return response(true, request.hash)
+    return new DataResponse({ hash: request.hash, data: contents[request.store] }).encoded
+  }) })
+  assert.deepEqual(await peernet.requestData('block-hash', 'block'), contents.block)
+  assert.deepEqual(requests, [
+    ['peernet-dht', 'block-hash', 'block'],
+    ['peernet-data', 'block-hash', 'block']
+  ])
+  assert.deepEqual(await peernet.requestData('transaction-hash', 'transaction'), contents.transaction)
+  assert.deepEqual(requests.slice(2), [
+    ['peernet-dht', 'transaction-hash', 'transaction'],
+    ['peernet-data', 'transaction-hash', 'transaction']
+  ])
+})
+
 test('a fast non-provider cannot hide a slower provider', async () => {
   let release
   const delayed = new Promise(resolve => { release = resolve })

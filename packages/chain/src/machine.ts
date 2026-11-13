@@ -8,6 +8,7 @@ import { createDebugger } from '@vandeurenglenn/debug'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
 import { writeCheckpoint } from './helpers/state-checkpoint.js'
 import { ReadOnlyMachine } from './read-only-machine.js'
+import type { TransactionExecution } from '@leofcoin/workers/machine-worker'
 const genesisContracts = { contractFactory: addresses.contractFactory, nativeToken: addresses.nativeToken,
   nameService: addresses.nameService, validators: addresses.validators }
 // import State from './state'
@@ -96,6 +97,12 @@ export default class Machine {
       case 'collectFeeError':
       case 'settleRewardsError': {
         pubsub.publish(data.id, { error: new Error(data.message) })
+        break
+      }
+      case 'executeTransactionsError': {
+        pubsub.publish(data.id, { error: Object.assign(new ExecutionError(data.message), {
+          transactionHash: data.transactionHash
+        }) })
         break
       }
       case 'snapshotError': {
@@ -315,6 +322,11 @@ export default class Machine {
     return this.#askWorker('collectFee', { from, payments, burned })
   }
 
+  async executeTransactions(transactions: TransactionExecution[]): Promise<void> {
+    const result = await this.#askWorker('executeTransactions', transactions, 30_000 * Math.max(1, transactions.length))
+    if (result !== true) throw new Error('Worker did not acknowledge transaction execution batch')
+  }
+
   settleRewards(rewards: Array<[string, bigint]>): Promise<bigint> {
     return this.#askWorker('settleRewards', { rewards })
   }
@@ -350,7 +362,7 @@ export default class Machine {
     })
   }
 
-  #askWorker(type, input?): Promise<any> {
+  #askWorker(type, input?, timeoutMs = 30_000): Promise<any> {
     if (this.#closed) return Promise.reject(new Error('State machine is closed'))
     return new Promise((resolve, reject) => {
       // @ts-ignore
@@ -358,7 +370,7 @@ export default class Machine {
       const timeout = setTimeout(() => {
         pubsub.unsubscribe(id, onmessage)
         reject(new Error(`Machine.#askWorker timeout for ${type}`))
-      }, 30000)
+      }, timeoutMs)
 
       const onmessage = (message) => {
         clearTimeout(timeout)

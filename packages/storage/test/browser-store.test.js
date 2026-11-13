@@ -27,39 +27,60 @@ async function fixture(StorageClass = Storage) {
   const records = new Map([['tx', { bytes: Uint8Array.of(1), revision: 0 }]])
   const readStarted = deferred(), writeStarted = deferred()
   const state = { readGate: undefined, writeGate: undefined, error: undefined, handleError: undefined, writing: false,
-    failKey: undefined, readKey: undefined }
-  const handle = key => ({
-    kind: 'file',
-    async getFile() {
-      const record = records.get(key)
-      if (!record) throw new DOMException('Record removed', 'NotFoundError')
-      return {
-        size: record.bytes.length,
-        async arrayBuffer() {
-          readStarted.resolve()
-          if (state.failKey === key) throw state.error
-          if (!state.readKey || state.readKey === key) await state.readGate?.promise
-          if (state.error && !state.failKey) throw state.error
-          if (records.get(key)?.revision !== record.revision)
-            throw new DOMException('File changed after snapshot', 'NotReadableError')
-          return record.bytes.slice().buffer
+    failKey: undefined, readKey: undefined, readCount: 0, syncAccess: false, syncGate: undefined, syncCreateCount: 0 }
+  const handle = key => {
+    const file = {
+      kind: 'file',
+      async getFile() {
+        const record = records.get(key)
+        if (!record) throw new DOMException('Record removed', 'NotFoundError')
+        return {
+          size: record.bytes.length,
+          async arrayBuffer() {
+            state.readCount++
+            readStarted.resolve()
+            if (state.failKey === key) throw state.error
+            if (!state.readKey || state.readKey === key) await state.readGate?.promise
+            if (state.error && !state.failKey) throw state.error
+            if (records.get(key)?.revision !== record.revision)
+              throw new DOMException('File changed after snapshot', 'NotReadableError')
+            return record.bytes.slice().buffer
+          }
         }
-      }
-    },
-    async createWritable() {
-      state.writing = true
-      writeStarted.resolve()
-      let bytes
-      return {
-        async write(value) { bytes = new Uint8Array(value) },
-        async close() {
-          await state.writeGate?.promise
-          records.set(key, { bytes, revision: (records.get(key)?.revision ?? 0) + 1 })
-          state.writing = false
+      },
+      async createWritable() {
+        state.writing = true
+        writeStarted.resolve()
+        let bytes
+        return {
+          async write(value) { bytes = new Uint8Array(value) },
+          async close() {
+            await state.writeGate?.promise
+            records.set(key, { bytes, revision: (records.get(key)?.revision ?? 0) + 1 })
+            state.writing = false
+          }
         }
       }
     }
-  })
+    if (state.syncAccess) {
+      file.createSyncAccessHandle = async () => {
+        state.syncCreateCount++
+        await state.syncGate?.promise
+        const record = records.get(key)
+        if (!record) throw new DOMException('Record removed', 'NotFoundError')
+        return {
+          getSize: () => record.bytes.length,
+          read(buffer) {
+            buffer.set(record.bytes)
+            return record.bytes.length
+          },
+          write(buffer) { return buffer.length },
+          close() {}
+        }
+      }
+    }
+    return file
+  }
   const backend = new BrowserStore()
   backend.db = {
     async getFileHandle(key, options) {
@@ -112,6 +133,63 @@ test('bulk scans wait for pending writes instead of inspecting temporary OPFS fi
   f.state.writeGate.resolve()
   await write
   assert.deepEqual(await scan, [Uint8Array.of(3)])
+})
+
+test('browser store runs queued reads concurrently', async () => {
+  const f = await fixture()
+  f.state.readGate = deferred()
+  const reads = [f.store.get('tx'), f.store.get('tx')]
+  await turn()
+  const readCount = f.state.readCount
+  f.state.readGate.resolve()
+  assert.deepEqual(await Promise.all(reads), [Uint8Array.of(1), Uint8Array.of(1)])
+  assert.equal(readCount, 2)
+})
+
+test('browser store serializes sync handles for the same key', async () => {
+  const f = await fixture()
+  f.state.syncAccess = true
+  f.state.syncGate = deferred()
+  f.store.db.inWorker = true
+  const reads = [f.store.get('tx'), f.store.get('tx')]
+  await turn()
+  assert.equal(f.state.syncCreateCount, 1)
+  f.state.syncGate.resolve()
+  assert.deepEqual(await Promise.all(reads), [Uint8Array.of(1), Uint8Array.of(1)])
+  assert.equal(f.state.syncCreateCount, 2)
+})
+
+test('browser batches hold the operation queue through all writes and surface failures', async () => {
+  const f = await fixture()
+  f.state.writeGate = deferred()
+  const write = f.store.batch([
+    { type: 'put', key: 'first', value: 'one' },
+    { type: 'put', key: 'second', value: 'two' },
+    { type: 'del', key: 'tx' }
+  ])
+  await f.writeStarted.promise
+  let completed = false
+  const read = f.store.keys().then(keys => { completed = true; return keys })
+  await turn()
+  assert.equal(completed, false)
+  f.state.writeGate.resolve()
+  await write
+  assert.deepEqual(await read, ['first', 'second'])
+  assert.equal(new TextDecoder().decode(await f.store.get('second')), 'two')
+  f.state.handleError = new DOMException('Write denied', 'NotAllowedError')
+  await assert.rejects(f.store.batch([{ type: 'put', key: 'third', value: 'three' }]), /batch failed/)
+})
+
+test('browser batches default to get and support explicit delete operations', async () => {
+  const f = await fixture()
+  const results = await f.store.batch([
+    { key: 'tx' },
+    { type: 'put', key: 'tx', value: 'updated' },
+    { key: 'tx' },
+    { type: 'delete', key: 'tx' }
+  ])
+  assert.deepEqual(results, [Uint8Array.of(1), new TextEncoder().encode('updated')])
+  assert.equal(await f.store.has('tx'), false)
 })
 
 test('has waits for queued writes and does not turn storage failures into missing keys', async () => {

@@ -4,6 +4,22 @@ import resolve from '@rollup/plugin-node-resolve'
 
 export default [
   {
+    input: './src/payment-mandates.ts',
+    output: {
+      dir: './exports',
+      format: 'es'
+    },
+    plugins: [
+      resolve({
+        mainFields: ['exports']
+      }),
+      typescript(),
+      terser({
+        mangle: false
+      })
+    ]
+  },
+  {
     input: './src/factory.ts',
     output: {
       dir: './exports',

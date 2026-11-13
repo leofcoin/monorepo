@@ -6,6 +6,8 @@ import { methods } from '../helpers/canonical-state-harness.js'
 
 const production = methods('../../src/chain.ts', 'Chain', ['#invalidTransaction'])
 const source = ts.transpile(`return class Harness {
+  removed = []
+  removePendingTransaction(hash) { this.removed.push(hash) }
   receive(bytes) { return this.#invalidTransaction(bytes) }
   ${production}
 }`, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS })
@@ -25,6 +27,7 @@ test('wire-encoded invalid transaction hash is decoded once and removes only its
   await f.chain.receive(encodeWire('invalid-transaction', 'tx-hash'))
   assert.deepEqual([...f.pool], ['other'])
   assert.equal(f.errors.length, 0)
+  assert.deepEqual(f.chain.removed, ['tx-hash'])
   await f.chain.receive(encodeWire('invalid-transaction', 'tx-hash'))
   assert.equal(f.errors.length, 0)
 })

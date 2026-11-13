@@ -23,6 +23,11 @@ const store = name => ({
   get: key => db.get(`${name}:${key}`),
   put: (key, value) => db.put(`${name}:${key}`, typeof value === 'string' ? new TextEncoder().encode(value) : value),
   delete: key => db.del(`${name}:${key}`),
+  batch: operations => db.batch(operations.map(operation => operation.type === 'put'
+    ? { type: 'put', key: `${name}:${operation.key}`, value: typeof operation.value === 'string'
+      ? new TextEncoder().encode(operation.value) : operation.value }
+    : { type: 'del', key: `${name}:${operation.key}` })),
+  values: () => db.values({ gte: `${name}:`, lt: `${name};` }).all(),
   keys: async () => (await db.keys({ gte: `${name}:`, lt: `${name};` }).all()).map(key => key.slice(name.length + 1)),
   clear: () => db.clear({ gte: `${name}:`, lt: `${name};` })
 })

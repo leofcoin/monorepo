@@ -9,7 +9,8 @@
   },
   "include": [
     "./src/*",
-    "./node_modules/@leofcoin/global-types/*",
+    "./../../node_modules/@leofcoin/global-types/*",
+    "./../types/*",
     "src/voting/private-voting.ts",
     "src/voting/public-voting.ts"
   ]

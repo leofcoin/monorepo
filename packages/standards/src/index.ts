@@ -17,3 +17,4 @@ export {
   type PrivateVotingState
 } from './voting/private-voting.js'
 export * from './helpers.js'
+export * from './payment-channel.js'

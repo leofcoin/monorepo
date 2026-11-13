@@ -12,6 +12,7 @@ export default [
   {
     input: [
       'src/index.ts',
+      'src/payment-channel.ts',
       'src/meta.ts',
       'src/token.ts',
       'src/roles.ts',
@@ -32,7 +33,7 @@ export default [
         defaultExports: {
           '.': {
             import: './exports/index.js',
-            types: './exports/index.d.ts'
+            types: './exports/src/index.d.ts'
           }
         }
       })

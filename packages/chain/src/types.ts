@@ -42,4 +42,6 @@ export declare type RawBlock = {
 
 export declare type ChainConfig = {
   resolveTimeout?: number
+  network?: string
+  benchmarkBlockTimeMs?: 1000 | 6000
 }

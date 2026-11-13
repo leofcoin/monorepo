@@ -68,7 +68,7 @@ class NodeProcess {
     this.events = []; this.pending = new Map(); this.sequence = 0; this.logs = ''
     this.child = fork(fixture, [], { cwd: runtime, serialization: 'advanced', execArgv: [],
       env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star,
-        LEOFCOIN_BENCH_OBSERVER_FAULTS: observerFaults ? '1' : '0' },
+        LEOFCOIN_BENCH_OBSERVER_FAULTS: observerFaults ? '1' : '0', LEOFCOIN_BENCH_BLOCK_TIME_MS: '' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
     const capture = bytes => {
       this.logTail = (this.logTail || '') + bytes.toString()
@@ -153,10 +153,12 @@ async function run(runtime, label, sample) {
     const source = new NodeProcess(runtime, join(temporary, 'source'), star.url); nodes.push(source)
     await source.ready()
     const seed = await source.request('seed')
+    const anchorHeight = seed.anchorHeight ?? 0
     await source.request('start')
     const ingress = new NodeProcess(runtime, join(temporary, 'ingress'), star.url); nodes.push(ingress)
     await ingress.ready(); await ingress.request('seed', seed); await ingress.request('start')
     await source.until(async () => (await source.request('status')).peers >= 1, 'peer connection')
+    await Promise.all([source.request('timings', { reset: true }), ingress.request('timings', { reset: true })])
     phase = 'confirmation'
     metrics = new TreeMetrics([star.child.pid, source.child.pid, ingress.child.pid])
     await metrics.begin()
@@ -179,20 +181,30 @@ async function run(runtime, label, sample) {
         }, 'transaction propagation')
         await source.request('participate')
       }
-      await source.until(async () => (await source.request('status')).tip?.index > measuredBlocks &&
+      await source.until(async () => (await source.request('status')).tip?.index > anchorHeight + measuredBlocks &&
         Number((await source.request('progress')).nonce) === offset + size, `commit ${offset + size}/${count}`)
-      measuredBlocks = (await source.request('status')).tip.index
+      measuredBlocks = (await source.request('status')).tip.index - anchorHeight
       await ingress.until(async () => Number((await ingress.request('progress')).nonce) === offset + size, 'follower commit')
       event(`${label} sample ${sample}: committed ${offset + size}/${count} transfers, height ${measuredBlocks}`)
     }
     assert.equal(new Set(hashes).size, count)
     const durationMs = performance.now() - at
     result.phases.confirmation = { durationMs, signingMs, transactionsPerSecond: count * 1000 / durationMs, ...await metrics.end() }
+    const commits = source.events.filter(event => event.type === 'block' && event.index > anchorHeight)
+    if (commits.length > 1) {
+      const intervalMs = commits.at(-1).at - commits[0].at
+      const intervalTransactions = commits.slice(1).reduce((total, block) => total + block.transactions.length, 0)
+      result.phases.confirmation.interCommit = {
+        durationMs: intervalMs, transactions: intervalTransactions,
+        transactionsPerSecond: intervalTransactions * 1000 / intervalMs
+      }
+    }
+    result.operationTimings = { source: await source.request('timings'), liveFollower: await ingress.request('timings') }
     result.measuredBlocks = measuredBlocks
     metrics = undefined
     const sourceAudit = await source.request('audit')
     check('source', sourceAudit, hashes)
-    await ingress.until(async () => Number((await ingress.request('status')).tip?.index) === measuredBlocks, 'follower commit')
+    await ingress.until(async () => Number((await ingress.request('status')).tip?.index) === anchorHeight + measuredBlocks, 'follower commit')
     const ingressAudit = await ingress.request('audit')
     check('liveFollower', ingressAudit, hashes)
     assert.equal(ingressAudit.tip.hash, sourceAudit.tip.hash)
@@ -214,7 +226,7 @@ async function run(runtime, label, sample) {
     const restarted = new NodeProcess(runtime, join(temporary, 'observer'), star.url); nodes.push(restarted)
     await restarted.ready(); await restarted.request('seed', seed).then(() => { throw new Error('Restart unexpectedly allowed fixture overwrite') }, error => assert.match(error.message, /fresh private store/))
     // Reloading needs the reference for audit only, not a second state write.
-    const restore = await restarted.request('restore', { account: seed.account, recipient: seed.recipient })
+    const restore = await restarted.request('restore', { account: seed.account, recipient: seed.recipient, anchorHeight })
     assert.equal(restore, true)
     await restarted.request('start')
     check('restartedObserver', await restarted.request('audit'), hashes)
@@ -259,7 +271,8 @@ const report = { schema: 'leofcoin-chain-benchmark-v1', measuredAt: new Date().t
     lockSha256: createHash('sha256').update(lockBytes).digest('hex') },
   current: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), fingerprint },
   workload: { count, amountPerTransfer: '100', validatorCount: 1, liveNodes: 3, transport: 'loopback WebRTC',
-    trustedCommonAnchor: 'height 0, fixture setup excluded', batchSize, measuredBlocks: results.map(result => result.measuredBlocks ?? null), blockTimeMs: 6000,
+    trustedCommonAnchor: 'height 13 for protocol 0.6; height 0 for earlier protocols; fixture setup excluded', batchSize,
+    measuredBlocks: results.map(result => result.measuredBlocks ?? null), blockTimeMs: 6000,
     signingIncluded: true, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false,
     observerFaultInjection: observerFaults },
   status: allPassed ? 'passed' : 'failed', comparable: !currentOnly && allPassed, summary: summarize(results), results,

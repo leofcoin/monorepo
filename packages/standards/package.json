@@ -6,7 +6,7 @@
   "exports": {
     ".": {
       "import": "./exports/index.js",
-      "types": "./exports/index.d.ts"
+      "types": "./exports/src/index.d.ts"
     },
     "./helpers": {
       "import": "./exports/helpers.js",
@@ -39,6 +39,14 @@
     "./meta.js": {
       "import": "./exports/meta.js",
       "types": "./exports/src/meta.d.ts"
+    },
+    "./payment-channel": {
+      "import": "./exports/payment-channel.js",
+      "types": "./exports/src/payment-channel.d.ts"
+    },
+    "./payment-channel.js": {
+      "import": "./exports/payment-channel.js",
+      "types": "./exports/src/payment-channel.d.ts"
     },
     "./private-voting": {
       "import": "./exports/private-voting.js",

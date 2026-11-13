@@ -10,6 +10,7 @@
     "./power-token": "./exports/power-token.js",
     "./mock-token": "./exports/mock-token.js",
     "./native-token": "./exports/native-token.js",
+    "./payment-mandates": "./exports/payment-mandates.js",
     "./liquidity-pool": "./exports/liquidity-pool.js",
     "./liquidity-pool-factory": "./exports/liquidity-pool-factory.js",
     "./validators": "./exports/validators.js"

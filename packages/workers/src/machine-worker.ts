@@ -3,7 +3,7 @@ import { ContractMessage } from '@leofcoin/messages'
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import addresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
-import { MONETARY_POLICY_AUTHORITY } from '@leofcoin/lib'
+import { MONETARY_POLICY_AUTHORITY, MAX_BLOCK_TRANSACTIONS } from '@leofcoin/lib'
 import EasyWorker from './binary-worker.js'
 import { nativeToken } from '@leofcoin/addresses'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
@@ -254,6 +254,7 @@ const runTask = async (id, taskName, input) => {
     worker.postMessage({
       type: `${taskName}Error`,
       message: e.message,
+      transactionHash: e.transactionHash,
       id
     })
   }
@@ -273,6 +274,16 @@ const addToWantList = (hash) => {
     type: 'addToWantList',
     hash
   })
+}
+
+export interface TransactionExecution {
+  hash: string
+  from: string
+  to: string
+  method: string
+  params: unknown[]
+  timestamp: number
+  feePayments: { payments: Array<{ to: string; amount: bigint }>; burned: bigint }
 }
 
 const _ = {
@@ -414,6 +425,27 @@ const _ = {
       }
       return total
     })
+  },
+  executeTransactions: async (transactions: TransactionExecution[]) => {
+    if (readOnly) throw new Error('Read-only worker cannot execute canonical transactions')
+    if (!Array.isArray(transactions) || transactions.length > MAX_BLOCK_TRANSACTIONS)
+      throw new Error('Invalid transaction execution batch')
+    for (const transaction of transactions) {
+      try {
+        const { payments, burned } = transaction.feePayments
+        if (payments.length || burned > 0n) await _.collectFee({ from: transaction.from, payments, burned })
+        await _.execute({
+          contract: transaction.to, method: transaction.method, params: transaction.params,
+          sender: transaction.from, executionSeed: transaction.hash, executionTimestamp: transaction.timestamp,
+          executionRandomness: undefined
+        })
+      } catch (error) {
+        throw Object.assign(new Error(`Transaction ${transaction.hash} execution failed: ${error.message}`), {
+          transactionHash: transaction.hash
+        })
+      }
+    }
+    return true
   },
   settleRewards: async ({ rewards }) => {
     if (readOnly) throw new Error('Read-only worker cannot mint rewards')
@@ -589,6 +621,9 @@ worker.onmessage(({ id, type, input, error }) => {
       break
     case 'execute':
       queueTask(id, 'execute', input)
+      break
+    case 'executeTransactions':
+      queueTask(id, 'executeTransactions', input)
       break
     case 'addLoadedBlock':
       queueTask(id, 'addLoadedBlock', input)

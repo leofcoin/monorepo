@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import ts from 'typescript'
 import { TransactionMessage } from '@leofcoin/messages'
-import { enqueueTransaction } from '../../src/consensus/transaction-pool.ts'
+import { enqueueTransaction, PendingTransactionIndex } from '../../src/consensus/transaction-pool.ts'
 import { resolveTransactionReference } from '../../src/consensus/transaction-reference.ts'
 import { methods } from '../helpers/canonical-state-harness.js'
 
@@ -14,6 +14,7 @@ const source = ts.transpile(`
     #participating = false
     #runningEpoch = false
     #pendingTransactionsRevision = 0
+    pendingTransactions = new PendingTransactionIndex()
     #acceptingChainTraffic = true
     #peerHandshakes = new Map()
     loaded = true
@@ -35,6 +36,8 @@ const source = ts.transpile(`
       if (transaction.decoded.signature !== 'signature') throw new Error('invalid signature')
     }
     addPendingNonce(address, nonce) { this.nonces.push([address, nonce]) }
+    removePendingNonce() {}
+    removePendingTransaction(hash) { this.pendingTransactions.remove(hash) }
     receive(transaction) { return this.#sendTransaction(transaction) }
     connect(id) { return this.#peerConnected(id) }
     recoveryComplete(value) { this.#acceptingChainTraffic = value; this.loaded = value }
@@ -55,6 +58,7 @@ const createNode = () => {
     async has(hash) { return map.has(hash) },
     async get(hash) { return map.get(hash) },
     async put(hash, bytes) { map.set(hash, bytes) },
+    async delete(hash) { map.delete(hash) },
     async keys() { return [...map.keys()] }
   })
   const peernet = {
@@ -85,11 +89,11 @@ const createNode = () => {
     accountsStore: store(committed)
   }
   const Harness = new Function(
-    'globalThis', 'peernet', 'TransactionMessage', 'enqueueTransaction',
+    'globalThis', 'peernet', 'TransactionMessage', 'enqueueTransaction', 'PendingTransactionIndex',
     'resolveTransactionReference', 'debug', 'setTimeout', 'resolveLastBlockMessage', 'console',
     source
   )(
-    globals, peernet, TransactionMessage, enqueueTransaction, resolveTransactionReference,
+    globals, peernet, TransactionMessage, enqueueTransaction, PendingTransactionIndex, resolveTransactionReference,
     (...args) => logs.push(args), callback => timers.push(callback),
     async decoded => ({ decoded }), { log() {}, error() {} }
   )
@@ -105,6 +109,22 @@ const transaction = (overrides = {}) => new TransactionMessage({
   nonce: 1,
   signature: 'signature',
   ...overrides
+})
+
+test('a concurrent canonical commit cannot reintroduce a stale durable pool entry into the index', async () => {
+  const node = createNode()
+  const message = transaction()
+  const hash = await message.hash()
+  const put = node.globals.transactionPoolStore.put
+  node.globals.transactionPoolStore.put = async (...args) => {
+    await put(...args)
+    node.committed.set('sender', new TextEncoder().encode('1'))
+    node.chain.pendingTransactions.commit('sender', 1n)
+  }
+  assert.equal(await node.chain.receive(message), hash)
+  assert.equal(node.pending.has(hash), false)
+  assert.equal(node.chain.pendingTransactions.size, 0)
+  assert.deepEqual(node.messages, [])
 })
 
 test('peer handshakes and pool catch-up stay disabled until recovery completes', async () => {

@@ -24,7 +24,7 @@ export default class Token extends Roles {
   /**
    * Object => Object => uint
    */
-  #balances = {}
+  #balances: { [address: string]: bigint } = {}
   /**
    * Object => Object => uint
    */
@@ -46,15 +46,15 @@ export default class Token extends Roles {
 
     super(state)
 
+    this.#name = name
+    this.#symbol = symbol
+    this.#decimals = decimals
+
     if (state) {
       this.#balances = restoreBalances(state.balances)
       this.#approvals = restoreApprovals(state.approvals)
       this.#holders = BigInt(state.holders)
       this.#totalSupply = BigInt(state.totalSupply)
-    } else {
-      this.#name = name
-      this.#symbol = symbol
-      this.#decimals = decimals
     }
   }
 

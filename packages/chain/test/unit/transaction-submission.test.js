@@ -2,6 +2,12 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import ts from 'typescript'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { TransactionMessage } from '@leofcoin/messages'
+import { createTransactionHash, signTransaction } from '@leofcoin/lib'
+import MultiWallet from '@leofcoin/multi-wallet'
+import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { createCanonicalTransactionWaiter } from '../../src/transaction-finalization.ts'
 import { methods } from '../helpers/canonical-state-harness.js'
 
@@ -84,4 +90,80 @@ test('pending nonces never become committed state and storage failures are not t
   accountsStore.has = async () => { throw new Error('nonce store unavailable') }
   await assert.rejects(instance.getNonce('sender'), /nonce store unavailable/)
   await assert.rejects(instance.validateNonce('sender', 1), /nonce store unavailable/)
+})
+
+const signatureHarness = (Verifier = MultiWallet) => {
+  const code = `return class Signatures {
+    #signatureChecks = new Map()
+    isTransactionMessage(message) { return message instanceof TransactionMessage }
+    ${methods('../../src/transaction.ts', 'Transaction', ['validateTransactionSignature'])}
+  }`
+  let network = 'leofcoin:peach'
+  const Signatures = new Function(
+    'TransactionMessage', 'MultiWallet', 'fromBase58', 'createTransactionHash', 'sha256', 'bytesToHex',
+    'chainNetwork', ts.transpile(code, { target: ts.ScriptTarget.ES2022 })
+  )(TransactionMessage, Verifier, fromBase58, createTransactionHash, sha256, bytesToHex, () => network)
+  return { instance: new Signatures(), setNetwork(value) { network = value } }
+}
+
+test('identical signed bytes share verification, but changed signatures and payloads never reuse success', async () => {
+  const signer = new MultiWallet('leofcoin:peach')
+  await signer.fromPrivateKey(Uint8Array.from({ length: 32 }, (_, index) => index + 1), undefined, 'leofcoin:peach')
+  const signed = await signTransaction({
+    from: await signer.address, to: 'recipient', method: 'transfer', params: ['recipient', 1n], nonce: 1, timestamp: 1
+  }, signer)
+  let checks = 0
+  class Verifier extends MultiWallet {
+    async verify(...args) { checks++; return super.verify(...args) }
+  }
+  const { instance } = signatureHarness(Verifier)
+  await Promise.all(Array.from({ length: 8 }, () => instance.validateTransactionSignature(new TransactionMessage(signed))))
+  assert.equal(checks, 1)
+  const changedSignature = new TransactionMessage({ ...signed, signature: 'invalid' })
+  assert.deepEqual(
+    await createTransactionHash(changedSignature), await createTransactionHash(new TransactionMessage(signed)),
+    'signing-payload hash alone cannot key signature checks'
+  )
+  await assert.rejects(instance.validateTransactionSignature(changedSignature), /signature/)
+  const mutated = new TransactionMessage(signed)
+  await instance.validateTransactionSignature(mutated)
+  mutated.decoded.params[1] = 2n
+  await assert.rejects(instance.validateTransactionSignature(mutated), /signature/)
+  await instance.validateTransactionSignature(new TransactionMessage({ ...signed, params: ['recipient', 1n] }))
+})
+
+test('failed signature checks can retry and verification is scoped to the network', async () => {
+  let checks = 0
+  class Verifier {
+    async fromAddress() {}
+    async verify() { checks++; if (checks === 1) throw new Error('verifier unavailable'); return true }
+  }
+  const { instance, setNetwork } = signatureHarness(Verifier)
+  const message = new TransactionMessage({
+    from: 'sender', to: 'recipient', method: 'transfer', params: [], nonce: 1, timestamp: 1, signature: '1'
+  })
+  await assert.rejects(instance.validateTransactionSignature(message), /verifier unavailable/)
+  await instance.validateTransactionSignature(message)
+  await instance.validateTransactionSignature(message)
+  assert.equal(checks, 2)
+  setNetwork('leofcoin:e2e')
+  await instance.validateTransactionSignature(message)
+  assert.equal(checks, 3)
+})
+
+test('signature verification cache evicts old successes instead of growing with the ledger', async () => {
+  let checks = 0
+  class Verifier {
+    async fromAddress() {}
+    async verify() { checks++; return true }
+  }
+  const { instance } = signatureHarness(Verifier)
+  const transaction = nonce => new TransactionMessage({
+    from: 'sender', to: 'recipient', method: 'transfer', params: [], nonce, timestamp: 1, signature: '1'
+  })
+  for (let nonce = 1; nonce <= 4097; nonce++) await instance.validateTransactionSignature(transaction(nonce))
+  await instance.validateTransactionSignature(transaction(4097))
+  assert.equal(checks, 4097)
+  await instance.validateTransactionSignature(transaction(1))
+  assert.equal(checks, 4098)
 })

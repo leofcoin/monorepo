@@ -28,6 +28,22 @@ async function packageFile(name, subpath = '.') {
 const load = async (name, subpath) => import(pathToFileURL(await packageFile(name, subpath)).href)
 const send = value => process.send?.(encodeWire('chain-benchmark', value))
 const events = []
+let timings = {}
+const instrument = (target, method, label) => {
+  const original = target[method]
+  if (typeof original !== 'function') return
+  target[method] = async function (...args) {
+    const start = performance.now()
+    try { return await original.apply(this, args) }
+    finally {
+      const duration = performance.now() - start
+      const entry = timings[label] ??= { calls: 0, totalMs: 0, maxMs: 0 }
+      entry.calls++
+      entry.totalMs += duration
+      entry.maxMs = Math.max(entry.maxMs, duration)
+    }
+  }
+}
 let chain, initial, tracked = [], crashTopic
 const blockedTopics = new Set()
 const { default: Node } = await load('@leofcoin/chain', './node')
@@ -39,8 +55,16 @@ const { default: MultiWallet } = await load('@leofcoin/multi-wallet')
 const { createChainIdentity } = await load('@leofcoin/lib', './chain-identity')
 const definitions = JSON.parse(await readFile(await packageFile('@leofcoin/lib', './bytecodes.json'), 'utf8'))
 const chainPackage = await manifest('@leofcoin/chain')
-const protocol = chainPackage.version === '1.10.22' ? '0.4.0' : '0.5.0'
+const publishedBaseline = chainPackage.version === '1.10.22'
+const chainDirectory = join(runtime, 'node_modules/@leofcoin/chain/exports')
+const protocol = publishedBaseline ? '0.4.0'
+  : (await import(pathToFileURL(join(chainDirectory, 'hash-format-state.js')).href)).PROTOCOL_VERSION
+const anchorHeight = protocol === '0.6.0' ? 13 : 0
 const network = 'leofcoin:e2e'
+const timingProfile = process.env.LEOFCOIN_BENCH_BLOCK_TIME_MS
+if (timingProfile && timingProfile !== '1000' && timingProfile !== '6000')
+  throw new Error('Invalid isolated benchmark timing profile')
+const benchmarkBlockTimeMs = timingProfile ? Number(timingProfile) : undefined
 const node = new Node({ network, networkVersion: 'e2e', root: relative(homedir(), dataRoot), stars: [star.href], autoStart: false,
   transport: { kind: 'webrtc', kinds: ['webrtc'], fallback: { enabled: false, order: ['webrtc'] }, webrtc: { backend: 'vandeurenglenn' } }
 }, 'benchmark-test-only')
@@ -65,7 +89,6 @@ for (const name of ['chain', 'state', 'accounts', 'wallet', 'account', 'contract
   const store = globalThis[`${name}Store`]
   if (store && resolve(store.db?.root || '') !== dataRoot) throw new Error(`Store escaped benchmark root: ${name}`)
 }
-const chainDirectory = join(runtime, 'node_modules/@leofcoin/chain/exports')
 const { default: Chain } = await load('@leofcoin/chain', './chain')
 const required = [addresses.contractFactory, addresses.nativeToken, addresses.nameService, addresses.validators]
 const identity = await createChainIdentity(network, addresses)
@@ -83,7 +106,7 @@ const logJSON = value => JSON.stringify(value, utils.jsonStringifyBigInt)
 // The published bundle has no standalone Machine export. Bootstrap its original
 // worker through its original IPC protocol; this adapter is fixture setup only.
 async function freshMachine() {
-  if (protocol === '0.5.0') {
+  if (!publishedBaseline) {
     const { default: Machine } = await import(pathToFileURL(join(chainDirectory, 'machine.js')).href)
     const machine = new Machine()
     await machine.ready
@@ -136,22 +159,32 @@ async function seed(input) {
     token.holders = 2n
     validators.validators = members; validators.currentValidator = account
     validators.balances = Object.fromEntries(members.map(member => [member, stake])); validators.validatorHistory = { 0: members }
-    const anchor = { index: 0n, previousHash: '0x0', timestamp: 1000, reward: 0n, fees: 0n,
-      transactions: [], validators: members.map(address => ({ address, reward: 0n })), producer: account, producerProof: '', protocolVersion: protocol }
-    anchor.producerProof = (await lib.signTransaction({ from: account, to: addresses.validators, method: 'produceBlock',
-      params: [await new BlockMessage(anchor).hash()], timestamp: anchor.timestamp }, globalThis.peernet.identity)).signature
-    const message = new BlockMessage(anchor), hash = await message.hash()
+    const anchors = []
+    let message, hash = '0x0'
+    for (let index = 0; index <= anchorHeight; index++) {
+      const anchor = { index: BigInt(index), previousHash: hash, timestamp: 1000 + index, reward: 0n, fees: 0n,
+        transactions: [], validators: members.map(address => ({ address, reward: 0n })), producer: account,
+        producerProof: '', protocolVersion: protocol === '0.6.0' ? '0.5.0' : protocol }
+      anchor.producerProof = (await lib.signTransaction({ from: account, to: addresses.validators, method: 'produceBlock',
+        params: [await new BlockMessage(anchor).hash()], timestamp: anchor.timestamp }, globalThis.peernet.identity)).signature
+      message = new BlockMessage(anchor)
+      hash = await message.hash()
+      anchors.push(message.encoded)
+    }
     input = { chainId: identity.chainId, states, accounts: {}, lastBlock: { ...message.decoded, hash, loaded: true },
       info: { nativeCalls: 0n, nativeMints: 0n, nativeBurns: 0n, nativeTransfers: 0n,
-        totalBurnAmount: 0n, totalMintAmount: 0n, totalTransferAmount: 0n, totalTransactions: 0n, totalBlocks: 1n },
-      anchor: message.encoded, account, recipient }
+        totalBurnAmount: 0n, totalMintAmount: 0n, totalTransferAmount: 0n, totalTransactions: 0n, totalBlocks: BigInt(anchorHeight + 1) },
+      anchor: message.encoded, anchors, anchorHeight, account, recipient }
   }
   assert.equal(input.chainId, identity.chainId)
   assert.equal(await new BlockMessage(input.anchor).hash(), input.lastBlock.hash)
-  await globalThis.blockStore.put(input.lastBlock.hash, input.anchor)
+  for (const encoded of input.anchors ?? [input.anchor]) {
+    const block = new BlockMessage(encoded)
+    await globalThis.blockStore.put(await block.hash(), encoded)
+  }
   await globalThis.chainStore.put('version', protocol)
   await globalThis.chainStore.put('lastBlock', input.lastBlock.hash)
-  if (protocol === '0.5.0') {
+  if (!publishedBaseline) {
     const { writeCheckpoint } = await import(pathToFileURL(join(chainDirectory, 'state-checkpoint.js')).href)
     await writeCheckpoint(globalThis.stateStore, input, 0, required)
   } else {
@@ -197,7 +230,7 @@ async function audit() {
     const block = new BlockMessage(await globalThis.blockStore.get(hash))
     assert.equal(await block.hash(), hash)
     transactions.push(...block.decoded.transactions)
-    if (Number(block.decoded.index) > 0) measuredBlocks++
+    if (Number(block.decoded.index) > (initial.anchorHeight ?? 0)) measuredBlocks++
     hash = String(block.decoded.previousHash)
   }
   const sum = Object.values(state.balances).reduce((total, value) => total + BigInt(value), 0n)
@@ -217,7 +250,22 @@ process.on('message', bytes => {
         assert.equal(typeof request.input.account, 'string'); assert.equal(typeof request.input.recipient, 'string')
         initial = request.input; value = true
       }
-      else if (request.action === 'start') { chain = new Chain({ network, networkVersion: 'e2e' }); await chain.ready; value = await status() }
+      else if (request.action === 'start') {
+        chain = new Chain({ network, networkVersion: 'e2e', ...(benchmarkBlockTimeMs === undefined ? {} : { benchmarkBlockTimeMs }) })
+        await chain.ready
+        instrument(chain, 'validateTransactionSignature', 'signatureVerification')
+        instrument(chain, 'staticCall', 'contractReads')
+        for (const method of ['execute', 'executeTransactions', 'collectFee', 'settleRewards', 'updateState'])
+          instrument(chain.machine, method, `machine.${method}`)
+        for (const name of ['transactionPool', 'transaction', 'accounts'])
+          for (const method of ['values', 'keys', 'has', 'get', 'put', 'delete', 'batch'])
+            instrument(globalThis[`${name}Store`], method, `${name}.${method}`)
+        value = await status()
+      }
+      else if (request.action === 'timings') {
+        value = timings
+        if (request.input?.reset) timings = {}
+      }
       else if (request.action === 'status') value = await status()
       else if (request.action === 'progress') {
         value = { nonce: await globalThis.accountsStore.has(initial.account)

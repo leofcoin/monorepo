@@ -11,14 +11,52 @@ import {
 import { formatBytes } from '@leofcoin/utils'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { createCanonicalTransactionWaiter } from './transaction-finalization.js'
+import { PendingTransactionIndex } from './consensus/transaction-pool.js'
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
   #maxPendingNonce: Map<string, number> = new Map()
+  #signatureChecks = new Map<string, Promise<void>>()
+  protected pendingTransactions = new PendingTransactionIndex()
 
   constructor(config) {
     super(config)
+  }
+
+  protected async restorePendingTransactions() {
+    this.clearPendingTransactionIndex()
+    const committed = new Map<string, bigint>()
+    for (const bytes of await globalThis.transactionPoolStore.values()) {
+      const transaction = new TransactionMessage(bytes)
+      const { from, nonce } = transaction.decoded
+      if (nonce === undefined) throw new Error('transaction nonce required')
+      if (!committed.has(from)) {
+        const raw = await globalThis.accountsStore.has(from) ? await globalThis.accountsStore.get(from) : undefined
+        committed.set(from, raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw)))
+      }
+      const hash = await transaction.hash()
+      if (BigInt(nonce) <= committed.get(from)!) {
+        await globalThis.transactionPoolStore.delete(hash)
+        continue
+      }
+      this.pendingTransactions.add(hash, transaction, committed.get(from)!)
+      this.addPendingNonce(from, nonce)
+    }
+  }
+
+  protected clearPendingTransactionIndex() {
+    this.pendingTransactions.clear()
+    this.#pendingNonces.clear()
+    this.#maxPendingNonce.clear()
+  }
+
+  protected removePendingTransaction(hash: string) {
+    const entry = this.pendingTransactions.remove(hash)
+    if (entry && !this.pendingTransactions.hasNonce(entry.from, entry.nonce))
+      this.removePendingNonce(entry.from, Number(entry.nonce))
   }
 
   addPendingNonce(address: string, nonce: number) {
@@ -143,19 +181,39 @@ export default class Transaction extends Protocol {
   async validateTransactionSignature(message: TransactionMessage): Promise<void> {
     if (!this.isTransactionMessage(message)) message = await new TransactionMessage(message)
 
-    const { from, signature } = message.decoded
+    const transaction = new TransactionMessage(structuredClone(message.decoded))
+    const { from, signature } = transaction.decoded
     if (!from || typeof from !== 'string') throw new Error('transaction sender required')
     if (!signature || typeof signature !== 'string') throw new Error('transaction not signed')
 
+    const network = chainNetwork('leofcoin')
+    // Bind cached checks to a fresh snapshot, including the signature and network.
+    const key = `${network}:${bytesToHex(sha256(transaction.encode()))}`
+    const cached = this.#signatureChecks.get(key)
+    if (cached) return cached
+
+    const check = (async () => {
+      try {
+        const verifier = new MultiWallet(network)
+        await verifier.fromAddress(from, null, network)
+        const valid = await verifier.verify(fromBase58(signature), await createTransactionHash(transaction))
+        if (!valid) throw new Error('signature does not match transaction sender')
+      } catch (error) {
+        if ((error as Error)?.message === 'signature does not match transaction sender') throw error
+        throw new Error(`invalid transaction signature: ${(error as Error)?.message ?? error}`)
+      }
+    })()
+    this.#signatureChecks.set(key, check)
+    if (this.#signatureChecks.size > 4096) {
+      const oldest = this.#signatureChecks.keys().next()
+      if (!oldest.done) this.#signatureChecks.delete(oldest.value)
+    }
+
     try {
-      const network = chainNetwork('leofcoin')
-      const verifier = new MultiWallet(network)
-      await verifier.fromAddress(from, null, network)
-      const valid = await verifier.verify(fromBase58(signature), await createTransactionHash(message))
-      if (!valid) throw new Error('signature does not match transaction sender')
+      await check
     } catch (error) {
-      if ((error as Error)?.message === 'signature does not match transaction sender') throw error
-      throw new Error(`invalid transaction signature: ${(error as Error)?.message ?? error}`)
+      if (this.#signatureChecks.get(key) === check) this.#signatureChecks.delete(key)
+      throw error
     }
   }
 

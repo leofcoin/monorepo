@@ -38,8 +38,11 @@ test('Token - constructor with state restores token properties', () => {
     totalSupply: '1500'
   }
 
-  const token = new Token('MyToken', 'MTK', 18, state)
+  const token = new Token('MyToken', 'MTK', 6, state)
 
+  assert.equal(token.name, 'MyToken')
+  assert.equal(token.symbol, 'MTK')
+  assert.equal(token.decimals, 6)
   assert.equal(token.totalSupply, 1500n)
   assert.equal(token.holders, 2n)
 })
@@ -60,7 +63,7 @@ test('Token - constructor with zero balances state', () => {
   assert.equal(token.holders, 0n)
 })
 
-test('Token - decimals getter returns correct value', () => {
+test('Token - restored decimals come from constructor parameters', () => {
   const state = {
     creator: '0x1234567890123456789012345678901234567890',
     roles: { OWNER: [], MINT: [], BURN: [] },
@@ -70,10 +73,9 @@ test('Token - decimals getter returns correct value', () => {
     totalSupply: '0'
   }
 
-  const token = new Token('MyToken', 'MTK', 18, state)
+  const token = new Token('MyToken', 'MTK', 6, state)
 
-  // Decimals default to 18 when state is provided
-  assert.equal(token.decimals, 18)
+  assert.equal(token.decimals, 6)
 })
 
 test('Token - balances getter returns copy of balances', () => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { distributeAmount } from '@leofcoin/lib'
+import { encodeWire } from '@leofcoin/binary'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { validateChainLink } from '../../src/consensus/chain-link.ts'
 import { publishObserverEvent } from '../../src/observer-events.ts'
@@ -83,6 +84,13 @@ export const createApplicationHarness = (options = {}) => {
       balances.recipient += 100n
       return true
     },
+    async executeTransactions(transactions) {
+      for (const transaction of transactions) {
+        const { payments, burned } = transaction.feePayments
+        if (payments.length || burned > 0n) await this.collectFee()
+        await this.execute(transaction.to, transaction.method)
+      }
+    },
     async settleRewards() {
       counts.rewards++
       balances.validator += 100n
@@ -97,14 +105,20 @@ export const createApplicationHarness = (options = {}) => {
     async get() { return 0n }
   }
   const pool = { async has() { return false }, async delete() {}, async keys() { return [] } }
+  pool.batch = async operations => { for (const operation of operations) await pool.delete(operation.key) }
   const transactionStore = {
     async has(hash) { return transactions.has(hash) },
     async put(hash) { transactions.add(hash) }
   }
+  transactionStore.batch = async operations => {
+    for (const operation of operations) await transactionStore.put(operation.key, operation.value)
+  }
   Object.assign(globalThis, {
     blockStore: { async has() { return false }, async put() { counts.stores++ } },
     transactionPoolStore: pool,
+    transactionStore,
     accountsStore: { async put(key, value) { accountNonces.set(key, value) },
+      async batch(operations) { for (const operation of operations) accountNonces.set(operation.key, operation.value) },
       async has(key) { return accountNonces.has(key) }, async get(key) { return accountNonces.get(key) } },
     peernet: { selectedAccount: 'other', peers: ['peer'], async publish() {} },
     pubsub: { publish() {} },
@@ -135,6 +149,7 @@ export const createApplicationHarness = (options = {}) => {
     get machine() { return this.#machine }
     get loaded() { return this.#loaded }
     get consensusState() { return { proposal: this.#proposalInFlight, round: this.#consensusRound } }
+    pendingTransactions = { commit() { return [] } }
     removePendingNonce() {}
     async validateTransactionSignature() {}
     async #validateBlockValidators() { await boundary.validate() }
@@ -180,11 +195,12 @@ export const createApplicationHarness = (options = {}) => {
       assert.equal(parent.hash, hash)
       return suffix
     },
-    transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet,
+    transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet, encodeWire,
     console: { log() {}, error() {} }, debug: message => events.push(message),
     compareExecutionTransactions, compareLegacyExecutionTransactions, usesConsecutiveNoncesAtHeight,
     supportsTransactionFees: () => true,
     supportsMonetaryPolicy: () => true, calculateFee: async () => 10n,
+    MAX_BLOCK_TRANSACTIONS: 256,
     distributeTransactionFee: () => ({ payments: [{ to: 'validator', amount: 10n }], burned: 0n }),
     distributeAmount, calculateMonetaryPolicy: () => policy,
     validateBlockResourceLimits: async () => {}, nativeToken: 'token',

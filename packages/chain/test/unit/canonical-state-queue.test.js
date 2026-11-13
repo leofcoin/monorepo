@@ -4,6 +4,7 @@ import ts from 'typescript'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { createApplicationHarness, deferred, methods } from '../helpers/canonical-state-harness.js'
+import { createCanonicalTransactionWaiter } from '../../src/transaction-finalization.ts'
 
 test('failing commit observers cannot poison the writer or skip later listeners', async t => {
   t.mock.method(console, 'warn', () => {})
@@ -31,6 +32,23 @@ test('failed checkpoint writes never emit transaction or block success notificat
     bus.subscribe(topic, () => observed.push(topic))
   await assert.rejects(fixture.instance.add(fixture.block), /snapshot write failed/)
   assert.deepEqual(observed, [])
+})
+
+test('a failed worker batch rejects transaction waiters and never announces a durable success', async () => {
+  const fixture = createApplicationHarness({
+    async execute() { throw Object.assign(new Error('execution failed'), { transactionHash: 'tx' }) }
+  }), bus = new LittlePubSub(), observed = []
+  globalThis.pubsub = bus
+  let published = 0
+  globalThis.peernet.publish = () => { published++; return new Promise(() => {}) }
+  bus.subscribe('block-processed', () => observed.push('committed'))
+  const waiter = createCanonicalTransactionWaiter(bus, globalThis.transactionPoolStore, 'tx')
+  const failed = assert.rejects(waiter.wait, failure => failure.hash === 'tx' && /execution failed/.test(failure.error.message))
+  await assert.rejects(fixture.instance.add(fixture.block), /execution failed/)
+  await failed
+  assert.deepEqual(observed, [])
+  assert.equal(published, 1, 'failure gossip must not block waiter rejection or the canonical writer')
+  assert.equal(fixture.counts.snapshots, 0)
 })
 
 test('durable commit clears a losing proposal at the committed height, not only an identical hash', async () => {

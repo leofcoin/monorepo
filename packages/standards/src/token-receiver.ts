@@ -22,7 +22,7 @@ export default class TokenReceiver
     burns: boolean,
     state?: TokenReceiverState
   ) {
-    super(state)
+    super(state as VotingState)
     if (state) {
       this.#tokenReceiver = state.tokenReceiver
       this.#tokenToReceive = state.tokenToReceive
@@ -75,9 +75,7 @@ export default class TokenReceiver
 
   async #beforeVote(): Promise<any> {
     if (this.#voteType === 'burn')
-      return msg.call(this.tokenToReceive, 'burn', [
-        this.tokenAmountToReceive
-      ])
+      return msg.call(this.tokenToReceive, 'burn', [this.tokenAmountToReceive])
     return msg.call(this.tokenToReceive, 'transferFrom', [
       msg.sender,
       this.tokenReceiver,
@@ -106,9 +104,7 @@ export default class TokenReceiver
    * @returns {boolean} promise
    */
   async _burnTokenToReceive(): Promise<boolean> {
-    return msg.call(this.#tokenToReceive, 'burn', [
-      this.#tokenAmountToReceive
-    ])
+    return msg.call(this.#tokenToReceive, 'burn', [this.#tokenAmountToReceive])
   }
 
   #changeTokenToReceive(address: address) {
