@@ -44,8 +44,8 @@
     "acorn": "^8.19.0",
     "@leofcoin/addresses": "^1.1.2",
     "@leofcoin/lib": "^1.4.5",
-    "@leofcoin/messages": "^2.0.0",
-    "@leofcoin/storage": "^3.5.39",
+    "@leofcoin/messages": "^2.0.1",
+    "@leofcoin/storage": "^3.5.40",
     "@leofcoin/utils": "^1.1.45",
     "@vandeurenglenn/easy-worker": "^1.0.3"
   },
