@@ -20,7 +20,7 @@
   "devDependencies": {
     "@leofcoin/endpoint-clients": "^0.4.0",
     "@leofcoin/binary": "^1.1.0",
-    "@leofcoin/lib": "^1.4.0",
+    "@leofcoin/lib": "^1.4.4",
     "@leofcoin/messages": "^2.0.0",
     "@leofcoin/multi-wallet": "^4.0.1",
     "@leofcoin/utils": "^1.1.45",

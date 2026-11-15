@@ -22,6 +22,23 @@ const { chain, endpoints, mode } = await launch(
 Requires Node.js 24.15.0 or newer. The default native WebRTC backend is
 `@vandeurenglenn/wrtc` 0.7.2 or newer.
 
+### Genesis package compatibility
+
+Launch-chain 0.5.4 requires the matching Peach 0.9 genesis packages: addresses
+1.1.1, lib 1.4.4, workers 1.6.2 and chain 1.11.9 or later compatible versions.
+An older lockfile can combine addresses 1.1.0 with newer contract bytecode and
+cause `genesis contract hash mismatch` at startup. After these versions are
+published, update the launcher and its lockfile in the deployment directory:
+
+```sh
+npm install '@leofcoin/launch-chain@^0.5.4'
+npm ls @leofcoin/launch-chain @leofcoin/chain @leofcoin/lib @leofcoin/addresses @leofcoin/workers
+```
+
+Stop the node before upgrading. Keep existing data and credentials; this package
+update does not migrate an older chain or make a different genesis compatible.
+Verify the intended chain ID before reconnecting or restarting validators.
+
 ### automatic peer transports
 
 Launch-chain 0.4.25 requires chain 1.10.17 and lib 1.3.15, using published

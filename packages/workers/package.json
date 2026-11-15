@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/workers",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "Workers used in @leofcoin/chain",
   "type": "module",
   "private": false,
@@ -42,8 +42,8 @@
     "@leofcoin/binary": "^1.1.0",
     "@noble/hashes": "^2.4.0",
     "acorn": "^8.19.0",
-    "@leofcoin/addresses": "^1.1.0",
-    "@leofcoin/lib": "^1.4.2",
+    "@leofcoin/addresses": "^1.1.1",
+    "@leofcoin/lib": "^1.4.4",
     "@leofcoin/messages": "^2.0.0",
     "@leofcoin/storage": "^3.5.39",
     "@leofcoin/utils": "^1.1.45",

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { homedir } from 'node:os'
 import { join, relative } from 'node:path'
 import { startNode } from '@leofcoin/launch-chain/node'
-import addresses from '@leofcoin/addresses'
 import Peernet from '@leofcoin/peernet'
 import Swarm from '@netpeer/swarm/client'
 
@@ -20,7 +19,7 @@ const node = await startNode({
 assert.equal(globalThis.walletStore.db.root, root)
 assert.ok(node.account)
 assert.deepEqual(node.endpoints, { http: [], ws: [] })
-const validators = await node.chain.staticCall(addresses.validators, 'validators')
+const validators = await node.chain.staticCall(node.chain.chainAddresses.validators, 'validators')
 assert.ok(Array.isArray(validators), 'real genesis validators contract must be ready')
 assert.ok(validators.length > 0, 'the real genesis must have its configured validator')
 assert.equal(BigInt((await node.chain.lastBlock).index), -1n)

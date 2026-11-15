@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/lib",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "",
   "type": "module",
   "typings": "./exports/typings/index.d.ts",
@@ -62,7 +62,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/addresses": "^1.1.0",
+    "@leofcoin/addresses": "^1.1.1",
     "@leofcoin/messages": "^2.0.0",
     "@leofcoin/multi-wallet": "^5.0.0",
     "@leofcoin/peernet": "^4.1.0",

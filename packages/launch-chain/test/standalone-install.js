@@ -1,5 +1,5 @@
 // Reuse built artifacts, but resolve every external dependency from npm, without
-// workspace links. The three unpublished packages travel together as tarballs.
+// workspace links. The unpublished packages travel together as tarballs.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -15,9 +15,9 @@ const run = (command, args, cwd, timeout = 180_000) => execFileSync(command, arg
 })
 
 try {
-  const dependencies = {}
+  const dependencies = { '@leofcoin/addresses': '1.1.0' }
   const artifacts = new Set()
-  for (const name of ['lib', 'chain', 'launch-chain']) {
+  for (const name of ['lib', 'workers', 'chain', 'launch-chain']) {
     const directory = join(packages, name)
     assert.ok(existsSync(join(directory, 'exports')), `build ${name} before test:package`)
     const [packed] = JSON.parse(run(npm, ['pack', '--json', '--pack-destination', temporary], directory))
@@ -31,6 +31,7 @@ try {
   // covered by swarm's relay tests; do not run arbitrary installation hooks here.
   run(npm, ['install', '--ignore-scripts', '--omit=dev', '--no-audit', '--no-fund'], temporary)
   const lock = JSON.parse(readFileSync(join(temporary, 'package-lock.json'), 'utf8'))
+  assert.equal(lock.packages['node_modules/@leofcoin/addresses'].version, '1.1.0')
   for (const [path, entry] of Object.entries(lock.packages)) {
     if (artifacts.has(path)) continue
     assert.ok(!entry.link, `unexpected workspace link: ${path}`)
