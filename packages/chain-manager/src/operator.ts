@@ -265,7 +265,8 @@ export class OperatorController extends EventTarget {
   async createWallet(password: string) {
     return this.#run(async () => {
       if (this.walletExists) throw new Error('An operator wallet already exists. Export its backup before replacing it in another manager instance.')
-      if (password.length < 12) throw new Error('Use a password of at least 12 characters')
+      if (Array.from(password).length < 12)
+        throw new Error('Use a password of at least 12 characters')
       const network = this.#network()
       const wallet = new MultiWallet(network)
       await wallet.generate(password, network)
