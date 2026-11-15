@@ -17,6 +17,9 @@ test('chain discovery binds the immutable bundled genesis before transport start
   assert.equal(chainNetwork('fallback',{ledgerNetwork:result.network,network:routing.network}),result.network)
   assert.equal((await createChainIdentity(chainNetwork('fallback',{ledgerNetwork:result.network,network:routing.network}),addresses)).chainId,result.chainId)
   assert.equal(chainPeernetOptions({...result,root:'.existing-wallet'}).root,'.existing-wallet')
+  const peerOptions=chainPeernetOptions({...result,genesis:{chainId:'test',addresses:{},bytecodes:{}},identity:{selectedAccount:'lfc-pq1:test'}})
+  assert.equal(Object.hasOwn(peerOptions,'genesis'),false)
+  assert.equal(Object.hasOwn(peerOptions,'identity'),false)
   for(const field of ['protocol','version','networkVersion','discoveryNetwork']){
     assert.equal(Object.hasOwn(routing,field),false);assert.equal(Object.hasOwn(result,field),false)
   }

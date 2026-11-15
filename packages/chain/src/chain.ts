@@ -14,7 +14,6 @@ import {
   PrecommitMessage,
   ProposalMessage
 } from '@leofcoin/messages'
-import addresses from '@leofcoin/addresses'
 import {
   signTransaction,
   contractFactoryMessage,
@@ -35,8 +34,6 @@ import {
   createTransactionHash,
   MONETARY_POLICY_AUTHORITY
 } from '@leofcoin/lib'
-import MultiWallet from '@leofcoin/multi-wallet'
-import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
 import VersionControl from './version-control.js'
 import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
@@ -63,6 +60,9 @@ import { publishObserverEvent } from './observer-events.js'
 import { createChainIdentity, findChainPresence, assertChainId } from '@leofcoin/lib/chain-identity'
 import type { BlockInMemory } from './types.js'
 import type { TransactionExecution } from '@leofcoin/workers/machine-worker'
+import { PQ_NETWORK } from '@leofcoin/lib/pq'
+import { reserveChain } from './pq-runtime.js'
+import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
 
 const debug = createDebugger('leofcoin/chain')
 
@@ -133,18 +133,19 @@ export default class Chain extends VersionControl {
   })
 
   constructor(config) {
+    reserveChain(config?.network, config?.genesis)
     super(config)
     this.#blockTime = benchmarkBlockTime(config, chainNetwork())
     this.#init().catch((error) => this.readyReject(error))
   }
 
   get nativeToken() {
-    return addresses.nativeToken
+    return this.chainAddresses.nativeToken
   }
 
   /** Immutable bundled genesis identity, independent of the current chain tip. */
   getChainIdentity() {
-    return createChainIdentity(chainNetwork(), addresses)
+    return createChainIdentity(this.genesis ? PQ_NETWORK : chainNetwork(), this.chainAddresses)
   }
 
   async findChain(chainId: string) {
@@ -206,14 +207,15 @@ export default class Chain extends VersionControl {
 
   async #signConsensusMessage(type: 'proposal' | 'prevote' | 'precommit', message): Promise<string> {
     const identity = globalThis.peernet?.identity
-    return signConsensusMessage(addresses.validators, type, message, identity)
+    return signConsensusMessage(this.chainAddresses.validators, type, message, identity)
   }
 
   async #verifyConsensusMessage(
     type: 'proposal' | 'prevote' | 'precommit',
     message: { blockHash: unknown; index: unknown; round: unknown; from: unknown; signature?: unknown }
   ): Promise<boolean> {
-    return verifyConsensusMessage(addresses.validators, type, message, chainNetwork('leofcoin'))
+    return verifyConsensusMessage(this.chainAddresses.validators, type, message,
+      this.genesis ? PQ_NETWORK : chainNetwork('leofcoin'), this.genesis?.chainId)
   }
 
   async #getConsensusValidators(nextBlockIndex?: number): Promise<string[]> {
@@ -234,7 +236,7 @@ export default class Chain extends VersionControl {
       ].sort()
     }
 
-    const validators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+    const validators = (await this.staticCall(this.chainAddresses.validators, 'validators')) as string[]
     return [...new Set(validators)].sort()
   }
 
@@ -251,11 +253,11 @@ export default class Chain extends VersionControl {
     }
 
     if (
-      !isBlockProtocolCompatibleAtHeight(
+      !(this.genesis ? blockMessage.decoded.protocolVersion === this.version : isBlockProtocolCompatibleAtHeight(
         blockMessage.decoded.index,
         blockMessage.decoded.protocolVersion,
         this.version
-      )
+      ))
     ) {
       throw new Error(
         `Block ${blockMessage.decoded.index} uses incompatible protocol version: ${blockMessage.decoded.protocolVersion} ` +
@@ -285,15 +287,14 @@ export default class Chain extends VersionControl {
     const unsignedBlockHash = await unsignedBlockMessage.hash()
     const proofPayload = await createTransactionHash({
       from: blockMessage.decoded.producer,
-      to: addresses.validators,
+      to: this.chainAddresses.validators,
       method: 'produceBlock',
       params: [unsignedBlockHash],
       timestamp: Number(blockMessage.decoded.timestamp)
     })
-    const network = chainNetwork('leofcoin')
-    const verifier = new MultiWallet(network)
-    await verifier.fromAddress(blockMessage.decoded.producer, null, network)
-    const validProducerProof = await verifier.verify(fromBase58(blockMessage.decoded.producerProof), proofPayload)
+    const network = this.genesis ? PQ_NETWORK : chainNetwork('leofcoin')
+    const validProducerProof = await verifyIdentityDigest(blockMessage.decoded.producer,
+      blockMessage.decoded.producerProof, proofPayload, network, this.genesis?.chainId)
     if (!validProducerProof) {
       throw new Error(`Block ${blockMessage.decoded.index} has an invalid producerProof`)
     }
@@ -315,7 +316,7 @@ export default class Chain extends VersionControl {
     // Header membership reflects canonical contract state after the parent was
     // executed. Vote eligibility remains parent-height scoped separately in
     // #getConsensusValidators, allowing deterministic membership transitions.
-    const expectedValidators = (await this.staticCall(addresses.validators, 'validators')) as string[]
+    const expectedValidators = (await this.staticCall(this.chainAddresses.validators, 'validators')) as string[]
     validateCanonicalValidatorSet(blockMessage.decoded.index, expectedValidators, validators)
   }
 
@@ -328,7 +329,7 @@ export default class Chain extends VersionControl {
         return transaction
       })
     )
-    if (usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)) {
+    if (this.genesis || usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)) {
       await validateConsecutiveNonces(transactions, async address => {
         if (!(await globalThis.accountsStore.has(address))) return 0n
         const raw = await globalThis.accountsStore.get(address)
@@ -389,8 +390,8 @@ export default class Chain extends VersionControl {
 
   async #assertFeeBurnSupported(protocolVersion: string): Promise<void> {
     const [canBurn, canMint] = await Promise.all([
-      this.staticCall(addresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'BURN']),
-      this.staticCall(addresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'MINT'])
+      this.staticCall(this.chainAddresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'BURN']),
+      this.staticCall(this.chainAddresses.nativeToken, 'hasRole', [MONETARY_POLICY_AUTHORITY, 'MINT'])
     ])
     if (!canBurn || (supportsMonetaryPolicy(protocolVersion) && !canMint)) {
       throw new Error('native token genesis does not support protocol monetary policy')
@@ -400,8 +401,8 @@ export default class Chain extends VersionControl {
   async #monetaryPolicy(protocolVersion: string) {
     if (!supportsMonetaryPolicy(protocolVersion)) return { subsidy: 150n, burnBasisPoints: 1_000n, floorSupply: 0n }
     const [totalSupply, targetSupply] = await Promise.all([
-      this.staticCall(addresses.nativeToken, 'totalSupply'),
-      this.staticCall(addresses.nativeToken, 'targetSupply')
+      this.staticCall(this.chainAddresses.nativeToken, 'totalSupply'),
+      this.staticCall(this.chainAddresses.nativeToken, 'targetSupply')
     ])
     return calculateMonetaryPolicy(BigInt(totalSupply), BigInt(targetSupply))
   }
@@ -508,20 +509,20 @@ export default class Chain extends VersionControl {
   async #setup() {
     const contracts = [
       {
-        address: addresses.contractFactory,
-        message: contractFactoryMessage
+        address: this.chainAddresses.contractFactory,
+        message: this.genesis?.bytecodes.contractFactory ?? contractFactoryMessage
       },
       {
-        address: addresses.nativeToken,
-        message: nativeTokenMessage
+        address: this.chainAddresses.nativeToken,
+        message: this.genesis?.bytecodes.nativeToken ?? nativeTokenMessage
       },
       {
-        address: addresses.validators,
-        message: validatorsMessage
+        address: this.chainAddresses.validators,
+        message: this.genesis?.bytecodes.validators ?? validatorsMessage
       },
       {
-        address: addresses.nameService,
-        message: nameServiceMessage
+        address: this.chainAddresses.nameService,
+        message: this.genesis?.bytecodes.nameService ?? nameServiceMessage
       }
     ]
 
@@ -539,6 +540,19 @@ export default class Chain extends VersionControl {
   }
 
   async #init() {
+    if (this.genesis) {
+      const marker = 'pq:genesis'
+      if (await globalThis.chainStore.has(marker)) {
+        const stored = await globalThis.chainStore.get(marker)
+        const id = typeof stored === 'string' ? stored : new TextDecoder().decode(stored)
+        if (id !== this.genesis.chainId) throw new Error('PQ data root belongs to another genesis')
+      } else {
+        for (const store of [globalThis.chainStore, globalThis.stateStore, globalThis.blockStore,
+          globalThis.transactionStore, globalThis.accountsStore, globalThis.contractStore, globalThis.transactionPoolStore])
+          if ((await store.keys()).length) throw new Error('PQ genesis requires an empty, dedicated data root')
+        await globalThis.chainStore.put(marker, this.genesis.chainId)
+      }
+    }
     await assertHashFormatState(globalThis.chainStore, globalThis.stateStore)
     // this.node = await new Node()
     this.#participants = []
@@ -546,7 +560,7 @@ export default class Chain extends VersionControl {
     this.#connectionMonitor = new ConnectionMonitor()
     console.log('[chain] init:start')
 
-    const initialized = await globalThis.contractStore.has(addresses.contractFactory)
+    const initialized = await globalThis.contractStore.has(this.chainAddresses.contractFactory)
     console.log(`chain initialized: ${initialized}`)
     if (!initialized) await this.#setup()
 
@@ -1166,7 +1180,7 @@ export default class Chain extends VersionControl {
 
   #recordValidatorSnapshot(index) {
     // Protocol bookkeeping only: called from the serialized canonical writer.
-    return this.machine.execute(addresses.validators, 'recordValidatorSnapshot', [index], globalThis.peernet.selectedAccount)
+    return this.machine.execute(this.chainAddresses.validators, 'recordValidatorSnapshot', [index], globalThis.peernet.selectedAccount)
   }
 
   async #applyBlock(block, transition: CanonicalTransition, schedule = true) {
@@ -1234,7 +1248,7 @@ export default class Chain extends VersionControl {
 
     // Combine and sort all transactions deterministically
     const allTransactions = transactions.sort(
-      usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)
+      this.genesis || usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)
         ? compareExecutionTransactions
         : compareLegacyExecutionTransactions
     )
@@ -1254,7 +1268,7 @@ export default class Chain extends VersionControl {
         committed = raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
       }
       const actual = BigInt(nonce)
-      if (usesConsecutiveNoncesAtHeight(blockIndex) ? actual !== committed + 1n : actual <= committed)
+      if ((this.genesis || usesConsecutiveNoncesAtHeight(blockIndex)) ? actual !== committed + 1n : actual <= committed)
         throw new Error(`Transaction nonce out of sequence: ${transactionHash} (nonce ${nonce}, committed ${committed}, block ${blockIndex})`)
       noncesByAddress.set(from, actual)
       const feeDistribution = supportsTransactionFees(blockMessage.decoded.protocolVersion)
@@ -1275,7 +1289,7 @@ export default class Chain extends VersionControl {
     // Deployment preparation can depend on preceding contract calls. Preserve
     // the existing per-call path for those blocks and oversized legacy blocks.
     const canBatch = allTransactions.length <= MAX_BLOCK_TRANSACTIONS && !execution.some(
-      transaction => transaction.to === addresses.contractFactory && transaction.method === 'registerContract'
+      transaction => transaction.to === this.chainAddresses.contractFactory && transaction.method === 'registerContract'
     )
     if (canBatch) {
       try {
@@ -1369,18 +1383,18 @@ export default class Chain extends VersionControl {
     // peerReputation(peerId)
     // {bandwith: {up, down}, uptime}
     try {
-      if (!(await this.staticCall(addresses.validators, 'has', [address]))) {
-        const minimumBalance = BigInt(await this.staticCall(addresses.validators, 'minimumBalance'))
+      if (!(await this.staticCall(this.chainAddresses.validators, 'has', [address]))) {
+        const minimumBalance = BigInt(await this.staticCall(this.chainAddresses.validators, 'minimumBalance'))
         const allowance = BigInt(
-          (await this.staticCall(addresses.nativeToken, 'allowance', [address, addresses.validators])) || 0n
+          (await this.staticCall(this.chainAddresses.nativeToken, 'allowance', [address, this.chainAddresses.validators])) || 0n
         )
         if (allowance < minimumBalance) {
           const approval = await signTransaction(
             {
               from: address,
-              to: addresses.nativeToken,
+              to: this.chainAddresses.nativeToken,
               method: 'approve',
-              params: [addresses.validators, minimumBalance],
+              params: [this.chainAddresses.validators, minimumBalance],
               nonce: (await this.getNonce(address)) + 1,
               timestamp: Date.now()
             },
@@ -1391,7 +1405,7 @@ export default class Chain extends VersionControl {
         }
         const rawTransaction = {
           from: address,
-          to: addresses.validators,
+          to: this.chainAddresses.validators,
           method: 'addValidator',
           params: [address],
           nonce: (await this.getNonce(address)) + 1,
@@ -1428,7 +1442,7 @@ export default class Chain extends VersionControl {
       const raw = await globalThis.accountsStore.get(transaction.decoded.from)
       committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-    const legacyBlock = block && !usesConsecutiveNoncesAtHeight(block.index)
+    const legacyBlock = !this.genesis && block && !usesConsecutiveNoncesAtHeight(block.index)
     if (legacyBlock ? nonce <= committed : nonce !== committed + 1n) {
       if (legacyBlock)
         throw new Error(
@@ -1527,7 +1541,7 @@ export default class Chain extends VersionControl {
 
     // CRITICAL FIX: Sort validators deterministically to avoid encoding divergence
     // Use canonical validator set from contract, sorted by address
-    const canonicalValidators = (await this.staticCall(addresses.validators, 'validators')) as Validators['validators']
+    const canonicalValidators = (await this.staticCall(this.chainAddresses.validators, 'validators')) as Validators['validators']
     const sortedValidators = [...canonicalValidators].sort()
 
     if (sortedValidators.length === 0) throw new Error('cannot produce a block without validators')
@@ -1569,7 +1583,7 @@ export default class Chain extends VersionControl {
         const signedProof = await signTransaction(
           {
             from: block.producer,
-            to: addresses.validators,
+            to: this.chainAddresses.validators,
             method: 'produceBlock',
             params: [unsignedBlockHash],
             timestamp: block.timestamp
@@ -1707,7 +1721,7 @@ export default class Chain extends VersionControl {
 
   async addContract(transaction, contractMessage) {
     const hash = await contractMessage.hash()
-    const has = await this.staticCall(addresses.contractFactory, 'isRegistered', [hash])
+    const has = await this.staticCall(this.chainAddresses.contractFactory, 'isRegistered', [hash])
     if (has) throw new Error('contract exists')
 
     const tx = await this.sendTransaction(transaction)
@@ -1766,25 +1780,25 @@ export default class Chain extends VersionControl {
 
   async transfer(transaction: any, ...legacy: any[]) {
     const signed = transaction instanceof TransactionMessage ? transaction.decoded : transaction
-    if (legacy.length || signed?.to !== addresses.nativeToken || signed?.method !== 'transfer')
+    if (legacy.length || signed?.to !== this.chainAddresses.nativeToken || signed?.method !== 'transfer')
       throw new Error('transfer() requires a signed native-token transfer transaction')
     return this.call(signed)
   }
 
   balanceOf(address: Address): Promise<bigint> {
-    return this.staticCall(addresses.nativeToken, 'balanceOf', [address])
+    return this.staticCall(this.chainAddresses.nativeToken, 'balanceOf', [address])
   }
 
   get balance(): Promise<bigint> {
-    return this.staticCall(addresses.nativeToken, 'balanceOf', [globalThis.peernet.selectedAccount])
+    return this.staticCall(this.chainAddresses.nativeToken, 'balanceOf', [globalThis.peernet.selectedAccount])
   }
 
   get balances(): Promise<{ [index: string]: bigint }> {
-    return this.staticCall(addresses.nativeToken, 'balances')
+    return this.staticCall(this.chainAddresses.nativeToken, 'balances')
   }
 
   get contracts() {
-    return this.staticCall(addresses.contractFactory, 'contracts')
+    return this.staticCall(this.chainAddresses.contractFactory, 'contracts')
   }
 
   deleteAll() {
@@ -1801,7 +1815,7 @@ export default class Chain extends VersionControl {
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
   lookup(name): Promise<{ owner; address }> {
-    return this.staticCall(addresses.nameService, 'lookup', [name])
+    return this.staticCall(this.chainAddresses.nameService, 'lookup', [name])
   }
 
   #monitorPeerConnections() {

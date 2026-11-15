@@ -9,6 +9,18 @@
     "node": ">=24.15.0"
   },
   "exports": {
+    "./identity-signature": {
+      "import": "./exports/identity-signature.js",
+      "types": "./exports/identity-signature.d.ts"
+    },
+    "./pq": {
+      "import": "./exports/pq.js",
+      "types": "./exports/pq.d.ts"
+    },
+    "./pq-genesis": {
+      "import": "./exports/pq-genesis.js",
+      "types": "./exports/pq-genesis.d.ts"
+    },
     "./chain-identity": {
       "import": "./exports/chain-identity.js",
       "types": "./exports/chain-identity.d.ts"
@@ -50,12 +62,14 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@leofcoin/multi-wallet": "^3.1.12",
     "@leofcoin/addresses": "^1.1.0",
     "@leofcoin/messages": "^2.0.0",
+    "@leofcoin/multi-wallet": "^3.1.12",
     "@leofcoin/peernet": "^4.0.0",
     "@leofcoin/storage": "^3.5.38",
     "@leofcoin/utils": "^1.1.45",
+    "@noble/hashes": "2.4.0",
+    "@noble/post-quantum": "0.7.1",
     "@vandeurenglenn/base32": "^1.2.4",
     "@vandeurenglenn/base58": "^1.1.9",
     "@vandeurenglenn/typed-array-utils": "^1.2.0"

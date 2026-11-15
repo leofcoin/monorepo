@@ -3,6 +3,7 @@ import test from 'node:test'
 import ts from 'typescript'
 import Peernet from '@leofcoin/peernet/browser'
 import { methods } from '../helpers/canonical-state-harness.js'
+import { reserveNode } from '../../src/pq-runtime.ts'
 
 test('browser node selects workspace storage before Peernet creates stores', async t => {
   const keys = ['Peernet', 'LeofcoinStorage', 'peernet', 'pubsub', 'contractStore', 'walletStore']
@@ -39,12 +40,12 @@ test('browser node selects workspace storage before Peernet creates stores', asy
   const Node = new Function(
     'Storage', 'Peernet', 'Identity', 'chainDiscoveryOptions', 'browserRoutingId', 'chainPeernetOptions',
     'assertDiscoveryNamespace', 'installBinaryPeerProtocol', 'guardPeerMessages', 'guardProviderDiscovery',
-    'nodeConfig', 'startRecoveryTransport', 'pubsub', `${script}; return Node`
+    'nodeConfig', 'startRecoveryTransport', 'pubsub', 'reserveNode', `${script}; return Node`
   )(
     Storage, Peer, class Identity {}, async config => config, async () => 'routing-id', config => config,
     noop, noop, noop, noop, async () => {
       await Peernet.prototype.addStore.call(globalThis.peernet, 'contract', 'lfc', 'root', false)
-    }, noop, globalThis.pubsub
+    }, noop, globalThis.pubsub, reserveNode
   )
 
   await new Node()._init({ network: 'leofcoin:peach' }, 'fixture')

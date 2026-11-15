@@ -1,4 +1,5 @@
 import networks from '@leofcoin/networks'
+import type { PqGenesis } from '@leofcoin/lib/pq-genesis'
 
 // Consecutive sender nonces activate at block 14; earlier 0.5 blocks remain replayable.
 export const PROTOCOL_VERSION = '0.6.0'
@@ -8,6 +9,8 @@ export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes
 export const REACHED_ONE_ZERO_ZERO = false // set to true when protocol reaches v1.0.0
 
 export type NodeOptions = {
+  genesis?: PqGenesis
+  identity?: object
   network?: string
   protocolVersion?: string
   chainId?: string

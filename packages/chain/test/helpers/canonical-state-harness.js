@@ -127,6 +127,7 @@ export const createApplicationHarness = (options = {}) => {
       async delete(key) { markers.delete(key) } }
   })
   const source = `class Harness {
+    chainAddresses = addresses
     #canonicalStateQueue = new CanonicalStateQueue()
     #blocks = []
     #machine = boundary.machine

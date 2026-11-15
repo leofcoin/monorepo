@@ -15,6 +15,8 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { createCanonicalTransactionWaiter } from './transaction-finalization.js'
 import { PendingTransactionIndex } from './consensus/transaction-pool.js'
+import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
+import { PQ_NETWORK } from '@leofcoin/lib/pq'
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
@@ -186,17 +188,23 @@ export default class Transaction extends Protocol {
     if (!from || typeof from !== 'string') throw new Error('transaction sender required')
     if (!signature || typeof signature !== 'string') throw new Error('transaction not signed')
 
-    const network = chainNetwork('leofcoin')
+    const network = this.genesis ? PQ_NETWORK : chainNetwork('leofcoin')
     // Bind cached checks to a fresh snapshot, including the signature and network.
-    const key = `${network}:${bytesToHex(sha256(transaction.encode()))}`
+    const key = `${network}:${this.genesis?.chainId ?? ''}:${bytesToHex(sha256(transaction.encode()))}`
     const cached = this.#signatureChecks.get(key)
     if (cached) return cached
 
     const check = (async () => {
       try {
-        const verifier = new MultiWallet(network)
-        await verifier.fromAddress(from, null, network)
-        const valid = await verifier.verify(fromBase58(signature), await createTransactionHash(transaction))
+        let valid: boolean
+        if (this.genesis) {
+          valid = await verifyIdentityDigest(from, signature, await createTransactionHash(transaction), network, this.genesis.chainId)
+        } else {
+          // Keep the historical verification path and wire acceptance unchanged.
+          const verifier = new MultiWallet(network)
+          await verifier.fromAddress(from, null, network)
+          valid = await verifier.verify(fromBase58(signature), await createTransactionHash(transaction))
+        }
         if (!valid) throw new Error('signature does not match transaction sender')
       } catch (error) {
         if ((error as Error)?.message === 'signature does not match transaction sender') throw error

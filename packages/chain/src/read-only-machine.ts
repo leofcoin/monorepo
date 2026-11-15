@@ -1,5 +1,6 @@
 import EasyWorker from '@leofcoin/workers/binary-worker'
 import { jsonStringifyBigInt } from '@leofcoin/utils'
+import type { PqGenesis } from '@leofcoin/lib/pq-genesis'
 
 /** No canonical worker handle, signer, network fetch or writable store is exposed. */
 export class ReadOnlyMachine {
@@ -12,7 +13,7 @@ export class ReadOnlyMachine {
   #cacheBytes = 0
   #closed = false
 
-  constructor(private workerPath: string, private readContract: (hash: string) => Promise<Uint8Array>) {}
+  constructor(private workerPath: string, private readContract: (hash: string) => Promise<Uint8Array>, private genesis?: PqGenesis) {}
 
   read(seed, contract: string, method: string, params: any[] = [], sender = 'leofcoin:read-only') {
     if (this.#closed) return Promise.reject(new Error('Read-only machine is closed'))
@@ -34,6 +35,7 @@ export class ReadOnlyMachine {
       try {
         await this.#start()
         const initialized = await this.#request('init', {
+          genesis: this.genesis,
           readOnly: true, fromState: true, blocks: [], peerid: 'leofcoin:read-only',
           lastBlock: seed.lastBlock,
           state: seed.states,

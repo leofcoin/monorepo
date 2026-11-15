@@ -30,6 +30,7 @@ export default [
   {
     input: [
       './src/chain.ts',
+      './src/pq.ts',
       './src/node.ts',
       './src/star-namespace.ts',
       './src/recovery-transport.ts',
@@ -61,6 +62,7 @@ export default [
   {
     input: [
       './src/chain.ts',
+      './src/pq.ts',
       './src/node-browser.ts',
       './src/star-namespace.ts',
       './src/routing-identity-browser.ts',

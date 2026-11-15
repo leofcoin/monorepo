@@ -165,8 +165,8 @@ setTimeout(() => {
   console.log(formatedBalances)
 }, 1000)
 
-const exported = await peernet.identity.export('password')
-const exportedQR = await globalThis.peernet.identity.exportQR('password')
+const exported = await peernet.identity.export('test wallet password')
+const exportedQR = await globalThis.peernet.identity.exportQR('test wallet password')
 console.log(peernet.identity)
 console.log(exported)
 console.log(exportedQR)

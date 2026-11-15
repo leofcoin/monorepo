@@ -14,7 +14,7 @@ const identity = await createChainIdentity('leofcoin:peach', {
   validators: 'C'.repeat(52), nameService: 'D'.repeat(52)
 })
 const wallet = new MultiWallet('leofcoin:peach')
-await wallet.generate(undefined, 'leofcoin:peach')
+await wallet.generate('test BIP39 passphrase', 'leofcoin:peach')
 const from = await wallet.address
 const raw = { from, to: identity.genesisContracts.nativeToken, method: 'transfer', params: [from, '1'], nonce: 1, timestamp: Date.now() }
 const signed = await signTransaction(raw, { sign: hash => wallet.sign(hash.subarray(0, 32)) })

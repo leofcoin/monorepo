@@ -11,7 +11,6 @@ import {
 import { formatBytes } from '@leofcoin/utils'
 import Contract from './contract.js'
 import Machine from './machine.js'
-import addresses from '@leofcoin/addresses'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
 import { readCheckpoint, recoveryHistory, restoreAccountNonces } from './helpers/state-checkpoint.js'
 import Jobber from './jobs/jobber.js'
@@ -221,8 +220,8 @@ export default class State extends Contract {
       console.warn('[recovery] transport unavailable:', (error as Error)?.message ?? error)
     })
     try {
-      const identity = await createChainIdentity(chainNetwork(), addresses)
-      const required = [addresses.contractFactory, addresses.nativeToken, addresses.nameService, addresses.validators]
+      const identity = await createChainIdentity(this.genesis ? 'leofcoin:pq' : chainNetwork(), this.chainAddresses)
+      const required = Object.values(this.chainAddresses)
       const checkpoint = await readCheckpoint(globalThis.stateStore, identity.chainId, required)
       const checkpointTip = checkpoint?.snapshot.lastBlock ?? { index: -1, hash: '0x0' }
       const marker = await globalThis.chainStore.has('lastBlock')
@@ -271,7 +270,7 @@ export default class State extends Contract {
         throw new Error('Local blocks exist without a canonical recovery anchor; preserve this root and rebuild in a separate root')
       const prefix = history.slice(0, Number(checkpointTip.index) + 1).map(block => ({ ...block, loaded: true }))
       if (history.length > prefix.length) await globalThis.chainStore.put('recoveryTarget', history.at(-1).hash)
-      const machine = new Machine(prefix, checkpoint)
+      const machine = new Machine(prefix, checkpoint, this.genesis)
       await machine.ready
       this.#machine = machine
       await restoreAccountNonces(globalThis.accountsStore, checkpoint?.snapshot.accounts ?? {})
@@ -289,7 +288,7 @@ export default class State extends Contract {
         console.warn('[recovery] checkpoint nonce conflicts with verified history; rebuilding derived nonces')
         const checkpointNonces = await this.deriveAccountNonces(prefix)
         this.#machine.close()
-        this.#machine = new Machine(prefix, checkpoint)
+        this.#machine = new Machine(prefix, checkpoint, this.genesis)
         await this.#machine.ready
         await restoreAccountNonces(globalThis.accountsStore, checkpointNonces)
         this.#canonicalStateQueue = new CanonicalStateQueue()

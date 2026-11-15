@@ -1,11 +1,11 @@
 import { encodeValue } from '@leofcoin/binary'
 import { ContractMessage } from '@leofcoin/messages'
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
-import addresses from '@leofcoin/addresses'
+import bundledAddresses from '@leofcoin/addresses'
 import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
 import { MONETARY_POLICY_AUTHORITY, MAX_BLOCK_TRANSACTIONS } from '@leofcoin/lib'
 import EasyWorker from './binary-worker.js'
-import { nativeToken } from '@leofcoin/addresses'
+import { validatePqGenesis, type PqGenesis } from '@leofcoin/lib/pq-genesis'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { DEFAULT_CONTRACT_EXECUTION_UNITS, ExecutionMeter, instrumentContractSource } from './execution-meter.js'
 import { createCryptoBridge, DeterministicCrypto } from './deterministic-crypto.js'
@@ -17,6 +17,11 @@ const contractFactoryMessage = bytecodes.contractFactory
 const nativeTokenMessage = bytecodes.nativeToken
 const nameServiceMessage = bytecodes.nameService
 const validatorsMessage = bytecodes.validators
+// Worker-local context, never a mutation of shared bundled address exports.
+let addresses = bundledAddresses
+let nativeToken = addresses.nativeToken
+let pqGenesis: PqGenesis | undefined
+let genesisInitialized = false
 
 const latestTransactions = []
 
@@ -462,6 +467,15 @@ const _ = {
     })
   },
   init: async (message) => {
+    if (message.genesis) {
+      const verified = await validatePqGenesis(message.genesis)
+      if (genesisInitialized && (!pqGenesis || pqGenesis.chainId !== verified.chainId || !message.readOnly))
+        throw new Error('Worker genesis cannot be replaced/reinitialized')
+      pqGenesis = verified
+      addresses = verified.addresses
+      nativeToken = addresses.nativeToken
+    } else if (pqGenesis) throw new Error('PQ worker cannot fall back to bundled genesis')
+    genesisInitialized = true
     if (readOnly && !message.readOnly) throw new Error('Read-only worker cannot become a canonical worker')
     if (message.readOnly) {
       readOnly = true
@@ -529,7 +543,10 @@ const _ = {
       //   })
       // )
     } else {
-      for (const contract of [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]) {
+      const initialContracts = pqGenesis
+        ? ['contractFactory', 'nativeToken', 'nameService', 'validators'].map(name => pqGenesis.bytecodes[name])
+        : [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
+      for (const contract of initialContracts) {
         const contractMessage: ContractMessage = await new ContractMessage(new Uint8Array(contract.split(',')))
         await _.runContract({
           decoded: contractMessage.decoded,

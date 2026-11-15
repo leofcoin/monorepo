@@ -2,7 +2,7 @@ import json from '@rollup/plugin-json'
 import typescript from '@rollup/plugin-typescript'
 
 export default [{
-  input: ['./src/index.ts', './src/node-config.ts', './src/genesis-plan.ts', './src/chain-identity.ts'],
+  input: ['./src/index.ts', './src/node-config.ts', './src/genesis-plan.ts', './src/chain-identity.ts', './src/pq.ts', './src/pq-genesis.ts', './src/identity-signature.ts'],
   output: {
     dir: './exports',
     format: 'es'
