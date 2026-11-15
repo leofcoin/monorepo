@@ -24,20 +24,24 @@ Requires Node.js 24.15.0 or newer. The default native WebRTC backend is
 
 ### Genesis package compatibility
 
-Launch-chain 0.5.4 requires the matching Peach 0.9 genesis packages: addresses
-1.1.1, lib 1.4.4, workers 1.6.2 and chain 1.11.9 or later compatible versions.
-An older lockfile can combine addresses 1.1.0 with newer contract bytecode and
-cause `genesis contract hash mismatch` at startup. After these versions are
-published, update the launcher and its lockfile in the deployment directory:
+Launch-chain 0.5.5 requires the new Peach genesis packages: addresses 1.1.2,
+lib 1.4.5, workers 1.6.3 and chain 1.11.10 or later compatible versions.
+Workers and chain bundle genesis data at build time: upgrading only addresses
+and lib leaves the previously published worker on the old genesis. Publish
+workers, chain and launch-chain in that order, then update the launcher and its
+lockfile in the deployment directory:
 
 ```sh
-npm install '@leofcoin/launch-chain@^0.5.4'
+npm install '@leofcoin/launch-chain@^0.5.5'
 npm ls @leofcoin/launch-chain @leofcoin/chain @leofcoin/lib @leofcoin/addresses @leofcoin/workers
 ```
 
-Stop the node before upgrading. Keep existing data and credentials; this package
-update does not migrate an older chain or make a different genesis compatible.
-Verify the intended chain ID before reconnecting or restarting validators.
+Stop the node before upgrading. Preserve existing data and credentials and use
+a separate empty data root for the new genesis; this update does not migrate
+the old ledger or validator identity. Start a remote full node with its own
+identity, and verify both nodes report the same chain ID and protocol before
+expecting peer discovery or sync. Do not copy the genesis owner's credentials
+to the remote node.
 
 ### automatic peer transports
 

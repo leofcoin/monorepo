@@ -15,7 +15,7 @@ const run = (command, args, cwd, timeout = 180_000) => execFileSync(command, arg
 })
 
 try {
-  const dependencies = { '@leofcoin/addresses': '1.1.0' }
+  const dependencies = { '@leofcoin/addresses': '1.1.2' }
   const artifacts = new Set()
   for (const name of ['lib', 'workers', 'chain', 'launch-chain']) {
     const directory = join(packages, name)
@@ -31,7 +31,12 @@ try {
   // covered by swarm's relay tests; do not run arbitrary installation hooks here.
   run(npm, ['install', '--ignore-scripts', '--omit=dev', '--no-audit', '--no-fund'], temporary)
   const lock = JSON.parse(readFileSync(join(temporary, 'package-lock.json'), 'utf8'))
-  assert.equal(lock.packages['node_modules/@leofcoin/addresses'].version, '1.1.0')
+  assert.equal(lock.packages['node_modules/@leofcoin/addresses'].version, '1.1.2')
+  assert.equal(
+    Object.keys(lock.packages).filter(path => path === 'node_modules/@leofcoin/addresses' || path.endsWith('/node_modules/@leofcoin/addresses')).length,
+    1,
+    'all packages must use the same genesis addresses'
+  )
   for (const [path, entry] of Object.entries(lock.packages)) {
     if (artifacts.has(path)) continue
     assert.ok(!entry.link, `unexpected workspace link: ${path}`)
