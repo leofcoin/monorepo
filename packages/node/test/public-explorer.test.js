@@ -16,7 +16,7 @@ import { explorerFixture } from './explorer-fixture-data.js'
 const identity = await createChainIdentity('leofcoin:peach', addresses)
 const mainnetIdentity = await createChainIdentity('leofcoin:mainnet', addresses)
 const fixture = await explorerFixture('fixture-public-address', addresses.nativeToken)
-const network = { ...SUPPORTED_NETWORKS.peach, explorerEndpoint: 'https://public.test' }
+const network = { ...SUPPORTED_NETWORKS.peach, chainId: identity.chainId, explorerEndpoint: 'https://public.test' }
 const respond = (body, status = 200) => new Response(encodeWire('rpc', body), { status, headers: { 'Content-Type': 'application/octet-stream' } })
 const status = { apiVersion: 1, chainId: identity.chainId, identity, nativeToken: addresses.nativeToken,
   tip: fixture.blocks.at(-1), synced: true, peers: [] }
@@ -30,11 +30,17 @@ test('anonymous source only performs bounded credential-free binary POST reads a
     if (path === '/explorer/blocks') return respond({ apiVersion: 1, chainId: identity.chainId, blocks: [fixture.blocks[64]] })
     if (path === '/explorer/pool') return respond({ apiVersion: 1, chainId: identity.chainId, hashes: [] })
     if (path === '/explorer/transaction') return respond({ apiVersion: 1, chainId: identity.chainId, encoded: fixture.transactions.values().next().value })
+    if (path === '/explorer/overview') return respond({ apiVersion: 1, chainId: identity.chainId,
+      totalSupply: 100n, initialSupply: 80n, totalMintAmount: 25n, totalBurnAmount: 5n })
     throw new Error('Unexpected public request')
   })
   assert.equal(source.kind, 'public')
   assert.equal(source.chain.nativeToken, addresses.nativeToken)
   assert.equal((await source.chain.getBlocks(64, 65))[0].index, 64n)
+  assert.equal(await source.client.totalSupply(), 100n)
+  assert.equal(await source.client.initialSupply(), 80n)
+  assert.equal(await source.client.totalMintAmount(), 25n)
+  assert.equal(await source.client.totalBurnAmount(), 5n)
   await source.transactionReader(fixture.transactions.keys().next().value)
   assert.deepEqual(await source.transactionPoolStore.keys(), [])
   for (const key of ['sendTransaction', 'signer', 'participate', 'selectAccount', 'deployContract']) {
@@ -48,7 +54,7 @@ test('anonymous source only performs bounded credential-free binary POST reads a
 })
 
 test('pinned identity and network mismatches are refused without opening any wallet', async () => {
-  assert.equal(identity.chainId, SUPPORTED_NETWORKS.peach.chainId)
+  assert.equal(identity.chainId, network.chainId)
   await assert.rejects(createPublicExplorerSource(network, async () => respond({ ...status, chainId: 'lfc:' + '0'.repeat(64) })), /identity changed/)
   await assert.rejects(createPublicExplorerSource({ ...network, network: 'leofcoin:mainnet' }, async () => respond(status)), /different chain or network/)
   await assert.rejects(createPublicExplorerSource(SUPPORTED_NETWORKS.mainnet), /No public read-only explorer/)
@@ -70,7 +76,7 @@ test('explorer source preference defaults to local-first and persists supported 
 })
 
 test('local discovery reports verified chain and sync status and rejects another network', async () => {
-  const node = await discoverLocalNode(SUPPORTED_NETWORKS.peach, async () => respond({ ...status, peers: ['peer-a'] }))
+  const node = await discoverLocalNode(network, async () => respond({ ...status, peers: ['peer-a'] }))
   assert.deepEqual(node, {
     endpoint: 'http://localhost:8080',
     network: 'leofcoin:peach',
@@ -79,7 +85,8 @@ test('local discovery reports verified chain and sync status and rejects another
     tipIndex: fixture.blocks.at(-1).index,
     connectedPeers: 1
   })
-  await assert.rejects(discoverLocalNode(SUPPORTED_NETWORKS.mainnet, async () => respond(status)), /different chain or network/)
+  await assert.rejects(discoverLocalNode({ ...SUPPORTED_NETWORKS.mainnet, chainId: mainnetIdentity.chainId },
+    async () => respond(status)), /chain identity changed/)
 })
 
 test('anonymous explorer prefers the matching local HTTP node and falls back only when unavailable', async t => {
@@ -102,16 +109,8 @@ test('anonymous explorer prefers the matching local HTTP node and falls back onl
     calls.push(new URL(url))
     return respond(status)
   }
-  await assert.rejects(getExplorerSource(), /different chain or network/)
-  assert.deepEqual(calls.map(url => url.origin), ['http://localhost:8080'])
-
-  globalThis.fetch = async url => {
-    calls.push(new URL(url))
-    return respond({ ...status, chainId: mainnetIdentity.chainId, identity: mainnetIdentity })
-  }
-  const local = await getExplorerSource()
-  assert.equal(local.kind, 'local')
-  assert.equal(local.label, 'Local node · read-only')
+  await assert.rejects(getExplorerSource(), /chain identity is not configured/)
+  assert.deepEqual(calls, [])
 
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'peach' } })
   calls.length = 0

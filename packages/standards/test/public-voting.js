@@ -27,6 +27,12 @@ test('PublicVoting - votingDuration getter returns correct value', () => {
   assert.equal(voting.votingDuration, 172800000)
 })
 
+test('PublicVoting - preserves an explicitly stored zero voting duration', () => {
+  const voting = new Voting({ votes: {}, votingDisabled: false, votingDuration: 0 })
+
+  assert.equal(voting.votingDuration, 0)
+})
+
 test('PublicVoting - votingDisabled getter returns correct value', () => {
   const state = {
     votes: {},

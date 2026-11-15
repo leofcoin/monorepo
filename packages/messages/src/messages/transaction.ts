@@ -2,10 +2,24 @@ import proto from './../protos/transaction.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class TransactionMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+type DecodedTransaction = {
+  timestamp: number
+  from: string
+  to: string
+  method: string
+  params: unknown[]
+  signature: string
+  nonce?: number
+  dependsOn?: string[]
+  priority?: boolean
+}
 
+export default interface TransactionMessage {
+  get decoded(): DecodedTransaction
+  set decoded(value: DecodedTransaction)
+}
+
+export default class TransactionMessage extends FormatInterface {
   get messageName() {
     return 'TransactionMessage'
   }

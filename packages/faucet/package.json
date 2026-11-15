@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/faucet",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Operator-funded faucet for the Leofcoin Peach testnet",
   "license": "MIT",
   "repository": {
@@ -33,7 +33,7 @@
     "@leofcoin/binary": "^1.1.0",
     "@leofcoin/launch-chain": "^0.5.0",
     "@leofcoin/lib": "^1.4.0",
-    "@leofcoin/multi-wallet": "^3.1.9",
+    "@leofcoin/multi-wallet": "^4.0.1",
     "@leofcoin/utils": "^1.1.45",
     "@vandeurenglenn/wrtc": "^0.7.2"
   }

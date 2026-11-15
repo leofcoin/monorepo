@@ -2,10 +2,12 @@ import proto from '../protos/last-block-request.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class LastBlockRequestMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface LastBlockRequestMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class LastBlockRequestMessage extends FormatInterface {
   get messageName() {
     return 'LastBlockRequestMessage'
   }

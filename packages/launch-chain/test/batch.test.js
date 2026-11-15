@@ -50,6 +50,19 @@ const fixture = async (answers = ['10', '', '', '3', 'yes', 'SEND'], options = {
     get maximum() { return maximum }, get closed() { return closed }, get opened() { return opened } }
 }
 
+test('interactive batch signs and submits each transaction individually', async () => {
+  const f = await fixture(['130', '', '', '3', 'yes', 'SEND'])
+  f.wallet.signBatch = () => { throw new Error('batch signing must not be used') }
+  const submit = f.wallet.submit
+  f.wallet.submit = transaction => {
+    assert.equal(Array.isArray(transaction), false)
+    return submit(transaction)
+  }
+  await interactiveBatch(f.wallet, f.interaction)
+  assert.equal(f.signed.length, 130)
+  assert.equal(f.submitted.length, 130)
+})
+
 test('interactive batch uses available wallet, defaults to self and one atom, and does not wait for finalization', async () => {
   const f = await fixture()
   await interactiveBatch(f.wallet, f.interaction)

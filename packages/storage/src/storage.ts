@@ -47,6 +47,10 @@ export default class LeofcoinStorage {
     await this.db.init(this.name, this.root, this.version, this.inWorker, this.homedir)
   }
 
+  get atomicBatchWrites(): boolean {
+    return !isBrowser
+  }
+
   get(key: KeyInput): Promise<Uint8Array>
   get(keys: KeyInput[]): Promise<Uint8Array[]>
   async get(key: KeyInput | KeyInput[]): Promise<Uint8Array | Uint8Array[]> {

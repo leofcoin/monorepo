@@ -2,10 +2,12 @@ import proto from './../protos/bw-request.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class BWRequestMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface BWRequestMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class BWRequestMessage extends FormatInterface {
   get messageName() {
     return 'BWRequestMessage'
   }

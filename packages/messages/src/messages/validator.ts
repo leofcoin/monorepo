@@ -2,10 +2,12 @@ import proto from '../protos/validator.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class ValidatorMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface ValidatorMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class ValidatorMessage extends FormatInterface {
   get messageName() {
     return 'ValidatorMessage'
   }

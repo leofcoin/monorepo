@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/messages",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "",
   "private": false,
   "exports": {
@@ -274,14 +274,14 @@
     "@leofcoin/types": "^1.0.26",
     "@rollup/plugin-typescript": "^12.3.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "rollup": "^4.68.0",
+    "rollup": "^4.68.3",
     "rollup-plugin-auto-exports": "^1.1.1",
     "tslib": "^2.9.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "dependencies": {
     "@leofcoin/binary": "^1.1.0",
-    "@leofcoin/codec-format-interface": "^2.0.0",
+    "@leofcoin/codec-format-interface": "^2.1.1",
     "@leofcoin/utils": "^1.1.45"
   },
   "repository": {

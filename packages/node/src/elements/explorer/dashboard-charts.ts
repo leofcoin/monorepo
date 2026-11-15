@@ -879,7 +879,7 @@ export class ExplorerDashboardCharts extends LiteElement {
         ${this.#blockTimeChart()}
       </section>
       <section class="card half" style="--order:7">
-        <header><h3>Native activity</h3><span class="hint">all time</span></header>
+        <header><h3>Native activity</h3><span class="hint">call counts · not LFC amounts</span></header>
         ${this.#nativeActivity()}
       </section>
 

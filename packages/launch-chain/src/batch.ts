@@ -76,11 +76,14 @@ export async function interactiveBatch(wallet: BatchWallet, interaction: BatchIn
     throw new Error('Invalid or unsafe nonce range')
   const transactions: SignedTransaction[] = []
   let fees = 0n
-  for (let index = 0; index < count; index++) {
-    const signed = await wallet.sign(startNonce + index + 1, to, amount)
+  for (let offset = 0; offset < count; offset++) {
+    const signed = await wallet.sign(startNonce + offset + 1, to, amount)
+    if (signed.from !== wallet.account || signed.nonce !== startNonce + offset + 1)
+      throw new Error('Signer returned an unexpected sender or nonce')
     fees += BigInt(await calculateFee(signed))
     transactions.push(signed)
-    if ((index + 1) % 1000 === 0) log(`Signed ${index + 1}/${count}`)
+    if (transactions.length % 1000 === 0 || transactions.length === count)
+      log(`Signed ${transactions.length}/${count}`)
   }
   // Self-transfers recycle principal, but still need enough for a transfer plus
   // every fee. Fees are not assumed to return as validator rewards.

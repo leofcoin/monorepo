@@ -1,25 +1,28 @@
 import proto from '../protos/block.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
-import TransactionMessage from './transaction.js'
 import ValidatorMessage from './validator.js'
 import { encodeFrames, decodeFrames } from '@leofcoin/binary'
 import { messageInput } from '../types.js'
 
-export default class BlockMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: {
-    index: Number
-    previousHash: String
-    timestamp: String
-    reward: bigint
-    fees: bigint
-    transactions: TransactionMessage['decoded'][]
-    validators: ValidatorMessage['decoded'][]
-    producer: String
-    producerProof: String
-    protocolVersion: String
-  }
+type DecodedBlock = {
+  index: bigint
+  previousHash: string
+  timestamp: number
+  reward: bigint
+  fees: bigint
+  transactions: string[]
+  validators: ValidatorMessage['decoded'][]
+  producer: string
+  producerProof: string
+  protocolVersion: string
+}
 
+export default interface BlockMessage {
+  get decoded(): DecodedBlock
+  set decoded(value: DecodedBlock)
+}
+
+export default class BlockMessage extends FormatInterface {
   get messageName() {
     return 'BlockMessage'
   }

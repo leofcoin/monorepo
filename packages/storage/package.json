@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/storage",
-  "version": "3.5.39",
+  "version": "3.5.40",
   "description": "Leofcoin storage for Node.js and browsers",
   "type": "module",
   "exports": {

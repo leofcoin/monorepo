@@ -1,4 +1,5 @@
-import { verifyChainIdentity } from '@leofcoin/lib/chain-identity'
+import addresses from '@leofcoin/addresses'
+import { createChainIdentity, verifyChainIdentity } from '@leofcoin/lib/chain-identity'
 import { encodeWire, decodeWire, BINARY_CONTENT_TYPE } from '@leofcoin/binary'
 import { getExplorerSourcePreference, getSelectedNetwork } from '../network-selection.js'
 
@@ -10,10 +11,12 @@ const sources = new Map()
 class LocalExplorerUnavailable extends Error {}
 
 async function createReadOnlyExplorerSource(network, endpoint, fetcher, kind) {
-  const expectedChainId = network.chainId
   const origin = new URL(endpoint)
   if ((origin.protocol !== 'https:' && !(origin.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname))) ||
     origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/') throw new Error('Invalid public explorer endpoint')
+  const expectedChainId = network.chainId ||
+    (network.network === 'leofcoin:peach' ? (await createChainIdentity(network.network, addresses)).chainId : undefined)
+  if (!expectedChainId) throw new Error('Explorer chain identity is not configured for this network')
   let chainId = expectedChainId
   async function read(resource, query = {}, initial = false) {
     const url = new URL(`explorer/${resource}`, origin)
@@ -136,6 +139,8 @@ async function createReadOnlyExplorerSource(network, endpoint, fetcher, kind) {
       throw new Error('Unsupported public read; contract execution is not exposed')
     },
     nativeTransfers: () => value('nativeTransfers'), nativeBurns: () => value('nativeBurns'), nativeMints: () => value('nativeMints'),
+    totalSupply: () => value('totalSupply'), initialSupply: () => value('initialSupply'),
+    totalMintAmount: () => value('totalMintAmount'), totalBurnAmount: () => value('totalBurnAmount'),
     nativeCalls: () => value('nativeCalls'), totalContracts: () => value('totalContracts'), totalTransactions: () => value('totalTransactions'),
     totalSize: () => value('totalSize'), transactionsInPool: () => value('poolCount'), transactionPoolSize: () => value('poolSize'),
     lastBlockHeight: async () => (await currentStatus()).tip.index,
@@ -163,7 +168,7 @@ async function createReadOnlyExplorerSource(network, endpoint, fetcher, kind) {
 }
 
 export async function createPublicExplorerSource(network, fetcher = globalThis.fetch) {
-  if (!network.explorerEndpoint || !network.chainId) throw new Error('No public read-only explorer is configured for this network. No wallet login is required; a matching public endpoint must be published first.')
+  if (!network.explorerEndpoint) throw new Error('No public read-only explorer is configured for this network. No wallet login is required; a matching public endpoint must be published first.')
   return createReadOnlyExplorerSource(network, network.explorerEndpoint, fetcher, 'public')
 }
 

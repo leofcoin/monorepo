@@ -40,7 +40,7 @@ export default class PublicVoting extends Meta {
     if (state) {
       this.#votes = state.votes
       this.#votingDisabled = state.votingDisabled
-      this.#votingDuration = state.votingDuration
+      this.#votingDuration = state.votingDuration ?? this.#votingDuration
       this.#voteNonce = BigInt(
         state.voteNonce ?? Object.keys(state.votes ?? {}).length
       )

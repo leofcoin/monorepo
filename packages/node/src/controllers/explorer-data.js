@@ -20,6 +20,31 @@ export function compactLfc(units) {
   return fraction.length > 6 ? `${whole}.${fraction.slice(0, 6)}…` : full
 }
 
+const unsignedUnits = value => {
+  if (typeof value === 'bigint') return value >= 0n ? value : null
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return BigInt(value)
+  if (typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value)) return BigInt(value)
+  return null
+}
+
+export function blockEconomics(block) {
+  if (block?.canonical !== true)
+    return { minted: null, burned: null, fees: null, subsidy: null, validatorRewards: null }
+  const subsidy = unsignedUnits(block?.reward)
+  const fees = unsignedUnits(block?.fees)
+  let validatorRewards = Array.isArray(block?.validators) ? 0n : null
+  if (validatorRewards !== null) {
+    for (const validator of block.validators) {
+      const reward = unsignedUnits(validator?.reward)
+      if (reward === null) { validatorRewards = null; break }
+      validatorRewards += reward
+    }
+  }
+  const burned = subsidy !== null && fees !== null && validatorRewards !== null &&
+    fees + subsidy >= validatorRewards ? fees + subsidy - validatorRewards : null
+  return { minted: subsidy, burned, fees, subsidy, validatorRewards }
+}
+
 export function nativeMovement(tx, nativeToken) {
   if (!nativeToken || tx?.to !== nativeToken || !Array.isArray(tx.params)) return null
   const position = tx.method === 'transferFrom' ? 2 : ['transfer', 'mint', 'burn'].includes(tx.method) ? 1 : -1
@@ -70,7 +95,7 @@ export async function readBlockPage(chain, anchor = null) {
     if (!Array.isArray(block.transactions) || !Array.isArray(block.validators) || typeof block.hash !== 'string' || !block.hash)
       throw new Error('A local block is missing its identity or transaction references.')
     seen.add(index)
-    blocks.push({ ...block, index })
+    blocks.push({ ...block, index, canonical: true })
   }
   blocks.sort((a, b) => b.index - a.index)
   return { blocks, tip, end, start, missing: end - start + 1 - blocks.length }

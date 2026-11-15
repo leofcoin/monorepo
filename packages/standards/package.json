@@ -1,6 +1,6 @@
 {
   "name": "@leofcoin/standards",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Contract standards",
   "type": "module",
   "exports": {
@@ -107,6 +107,7 @@
   "homepage": "https://github.com/leofcoin/monorepo/tree/main/packages/standards#readme",
   "devDependencies": {
     "@leofcoin/global-types": "^1.0.3",
+    "@leofcoin/multi-wallet": "^4.0.1",
     "@rollup/plugin-typescript": "^12.3.0",
     "rollup": "^4.54.0",
     "rollup-plugin-auto-exports": "^1.1.1",

@@ -15,11 +15,12 @@ async function component(file) {
   const source = (await readFile(new URL(file, import.meta.url), 'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\n/gm, '')
   const prefix = `
     import { PAGE_SIZE, readBlockPage, transactionReferences, readTransactionRows, readPoolReferences, explorerLink,
-      shortId, nativeMovement, formatLfc, compactLfc, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
+      shortId, nativeMovement, formatLfc, compactLfc, blockEconomics, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
     import { rankActivity, rankHolders, formatRankingBalance } from ${JSON.stringify(rankings)};
     import { getExplorerSource } from ${JSON.stringify(publicExplorer)};
     import { resolveExplorerSearch } from ${JSON.stringify(search)};
     const getSelectedNetwork = () => ({ label: 'Peach' });
+    const formatBytes = value => String(value);
     const property = () => () => undefined; const state = property; const customElement = () => value => value;
     const ledgerStyles = ''; const html = (strings, ...values) => ({ strings: [...strings], values });
     class LitElement extends EventTarget {
@@ -98,6 +99,39 @@ test('transaction pagination reuses an unchanged block page; the pool never read
   assert.equal(pool.rows.length, 1)
   assert.equal(pool.rows[0].transaction.nonce, 999)
   assert.equal(pool.rows[0].blockIndex, undefined)
+})
+
+test('block ledger labels subsidy minting and fee burn separately', async t => {
+  runtime(t)
+  const { ExplorerLedgerList } = await component('../src/elements/explorer/ledger-list.ts')
+  const list = new ExplorerLedgerList()
+  const lfc = 10n ** 18n
+  list.rows = [{ ...data.blocks[64], canonical: true, reward: 10n * lfc, fees: 6n * lfc,
+    validators: [{ address: 'validator', reward: 14n * lfc }] }]
+  const output = text(list.render())
+  assert.match(output, /Minted · LFC/)
+  assert.match(output, /Burned · LFC/)
+  assert.match(output, />10</)
+  assert.match(output, />2</)
+})
+
+test('block details label subsidy issuance separately from validator payouts', async t => {
+  runtime(t)
+  const { ExplorerBlock } = await component('../src/views/explorer/explorer-block.ts')
+  const detail = new ExplorerBlock()
+  const lfc = 10n ** 18n
+  detail.block = { ...data.blocks[64], canonical: true, reward: 10n * lfc, fees: 6n * lfc,
+    validators: [{ address: 'validator', reward: 14n * lfc }] }
+  detail.hash = data.blocks[64].hash
+  detail.size = 100
+  detail.sourceLabel = 'Fixture'
+  const output = text(detail.render())
+  assert.match(output, /Minted subsidy/)
+  assert.match(output, /Validator rewards/)
+  assert.match(output, /Burned/)
+  assert.match(output, />10\s*<small/)
+  assert.match(output, />14\s*<small/)
+  assert.match(output, />2\s*<small/)
 })
 
 test('hidden list views unsubscribe and reject a late snapshot', async t => {

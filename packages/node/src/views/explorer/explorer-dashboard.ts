@@ -12,6 +12,7 @@ import '../../elements/explorer/dashboard-rankings.js'
 import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
 import { errorMessage } from '../../controllers/transfer.js'
 import { getExplorerSource, explorerSystemContracts } from '../../controllers/public-explorer.js'
+import { formatLfc } from '../../controllers/explorer-data.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -52,6 +53,23 @@ export default customElements.define(
       const promises = []
 
       const contracts = await explorerSystemContracts(source)
+      const readAmount = async (read: () => Promise<unknown> | unknown) => {
+        try {
+          const value = await read()
+          return (typeof value === 'bigint' && value >= 0n) ||
+            typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value) ||
+            typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+            ? String(value) : undefined
+        } catch { return undefined }
+      }
+      const readTokenAmount = (method: string) => typeof client[method] === 'function'
+        ? client[method]() : client.staticCall(contracts.nativeToken, method, [])
+      const supplyMetrics = await Promise.all([
+        readAmount(() => readTokenAmount('initialSupply')),
+        readAmount(() => readTokenAmount('totalSupply')),
+        readAmount(() => client.totalMintAmount()),
+        readAmount(() => client.totalBurnAmount())
+      ])
       promises.push(await client.staticCall(contracts.validators, 'validators', []))
       promises.push(BigInt(await client.nativeTransfers()).toString())
       promises.push(BigInt(await client.nativeBurns()).toString())
@@ -78,6 +96,10 @@ export default customElements.define(
       this.nativeCalls = promises[4]
       this.totalContracts = promises[5]
       this.registeredContracts = promises[6]
+      this.initialSupply = supplyMetrics[0]
+      this.totalSupply = supplyMetrics[1]
+      this.totalMintAmount = supplyMetrics[2]
+      this.totalBurnAmount = supplyMetrics[3]
 
       // chain
       this.lastBlockHeight = promises[7]
@@ -153,6 +175,10 @@ export default customElements.define(
     @property({ type: Number }) accessor totalValidators: number
     @property({ type: String }) accessor nativeMints: string
     @property({ type: String }) accessor nativeBurns: string
+    @property({ type: String }) accessor initialSupply: string | undefined = undefined
+    @property({ type: String }) accessor totalSupply: string | undefined = undefined
+    @property({ type: String }) accessor totalMintAmount: string | undefined = undefined
+    @property({ type: String }) accessor totalBurnAmount: string | undefined = undefined
     @property({ type: String }) accessor nativeTransfers: string
     @property({ type: Number }) accessor totalContracts: number
     @property({ type: String }) accessor registeredContracts: string
@@ -285,6 +311,16 @@ export default customElements.define(
                     items: [
                       { title: 'size', value: this.transactionPoolSize, icon: 'storage' },
                       { title: 'transactions', value: this.transactionsInPool, icon: 'list' }
+                    ]
+                  },
+                  {
+                    title: 'Native-token supply',
+                    icon: 'payments',
+                    items: [
+                      { title: 'genesis supply', value: `${formatLfc(this.initialSupply)} LFC` },
+                      { title: 'current supply', value: `${formatLfc(this.totalSupply)} LFC` },
+                      { title: 'minted after genesis', value: `${formatLfc(this.totalMintAmount)} LFC` },
+                      { title: 'burned', value: `${formatLfc(this.totalBurnAmount)} LFC` }
                     ]
                   }
                 ]}></explorer-dashboard-section>`

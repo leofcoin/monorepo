@@ -2,7 +2,7 @@ import { css, html, LiteElement, customElement, property } from '@vandeurenglenn
 import { formatBytes } from '@leofcoin/utils'
 import { BlockMessage } from '@leofcoin/messages'
 import type Peernet from '@leofcoin/peernet'
-import { readBlockContent, readTransactionRows, transactionReferences, explorerLink, PAGE_SIZE, formatLfc, compactLfc } from '../../controllers/explorer-data.js'
+import { readBlockContent, readTransactionRows, transactionReferences, explorerLink, PAGE_SIZE, formatLfc, compactLfc, blockEconomics, boundedRead } from '../../controllers/explorer-data.js'
 import { getExplorerSource } from '../../controllers/public-explorer.js'
 
 declare global {
@@ -48,9 +48,17 @@ export class ExplorerBlock extends LiteElement {
       const source = await getExplorerSource()
       const block = await readBlockContent(this.selected, source.peernet)
       if (request !== this.#request) return
+      let canonical = false
+      try {
+        const height = Number(block.index)
+        const blocks = await boundedRead(() => source.chain?.getBlocks(height, height + 1))
+        canonical = Array.isArray(blocks) && blocks.some(candidate =>
+          candidate?.loaded !== false && Number(candidate.index) === height && candidate.hash === block.hash)
+      } catch {}
+      if (request !== this.#request) return
       this.size = block.size
       this.hash = block.hash
-      this.block = block
+      this.block = { ...block, canonical }
       this.#source = source
       this.sourceLabel = source.label
       void this.loadTransactions(0)
@@ -92,6 +100,7 @@ export class ExplorerBlock extends LiteElement {
 
   render() {
     const block = this.block
+    const economics = blockEconomics(block)
     return html`
       <main>
         <nav aria-label="Block navigation">
@@ -120,8 +129,10 @@ export class ExplorerBlock extends LiteElement {
           <section class="metrics" aria-label="Block summary">
             <article><span>Transactions</span><strong>${block.transactions.length.toLocaleString()}</strong></article>
             <article><span>Validators</span><strong>${block.validators.length.toLocaleString()}</strong></article>
-            <article><span>Fees</span><strong title=${`${formatLfc(block.fees)} LFC`}>${compactLfc(block.fees)} <small>LFC</small></strong></article>
-            <article><span>Reward</span><strong title=${`${formatLfc(block.reward)} LFC`}>${compactLfc(block.reward)} <small>LFC</small></strong></article>
+            <article><span>Fees paid</span><strong title=${`${formatLfc(economics.fees)} LFC`}>${compactLfc(economics.fees)} <small>LFC</small></strong></article>
+            <article><span>Minted subsidy</span><strong title=${`${formatLfc(economics.minted)} LFC`}>${compactLfc(economics.minted)} <small>LFC</small></strong></article>
+            <article><span>Burned</span><strong title=${`${formatLfc(economics.burned)} LFC`}>${compactLfc(economics.burned)} <small>LFC</small></strong></article>
+            <article><span>Validator rewards</span><strong title=${`${formatLfc(economics.validatorRewards)} LFC`}>${compactLfc(economics.validatorRewards)} <small>LFC</small></strong></article>
           </section>
           <section class="panel">
             <h2>Block identity</h2>
@@ -130,7 +141,11 @@ export class ExplorerBlock extends LiteElement {
             ${block.producer ? this.#identifier('Producer', String(block.producer)) : ''}
             <dl><div><dt>Encoded size</dt><dd>${formatBytes(this.size)}</dd></div>
               <div><dt>Protocol version</dt><dd>${String(block.protocolVersion) || 'Not recorded'}</dd></div>
-              <div><dt>Exact block fees</dt><dd>${formatLfc(block.fees)} LFC</dd></div></dl>
+              <div><dt>Exact block fees</dt><dd>${formatLfc(economics.fees)} LFC</dd></div>
+              <div><dt>Minted subsidy</dt><dd>${formatLfc(economics.minted)} LFC</dd></div>
+              <div><dt>Burned</dt><dd>${formatLfc(economics.burned)} LFC</dd></div>
+              <div><dt>Validator rewards</dt><dd>${formatLfc(economics.validatorRewards)} LFC</dd></div></dl>
+            <p>Only the subsidy is newly minted. Validator rewards may include redistributed fees; burned amount is fees plus subsidy minus validator payouts.</p>
             <p class="feedback" role="status" aria-live="polite">${this.copyStatus}</p>
           </section>
           <section class="panel">

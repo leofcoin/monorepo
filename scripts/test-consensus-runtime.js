@@ -1,16 +1,26 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createRuntimeNetwork } from '../test/helpers/runtime-network.js'
 
 const args = process.argv.slice(2)
-const count = args.length ? Number(args[1]) : 12
-if ((args.length && (args.length !== 2 || args[0] !== '--blocks')) || !Number.isInteger(count) || count < 4 || count > 64)
-  throw new Error('Usage: node scripts/test-consensus-runtime.js [--blocks 4..64]')
+const usage = 'Usage: node scripts/test-consensus-runtime.js [--blocks 4..64] [--output path]'
+let count = 12
+let output = fileURLToPath(new URL('../node_modules/.cache/consensus-runtime-result.json', import.meta.url))
+for (let index = 0; index < args.length; index += 2) {
+  const flag = args[index], value = args[index + 1]
+  if (!value || value.startsWith('--')) throw new Error(usage)
+  if (flag === '--blocks') count = Number(value)
+  else if (flag === '--output') output = resolve(value)
+  else throw new Error(usage)
+}
+if (!Number.isInteger(count) || count < 4 || count > 64) throw new Error(usage)
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const events = []
 const event = message => { events.push(message); console.log(`[consensus runtime] ${message}`) }
 const report = { schema: 'leofcoin-consensus-runtime-v1', status: 'failed', validators: 4, blocks: count,
-  transport: 'loopback WebRTC', setup: 'trusted common pre-activation anchor; not public genesis generation',
+  transport: 'loopback WebRTC', setup: 'trusted common height-zero anchor; not public genesis generation',
   faults: ['two validators cannot finalize', 'healing and round change', 'validator crash at precommit'], events }
 let network
 try {
@@ -109,6 +119,6 @@ try {
   try { await network?.close() }
   catch (error) { report.status = 'failed'; report.cleanupError = error.message; process.exitCode = 1 }
 }
-await mkdir(new URL('../node_modules/.cache/', import.meta.url), { recursive: true })
-await writeFile(new URL('../node_modules/.cache/consensus-runtime-result.json', import.meta.url), JSON.stringify(report, null, 2) + '\n')
+await mkdir(dirname(output), { recursive: true })
+await writeFile(output, JSON.stringify(report, null, 2) + '\n')
 if (report.status !== 'passed') console.error(report.error, report.diagnostics)

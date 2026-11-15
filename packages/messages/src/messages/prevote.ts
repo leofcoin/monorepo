@@ -2,10 +2,12 @@ import proto from '../protos/prevote.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class PrevoteMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface PrevoteMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class PrevoteMessage extends FormatInterface {
   get messageName() {
     return 'PrevoteMessage'
   }

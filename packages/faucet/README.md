@@ -7,10 +7,13 @@ and 1000 LFC per rolling day. Multiple IPs cannot exceed the global budget.
 
 Claims and limits survive restart. Reservations are persisted before broadcast.
 Unknown outcomes remain reserved for operator reconciliation and are never
-automatically resent. Confirmation comes only from the canonical transaction
-completion handle. Do not delete `claims.json` to reset limits.
-After a restart, pending claims require operator reconciliation against canonical
-chain history; they are not automatically confirmed or rebroadcast.
+automatically resent. Pending claims with a transaction hash are automatically
+reconciled against canonical blocks after restart, in bounded batches once the
+node is synced and connected. Absence from the chain does not prove failure.
+Reservations without a hash still require operator reconciliation. Do not
+delete `claims.json` to reset limits.
+An execution rejection can be speculative, so it remains pending rather than
+freeing its reservation until an operator establishes its outcome.
 Only one process may use a faucet directory. An exclusive `faucet.lock` enforces
 this; after an unclean shutdown, remove that lock only after verifying the old
 process is no longer running. Never share the directory across machines.
@@ -43,6 +46,9 @@ keeps its identity/state in this separate directory. Back up the complete
 directory securely. Startup prints the public faucet address and password-file
 path, not its password or private key. Fund the public address from the existing
 Peach genesis owner. Never use the genesis owner's identity as the faucet.
+Wallet v4 changes mnemonic and child-key derivation: before upgrading an
+existing v3 faucet, back up its identity and verify that the restored address
+matches the recorded account. The faucet refuses startup if its account changes.
 
 The genesis validator remains on the owner's local node. With the existing
 genesis identity already installed there, start it using:
@@ -63,8 +69,11 @@ Do not regenerate genesis to fund the faucet.
 
 ## API
 
+Paths may also be prefixed with `/faucet`. Requests and responses use the
+`@leofcoin/binary` RPC codec and `application/octet-stream`, not JSON.
+
 - `GET /status`: network, readiness, public account and claim amount.
-- `POST /claims` with JSON `{ "address": "...", "requestId": "UUID" }`: 202 and a claim ID/hash.
+- `POST /claims` with encoded `{ address, requestId }`: 202 and a claim ID/hash.
   Generate and retain the UUID before sending. Repeating the same request ID
   returns its original receipt without another payment. A lost HTTP response
   is not proof of failure: query its receipt or retry with the same UUID.
@@ -90,9 +99,22 @@ journalctl -u leofcoin-faucet -f
 ```
 
 Add `deploy/nginx-location.conf` inside the existing HTTPS server for
-`remote.leofcoin.org`, then validate/reload Nginx. It exposes
+`remote.leofcoin.org`, then validate/reload Nginx (`nginx -t`). It exposes
 `https://remote.leofcoin.org/faucet` while the signing service binds only to
-loopback. `FAUCET_TRUST_PROXY=1` accepts `X-Real-IP` only from a loopback proxy;
+loopback. Its `^~` prefix keeps regex locations and the node API catch-all from
+taking `/faucet/`. If Cloudflare (e.g. a tunnel) routes the hostname directly to
+the node API instead of Nginx, add a `/faucet` route to `127.0.0.1:8088` ahead
+of the catch-all; the faucet accepts paths with or without the `/faucet` prefix.
+Prefer routing through Nginx so it overwrites `X-Real-IP`. If another proxy is
+used with `FAUCET_TRUST_PROXY=1`, it must similarly overwrite that header with a
+verified client IP; never trust a client-supplied header. Without a trusted
+client IP, disable proxy trust, though all proxied users will share one IP limit.
+When Nginx is behind Cloudflare, configure its real-IP handling to trust only
+Cloudflare's published proxy ranges before treating `$remote_addr` as the client.
+Every faucet response carries `X-Leofcoin-Service: faucet`. A response without
+it (for example HTTP 200 `{ error: 'Not Found' }` with
+`Access-Control-Allow-Origin: *`) comes from the node API, meaning `/faucet` is
+not routed to the faucet. `FAUCET_TRUST_PROXY=1` accepts `X-Real-IP` only from a loopback proxy;
 the supplied Nginx config overwrites that header. Do not expose port 8088.
 
 The owner funds the address printed by the remote service. Then verify

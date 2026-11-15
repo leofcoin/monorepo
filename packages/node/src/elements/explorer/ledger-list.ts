@@ -3,7 +3,7 @@ import { state } from 'lit/decorators.js'
 import { ledgerStyles } from './ledger-styles.js'
 import { getExplorerSource } from '../../controllers/public-explorer.js'
 import { PAGE_SIZE, readBlockPage, transactionReferences, readTransactionRows, readPoolReferences,
-  explorerLink, shortId, nativeMovement, formatLfc, compactLfc } from '../../controllers/explorer-data.js'
+  explorerLink, shortId, nativeMovement, formatLfc, compactLfc, blockEconomics } from '../../controllers/explorer-data.js'
 
 const age = (timestamp: unknown) => {
   const value = Number(timestamp)
@@ -124,15 +124,19 @@ export class ExplorerLedgerList extends LitElement {
   }
 
   #blockRows(rows: any[]) {
-    return html`<table><thead><tr><th scope="col">Block</th><th scope="col" class="optional">Age</th><th scope="col" class="numeric">Transactions</th><th scope="col" class="numeric optional">Validators</th><th scope="col" class="numeric">Fees · LFC</th><th scope="col" class="numeric optional">Reward · LFC</th></tr></thead>
-      <tbody>${rows.map(block => html`<tr>
+    return html`<table><thead><tr><th scope="col">Block</th><th scope="col" class="optional">Age</th><th scope="col" class="numeric">Transactions</th><th scope="col" class="numeric optional">Validators</th><th scope="col" class="numeric">Fees · LFC</th><th scope="col" class="numeric optional">Minted · LFC</th><th scope="col" class="numeric optional">Burned · LFC</th></tr></thead>
+      <tbody>${rows.map(block => {
+        const economics = blockEconomics(block)
+        return html`<tr>
         <td><a href=${explorerLink('block', { selected: block.hash, index: block.index })}>#${block.index.toLocaleString()}</a><br/><code class="muted row-hash" title=${block.hash}>${shortId(block.hash)}</code></td>
         <td class="optional" title=${new Date(Number(block.timestamp)).toLocaleString()}>${age(block.timestamp)}</td>
         <td class="numeric"><a href=${explorerLink('block', { selected: block.hash, index: block.index })}>${block.transactions.length.toLocaleString()}</a></td>
         <td class="numeric optional">${block.validators.length}</td>
-        <td class="numeric"><span title=${`${formatLfc(block.fees)} LFC`}>${compactLfc(block.fees)}</span></td>
-        <td class="numeric optional" title=${`${formatLfc(block.reward)} LFC`}>${compactLfc(block.reward)}</td>
-      </tr>`)}</tbody></table>`
+        <td class="numeric"><span title=${`${formatLfc(economics.fees)} LFC`}>${compactLfc(economics.fees)}</span></td>
+        <td class="numeric optional" title=${`${formatLfc(economics.minted)} LFC`}>${compactLfc(economics.minted)}</td>
+        <td class="numeric optional" title=${`${formatLfc(economics.burned)} LFC`}>${compactLfc(economics.burned)}</td>
+      </tr>`
+      })}</tbody></table>`
   }
 
   #transactionRows(rows: any[]) {

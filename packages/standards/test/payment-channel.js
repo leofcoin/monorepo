@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
 import test from 'node:test'
-import { assertPaymentChannelTransition, encodePaymentChannelState } from '@leofcoin/standards/payment-channel'
+import MultiWallet from '@leofcoin/multi-wallet'
+import { assertPaymentChannelTransition, encodePaymentChannelState, verifyPaymentChannelUpdate } from '@leofcoin/standards/payment-channel'
 
 const state = () => ({
   chainId: 'genesis-hash', escrow: 'escrow', channelId: 'unique-funding-id',
@@ -46,4 +47,44 @@ test('channel payloads reject ambiguous or unbounded values before signing', () 
     { escrow: 'x'.repeat(513) }, { payee: 'alice' }
   ])
     assert.throws(() => encodePaymentChannelState({ ...state(), ...changes }))
+})
+
+test('accepts only a valid payer signature for trusted channel terms and a newer unexpired state', async () => {
+  const payer = new MultiWallet('leofcoin')
+  await payer.fromPrivateKey(new Uint8Array(32).fill(7), undefined, 'leofcoin')
+  const other = new MultiWallet('leofcoin')
+  await other.fromPrivateKey(new Uint8Array(32).fill(8), undefined, 'leofcoin')
+  const previous = { ...state(), payer: await payer.address, sequence: 0n, paid: 0n }
+  const next = { ...previous, sequence: 1n, paid: 10n }
+  const signature = await payer.sign(digest(next))
+  const verifier = async (address, hash, encoded) => {
+    const wallet = new MultiWallet('leofcoin')
+    await wallet.fromAddress(address, null, 'leofcoin')
+    return wallet.verify(encoded, hash)
+  }
+  assert.deepEqual(await verifyPaymentChannelUpdate(previous, next, signature, next.expiresAt - 1, verifier), next)
+  await assert.rejects(verifyPaymentChannelUpdate(previous, next, await other.sign(digest(next)), 1, verifier), /signature/)
+  await assert.rejects(verifyPaymentChannelUpdate(previous, { ...next, paid: 11n }, signature, 1, verifier), /signature/)
+  await assert.rejects(verifyPaymentChannelUpdate(previous, { ...next, channelId: 'other' }, signature, 1, verifier), /channelId/)
+  await assert.rejects(verifyPaymentChannelUpdate(next, next, signature, 1, verifier), /sequence/)
+  await assert.rejects(verifyPaymentChannelUpdate(previous, next, signature, next.expiresAt, verifier), /expired/)
+})
+
+test('snapshots update and signature before asynchronous verification', async () => {
+  const previous = { ...state(), sequence: 0n, paid: 0n }
+  const next = { ...previous, sequence: 1n, paid: 10n }
+  const signature = Buffer.from([1, 2, 3])
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const pending = verifyPaymentChannelUpdate(previous, next, signature, 1, async (payer, hash, bytes) => {
+    await gate
+    assert.equal(payer, previous.payer)
+    assert.deepEqual(hash, Uint8Array.from(digest({ ...previous, sequence: 1n, paid: 10n })))
+    assert.deepEqual(bytes, Uint8Array.of(1, 2, 3))
+    return true
+  })
+  next.paid = 99n
+  signature[0] = 9
+  release()
+  assert.equal((await pending).paid, 10n)
 })

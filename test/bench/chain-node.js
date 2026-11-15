@@ -59,17 +59,18 @@ const publishedBaseline = chainPackage.version === '1.10.22'
 const chainDirectory = join(runtime, 'node_modules/@leofcoin/chain/exports')
 const protocol = publishedBaseline ? '0.4.0'
   : (await import(pathToFileURL(join(chainDirectory, 'hash-format-state.js')).href)).PROTOCOL_VERSION
-const anchorHeight = protocol === '0.6.0' ? 13 : 0
+const anchorHeight = 0
 const network = 'leofcoin:e2e'
-const timingProfile = process.env.LEOFCOIN_BENCH_BLOCK_TIME_MS
-if (timingProfile && timingProfile !== '1000' && timingProfile !== '6000')
-  throw new Error('Invalid isolated benchmark timing profile')
-const benchmarkBlockTimeMs = timingProfile ? Number(timingProfile) : undefined
 const node = new Node({ network, networkVersion: 'e2e', root: relative(homedir(), dataRoot), stars: [star.href], autoStart: false,
   transport: { kind: 'webrtc', kinds: ['webrtc'], fallback: { enabled: false, order: ['webrtc'] }, webrtc: { backend: 'vandeurenglenn' } }
 }, 'benchmark-test-only')
 await node.ready
 // Test-only faults at real message boundaries; never bypass quorum/validation.
+const deliveryDelayMs = Number(process.env.LEOFCOIN_BENCH_DELIVERY_DELAY_MS ?? 0)
+if (!Number.isInteger(deliveryDelayMs) || deliveryDelayMs < 0 || deliveryDelayMs > 1000)
+  throw new Error('Invalid benchmark message delivery delay')
+const delayedTopics = new Set(['add-transaction', 'send-transaction', 'consensus:propose',
+  'consensus:prevote', 'consensus:precommit', 'add-block'])
 const peer = globalThis.peernet
 const publish = peer.publish.bind(peer), subscribe = peer.subscribe.bind(peer)
 peer.publish = (topic, ...args) => {
@@ -83,7 +84,22 @@ peer.publish = (topic, ...args) => {
   return publish(topic, ...args)
 }
 peer.subscribe = (topic, callback, ...rest) => subscribe(topic, (...args) => {
-  if (!blockedTopics.has(topic)) return callback(...args)
+  if (blockedTopics.has(topic)) return
+  if (deliveryDelayMs && delayedTopics.has(topic)) {
+    const scheduledAt = performance.now()
+    setTimeout(() => {
+      if (blockedTopics.has(topic)) return
+      const duration = performance.now() - scheduledAt
+      const entry = timings.peerDeliveryDelay ??= { calls: 0, totalMs: 0, minMs: Infinity, maxMs: 0 }
+      entry.calls++
+      entry.totalMs += duration
+      entry.minMs = Math.min(entry.minMs, duration)
+      entry.maxMs = Math.max(entry.maxMs, duration)
+      callback(...args)
+    }, deliveryDelayMs)
+    return
+  }
+  return callback(...args)
 }, ...rest)
 for (const name of ['chain', 'state', 'accounts', 'wallet', 'account', 'contract', 'block', 'transaction', 'transactionPool']) {
   const store = globalThis[`${name}Store`]
@@ -164,7 +180,7 @@ async function seed(input) {
     for (let index = 0; index <= anchorHeight; index++) {
       const anchor = { index: BigInt(index), previousHash: hash, timestamp: 1000 + index, reward: 0n, fees: 0n,
         transactions: [], validators: members.map(address => ({ address, reward: 0n })), producer: account,
-        producerProof: '', protocolVersion: protocol === '0.6.0' ? '0.5.0' : protocol }
+        producerProof: '', protocolVersion: protocol }
       anchor.producerProof = (await lib.signTransaction({ from: account, to: addresses.validators, method: 'produceBlock',
         params: [await new BlockMessage(anchor).hash()], timestamp: anchor.timestamp }, globalThis.peernet.identity)).signature
       message = new BlockMessage(anchor)
@@ -251,7 +267,7 @@ process.on('message', bytes => {
         initial = request.input; value = true
       }
       else if (request.action === 'start') {
-        chain = new Chain({ network, networkVersion: 'e2e', ...(benchmarkBlockTimeMs === undefined ? {} : { benchmarkBlockTimeMs }) })
+        chain = new Chain({ network, networkVersion: 'e2e' })
         await chain.ready
         instrument(chain, 'validateTransactionSignature', 'signatureVerification')
         instrument(chain, 'staticCall', 'contractReads')
@@ -279,12 +295,30 @@ process.on('message', bytes => {
           timestamp: Date.now(), nonce: Number(start) + index + 1
         }, globalThis.peernet.identity))
         value = tracked
+      } else if (request.action === 'prepare-parallel') {
+        const start = await chain.getNonce(initial.account)
+        const transactions = Array.from({ length: request.input.count }, (_, index) => ({
+          from: initial.account, to: addresses.nativeToken, method: 'transfer', params: [initial.recipient, 100n],
+          timestamp: Date.now(), nonce: Number(start) + index + 1
+        }))
+        tracked = await lib.signTransactions(transactions, globalThis.peernet.identity, request.input.concurrency)
+        value = tracked
       } else if (request.action === 'submit') {
         value = []
         for (const transaction of request.input) {
           const pending = await chain.sendTransaction(transaction)
           pending.wait?.catch?.(() => {})
           value.push(pending.hash)
+        }
+      } else if (request.action === 'submit-batch') {
+        value = []
+        for (let offset = 0; offset < request.input.length; offset += 128) {
+          const results = await chain.sendTransactions(request.input.slice(offset, offset + 128))
+          for (const result of results) {
+            if (result.status === 'rejected') throw result.reason
+            result.value.wait.catch(() => {})
+            value.push(result.value.hash)
+          }
         }
       } else if (request.action === 'participate') value = await chain.participate(globalThis.peernet.selectedAccount)
       else if (request.action === 'partition') {

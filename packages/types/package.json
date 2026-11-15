@@ -20,7 +20,7 @@
   "license": "MIT",
   "types": "./index.d.ts",
   "devDependencies": {
-    "@vandeurenglenn/base58": "^1.1.9"
+    "@vandeurenglenn/base58": "^1.3.0"
   },
   "repository": {
     "type": "git",

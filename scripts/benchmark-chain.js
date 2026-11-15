@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { fork, spawn, execFileSync } from 'node:child_process'
-import { mkdtemp, readFile, writeFile, rm, realpath, readdir, mkdir } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile, rm, realpath, mkdir } from 'node:fs/promises'
 import { tmpdir, platform, arch, cpus, loadavg } from 'node:os'
 import { join, resolve, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,6 +10,7 @@ import { performance } from 'node:perf_hooks'
 import { encodeWire, decodeWire } from '@leofcoin/binary'
 import { TreeMetrics } from '../test/bench/chain-metrics.js'
 import { validateAudit, auditEvidence, summarize } from '../test/bench/chain-audit.js'
+import { currentFingerprint } from '../test/bench/chain-fingerprint.js'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const args = process.argv.slice(2)
@@ -39,26 +40,7 @@ if (!currentOnly) {
   assert.notEqual(await realpath(join(baselineRoot, 'node_modules/@leofcoin/chain')), await realpath(join(root, 'node_modules/@leofcoin/chain')), 'Baseline must not link current code')
 }
 const fixture = join(root, 'test/bench/chain-node.js')
-async function currentFingerprint() {
-  const hash = createHash('sha256')
-  let files = 0
-  const add = async path => { hash.update(relative(root, path)); hash.update('\0'); hash.update(await readFile(path)); hash.update('\0'); files++ }
-  const walk = async path => {
-    for (const entry of (await readdir(path, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
-      if (entry.isDirectory()) await walk(join(path, entry.name))
-      else if (entry.isFile()) await add(join(path, entry.name))
-    }
-  }
-  for (const name of ['binary', 'chain', 'messages', 'workers', 'lib', 'addresses', 'codecs', 'contracts', 'standards', 'utils']) {
-    await add(join(root, 'packages', name, 'package.json'))
-    for (const directory of ['src', 'exports']) {
-      try { await walk(join(root, 'packages', name, directory)) } catch (error) { if (error.code !== 'ENOENT') throw error }
-    }
-  }
-  await add(join(root, 'package-lock.json'))
-  return { sha256: hash.digest('hex'), files }
-}
-const fingerprint = await currentFingerprint()
+const fingerprint = await currentFingerprint(root)
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const events = []
 const event = value => { events.push(value); console.error(`[chain benchmark] ${value}`) }
@@ -68,7 +50,7 @@ class NodeProcess {
     this.events = []; this.pending = new Map(); this.sequence = 0; this.logs = ''
     this.child = fork(fixture, [], { cwd: runtime, serialization: 'advanced', execArgv: [],
       env: { ...process.env, LEOFCOIN_BENCH_RUNTIME: runtime, LEOFCOIN_BENCH_DATA: data, LEOFCOIN_BENCH_STAR: star,
-        LEOFCOIN_BENCH_OBSERVER_FAULTS: observerFaults ? '1' : '0', LEOFCOIN_BENCH_BLOCK_TIME_MS: '' },
+        LEOFCOIN_BENCH_OBSERVER_FAULTS: observerFaults ? '1' : '0' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
     const capture = bytes => {
       this.logTail = (this.logTail || '') + bytes.toString()
@@ -256,7 +238,7 @@ for (let sample = 1; sample <= samples; sample++) {
     if (result.status !== 'passed') failed.add(label)
   }
 }
-const finalFingerprint = await currentFingerprint()
+const finalFingerprint = await currentFingerprint(root)
 if (finalFingerprint.sha256 !== fingerprint.sha256) {
   for (const result of results.filter(result => result.label === 'current')) {
     result.status = 'failed'; result.failedPhase = 'artifact-fingerprint'
@@ -271,8 +253,9 @@ const report = { schema: 'leofcoin-chain-benchmark-v1', measuredAt: new Date().t
     lockSha256: createHash('sha256').update(lockBytes).digest('hex') },
   current: { commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), fingerprint },
   workload: { count, amountPerTransfer: '100', validatorCount: 1, liveNodes: 3, transport: 'loopback WebRTC',
-    trustedCommonAnchor: 'height 13 for protocol 0.6; height 0 for earlier protocols; fixture setup excluded', batchSize,
-    measuredBlocks: results.map(result => result.measuredBlocks ?? null), blockTimeMs: 6000,
+    trustedCommonAnchor: 'height 0; fixture setup excluded', batchSize,
+    measuredBlocks: results.map(result => result.measuredBlocks ?? null),
+    blockTimeMs: 1000, baselineBlockTimeMs: currentOnly ? null : 6000,
     signingIncluded: true, signatureVerificationIncluded: true, steadyStateCapacityMeasurement: false,
     observerFaultInjection: observerFaults },
   status: allPassed ? 'passed' : 'failed', comparable: !currentOnly && allPassed, summary: summarize(results), results,

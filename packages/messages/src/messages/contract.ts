@@ -2,10 +2,12 @@ import proto from '../protos/contract.proto.js'
 import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import type { messageInput } from '../types.js'
 
-export default class ContractMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface ContractMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class ContractMessage extends FormatInterface {
   get messageName() {
     return 'ContractMessage'
   }

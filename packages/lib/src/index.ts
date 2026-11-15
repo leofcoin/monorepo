@@ -14,19 +14,15 @@ declare type rawTransaction = {
   method: string
   params: any[]
   timestamp: number
+  nonce?: number
 }
 
-declare type signedTransaction = {
-  from: address
-  to: address
-  method: string
-  params: any[]
-  timestamp: number
+declare type signedTransaction = rawTransaction & {
   signature: base58String
 }
 
 declare type signable = {
-  sign: (transaction: Uint8Array) => Uint8Array
+  sign: (transaction: Uint8Array) => Uint8Array | Promise<Uint8Array>
 }
 export const contractFactoryMessage = bytecodes.contractFactory
 export const nativeTokenMessage = bytecodes.nativeToken
@@ -37,15 +33,15 @@ export const validatorsMessage = bytecodes.validators
 export const TRANSACTION_FEE_BYTES = 1024n
 export const TRANSACTION_FEE_UNIT = 10n
 export const MAX_TRANSACTION_BYTES = 32 * 1024
-export const MAX_BLOCK_TRANSACTION_BYTES = 128 * 1024
-export const MAX_BLOCK_TRANSACTIONS = 256
+export const MAX_BLOCK_TRANSACTION_BYTES = 1024 * 1024
+export const MAX_BLOCK_TRANSACTIONS = 2048
 export const MAX_TRANSACTION_FEE = (BigInt(MAX_TRANSACTION_BYTES) / TRANSACTION_FEE_BYTES) * TRANSACTION_FEE_UNIT
 export const FEE_BASIS_POINTS = 10_000n
 export const FEE_PROTOCOL_VERSION = '0.3.0'
 export const MONETARY_POLICY_PROTOCOL_VERSION = '0.3.0'
 /** Reserved VM sender; deliberately not a wallet address. */
 export const MONETARY_POLICY_AUTHORITY = 'leofcoin:protocol:monetary-policy:v1'
-export const BLOCKS_PER_YEAR = 5_256_000n
+export const BLOCKS_PER_YEAR = 31_536_000n
 export const ANNUAL_ISSUANCE_BASIS_POINTS = 200n
 export const SUPPLY_FLOOR_BASIS_POINTS = 9_500n
 export const MONETARY_FEE_BURN_BASIS_POINTS = 1_000n
@@ -155,7 +151,11 @@ export const aggregateValidatorFees = (
   return totals
 }
 
-export const createContractMessage = async (creator, contract, constructorParameters = []) => {
+export const createContractMessage = async (
+  creator: string,
+  contract: string | Uint8Array,
+  constructorParameters: unknown[] = []
+) => {
   return new ContractMessage({
     creator,
     contract,
@@ -229,6 +229,33 @@ export const createTransactionHash = async (
 export const signTransaction = async (transaction: rawTransaction, wallet: signable): Promise<signedTransaction> => {
   const signature = toBase58(await wallet.sign(await createTransactionHash(transaction)))
   return { ...transaction, signature }
+}
+
+export const signTransactions = async (
+  transactions: rawTransaction[],
+  wallet: signable,
+  concurrency = 1
+): Promise<signedTransaction[]> => {
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 32)
+    throw new Error('Signing concurrency must be between 1 and 32')
+  const inputs = transactions.map(transaction => structuredClone(transaction))
+  const signed: signedTransaction[] = new Array(inputs.length)
+  let next = 0
+  let failure: unknown
+  let failed = false
+  await Promise.all(Array.from({ length: Math.min(concurrency, inputs.length) }, async () => {
+    while (!failed && next < inputs.length) {
+      const index = next++
+      try {
+        signed[index] = await signTransaction(inputs[index], wallet)
+      } catch (error) {
+        if (!failed) failure = error
+        failed = true
+      }
+    }
+  }))
+  if (failed) throw failure
+  return signed
 }
 
 export const prepareContractTransaction = async (owner, contract, constructorParameters = []) => {

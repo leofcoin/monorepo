@@ -61,3 +61,36 @@ export const assertPaymentChannelTransition = (
   if (next.sequence <= previous.sequence) throw new Error('Channel sequence must increase')
   if (next.paid < previous.paid) throw new Error('Cumulative channel payment cannot decrease')
 }
+
+export type PaymentChannelSignatureVerifier = (
+  payer: string,
+  digest: Uint8Array,
+  signature: Uint8Array
+) => boolean | Promise<boolean>
+
+/**
+ * Validate against independently trusted channel state before accepting an update.
+ * The verifier must authenticate the signature against the supplied payer.
+ */
+export const verifyPaymentChannelUpdate = async (
+  previous: PaymentChannelState,
+  next: PaymentChannelState,
+  signature: Uint8Array,
+  now: number,
+  verify: PaymentChannelSignatureVerifier
+): Promise<PaymentChannelState> => {
+  const prior = { ...previous }
+  const candidate = { ...next }
+  assertPaymentChannelTransition(prior, candidate)
+  if (!Number.isSafeInteger(now) || now < 0) throw new TypeError('Invalid channel verification time')
+  if (now >= candidate.expiresAt) throw new Error('Channel has expired')
+  if (!(signature instanceof Uint8Array) || signature.length === 0 || signature.length > 512)
+    throw new TypeError('Invalid channel signature')
+  if (typeof verify !== 'function') throw new TypeError('Channel signature verifier required')
+  const bytes = encodePaymentChannelState(candidate)
+  const signatureCopy = Uint8Array.from(signature)
+  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer))
+  if (await verify(candidate.payer, digest, signatureCopy) !== true)
+    throw new Error('Invalid channel payer signature')
+  return candidate
+}

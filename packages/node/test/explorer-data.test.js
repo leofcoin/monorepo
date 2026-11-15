@@ -4,7 +4,7 @@ import { explorerFixture } from './explorer-fixture-data.js'
 import { CodecHash } from '@leofcoin/codec-format-interface'
 import { parseExplorerSearch, resolveExplorerSearch } from '../src/controllers/explorer-search.js'
 import { readBlockPage, readBlockContent, readPoolReferences, transactionReferences, readTransactionRows,
-  readTransaction, safeHeight, formatLfc, compactLfc, nativeMovement, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
+  readTransaction, safeHeight, formatLfc, compactLfc, nativeMovement, blockEconomics, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
 
 const fixture = await explorerFixture('fixture-public-address')
 const chain = { lastBlock: fixture.blocks.at(-1), getBlocks: async (from, to) => fixture.blocks.slice(from, to) }
@@ -113,6 +113,30 @@ test('native movement uses the current transfer ABI and never guesses other toke
   assert.equal(formatLfc(10n ** 18n + 1n), '1.000000000000000001')
   assert.equal(formatLfc(9007199254740993123456789012345678n), '9,007,199,254,740,993.123456789012345678')
   assert.equal(formatLfc(Number.MAX_SAFE_INTEGER + 1), '—')
+})
+
+test('block economics separates zero-subsidy fee rewards from minted issuance and fee burn', () => {
+  assert.deepEqual(blockEconomics({ canonical: true, reward: 0n, fees: 12n, validators: [{ reward: 12n }] }), {
+    minted: 0n, burned: 0n, fees: 12n, subsidy: 0n, validatorRewards: 12n
+  })
+  assert.deepEqual(blockEconomics({ canonical: true, reward: 10n, fees: 6n, validators: [{ reward: 14n }] }), {
+    minted: 10n, burned: 2n, fees: 6n, subsidy: 10n, validatorRewards: 14n
+  })
+})
+
+test('block economics leaves unavailable or inconsistent amounts unknown', () => {
+  assert.deepEqual(blockEconomics({ canonical: true, fees: 3n, validators: [{ reward: 3n }] }), {
+    minted: null, burned: null, fees: 3n, subsidy: null, validatorRewards: 3n
+  })
+  assert.deepEqual(blockEconomics({ canonical: true, reward: 0n, fees: 3n, validators: [{ reward: 4n }] }), {
+    minted: 0n, burned: null, fees: 3n, subsidy: 0n, validatorRewards: 4n
+  })
+  assert.deepEqual(blockEconomics({ canonical: true, reward: 0n, fees: 3n, validators: [{ address: 'validator' }] }), {
+    minted: 0n, burned: null, fees: 3n, subsidy: 0n, validatorRewards: null
+  })
+  assert.deepEqual(blockEconomics({ reward: 100n, fees: 1n, validators: [{ reward: 100n }] }), {
+    minted: null, burned: null, fees: null, subsidy: null, validatorRewards: null
+  })
 })
 
 test('block and transaction content hashes are checked before display', async () => {

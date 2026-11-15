@@ -28,7 +28,7 @@ function selector(text, store, index) {
   const body = statements.slice(0, end).map(node => node.getText(ast)).join('\n')
   const js = ts.transpileModule(`return new class {
     #proposalInFlight = null
-    version = '0.6.0'
+    version = '0.9.0'
     pendingTransactions = index
     machine = { latestTransactions: async () => [] }
     async promiseTransactions(values) { return values.map(value => new TransactionMessage(value)) }

@@ -12,7 +12,7 @@ import './notification/controller.js'
 import './notification/child.js'
 import './elements/account-select.js'
 import './elements/leofcoin-mark.js'
-import { chainNameForId } from './chain-names.js'
+import { chainNameForIdentity } from './chain-names.js'
 import { getSelectedNetwork, setSelectedNetwork, SUPPORTED_NETWORKS } from './network-selection.js'
 import { nodeActivity } from './controllers/node-activity.js'
 import { blockHeight, nodeStatus } from './controllers/node-status.js'
@@ -369,7 +369,7 @@ class AppShell extends LiteElement {
       const identity = await chain.getChainIdentity()
       if (globalThis.chain !== chain) return
       this.chainId = identity.chainId
-      this.chainName = chainNameForId(identity.chainId) || getSelectedNetwork().label
+      this.chainName = chainNameForIdentity(identity) || getSelectedNetwork().label
     } catch (error) {
       if (globalThis.chain === chain) {
         console.warn('Could not load the active chain identity:', error)

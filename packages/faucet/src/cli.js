@@ -100,9 +100,26 @@ const faucet = await new Faucet({
       return { signed, fee }
     },
     submit: async (_to, _amount, quote) => node.chain.sendTransaction(quote.signed),
-    reportError: (error) => console.error('Faucet claim needs operator attention:', error.message)
+    reconciliationReady: async () =>
+      node.chain.state.sync === 'synced' &&
+      Object.values(globalThis.peernet.connections || {}).some((peer) => peer.connected),
+    canonicalTip: () => node.chain.lastBlock,
+    canonicalBlocks: (from, to) => node.chain.getBlocks(from, to),
+    reportError: (error) => console.error('Faucet claim needs operator attention:', error)
   }
 }).init()
+let stopping = false
+let reconciliationTimer
+const reconcile = async () => {
+  try {
+    await faucet.reconcile()
+  } catch (error) {
+    console.error('Faucet reconciliation failed:', error)
+  } finally {
+    if (!stopping) reconciliationTimer = setTimeout(reconcile, 10000)
+  }
+}
+void reconcile()
 const origins = (process.env.FAUCET_ORIGINS || 'https://leofcoin.org,https://leofcoin.github.io')
   .split(',')
   .map((value) => value.trim())
@@ -119,6 +136,8 @@ server.listen(port, '127.0.0.1', () => {
 })
 for (const signal of ['SIGTERM', 'SIGINT'])
   process.once(signal, async () => {
+    stopping = true
+    clearTimeout(reconciliationTimer)
     server.close()
     await faucet.flush()
     node.stop()

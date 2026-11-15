@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 import {
   BeaconActivationMessage,
@@ -12,6 +14,22 @@ import {
   ProposalMessage
 } from './exports/index.js'
 import { BinaryFormat } from './exports/binary-format.js'
+
+test('published message types refine inherited accessors and expose block hashes', () => {
+  const fixture = fileURLToPath(new URL('./test-types.ts', import.meta.url))
+  const declarations = fileURLToPath(new URL('./exports/messages/', import.meta.url))
+  const program = ts.createProgram([fixture], {
+    noEmit: true,
+    strict: true,
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext
+  })
+  const errors = ts.getPreEmitDiagnostics(program).filter(diagnostic =>
+    diagnostic.file?.fileName === fixture ||
+    (diagnostic.code === 2610 && diagnostic.file?.fileName.startsWith(declarations)))
+  assert.deepEqual(errors.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')), [])
+})
 
 test('immutable message schema keys are compiled once without caching caller data', t => {
   const proto = Object.freeze({ amount: 0n, label: '', data: [] })

@@ -1,13 +1,26 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
+import { fileURLToPath } from 'node:url'
 import { createRuntimeNetwork } from '../test/helpers/runtime-network.js'
 
 const args = process.argv.slice(2)
-const samples = args.length ? Number(args[1]) : 20
-if ((args.length && (args.length !== 2 || args[0] !== '--samples')) ||
-  !Number.isInteger(samples) || samples < 20 || samples > 200)
-  throw new Error('Usage: node scripts/benchmark-payment-latency.js [--samples 20..200]')
+const usage = 'Usage: node scripts/benchmark-payment-latency.js [--samples 20..200] [--delivery-delay-ms 0..1000] [--output path]'
+let samples = 20
+let deliveryDelayMs = 0
+let output = fileURLToPath(new URL('../node_modules/.cache/payment-latency.json', import.meta.url))
+for (let index = 0; index < args.length; index += 2) {
+  const flag = args[index], value = args[index + 1]
+  if (!value || value.startsWith('--')) throw new Error(usage)
+  if (flag === '--samples') samples = Number(value)
+  else if (flag === '--delivery-delay-ms') deliveryDelayMs = Number(value)
+  else if (flag === '--output') output = resolve(value)
+  else throw new Error(usage)
+}
+if (!Number.isInteger(samples) || samples < 20 || samples > 200 ||
+  !Number.isInteger(deliveryDelayMs) || deliveryDelayMs < 0 || deliveryDelayMs > 1000) throw new Error(usage)
+process.env.LEOFCOIN_BENCH_DELIVERY_DELAY_MS = String(deliveryDelayMs)
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const summary = values => {
   assert(values.length > 0 && values.every(value => Number.isFinite(value) && value >= 0))
@@ -18,15 +31,15 @@ const summary = values => {
 }
 const report = {
   schema: 'leofcoin-payment-latency-v1', status: 'failed', validators: 4, quorum: 3, samples,
-  environment: { node: process.version, transport: 'loopback WebRTC', network: 'leofcoin:e2e' },
-  scope: 'isolated synthetic anchor; not a production protocol upgrade or geographic latency guarantee',
+  environment: { node: process.version, transport: 'loopback WebRTC', network: 'leofcoin:e2e', deliveryDelayMs },
+  scope: 'current production cadence; isolated synthetic anchor; not a geographic latency guarantee',
   measurement: 'parent monotonic clock; signing through durable block notifications; all four validators required',
   targetP95Ms: 2000, variants: []
 }
 let activeNetwork
 
 async function measure(blockTimeMs) {
-  const network = activeNetwork = await createRuntimeNetwork({ blockTimeMs })
+  const network = activeNetwork = await createRuntimeNetwork()
   const variant = { blockTimeMs, payments: [] }
   report.variants.push(variant)
   try {
@@ -88,6 +101,11 @@ async function measure(blockTimeMs) {
       validatorDurableMs: validators.map((_, index) => summary(variant.payments.map(payment => payment.validatorMs[index]))),
       interBlockMs: summary(intervals)
     }
+    if (deliveryDelayMs) {
+      variant.peerDeliveryDelay = await Promise.all(validators.map(async node => (await node.request('timings')).peerDeliveryDelay))
+      assert(variant.peerDeliveryDelay.every(entry => entry?.calls > 0 && entry.minMs > 0),
+        'Each validator must receive delayed peer messages')
+    }
   } catch (error) {
     variant.error = error.stack
     variant.diagnostics = network.nodes.map(node => ({ exit: node.exit, events: node.events, logs: node.logs }))
@@ -99,9 +117,8 @@ async function measure(blockTimeMs) {
 }
 
 try {
-  await measure(6000)
   await measure(1000)
-  report.targetMet = report.variants[1].summary.allValidatorsDurableMs.p95 <= report.targetP95Ms
+  report.targetMet = report.variants[0].summary.allValidatorsDurableMs.p95 <= report.targetP95Ms
   report.status = report.targetMet ? 'passed' : 'target-missed'
   if (!report.targetMet) process.exitCode = 2
 } catch (error) {
@@ -113,8 +130,8 @@ try {
     try { await activeNetwork.close() }
     catch (error) { report.cleanupError = error.message; process.exitCode = 1 }
   }
-  await mkdir(new URL('../node_modules/.cache/', import.meta.url), { recursive: true })
-  await writeFile(new URL('../node_modules/.cache/payment-latency.json', import.meta.url), JSON.stringify(report, null, 2) + '\n')
+  await mkdir(dirname(output), { recursive: true })
+  await writeFile(output, JSON.stringify(report, null, 2) + '\n')
 }
 console.log(JSON.stringify({ status: report.status, targetMet: report.targetMet,
   variants: report.variants.map(variant => ({ blockTimeMs: variant.blockTimeMs, summary: variant.summary })), error: report.error }, null, 2))

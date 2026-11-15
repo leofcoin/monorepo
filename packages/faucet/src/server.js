@@ -8,7 +8,11 @@ export function faucetServer(faucet, { origins = [], trustProxy = false } = {}) 
   const clients = new Map()
   return createServer(async (request, response) => {
     const send = (status, value) => {
-      response.writeHead(status, { 'Content-Type': BINARY_CONTENT_TYPE, 'Cache-Control': 'no-store' })
+      response.writeHead(status, {
+        'Content-Type': BINARY_CONTENT_TYPE,
+        'Cache-Control': 'no-store',
+        'X-Leofcoin-Service': 'faucet'
+      })
       response.end(encodeWire('rpc', value))
     }
     try {
@@ -36,7 +40,8 @@ export function faucetServer(faucet, { origins = [], trustProxy = false } = {}) 
         response.end()
         return
       }
-      const path = new URL(request.url, 'http://faucet').pathname
+      // Accept both prefix-stripping proxies and ones forwarding the public /faucet path unchanged.
+      const path = new URL(request.url, 'http://faucet').pathname.replace(/^\/faucet(?=\/|$)/, '') || '/'
       if (request.method === 'GET' && path === '/status') {
         const status = await faucet.status()
         send(200, status)

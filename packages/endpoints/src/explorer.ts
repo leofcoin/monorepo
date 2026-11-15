@@ -11,6 +11,15 @@ const hashInput = value => {
   if (typeof value !== 'string' || !/^[A-Z2-7]{32,128}$/.test(value)) fail(400, 'Invalid content hash')
   return value
 }
+const amount = value => {
+  if (typeof value === 'bigint') return value >= 0n ? value : null
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return BigInt(value)
+  if (typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value)) return BigInt(value)
+  return null
+}
+const optionalAmount = async read => {
+  try { return amount(await read()) } catch { return null }
+}
 
 /** Public data only. No wallet, account selection, signing, submission or peer fetches. */
 export function explorerMiddleware(chain) {
@@ -61,12 +70,17 @@ export function explorerMiddleware(chain) {
           }
           if (ctx.path === '/explorer/overview') {
             const [validators, registeredContracts, nativeCalls, nativeMints, nativeBurns, nativeTransfers,
-              totalContracts, totalTransactions, totalSize, poolCount, poolSize, balances] = await Promise.all([
+              totalContracts, totalTransactions, totalSize, poolCount, poolSize, balances,
+              totalSupply, initialSupply, totalMintAmount, totalBurnAmount] = await Promise.all([
               chain.staticCall(identity.genesisContracts.validators, 'validators', []),
               chain.staticCall(identity.genesisContracts.contractFactory, 'totalContracts', []),
               chain.nativeCalls, chain.nativeMints, chain.nativeBurns, chain.nativeTransfers,
               chain.totalContracts, chain.totalTransactions, chain.totalSize,
-              globalThis.transactionPoolStore?.length(), globalThis.transactionPoolStore?.size(), chain.balances
+              globalThis.transactionPoolStore?.length(), globalThis.transactionPoolStore?.size(), chain.balances,
+              optionalAmount(() => chain.staticCall(identity.genesisContracts.nativeToken, 'totalSupply', [])),
+              optionalAmount(() => chain.staticCall(identity.genesisContracts.nativeToken, 'initialSupply', [])),
+              optionalAmount(() => chain.totalMintAmount),
+              optionalAmount(() => chain.totalBurnAmount)
             ])
             let supply = 0n
             let funded = 0
@@ -82,6 +96,7 @@ export function explorerMiddleware(chain) {
             }
             return { ...response, validators, registeredContracts, nativeCalls, nativeMints, nativeBurns,
               nativeTransfers, totalContracts, totalTransactions, totalSize, poolCount, poolSize,
+              totalSupply, initialSupply, totalMintAmount, totalBurnAmount,
               holders: { total: funded, holders: top.map(holder => ({ ...holder, share: Number(holder.balance * 10000n / (supply || 1n)) / 100 })) } }
           }
           fail(404, 'Unknown read-only explorer resource')

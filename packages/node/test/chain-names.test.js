@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { chainNameForId, shortChainId } from '../src/chain-names.js'
+import addresses from '@leofcoin/addresses'
+import { createChainIdentity } from '@leofcoin/lib/chain-identity'
+import { chainNameForIdentity, shortChainId } from '../src/chain-names.js'
 
-const peachId = 'lfc:8a6f0e72d3366bbf579e91dc7bcd716f02763511cee2f05a3b65429a6b400f18'
+const peachIdentity = await createChainIdentity('leofcoin:peach', addresses)
 
-test('published chain names only resolve exact known chain IDs', () => {
-  assert.equal(chainNameForId(peachId), 'Peach testnet')
-  assert.equal(chainNameForId('lfc:' + '0'.repeat(64)), undefined)
-  assert.equal(chainNameForId(peachId.toUpperCase()), undefined)
+test('chain names use the verified identity namespace instead of pinned hashes', async () => {
+  const mainnet = await createChainIdentity('leofcoin:mainnet', addresses)
+  assert.equal(chainNameForIdentity(peachIdentity), 'Peach testnet')
+  assert.equal(chainNameForIdentity(mainnet), 'Mainnet (experimental)')
+  assert.equal(chainNameForIdentity({ network: 'unlisted' }), undefined)
 })
 
 test('chain ID display is short but retains a recognizable prefix and suffix', () => {
-  assert.equal(shortChainId(peachId), 'lfc:8a6f0e72d3…6b400f18')
+  assert.equal(shortChainId(peachIdentity.chainId),
+    `${peachIdentity.chainId.slice(0, 14)}…${peachIdentity.chainId.slice(-8)}`)
   assert.equal(shortChainId(''), '')
 })

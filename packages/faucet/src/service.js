@@ -35,7 +35,10 @@ export class Faucet {
             !['reserved', 'pending', 'confirmed', 'failed'].includes(claim.state) ||
             !/^\d+$/.test(claim.amount) ||
             BigInt(claim.amount) <= 0n ||
-            (claim.fee !== undefined && !/^\d+$/.test(claim.fee))
+            (claim.fee !== undefined && !/^\d+$/.test(claim.fee)) ||
+            (claim.scanHeight !== undefined &&
+              (!Number.isSafeInteger(claim.scanHeight) || claim.scanHeight < 1 ||
+                typeof claim.scanHash !== 'string' || !claim.scanHash))
         )
       )
         throw new Error('Invalid faucet ledger')
@@ -69,6 +72,55 @@ export class Faucet {
   }
   async flush() {
     await this.#queue
+  }
+  reconcile() {
+    return this.#serialized(async () => {
+      const pending = this.#records.filter(record => record.state === 'pending' && record.hash)
+        .sort((a, b) => (a.scanHeight ?? 0) - (b.scanHeight ?? 0))
+        .slice(0, 16)
+      if (!pending.length || !await this.adapter.reconciliationReady()) return
+      const tip = await this.adapter.canonicalTip()
+      const height = Number(tip?.index)
+      if (!Number.isSafeInteger(height) || height < 0 || typeof tip?.hash !== 'string' || !tip.hash)
+        throw new Error('Invalid canonical tip during faucet reconciliation')
+      const validateBlock = (block, index) => {
+        if (!block || Number(block.index) !== index || typeof block.hash !== 'string' ||
+            !block.hash || !Array.isArray(block.transactions))
+          throw new Error(`Canonical block ${index} unavailable during faucet reconciliation`)
+        return block
+      }
+      if (height > 0) {
+        const tipBlocks = await this.adapter.canonicalBlocks(height, height + 1)
+        if (validateBlock(tipBlocks?.[0], height).hash !== tip.hash)
+          throw new Error('Canonical tip block does not match the committed faucet tip')
+      }
+      const updates = []
+      for (const record of pending) {
+        let start = 1
+        if (record.scanHeight && record.scanHeight <= height) {
+          const anchor = await this.adapter.canonicalBlocks(record.scanHeight, record.scanHeight + 1)
+          if (validateBlock(anchor?.[0], record.scanHeight).hash === record.scanHash)
+            start = record.scanHeight + 1
+        }
+        const end = Math.min(height, start + 127)
+        const blocks = start <= end ? await this.adapter.canonicalBlocks(start, end + 1) : []
+        for (let index = start; index <= end; index++) {
+          const block = validateBlock(blocks?.[index - start], index)
+          const confirmed = block.transactions.includes(record.hash)
+          updates.push({ record, height: index, hash: block.hash, confirmed })
+          if (confirmed) break
+        }
+      }
+      const current = await this.adapter.canonicalTip()
+      if (String(current?.index) !== String(tip.index) || current?.hash !== tip.hash)
+        throw new Error('Canonical tip changed during faucet reconciliation')
+      for (const update of updates) {
+        update.record.scanHeight = update.height
+        update.record.scanHash = update.hash
+        if (update.confirmed) update.record.state = 'confirmed'
+      }
+      if (updates.length) await this.#persist()
+    })
   }
   publicClaim(claim) {
     if (!claim) throw new FaucetError(404, 'Claim not found')
@@ -159,13 +211,14 @@ export class Faucet {
           .then(
             () =>
               this.#serialized(async () => {
+                if (record.state !== 'pending') return
                 record.state = 'confirmed'
                 await this.#persist()
               }),
-            () =>
+            (error) =>
               this.#serialized(async () => {
-                record.state = 'failed'
-                await this.#persist()
+                if (record.state !== 'pending') return
+                this.adapter.reportError?.(error)
               })
           )
           .catch((error) => this.adapter.reportError?.(error))

@@ -1,11 +1,26 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { nativeToken } from '@leofcoin/addresses'
 import { TransactionMessage } from '@leofcoin/messages'
 import { fromBase58, toBase58 } from '@vandeurenglenn/typed-array-utils'
-import { calculateFee, createTransactionHash, signTransaction, TRANSACTION_FEE_BYTES, TRANSACTION_FEE_UNIT } from './exports/index.js'
+import { calculateFee, createTransactionHash, signTransaction, signTransactions, TRANSACTION_FEE_BYTES, TRANSACTION_FEE_UNIT } from './exports/index.js'
 import { formatUnits } from '@leofcoin/utils'
+
+test('signing declarations support async wallets and preserve optional nonces', () => {
+  const fixture = fileURLToPath(new URL('./type-fixtures/signing.ts', import.meta.url))
+  const program = ts.createProgram([fixture], {
+    noEmit: true,
+    strict: true,
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext
+  })
+  const errors = ts.getPreEmitDiagnostics(program).filter(diagnostic => diagnostic.file?.fileName === fixture)
+  assert.deepEqual(errors.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')), [])
+})
 
 async function signedTransfer() {
   // Public test-only seed; entirely in memory, with no identity or chain store.
@@ -15,6 +30,47 @@ async function signedTransfer() {
   const raw = { from, to: nativeToken, method: 'transfer', params: [from, 10n ** 18n], nonce: 1, timestamp: 1 }
   return { raw, signed: await signTransaction(raw, wallet), wallet }
 }
+
+test('bounded concurrent signing preserves order and snapshots inputs', async () => {
+  const { raw, wallet } = await signedTransfer()
+  let active = 0, maximum = 0
+  const signer = {
+    async sign(hash) {
+      active++
+      maximum = Math.max(maximum, active)
+      await new Promise(resolve => setImmediate(resolve))
+      try { return await wallet.sign(hash) } finally { active-- }
+    }
+  }
+  const input = Array.from({ length: 5 }, (_, index) => ({ ...raw, params: [...raw.params], nonce: index + 1 }))
+  const signing = signTransactions(input, signer, 2)
+  input[0].params[1] = 999n
+  const result = await signing
+  assert.equal(maximum, 2)
+  assert.deepEqual(result.map(transaction => transaction.nonce), [1, 2, 3, 4, 5])
+  assert.equal(result[0].params[1], raw.params[1])
+  for (const transaction of result)
+    assert.equal(await wallet.verify(fromBase58(transaction.signature), await createTransactionHash(transaction)), true)
+  await assert.rejects(signTransactions(input, signer, 0), /concurrency/)
+})
+
+test('a signing failure drains in-flight operations before rejecting', async () => {
+  const { raw } = await signedTransfer()
+  let active = 0, started = 0
+  const failure = new Error('signer unavailable')
+  const signer = { async sign() {
+    active++
+    const index = started++
+    try {
+      await new Promise(resolve => setImmediate(resolve))
+      if (index === 0) throw failure
+      return Uint8Array.of(1)
+    } finally { active-- }
+  } }
+  await assert.rejects(signTransactions(Array.from({ length: 10 }, () => raw), signer, 2), error => error === failure)
+  assert.equal(active, 0)
+  assert.equal(started, 2)
+})
 
 test('fees use the canonical binary size for signed objects, messages and encoded bytes', async () => {
   const { signed } = await signedTransfer()

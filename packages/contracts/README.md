@@ -41,6 +41,29 @@ It is not registered in genesis, bundled into the native protocol bytecodes,
 or deployed automatically. Existing LFC balances, block cadence and contracts
 are unchanged. Production use requires review and runtime/deployment validation.
 
+### Isolated market simulation
+
+From the repository root, build the contracts and run
+`node scripts/simulate-testnet-market.js` (`--seed 7 --rounds 60` changes the
+scenario, `--json` produces machine-readable output).
+This in-memory demonstration uses the native-token implementation, a mock
+tEUR token and the liquidity-pool contract. Seeded simulated consumers make
+service payments and top up when their balance is low, a merchant sells, and
+an investor buys or sells; all have limited balances and trades are skipped
+above a 3% spot-price impact. It reports
+activity, pool fees, spot ratios, reserves and balances, and checks token
+conservation. These behaviours are assumptions, not calibrated predictions. It
+does not connect to Peach, execute the VM, model network fees or produce real
+euros. A pool ratio is manipulable and its movement alone does not demonstrate
+value creation.
+
+For a separately deployed Peach pool, the read-only monitor
+`node scripts/watch-testnet-pool.js --pool POOL_HASH --teur TEST_TOKEN_HASH`
+prints reserves and the spot ratio every ten seconds (`--once` reads once).
+It requires the workspace's exact Peach chain identity, a compatible tip block,
+a synced connected node and an LFC/tEUR pool. A token's `tEUR` label does not prove backing.
+Reads are not pinned to one block and the ratio is not an oracle.
+
 ### Recurring payment mandates
 
 Deploy `PaymentMandates(lfcTokenAddress)`. A payer then submits two ordinary
@@ -84,7 +107,8 @@ monthly execution is installed.
 ### Off-chain payment-channel protocol
 
 `@leofcoin/standards` exports `PaymentChannelState`,
-`encodePaymentChannelState` and `assertPaymentChannelTransition`. These define
+`encodePaymentChannelState`, `assertPaymentChannelTransition` and
+`verifyPaymentChannelUpdate`. These define
 a **unidirectional cumulative-payment prototype**, not a funded channel.
 
 Canonical UTF-8 bytes contain the versioned domain, chain ID, escrow address,
@@ -113,6 +137,17 @@ sequence numbers are bounded unsigned 256-bit integers. These checks are
 neither signature verification nor proof that the declared deposit exists.
 Applications must also check trusted funding terms, expiry and the signature,
 and durably retain the newest accepted state.
+
+`verifyPaymentChannelUpdate(previous, next, signature, now, verify)` checks
+the transition and expiry, hashes a snapshot of the update and requires the
+provided verifier to authenticate its payer. `previous` must come from trusted
+funding terms and the latest durably accepted update; `now` must be a trusted
+epoch-millisecond timestamp. The verifier must derive its public key from the
+supplied payer, not from untrusted update metadata. Atomically compare against
+the latest state and persist the returned state and signature before
+acknowledging payment; concurrent verifications against the same prior state
+must not overwrite a newer update. This helper does not establish funding or
+replace on-chain verification.
 
 **No channel funding or settlement API is enabled.** The current VM does not
 verify these off-chain signatures. Before accepting any channel funds, implement

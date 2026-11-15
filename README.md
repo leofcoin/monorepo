@@ -21,6 +21,14 @@ Building packages does not start a node or change genesis, identities or chain d
 Both core build/test scripts include it before dependent packages; existing
 package imports and on-disk data remain compatible.
 
+The workspace requires `@leofcoin/multi-wallet` 4.0.1 or later in the 4.x
+series. Version 4.0.0 restores some named-network backups with the wrong
+derivation path and must not be used. Version 4 changes mnemonic and child-key
+derivation, so existing v3 phrases may be invalid or derive different
+addresses. Back up existing identities with v3 and verify restored addresses
+before upgrading or transferring funds; do not assume a mnemonic alone
+reconstructs the same identity.
+
 ## Local validator
 
 After building the workspace and creating genesis credentials, run the local `peach` validator with:

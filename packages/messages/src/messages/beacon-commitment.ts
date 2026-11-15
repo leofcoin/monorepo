@@ -2,10 +2,12 @@ import { BinaryFormat as FormatInterface } from '../binary-format.js'
 import proto from '../protos/beacon-commitment.proto.js'
 import type { messageInput } from '../types.js'
 
-export default class BeaconCommitmentMessage extends FormatInterface {
-  // @ts-ignore
-  declare decoded: typeof proto
+export default interface BeaconCommitmentMessage {
+  get decoded(): typeof proto
+  set decoded(value: typeof proto)
+}
 
+export default class BeaconCommitmentMessage extends FormatInterface {
   get messageName() {
     return 'BeaconCommitmentMessage'
   }
