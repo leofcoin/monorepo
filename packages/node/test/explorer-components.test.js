@@ -15,7 +15,7 @@ async function component(file) {
   const source = (await readFile(new URL(file, import.meta.url), 'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\n/gm, '')
   const prefix = `
     import { PAGE_SIZE, readBlockPage, transactionReferences, readTransactionRows, readPoolReferences, explorerLink,
-      shortId, nativeMovement, formatLfc, compactLfc, blockEconomics, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
+      shortId, nativeMovement, formatLfc, compactLfc, supplyChange, blockEconomics, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
     import { rankActivity, rankHolders, formatRankingBalance } from ${JSON.stringify(rankings)};
     import { getExplorerSource } from ${JSON.stringify(publicExplorer)};
     import { resolveExplorerSearch } from ${JSON.stringify(search)};
@@ -23,13 +23,14 @@ async function component(file) {
     const formatBytes = value => String(value);
     const property = () => () => undefined; const state = property; const customElement = () => value => value;
     const ledgerStyles = ''; const html = (strings, ...values) => ({ strings: [...strings], values });
+    const map = (values, fn) => (values ?? []).map(fn);
     class LitElement extends EventTarget {
       shadowRoot = { querySelector: () => null }; hasUpdated = false;
       connectedCallback() {} disconnectedCallback() {}
     }
     const LiteElement = LitElement; const css = html; const svg = html;
     class HTMLElement {}
-    const customElements = { get: () => true, define() {} };
+    const customElements = { get: () => true, define: (_, value) => value };
   `
   const result = await transform(prefix + source, { loader: 'ts', format: 'esm', target: 'es2022' })
   return import(`data:text/javascript;base64,${Buffer.from(result.code).toString('base64')}`)
@@ -178,6 +179,42 @@ function text(template) {
   if (template?.strings) return template.strings.map((part, index) => part + text(template.values[index])).join('')
   return template === undefined || template === null || typeof template === 'function' ? '' : String(template)
 }
+
+test('supply cards show compact amounts with their exact value and distinguish unavailable data', async () => {
+  const { default: Dashboard } = await component('../src/views/explorer/explorer-dashboard.ts')
+  const dashboard = new Dashboard()
+  Object.assign(dashboard, {
+    nodeStarted: true, isNodeReady: true, nativeMints: '0',
+    initialSupply: '50000000000000000000000000',
+    totalSupply: '50000005707762557077625557',
+    totalMintAmount: '5707762557077625557'
+  })
+  const findSupply = value => {
+    if (Array.isArray(value)) {
+      const supply = value.find(item => item?.title === 'Native-token supply')
+      return supply ?? value.map(findSupply).find(Boolean)
+    }
+    return value?.values && findSupply(value.values)
+  }
+  const supply = findSupply(dashboard.render())
+  assert.equal(supply.icon, 'account-balance')
+  assert.equal(supply.wide, true)
+  assert.equal(supply.items[1].value, '50,000,005.707762…')
+  assert.equal(supply.items[1].exact, '50,000,005.707762557077625557 LFC')
+  assert.equal(supply.items[2].title, 'minted after genesis')
+  assert.equal(supply.items[2].exact, '5.707762557077625557 LFC')
+  assert.equal(supply.items[3].title, 'net supply change')
+  assert.equal(supply.items[3].exact, '5.707762557077625557 LFC')
+  assert.match(supply.hint, /issuance minus burns/)
+  dashboard.totalMintAmount = undefined
+  assert.equal(findSupply(dashboard.render()).items[2].value, '—')
+  assert.equal(findSupply(dashboard.render()).items[2].unit, undefined)
+  assert.equal(findSupply(dashboard.render()).items[2].exact, 'Unavailable')
+  dashboard.totalSupply = '49999999999999999999999999'
+  assert.equal(findSupply(dashboard.render()).items[3].exact, '−0.000000000000000001 LFC')
+  dashboard.totalSupply = undefined
+  assert.equal(findSupply(dashboard.render()).items[3].exact, 'Unavailable')
+})
 
 test('overview does not label an unknown registry liveness or throughput as zero', async () => {
   const { ExplorerDashboardCharts } = await component('../src/elements/explorer/dashboard-charts.ts')

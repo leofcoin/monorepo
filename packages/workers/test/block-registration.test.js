@@ -20,6 +20,8 @@ const createRegistry = new Function(`
   const worker = { postMessage() {} }
   const formatBytes = value => value
   const encodeValue = () => new Uint8Array()
+  let protocolMintAmount = 0n
+  const blockSubsidy = block => BigInt(block.reward ?? 0)
   ${js}
   return { add: block => add(block), count: () => totalBlocks, tip: () => lastBlock }
 `)

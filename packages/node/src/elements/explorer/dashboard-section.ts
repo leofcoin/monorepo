@@ -1,53 +1,78 @@
 import { LiteElement, html, css, property, map } from '@vandeurenglenn/lite'
 import '@vandeurenglenn/lite-elements/icon.js'
-import '@vandeurenglenn/flex-elements/wrap-between.js'
 export class ExplorerDashboardSection extends LiteElement {
   static styles = [
     css`
       :host {
-        display: flex;
-        flex-direction: column;
+        --chart-blue: var(--lfc-action, #1d64d8);
+        --chart-teal: #2fd6c3;
+        display: block;
         box-sizing: border-box;
         padding: 24px;
-        gap: 24px;
         margin-bottom: 12px;
         width: 100%;
         max-width: 1200px;
       }
 
-      h2 {
-        margin: 0 0 16px 0;
-        font-size: 28px;
-        font-weight: 600;
-        color: var(--md-sys-color-on-surface);
+      .sections {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px 16px;
+      }
+
+      .section {
+        min-width: 0;
+      }
+
+      .section.wide {
+        grid-column: 1 / -1;
       }
 
       .container {
-        display: flex;
-        flex-direction: column;
-        flex-flow: row wrap;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 16px;
-        width: 100%;
+      }
+
+      .wide .container {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
       .item {
+        position: relative;
         box-sizing: border-box;
-        border: none;
-        border-radius: 12px;
-        background: var(--md-sys-color-inverse-on-surface);
+        border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 60%, transparent);
+        border-radius: 18px;
+        background: color-mix(in srgb, var(--md-sys-color-surface-container, #1d2230) 88%, transparent);
         color: var(--md-sys-color-on-surface);
         padding: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        min-width: 140px;
+        gap: 6px;
+        min-width: 0;
+        min-height: 112px;
+        overflow: hidden;
+        transition: border-color 0.2s ease, background 0.2s ease;
       }
 
       .item:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--chart-blue) 55%, transparent);
+      }
+
+      .item::after {
+        content: '';
+        position: absolute;
+        inset: auto 20px 0;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+        background: linear-gradient(90deg, var(--chart-blue), var(--chart-teal));
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.35s ease;
+      }
+
+      .item:hover::after {
+        transform: scaleX(1);
       }
 
       .item strong {
@@ -60,16 +85,29 @@ export class ExplorerDashboardSection extends LiteElement {
       }
 
       .item > span {
-        font-size: 20px;
+        font-size: 28px;
         font-weight: 700;
-        color: var(--md-sys-color-primary);
+        color: var(--md-sys-color-on-surface);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+      }
+
+      .wide .item > span {
+        font-size: 16px;
+      }
+
+      .unit {
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--md-sys-color-on-surface-variant);
       }
 
       .item-header {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 8px;
       }
 
       .item-logo {
@@ -88,16 +126,16 @@ export class ExplorerDashboardSection extends LiteElement {
         height: 20px;
       }
 
-      .item-logo custom-svg-icon {
-        --icon-size: 20px;
-        --icon-color: var(--md-sys-color-on-primary-container);
+      .item-logo custom-icon {
+        --custom-icon-size: 20px;
+        --custom-icon-color: var(--md-sys-color-on-primary-container);
       }
 
       h5 {
-        margin: 0 0 8px 0;
+        margin: 0;
         font-size: 16px;
-        font-weight: 500;
-        color: var(--md-sys-color-on-surface-variant);
+        font-weight: 600;
+        color: var(--md-sys-color-on-surface);
       }
 
       h4 {
@@ -107,45 +145,39 @@ export class ExplorerDashboardSection extends LiteElement {
         color: var(--md-sys-color-on-surface);
       }
 
-      flex-column {
-        gap: 16px;
-        width: auto;
-        padding-bottom: 36px;
-      }
-
-      flex-row {
+      .section-heading {
+        display: flex;
         align-items: center;
         gap: 8px;
+        margin-bottom: 16px;
       }
 
-      flex-row h5 {
-        margin: 0;
+      .hint {
+        margin: 12px 2px 0;
+        color: var(--md-sys-color-on-surface-variant);
+        font-size: 12px;
+        line-height: 1.5;
       }
 
-      .item {
-        width: calc(100% / 2 - 8px);
+      @media (max-width: 900px) {
+        .wide .container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
 
-      flex-column {
-        width: 100%;
+      @media (max-width: 600px) {
+        :host { padding: 16px 12px; }
+        .sections { grid-template-columns: minmax(0, 1fr); gap: 24px; }
       }
 
-      @media (min-width: 770px) {
-        .item {
-          width: calc(100% / 3 - 16px);
-        }
-        flex-column {
-          width: 100%;
-        }
+      @media (max-width: 480px) {
+        .wide .container { grid-template-columns: minmax(0, 1fr); }
       }
 
-      @media (min-width: 1300px) {
-        .item {
-          width: calc(100% / 2 - 8px);
-        }
-        flex-column {
-          width: calc(100% / 2 - 8px);
-        }
+      @media (max-width: 360px) {
+        .container, .wide .container { grid-template-columns: minmax(0, 1fr); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .item, .item::after { transition: none; }
       }
     `
   ]
@@ -153,23 +185,27 @@ export class ExplorerDashboardSection extends LiteElement {
   @property({ type: String }) accessor title = ''
   @property({ type: Array }) accessor items: {
     title: string
-    items: { title: string; value: string; icon?: string }[]
-  }[]
+    icon?: string
+    img?: string
+    wide?: boolean
+    hint?: string
+    items: { title: string; value: string | number; icon?: string; unit?: string; exact?: string }[]
+  }[] = []
   @property({ type: Boolean }) accessor showIcons = true
 
   render() {
     return html` ${this.title ? html`<h4>${this.title}</h4>` : ''}
 
-      <flex-wrap-between>
+      <div class="sections">
         ${map(
           this.items,
           (item) => html`
-            <flex-column>
-              <flex-row>
+            <section class=${item.wide ? 'section wide' : 'section'}>
+              <div class="section-heading">
                 ${item.img ? html`<span class="item-logo"><img src="${item.img}" alt="${item.title}" /></span>` : ''}
                 ${item.icon ? html`<div class="item-logo"><custom-icon .icon=${item.icon}></custom-icon></div>` : ''}
                 ${item.title ? html`<h5>${item.title}</h5>` : ''}
-              </flex-row>
+              </div>
               <div class="container">
                 ${map(
                   item.items,
@@ -183,20 +219,21 @@ export class ExplorerDashboardSection extends LiteElement {
                               </div>
                               <strong>${subItem.title}</strong>
                             </div>
-                            <span>${subItem.value}</span>
+                            <span title=${subItem.exact ?? String(subItem.value)} aria-label=${subItem.exact ?? String(subItem.value)}>${subItem.value}${subItem.unit ? html` <small class="unit">${subItem.unit}</small>` : ''}</span>
                           `
                         : html`
                             <strong>${subItem.title}</strong>
-                            <span>${subItem.value}</span>
+                            <span title=${subItem.exact ?? String(subItem.value)} aria-label=${subItem.exact ?? String(subItem.value)}>${subItem.value}${subItem.unit ? html` <small class="unit">${subItem.unit}</small>` : ''}</span>
                           `}
                     </div>
                   `
                 )}
-              </div></flex-column
-            >
+              </div>
+              ${item.hint ? html`<p class="hint">${item.hint}</p>` : ''}
+            </section>
           `
         )}
-      </flex-wrap-between>`
+      </div>`
   }
 }
 

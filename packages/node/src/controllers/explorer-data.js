@@ -27,6 +27,12 @@ const unsignedUnits = value => {
   return null
 }
 
+export function supplyChange(initial, current) {
+  const start = unsignedUnits(initial)
+  const end = unsignedUnits(current)
+  return start === null || end === null ? null : end - start
+}
+
 export function blockEconomics(block) {
   if (block?.canonical !== true)
     return { minted: null, burned: null, fees: null, subsidy: null, validatorRewards: null }

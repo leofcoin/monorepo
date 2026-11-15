@@ -12,7 +12,7 @@ import '../../elements/explorer/dashboard-rankings.js'
 import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
 import { errorMessage } from '../../controllers/transfer.js'
 import { getExplorerSource, explorerSystemContracts } from '../../controllers/public-explorer.js'
-import { formatLfc } from '../../controllers/explorer-data.js'
+import { compactLfc, formatLfc, supplyChange } from '../../controllers/explorer-data.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -67,8 +67,7 @@ export default customElements.define(
       const supplyMetrics = await Promise.all([
         readAmount(() => readTokenAmount('initialSupply')),
         readAmount(() => readTokenAmount('totalSupply')),
-        readAmount(() => client.totalMintAmount()),
-        readAmount(() => client.totalBurnAmount())
+        readAmount(() => source.chain.totalMintAmountWithRewards)
       ])
       promises.push(await client.staticCall(contracts.validators, 'validators', []))
       promises.push(BigInt(await client.nativeTransfers()).toString())
@@ -99,7 +98,6 @@ export default customElements.define(
       this.initialSupply = supplyMetrics[0]
       this.totalSupply = supplyMetrics[1]
       this.totalMintAmount = supplyMetrics[2]
-      this.totalBurnAmount = supplyMetrics[3]
 
       // chain
       this.lastBlockHeight = promises[7]
@@ -178,7 +176,6 @@ export default customElements.define(
     @property({ type: String }) accessor initialSupply: string | undefined = undefined
     @property({ type: String }) accessor totalSupply: string | undefined = undefined
     @property({ type: String }) accessor totalMintAmount: string | undefined = undefined
-    @property({ type: String }) accessor totalBurnAmount: string | undefined = undefined
     @property({ type: String }) accessor nativeTransfers: string
     @property({ type: Number }) accessor totalContracts: number
     @property({ type: String }) accessor registeredContracts: string
@@ -214,6 +211,21 @@ export default customElements.define(
     }
 
     render() {
+      const supplyMetric = (title: string, value: string | undefined) => {
+        const exact = formatLfc(value)
+        return {
+          title,
+          value: compactLfc(value),
+          unit: exact === '—' ? undefined : 'LFC',
+          exact: exact === '—' ? 'Unavailable' : `${exact} LFC`
+        }
+      }
+      const delta = supplyChange(this.initialSupply, this.totalSupply)
+      const netChange = supplyMetric('net supply change', delta === null ? undefined : (delta < 0n ? -delta : delta).toString())
+      if (delta !== null && delta < 0n) {
+        netChange.value = `−${netChange.value}`
+        netChange.exact = `−${netChange.exact}`
+      }
       return html`
         <style>
           :host {
@@ -315,12 +327,14 @@ export default customElements.define(
                   },
                   {
                     title: 'Native-token supply',
-                    icon: 'payments',
+                    icon: 'account-balance',
+                    wide: true,
+                    hint: 'Minted includes block subsidies and contract mints. Net supply change is issuance minus burns.',
                     items: [
-                      { title: 'genesis supply', value: `${formatLfc(this.initialSupply)} LFC` },
-                      { title: 'current supply', value: `${formatLfc(this.totalSupply)} LFC` },
-                      { title: 'minted after genesis', value: `${formatLfc(this.totalMintAmount)} LFC` },
-                      { title: 'burned', value: `${formatLfc(this.totalBurnAmount)} LFC` }
+                      supplyMetric('genesis supply', this.initialSupply),
+                      supplyMetric('current supply', this.totalSupply),
+                      supplyMetric('minted after genesis', this.totalMintAmount),
+                      netChange
                     ]
                   }
                 ]}></explorer-dashboard-section>`

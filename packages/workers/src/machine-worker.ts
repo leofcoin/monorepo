@@ -2,8 +2,8 @@ import { encodeValue } from '@leofcoin/binary'
 import { ContractMessage } from '@leofcoin/messages'
 import { formatBytes, jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import bundledAddresses from '@leofcoin/addresses'
-import bytecodes from '@leofcoin/lib/bytecodes.json' assert { type: 'json' }
-import { MONETARY_POLICY_AUTHORITY, MAX_BLOCK_TRANSACTIONS } from '@leofcoin/lib'
+import bytecodes from '@leofcoin/lib/bytecodes.json' with { type: 'json' }
+import { MONETARY_POLICY_AUTHORITY, MAX_BLOCK_TRANSACTIONS, supportsMonetaryPolicy } from '@leofcoin/lib'
 import EasyWorker from './binary-worker.js'
 import { validatePqGenesis, type PqGenesis } from '@leofcoin/lib/pq-genesis'
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
@@ -33,6 +33,7 @@ let totalTransactions: bigint
 
 let totalBurnAmount: bigint
 let totalMintAmount: bigint
+let protocolMintAmount = 0n
 let totalTransferAmount: bigint
 let totalBlocks: bigint
 
@@ -144,6 +145,15 @@ const beginExecution = (seed: string, timestamp = Number(lastBlock.timestamp ?? 
 }
 
 const cloneState = (value) => structuredClone(value)
+
+const blockSubsidy = (block: { protocolVersion: string; reward: unknown }): bigint => {
+  if (!supportsMonetaryPolicy(block.protocolVersion)) return 0n
+  const reward = block.reward
+  if ((typeof reward !== 'bigint' && !(typeof reward === 'number' && Number.isSafeInteger(reward)) &&
+    !(typeof reward === 'string' && /^(0|[1-9]\d*)$/.test(reward))) || BigInt(reward) < 0n)
+    throw new Error('Invalid canonical block subsidy')
+  return BigInt(reward)
+}
 
 const snapshotCounters = () => ({
   nativeBurns,
@@ -565,6 +575,11 @@ const _ = {
         blocks[index].previousHash !== (index ? blocks[index - 1].hash : '0x0'))
         throw new Error('Invalid checkpoint history')
     }
+    // Existing checkpoints store contract mints only. Rebuild the protocol
+    // portion from the verified canonical prefix instead of migrating them.
+    protocolMintAmount = readOnly ? 0n : blocks.reduce(
+      (total: bigint, block: { protocolVersion: string; reward: unknown }) => total + blockSubsidy(block), 0n
+    )
     globalThis.blocks = blocks
     latestTransactions.splice(0, latestTransactions.length, ...blocks.slice(-24).flatMap(block => block.transactions))
     return true
@@ -610,9 +625,11 @@ const _ = {
     if (index !== expectedIndex || block.previousHash !== lastBlock.hash) {
       throw new Error(`Loaded block does not extend canonical tip at index ${index}`)
     }
+    const subsidy = blockSubsidy(block)
     blocks[block.index.toString()] = block
     lastBlock = blocks[blocks.length - 1]
     totalBlocks += 1n
+    protocolMintAmount += subsidy
     worker.postMessage({
       type: 'debug',
       message: `added block: ${block.hash}@${block.index} size: ${size}`
@@ -700,7 +717,8 @@ worker.onmessage(({ id, type, input, error }) => {
       respond(id, totalBurnAmount.toString())
       break
     case 'totalMintAmount':
-      respond(id, totalMintAmount.toString())
+    case 'totalMintAmountWithRewards':
+      respond(id, (totalMintAmount + protocolMintAmount).toString())
       break
     case 'totalTransferAmount':
       respond(id, totalTransferAmount.toString())

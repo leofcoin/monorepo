@@ -71,7 +71,7 @@ export function explorerMiddleware(chain) {
           if (ctx.path === '/explorer/overview') {
             const [validators, registeredContracts, nativeCalls, nativeMints, nativeBurns, nativeTransfers,
               totalContracts, totalTransactions, totalSize, poolCount, poolSize, balances,
-              totalSupply, initialSupply, totalMintAmount, totalBurnAmount] = await Promise.all([
+              totalSupply, initialSupply, totalMintAmount, totalBurnAmount, totalMintAmountWithRewards] = await Promise.all([
               chain.staticCall(identity.genesisContracts.validators, 'validators', []),
               chain.staticCall(identity.genesisContracts.contractFactory, 'totalContracts', []),
               chain.nativeCalls, chain.nativeMints, chain.nativeBurns, chain.nativeTransfers,
@@ -80,7 +80,8 @@ export function explorerMiddleware(chain) {
               optionalAmount(() => chain.staticCall(identity.genesisContracts.nativeToken, 'totalSupply', [])),
               optionalAmount(() => chain.staticCall(identity.genesisContracts.nativeToken, 'initialSupply', [])),
               optionalAmount(() => chain.totalMintAmount),
-              optionalAmount(() => chain.totalBurnAmount)
+              optionalAmount(() => chain.totalBurnAmount),
+              optionalAmount(() => chain.totalMintAmountWithRewards)
             ])
             let supply = 0n
             let funded = 0
@@ -96,7 +97,7 @@ export function explorerMiddleware(chain) {
             }
             return { ...response, validators, registeredContracts, nativeCalls, nativeMints, nativeBurns,
               nativeTransfers, totalContracts, totalTransactions, totalSize, poolCount, poolSize,
-              totalSupply, initialSupply, totalMintAmount, totalBurnAmount,
+              totalSupply, initialSupply, totalMintAmount, totalBurnAmount, totalMintAmountWithRewards,
               holders: { total: funded, holders: top.map(holder => ({ ...holder, share: Number(holder.balance * 10000n / (supply || 1n)) / 100 })) } }
           }
           fail(404, 'Unknown read-only explorer resource')

@@ -445,6 +445,10 @@ export default class Machine {
     return this.#askWorker('totalMintAmount')
   }
 
+  get totalMintAmountWithRewards() {
+    return this.#askWorker('totalMintAmountWithRewards', undefined, 5000)
+  }
+
   get totalTransferAmount() {
     return this.#askWorker('totalTransferAmount')
   }

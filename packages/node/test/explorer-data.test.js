@@ -4,7 +4,7 @@ import { explorerFixture } from './explorer-fixture-data.js'
 import { CodecHash } from '@leofcoin/codec-format-interface'
 import { parseExplorerSearch, resolveExplorerSearch } from '../src/controllers/explorer-search.js'
 import { readBlockPage, readBlockContent, readPoolReferences, transactionReferences, readTransactionRows,
-  readTransaction, safeHeight, formatLfc, compactLfc, nativeMovement, blockEconomics, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
+  readTransaction, safeHeight, formatLfc, compactLfc, supplyChange, nativeMovement, blockEconomics, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
 
 const fixture = await explorerFixture('fixture-public-address')
 const chain = { lastBlock: fixture.blocks.at(-1), getBlocks: async (from, to) => fixture.blocks.slice(from, to) }
@@ -119,9 +119,20 @@ test('block economics separates zero-subsidy fee rewards from minted issuance an
   assert.deepEqual(blockEconomics({ canonical: true, reward: 0n, fees: 12n, validators: [{ reward: 12n }] }), {
     minted: 0n, burned: 0n, fees: 12n, subsidy: 0n, validatorRewards: 12n
   })
+
   assert.deepEqual(blockEconomics({ canonical: true, reward: 10n, fees: 6n, validators: [{ reward: 14n }] }), {
     minted: 10n, burned: 2n, fees: 6n, subsidy: 10n, validatorRewards: 14n
   })
+})
+
+test('net supply change is exact, signed and unavailable when either supply is invalid', () => {
+  const initial = 50000000000000000000000000n
+  assert.equal(supplyChange(initial, initial + 5707762557077625557n), 5707762557077625557n)
+  assert.equal(supplyChange(initial, initial - 1n), -1n)
+  assert.equal(supplyChange(initial, initial), 0n)
+  assert.equal(supplyChange(initial, undefined), null)
+  assert.equal(supplyChange(-1n, initial), null)
+  assert.equal(supplyChange(Number.MAX_SAFE_INTEGER + 1, initial), null)
 })
 
 test('block economics leaves unavailable or inconsistent amounts unknown', () => {

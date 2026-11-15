@@ -124,6 +124,7 @@ async function createReadOnlyExplorerSource(network, endpoint, fetcher, kind) {
   const chain = Object.freeze({
     nativeToken: identity.genesisContracts.nativeToken,
     get lastBlock() { return currentStatus().then(result => result.tip) },
+    get totalMintAmountWithRewards() { return value('totalMintAmountWithRewards') },
     getBlocks: async (from, to) => {
       if (!Number.isSafeInteger(from) || from < 0 || !Number.isSafeInteger(to) || to <= from || to - from > 25) throw new Error('Invalid explorer block range')
       const result = await read('blocks', { from, count: to - from })

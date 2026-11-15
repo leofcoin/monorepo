@@ -60,6 +60,8 @@ test('real worker and signed blocks recover exactly once across process crashes 
     assert.equal(prepared.code, 0, `${prepared.stdout}\n${prepared.stderr}`)
     await cp(seed, baselineRoot, { recursive: true })
     const baseline = recovered(await run(baselineRoot, 'recover'))
+    assert.deepEqual(baseline.minted, baseline.subsidies, 'mint counter includes the committed block subsidies')
+    assert.ok(BigInt(baseline.minted.$bigint) > 0n)
     assert.deepEqual(baseline.recipient, { $bigint: '200' }, 'both stored transactions must actually transfer tokens')
     assert.deepEqual(baseline.info.nativeTransfers, { $bigint: '2' })
     assert.deepEqual(baseline.info.totalTransferAmount, { $bigint: '200' })

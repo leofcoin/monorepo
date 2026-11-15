@@ -398,7 +398,12 @@ try {
     await close(chain.machine)
     process.exit(0)
   }
-  const result = { tip: await chain.lastBlock, token: checkpoint.snapshot.states[addresses.nativeToken],
+  const tip = await chain.lastBlock
+  const blocks = await chain.getBlocks(0, Number(tip.index) + 1)
+  const subsidies = blocks.reduce((sum, block) => sum + BigInt(block.reward), 0n)
+  const minted = BigInt(await chain.totalMintAmountWithRewards)
+  assert.equal(minted, subsidies + checkpoint.snapshot.info.totalMintAmount)
+  const result = { tip, minted, subsidies, token: checkpoint.snapshot.states[addresses.nativeToken],
     accounts: checkpoint.snapshot.accounts, info: checkpoint.snapshot.info,
     custom: await Promise.all(customContracts.map(async address => ({ state: checkpoint.snapshot.states[address],
       value: await chain.staticCall(address, 'value') }))),

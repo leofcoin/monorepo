@@ -29,7 +29,8 @@ function setup(t) {
     staticCall: async (_, method) => method === 'validators' ? [] :
       method === 'totalSupply' ? 100n : method === 'initialSupply' ? 80n : 0,
     nativeCalls: 1n, nativeMints: 0n, nativeBurns: 0n, nativeTransfers: 1n, totalContracts: 4n,
-    totalTransactions: 1n, totalSize: 10, totalMintAmount: 25n, totalBurnAmount: 5n, balances: { alice: 10n, bob: 30n } }
+    totalTransactions: 1n, totalSize: 10, totalMintAmount: 25n, totalMintAmountWithRewards: 25n,
+    totalBurnAmount: 5n, balances: { alice: 10n, bob: 30n } }
   const middleware = explorerMiddleware(chain)
   const request = async (resource, query = {}, method = 'POST') => {
     const ctx = { path: `/explorer/${resource}`, method, state: { rpcParams: { chainId: identity.chainId, ...query } }, set() {} }
@@ -81,6 +82,7 @@ test('overview returns bounded holder rankings with the full supply denominator'
   assert.equal(body.initialSupply, 80n)
   assert.equal(body.totalSupply, 100n)
   assert.equal(body.totalMintAmount, 25n)
+  assert.equal(body.totalMintAmountWithRewards, 25n)
   assert.equal(body.totalBurnAmount, 5n)
 })
 
@@ -92,10 +94,12 @@ test('overview marks unavailable supply and accounting totals instead of inventi
     return 0
   }
   chain.totalMintAmount = undefined
+  chain.totalMintAmountWithRewards = undefined
   chain.totalBurnAmount = undefined
   const { body } = await request('overview')
   assert.equal(body.totalSupply, null)
   assert.equal(body.initialSupply, null)
   assert.equal(body.totalMintAmount, null)
+  assert.equal(body.totalMintAmountWithRewards, null)
   assert.equal(body.totalBurnAmount, null)
 })

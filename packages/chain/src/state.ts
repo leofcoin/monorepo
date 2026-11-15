@@ -129,6 +129,10 @@ export default abstract class State extends Contract {
     return this.#machine.totalMintAmount
   }
 
+  get totalMintAmountWithRewards() {
+    return this.#machine.totalMintAmountWithRewards
+  }
+
   get totalTransferAmount() {
     return this.#machine.totalTransferAmount
   }

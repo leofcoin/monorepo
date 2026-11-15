@@ -26,7 +26,7 @@ function fixture() {
     starts++
     return {
       chain: { version: '1.0.0', nativeToken: 'token', state: { chain: 'loaded', sync: 'synced' },
-        lastBlock: { index: 12n, hash: 'canonical-tip' }, balances: { account: 100n },
+        lastBlock: { index: 12n, hash: 'canonical-tip' }, balances: { account: 100n }, totalMintAmountWithRewards: 25n,
         balanceOf: async () => 100n, staticCall: async () => [1n, 2n],
         createTransaction: async input => ({ ...input, nonce: 1, timestamp: 1 }),
         sendTransaction: async () => { submitted++; return { hash: 'signed-transaction', wait: completions } } },
@@ -62,6 +62,7 @@ test('one main tab owns the runtime; followers sync, read and forward only signe
   assert.equal(await global.chain.balanceOf('account'), 100n)
   assert.deepEqual(await global.blockStore.get('block'), new Uint8Array([1, 2, 3]))
   assert.deepEqual(await global.chain.balances, { account: 100n })
+  assert.equal(await global.chain.totalMintAmountWithRewards, 25n)
   await assert.rejects(follow.request('call', ['sign', 'hash']), /not available/)
   await assert.rejects(follow.request('store', ['wallet', 'get', 'identity']), /not available/)
   await assert.rejects(follow.request('store', ['block', 'clear']), /not available/)

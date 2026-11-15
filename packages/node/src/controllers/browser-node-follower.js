@@ -25,7 +25,7 @@ export function createBrowserNodeFollower(session, { global = globalThis, accoun
     'createTransaction', 'hasTransactionToHandle', 'createContractAddress'])
     chain[name] = (...args) => request('call', [name, ...args])
   for (const name of ['balances', 'accounts', 'contracts', 'totalContracts', 'nativeCalls', 'nativeMints', 'nativeBurns',
-    'nativeTransfers', 'totalBurnAmount', 'totalMintAmount', 'totalTransferAmount', 'totalTransactions',
+    'nativeTransfers', 'totalBurnAmount', 'totalMintAmount', 'totalMintAmountWithRewards', 'totalTransferAmount', 'totalTransactions',
     'totalBlocks', 'totalSize', 'lastBlockHeight', 'blockHashMap', 'participating'])
     Object.defineProperty(chain, name, { get: () => request('read', [name]) })
   const peernet = {

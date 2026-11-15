@@ -59,6 +59,13 @@ Reads time out after 10 seconds. A local content miss returns HTTP 404 rather
 than a proxy fetch. Source sync/membership is not a proof of network finality.
 No explorer write action is exposed; all application API responses use binary encoding.
 
+`/explorer/overview` returns `totalMintAmountWithRewards` in native base units:
+contract mints plus canonical protocol block subsidies, excluding genesis supply.
+It is `null` when the chain or worker cannot provide the complete total. Existing
+checkpoints need no migration: the worker reconstructs subsidies from canonical
+history on startup. Deploy matching chain, worker and endpoint builds; older
+endpoints do not expose this field.
+
 ## Chain Manager HTTP API
 
 `POST /manager/rpc` accepts `application/octet-stream` (maximum 1 MiB). Requests must

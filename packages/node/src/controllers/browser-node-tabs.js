@@ -5,7 +5,7 @@ const topic = 'browser-node-tabs:v1'
 const functions = new Set(['balanceOf', 'staticCall', 'lookup', 'getNonce', 'getBlock', 'getBlocks', 'getChainIdentity',
   'createTransaction', 'hasTransactionToHandle', 'createContractAddress'])
 const properties = new Set(['balances', 'accounts', 'contracts', 'totalContracts', 'nativeCalls', 'nativeMints',
-  'nativeBurns', 'nativeTransfers', 'totalBurnAmount', 'totalMintAmount', 'totalTransferAmount',
+  'nativeBurns', 'nativeTransfers', 'totalBurnAmount', 'totalMintAmount', 'totalMintAmountWithRewards', 'totalTransferAmount',
   'totalTransactions', 'totalBlocks', 'totalSize', 'lastBlockHeight', 'blockHashMap', 'participating'])
 export const TAB_STORES = ['block', 'transaction', 'transactionPool', 'accounts', 'contract']
 const storeReads = new Set(['get', 'has', 'keys', 'values', 'size', 'length'])

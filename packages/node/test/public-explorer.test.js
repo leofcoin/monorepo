@@ -31,7 +31,7 @@ test('anonymous source only performs bounded credential-free binary POST reads a
     if (path === '/explorer/pool') return respond({ apiVersion: 1, chainId: identity.chainId, hashes: [] })
     if (path === '/explorer/transaction') return respond({ apiVersion: 1, chainId: identity.chainId, encoded: fixture.transactions.values().next().value })
     if (path === '/explorer/overview') return respond({ apiVersion: 1, chainId: identity.chainId,
-      totalSupply: 100n, initialSupply: 80n, totalMintAmount: 25n, totalBurnAmount: 5n })
+      totalSupply: 100n, initialSupply: 80n, totalMintAmount: 25n, totalMintAmountWithRewards: 25n, totalBurnAmount: 5n })
     throw new Error('Unexpected public request')
   })
   assert.equal(source.kind, 'public')
@@ -40,6 +40,7 @@ test('anonymous source only performs bounded credential-free binary POST reads a
   assert.equal(await source.client.totalSupply(), 100n)
   assert.equal(await source.client.initialSupply(), 80n)
   assert.equal(await source.client.totalMintAmount(), 25n)
+  assert.equal(await source.chain.totalMintAmountWithRewards, 25n)
   assert.equal(await source.client.totalBurnAmount(), 5n)
   await source.transactionReader(fixture.transactions.keys().next().value)
   assert.deepEqual(await source.transactionPoolStore.keys(), [])
@@ -51,6 +52,13 @@ test('anonymous source only performs bounded credential-free binary POST reads a
   assert.ok(requests.slice(1).every(request => decodeWire('rpc', request.options.body).chainId === identity.chainId && request.url.search === ''))
   await assert.rejects(source.chain.getBlocks(0, 26), /Invalid explorer block range/)
   await assert.rejects(source.client.staticCall('wallet', 'unlock'), /not exposed/)
+})
+
+test('older explorer endpoints do not present incomplete mint totals as complete', async () => {
+  const source = await createPublicExplorerSource(network, async url =>
+    new URL(url).pathname === '/explorer/status' ? respond(status) :
+      respond({ apiVersion: 1, chainId: identity.chainId, totalMintAmount: 0n }))
+  await assert.rejects(source.chain.totalMintAmountWithRewards, /data unavailable/)
 })
 
 test('pinned identity and network mismatches are refused without opening any wallet', async () => {
