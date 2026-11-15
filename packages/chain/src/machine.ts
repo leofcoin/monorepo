@@ -6,18 +6,33 @@ import { ContractMessage } from '@leofcoin/messages'
 import { ExecutionError, ContractDeploymentError } from '@leofcoin/errors'
 import { createDebugger } from '@vandeurenglenn/debug'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
-import { writeCheckpoint } from './helpers/state-checkpoint.js'
-import { ReadOnlyMachine } from './read-only-machine.js'
+import { writeCheckpoint, type Checkpoint, type CheckpointSnapshot } from './helpers/state-checkpoint.js'
+import { ReadOnlyMachine, type ReadSeed } from './read-only-machine.js'
 import type { TransactionExecution } from '@leofcoin/workers/machine-worker'
 import { assertPqGenesis, type PqGenesis } from '@leofcoin/lib/pq-genesis'
+import { BlockMessage } from '@leofcoin/messages'
+import type { BlockInMemory, ChainTip } from './types.js'
+
+type WorkerEvent =
+  | { type: 'ask'; id: string; question: 'staticCall'; input: { snapshot: ReadSeed; contract: string; method: string; params: unknown[]; sender: string } }
+  | { type: 'ask'; id: string; question: 'contract' | 'transaction'; input: string }
+  | { type: 'ask'; id: string; question: 'peers'; input: unknown }
+  | { type: 'contractError'; hash: string; message?: string; error?: unknown }
+  | { type: 'initError' | 'executeError' | 'addLoadedBlockError' | 'runContractError' | 'collectFeeError' | 'settleRewardsError' | 'executeTransactionsError' | 'snapshotError' | 'getError'; id: string; message: string; transactionHash?: string }
+  | { type: 'debug' | 'error'; message: string }
+  | { type: 'response'; id: string; value: unknown }
+  | { type: 'addToWantList'; hash: string }
+
+const responseError = (message: unknown): unknown =>
+  message && typeof message === 'object' && 'error' in message ? message.error : undefined
 const genesisContracts = { contractFactory: addresses.contractFactory, nativeToken: addresses.nativeToken,
   nameService: addresses.nameService, validators: addresses.validators }
 // import State from './state'
 const debug = createDebugger('leofcoin/machine')
 export default class Machine {
-  worker: EasyWorker
+  worker!: EasyWorker
 
-  states = {
+  states: Omit<CheckpointSnapshot, 'chainId'> = {
     states: {},
     lastBlock: {
       index: -1,
@@ -39,18 +54,18 @@ export default class Machine {
 
   wantList: string[] = []
 
-  readyResolve: (value: Machine | PromiseLike<Machine>) => void
-  readyReject: (reason: unknown) => void
+  readyResolve!: (value: Machine | PromiseLike<Machine>) => void
+  readyReject!: (reason: unknown) => void
   ready = new Promise<Machine>((resolve, reject) => {
     this.readyResolve = resolve
     this.readyReject = reject
   })
   #checkpointGeneration = -1
-  #chainId: string
-  #reader: ReadOnlyMachine
-  #contractReader: ReadOnlyMachine
-  #readSnapshot
-  #workerPath: string
+  #chainId!: string
+  #reader!: ReadOnlyMachine
+  #contractReader!: ReadOnlyMachine
+  #readSnapshot?: ReadSeed
+  #workerPath!: string
   #closed = false
 
   close() {
@@ -60,7 +75,7 @@ export default class Machine {
     this.worker?.terminate()
   }
 
-  constructor(blocks: any[] = [], checkpoint?, private genesis?: PqGenesis) {
+  constructor(blocks: BlockInMemory[] = [], checkpoint?: Checkpoint, private genesis?: PqGenesis) {
     if (genesis) assertPqGenesis(genesis)
     this.init(blocks, checkpoint).then(() => this.readyResolve(this), error => {
       this.close()
@@ -68,11 +83,11 @@ export default class Machine {
     })
   }
 
-  async init(blocks, checkpoint?) {
+  async init(blocks: BlockInMemory[], checkpoint?: Checkpoint) {
     return this.#init(blocks, checkpoint)
   }
 
-  async #onmessage(data) {
+  async #onmessage(data: WorkerEvent) {
     if (this.#closed) return
     switch (data.type) {
       case 'contractError': {
@@ -164,7 +179,10 @@ export default class Machine {
         } else if (data.question === 'peers') {
           this.worker.postMessage({
             id: data.id,
-            input: peernet.connections ? Object.entries(peernet.connections).map(([id, peer]) => peer.toJSON()) : []
+            input: peernet.connections ? Object.values(peernet.connections).map(peer => {
+              if (!('toJSON' in peer) || typeof peer.toJSON !== 'function') throw new Error('Peer cannot be serialized')
+              return peer.toJSON()
+            }) : []
           })
         } else {
           this.worker.postMessage({ id: data.id, input: data.input })
@@ -177,7 +195,7 @@ export default class Machine {
     try {
       const snapshot = await this.#askWorker('snapshot')
       snapshot.chainId = this.#chainId
-      const accounts = {}
+      const accounts: Record<string, string> = {}
       for (const address of await accountsStore.keys()) {
         const raw = await accountsStore.get(address)
         accounts[address] = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
@@ -196,7 +214,7 @@ export default class Machine {
     }
   }
 
-  async #init(blocks, checkpoint?): Promise<void> {
+  async #init(blocks: BlockInMemory[], checkpoint?: Checkpoint): Promise<void> {
     const identity = await createChainIdentity(this.genesis ? 'leofcoin:pq' : chainNetwork(), this.genesis?.addresses ?? addresses)
     this.#chainId = identity.chainId
     if (checkpoint) {
@@ -209,7 +227,7 @@ export default class Machine {
       pre = fileURLToPath(new URL('.', import.meta.url))
     } catch { /* browser worker URL */ }
     this.#workerPath = pre + '@leofcoin/workers/machine-worker.js'
-    const readContract = hash => globalThis.contractStore.get(hash)
+    const readContract = (hash: string) => globalThis.contractStore.get(hash)
     this.#reader = new ReadOnlyMachine(this.#workerPath, readContract, this.genesis)
     this.#contractReader = new ReadOnlyMachine(this.#workerPath, readContract, this.genesis)
     this.worker = await new EasyWorker(this.#workerPath, {
@@ -230,15 +248,16 @@ export default class Machine {
     this.#readSnapshot = structuredClone(checkpoint?.snapshot ?? await this.#askWorker('snapshot'))
   }
 
-  async #runContract(contractMessage) {
+  async #runContract(contractMessage: ContractMessage) {
     const hash = await contractMessage.hash()
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
-      const onmessage = (message) => {
+      const onmessage = (message: unknown) => {
         pubsub.unsubscribe(id, onmessage)
 
-        if (message?.error) reject(message.error)
+        const error = responseError(message)
+        if (error) reject(error)
         else resolve(message)
       }
       pubsub.subscribe(id, onmessage)
@@ -262,15 +281,16 @@ export default class Machine {
    * @returns Promise<message>
    */
   async execute(
-    contract,
-    method,
-    parameters,
+    contract: string,
+    method: string,
+    parameters: unknown[],
     sender?: string,
     execution?: { randomness?: string; seed?: string; timestamp?: number }
   ): Promise<any> {
     if (this.#closed) throw new Error('State machine is closed')
     try {
       if (contract === (this.genesis?.addresses.contractFactory ?? contractFactory) && method === 'registerContract') {
+        if (typeof parameters[0] !== 'string') throw new Error('contract hash required')
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message
         if (!(await globalThis.contractStore.has(parameters[0]))) {
@@ -286,7 +306,7 @@ export default class Machine {
         if (!(await this.has(await message.hash()))) await this.#runContract(message)
       }
     } catch (error) {
-      throw new ContractDeploymentError(`contract deployment failed for ${parameters[0]}\n${error.message}`)
+      throw new ContractDeploymentError(`contract deployment failed for ${parameters[0]}\n${error instanceof Error ? error.message : String(error)}`)
     }
     return new Promise((resolve, reject) => {
       // @ts-ignore
@@ -296,11 +316,12 @@ export default class Machine {
         reject(new Error(`Machine.execute timeout for ${contract}.${method}`))
       }, 30000) // 30 second timeout for machine operations
 
-      const onmessage = (message) => {
+      const onmessage = (message: unknown) => {
         clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
 
-        if (message?.error) reject(new ExecutionError(message.error))
+        const error = responseError(message)
+        if (error) reject(new ExecutionError(String(error)))
         else resolve(message)
       }
       pubsub.subscribe(id, onmessage)
@@ -334,12 +355,12 @@ export default class Machine {
     return this.#askWorker('settleRewards', { rewards })
   }
 
-  get(contract, method, parameters?) {
+  get(contract: string, method: string, parameters?: unknown[]) {
     if (!this.#readSnapshot) return Promise.reject(new Error('Contract read state is not initialized'))
     return this.#reader.read(this.#readSnapshot, contract, method, parameters ?? [])
   }
 
-  async has(address) {
+  async has(address: string) {
     return new Promise((resolve, reject) => {
       // @ts-ignore
       const id = randombytes(20).toString('hex')
@@ -348,10 +369,11 @@ export default class Machine {
         reject(new Error(`Machine.has timeout for ${address}`))
       }, 10000) // 10 second timeout
 
-      const onmessage = (message) => {
+      const onmessage = (message: unknown) => {
         clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
-        if (message?.error) reject(message.error)
+        const error = responseError(message)
+        if (error) reject(error)
         else resolve(message)
       }
       pubsub.subscribe(id, onmessage)
@@ -365,7 +387,7 @@ export default class Machine {
     })
   }
 
-  #askWorker(type, input?, timeoutMs = 30_000): Promise<any> {
+  #askWorker(type: string, input?: unknown, timeoutMs = 30_000): Promise<any> {
     if (this.#closed) return Promise.reject(new Error('State machine is closed'))
     return new Promise((resolve, reject) => {
       // @ts-ignore
@@ -375,10 +397,11 @@ export default class Machine {
         reject(new Error(`Machine.#askWorker timeout for ${type}`))
       }, timeoutMs)
 
-      const onmessage = (message) => {
+      const onmessage = (message: unknown) => {
         clearTimeout(timeout)
         pubsub.unsubscribe(id, onmessage)
-        if (message?.error) reject(message.error)
+        const error = responseError(message)
+        if (error) reject(error)
         else resolve(message)
       }
       pubsub.subscribe(id, onmessage)
@@ -438,7 +461,7 @@ export default class Machine {
     return this.getBlocks()
   }
 
-  get lastBlock() {
+  get lastBlock(): Promise<ChainTip> {
     // Public/status reads never advertise a tip whose checkpoint has not committed.
     return Promise.resolve(this.states.lastBlock)
   }
@@ -451,25 +474,25 @@ export default class Machine {
     return Promise.resolve(Number(this.states.lastBlock.index))
   }
 
-  getBlocks(from?, to?): Promise<[]> {
+  getBlocks(from?: number, to?: number): Promise<[]> {
     return this.#askWorker('blocks', { from, to })
   }
 
-  getBlock(index) {
+  getBlock(index: number) {
     return this.#askWorker('block', index)
   }
 
-  async addLoadedBlock(block) {
-    debug(`adding loaded block: ${block.index}@${block.hash}`)
-    if (block.decoded) block = { ...block.decoded, hash: await block.hash() }
-    return this.#askWorker('addLoadedBlock', block)
+  async addLoadedBlock(block: BlockInMemory | BlockMessage) {
+    const loaded: BlockInMemory = 'decoded' in block ? { ...block.decoded, hash: await block.hash() } : block
+    debug(`adding loaded block: ${loaded.index}@${loaded.hash}`)
+    return this.#askWorker('addLoadedBlock', loaded)
   }
 
   async latestTransactions() {
     return this.#askWorker('latestTransactions')
   }
 
-  async delete(hash) {
+  async delete(hash: string) {
     return globalThis.contractStore.delete(hash)
   }
 
@@ -478,8 +501,7 @@ export default class Machine {
    * @returns Promise
    */
   async deleteAll() {
-    let hashes = await globalThis.contractStore.keys()
-    hashes = Object.keys(hashes).map((hash) => this.delete(hash))
-    return Promise.all(hashes)
+    const hashes = await globalThis.contractStore.keys()
+    return Promise.all(Object.keys(hashes).map((hash) => this.delete(hash)))
   }
 }

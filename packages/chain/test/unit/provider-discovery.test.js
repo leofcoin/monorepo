@@ -94,6 +94,14 @@ test('a fast non-provider cannot hide a slower provider', async () => {
   assert.deepEqual(providers, [{ id: 'provider', address: 'address', hash: 'wanted' }])
 })
 
+test('a provider without a remote address uses the peernet DHT loopback fallback', async () => {
+  const { peernet, providers } = setup({
+    provider: { connected: true, request: async () => response(true) }
+  })
+  await peernet.walk('wanted')
+  assert.deepEqual(providers, [{ id: 'provider', address: '127.0.0.1', hash: 'wanted' }])
+})
+
 test('discovery returns once a positive response arrives without waiting for all peers', async () => {
   let release
   const delayed = new Promise(resolve => { release = resolve })

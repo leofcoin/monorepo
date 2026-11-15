@@ -270,9 +270,11 @@ export class OperatorController extends EventTarget {
       const network = this.#network()
       const wallet = new MultiWallet(network)
       await wallet.generate(password, network)
+      const address = await (await operatorAccount(wallet)).address
+      if (!address) throw new Error('Unable to derive the operator wallet address')
       const backup: Backup = {
         schema: 'leofcoin:operator-wallet:v1', network,
-        address: await (await operatorAccount(wallet)).address,
+        address,
         encrypted: await wallet.export(password)
       }
       await this.#install(wallet, backup)
@@ -402,7 +404,7 @@ export class OperatorController extends EventTarget {
   async #recipient(recipient: string, allowContract = true) {
     if (allowContract && hashPattern.test(recipient)) return recipient
     if (!/^[1-9A-HJ-NP-Za-km-z]{40,100}$/.test(recipient)) throw new Error('Enter a public account address or contract hash')
-    await new MultiWallet(this.#network()).fromAddress(recipient, null, this.#network())
+    await new MultiWallet(this.#network()).fromAddress(recipient, undefined, this.#network())
     return recipient
   }
   async prepareFunding(recipient: string, amount: string) {

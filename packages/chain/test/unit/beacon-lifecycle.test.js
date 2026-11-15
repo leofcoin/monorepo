@@ -12,8 +12,8 @@ import {
   persistPrivateBeaconEpoch,
   persistPublicBeaconEpoch,
   restoreBeaconLifecycle
-} from '../../src/consensus/beacon-lifecycle.ts'
-import { beaconEpochDigest } from '../../src/consensus/beacon-epoch.ts'
+} from '../../exports/beacon-lifecycle.js'
+import { beaconEpochDigest } from '../../exports/beacon-epoch.js'
 
 class MemoryStore {
   data = new Map()

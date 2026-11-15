@@ -105,12 +105,11 @@ export async function exampleContractDeployment(contractInstance: Contract, sign
   ])
   console.log('Staking token deployed:', deployResult)
 
-  // 4. Alternative: Deploy with explicit base contracts array
+  // 4. Alternative: Deploy directly without recording base dependencies
   const altDeployResult = await contractInstance.deployContract(
     signer,
     stakingTokenContract,
-    ['My Token', 'MTK', 18],
-    ['BaseToken'] // Include base contracts
+    ['My Token', 'MTK', 18]
   )
   console.log('Alternative deployment:', altDeployResult)
 
@@ -213,8 +212,7 @@ export async function exampleModularContracts(contractInstance: Contract, signer
   const result = await contractInstance.deployContract(
     signer,
     multiModuleContract,
-    [await signer.address, 100],
-    ['Ownable', 'Pausable']
+    [await signer.address, 100]
   )
 
   return result

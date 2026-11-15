@@ -2,10 +2,6 @@
 
 > JS based chain
 
-## Flags
-
-- reachedOneZeroZero
-
 ## Cold-sync reliability
 
 Both server and browser nodes guard provider discovery against fast negative
@@ -17,6 +13,14 @@ Chain content requests probe the exact requested store before requesting bytes
 from a peer. A pending-only copy cannot act as a provider for the canonical
 transaction store. Responses must use the expected codec and advertised hash;
 the first valid response wins, and unavailable content fails explicitly.
+
+Internal proposal validation and ancestry resolution reuse transaction bytes
+already present in the durable local pending pool before requesting them again.
+Only a missing entry falls back to canonical-store/network retrieval; pool I/O
+errors and mismatched bodies fail explicitly. Every body is still hash-checked,
+and signature, nonce, resource and economics checks remain mandatory before
+consensus acceptance or application. This does not advertise pending-only
+transactions as canonical providers or count stored bytes as executed transfers.
 
 Incoming chain data requests only read the requested local store. Missing,
 private or concurrently removed content receives an empty data response using
@@ -90,9 +94,8 @@ I/O errors still stop recovery explicitly without discarding the target.
 The tip is checkpointed before updating the chain marker or announcing success.
 Local transaction bytes are not considered evidence of prior execution;
 committed sender nonces prevent executing a transfer twice.
-Protocol 0.6 activates at block 14. Blocks 0 through 13 remain verifiable under
-their 0.5 protocol rules so a new node can replay the legacy history; block 14
-and later must use 0.6. From block 14, each sender's nonces must be consecutive
+Peach protocol 0.9 starts at block zero of a fresh ledger. Old 0.5/0.6/0.7/0.8 ledgers
+cannot be replayed or relabelled as 0.9. Each sender's nonces must be consecutive
 from the parent state. Validators check this before prevoting and before any
 block mutation; proposers defer later transactions until missing earlier nonces
 arrive. Priority does not override a sender's nonce order. A missing nonce can
@@ -101,33 +104,37 @@ otherwise empty proposal waits for new transactions rather than retrying
 indefinitely. Stored transaction bytes alone do not prove that a transaction
 was committed.
 
-The block-14 protocol transition is consensus-incompatible with continuing the
-old 0.5 history. An empty 0.6 node may replay blocks 0–13, but it will refuse a
-0.5 block 14; peers must expose the same migrated block-13 tip and coordinate
-the new 0.6 block 14 before validators resume. For the Peach ledger whose verified
-checkpoint is block 13 (`HNYQASBKOIRVRRHMLIPF6NTXDS2HAPVDFIPAKF2LYC67TPIUOP7SNJK62J`),
-`scripts/migrate-peach-0.5-to-0.6.js` supports a guarded recovery: it verifies the
-checkpoint and the 256-transaction block-14 nonce conflict, creates a private
-full-root backup, advances the protocol marker, and removes only the speculative
-`recoveryTarget`. Block 14 and its transactions remain stored but are not
-executed. Run it only while the validator is stopped, with an explicit backup
-path and the checkpoint hash confirmation. Run the same coordinated upgrade on
-every validator with this exact checkpoint; nodes with a different tip must
-not apply this migration.
+Block proposals target one second; idle nodes still do not produce empty blocks.
+Protocol 0.9 permits up to 2,048 transactions and 1 MiB of encoded transaction
+bodies per block, replacing 0.8's 1,024 transactions and 512 KiB. Individual
+transactions remain capped at 32 KiB. Both block limits apply independently;
+large calls can fill the byte budget before the count budget. These are consensus
+limits, not a configurable throughput target or a measured 2,048 transactions/s.
+An epoch contains 60 blocks, retaining an approximately one-minute duration under
+continuous load. Round/network deadlines are not reduced to one second. The
+issuance schedule uses 31,536,000 blocks per 365-day year, keeping the maximum
+annual subsidy at 2% of target supply instead of multiplying it by six. Actual
+issuance depends on block production: subsidy stops at the 95% supply floor,
+and 10% of fees burn only at or above target supply. Validator fee income is
+redistributed existing LFC, not newly minted LFC.
 
-Example (first run `--dry-run`, then repeat without it):
+Stop validators and archive their complete old data roots before resetting any
+ledger stores. Preserve wallet/account credentials and node routing metadata.
+Deploy matching 0.9 runtime, library and worker artifacts to every node, and use
+the same bundled genesis contracts and allocations. This capacity upgrade does
+not regenerate contracts, chain IDs or wallets; the wallet network remains
+`leofcoin:peach`. Discovery and block/peer validation enforce the new protocol
+version even when the genesis-derived chain ID is unchanged. Startup rejects old
+protocol markers before bootstrap. Version control never relabels incompatible
+state or converts a storage error into a successful upgrade.
+No automatic ledger reset or history migration is provided. The old block-14
+migration is removed; do not use it to bridge histories. Preview the native
+ledger-only reset with `npm run validator:reset`, then, only after stopping all
+writers and verifying a backup, confirm with
+`npm run validator:reset -- --confirm-testnet-reset`. Its confirmation mode does
+not create a backup. Browser nodes also need fresh ledger stores; preserve their
+encrypted wallet/account data rather than clearing all browser storage.
 
-```sh
-node packages/chain/scripts/migrate-peach-0.5-to-0.6.js \
-  --root="$HOME/.leofcoin/peach" \
-  --backup="$HOME/.leofcoin/peach-0.5-before-0.6-20261111" \
-  --confirm-checkpoint=HNYQASBKOIRVRRHMLIPF6NTXDS2HAPVDFIPAKF2LYC67TPIUOP7SNJK62J \
-  --dry-run
-```
-
-The user-selected genesis contracts and network name (and therefore the chain
-ID) remain unchanged: the chain ID alone cannot distinguish the old and new
-histories. Keep the backup and wallet identity. Do not reset existing data.
 Proposal preparation also removes pending entries at or below each sender's
 committed nonce, even when their hashes differ from the committed transactions.
 An existing recovery block containing such an obsolete nonce still rejects
@@ -196,6 +203,20 @@ policies within one active network.
 This is state separation, not an OS security sandbox or a full audit of arbitrary
 JavaScript host-escape resistance. Consensus quorum certificates and durable
 validator vote locks remain separate follow-up work.
+
+## Local batch admission
+
+`sendTransactions(transactions)` accepts 1–128 signed transactions and
+requires atomic transaction-pool batch writes. Native LevelDB supports this;
+browser OPFS does not, so browser callers must use `sendTransaction` instead.
+Each transaction is individually validated and duplicate nonces are rejected.
+Validation or batch-write failure rejects the whole call before admission.
+
+After persistence, results retain input order: a fulfilled item contains its
+receipt, while a rejected item contains the error and the receipt for a
+transaction that may already be durable. Reconcile such a receipt before
+retrying. As with `sendTransaction`, receipt admission is not finality; `wait`
+resolves on canonical inclusion. Existing transaction gossip remains unchanged.
 
 ## Pending transaction propagation
 

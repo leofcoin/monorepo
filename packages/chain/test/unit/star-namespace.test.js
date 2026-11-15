@@ -30,4 +30,5 @@ test('chain discovery binds the immutable bundled genesis before transport start
   await assert.rejects(chainDiscoveryOptions({protocol:'files'}),/network and protocolVersion/)
   await assert.rejects(chainDiscoveryOptions({protocolVersion:'wrong'}),/version mismatch/)
   await assert.rejects(chainDiscoveryOptions({network:'leofcoin:peach',networkVersion:'mainnet'}),/conflicts/)
+  await assert.rejects(chainDiscoveryOptions({network:undefined}),/requires a network/)
 })

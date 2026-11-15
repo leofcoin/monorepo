@@ -2,8 +2,26 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import ts from 'typescript'
 import Peernet from '@leofcoin/peernet/browser'
+import BrowserNode from '../../exports/browser/node-browser.js'
 import { methods } from '../helpers/canonical-state-harness.js'
 import { reserveNode } from '../../src/pq-runtime.ts'
+
+test('browser node construction returns its asynchronous initialization result', async t => {
+  const original = BrowserNode.prototype._init
+  t.after(() => { BrowserNode.prototype._init = original })
+  BrowserNode.prototype._init = async function (config, password) {
+    this.received = { config, password }
+    return this
+  }
+
+  class DerivedNode extends BrowserNode {}
+  const config = { network: 'leofcoin:peach' }
+  const result = new DerivedNode(config, 'fixture')
+  assert.ok(result instanceof Promise)
+  const node = await result
+  assert.ok(node instanceof DerivedNode)
+  assert.deepEqual(node.received, { config, password: 'fixture' })
+})
 
 test('browser node selects workspace storage before Peernet creates stores', async t => {
   const keys = ['Peernet', 'LeofcoinStorage', 'peernet', 'pubsub', 'contractStore', 'walletStore']

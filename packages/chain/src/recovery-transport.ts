@@ -4,11 +4,19 @@ import { requestTimeout } from './protocol.js'
 // independent of chain readiness; connecting must never enable consensus.
 const starts = new WeakMap<object, Promise<void>>()
 
-export function startRecoveryTransport(peernet): Promise<void> {
+type RecoveryPeer = { connected: boolean; request: (data: Uint8Array, id?: string) => Promise<Uint8Array> }
+type RecoveryTransport<P extends RecoveryPeer = RecoveryPeer> = {
+  start?: () => Promise<void>
+  connections?: Record<string, P>
+  id?: string
+  stars?: string[]
+}
+
+export function startRecoveryTransport(peernet: RecoveryTransport | undefined): Promise<void> {
   if (typeof peernet?.start !== 'function') return Promise.resolve()
   const existing = starts.get(peernet)
   if (existing) return existing
-  const starting = Promise.resolve().then(() => peernet.start()).catch(error => {
+  const starting = Promise.resolve().then(() => peernet.start!()).catch(error => {
     starts.delete(peernet)
     throw error
   })
@@ -17,7 +25,9 @@ export function startRecoveryTransport(peernet): Promise<void> {
 }
 
 /** One bounded request, including startup/discovery and peers arriving late. */
-export function requestRecoveryContent<T>(peernet, fetch: (id: string, peer: any) => Promise<T>, timeoutMs = requestTimeout): Promise<T> {
+export function requestRecoveryContent<T, P extends RecoveryPeer>(
+  peernet: RecoveryTransport<P>, fetch: (id: string, peer: P) => Promise<T>, timeoutMs = requestTimeout
+): Promise<T> {
   return new Promise((resolve, reject) => {
     let done = false
     let poll: ReturnType<typeof setTimeout> | undefined
@@ -35,7 +45,7 @@ export function requestRecoveryContent<T>(peernet, fetch: (id: string, peer: any
     const deadline = setTimeout(unavailable, timeoutMs)
     const scan = () => {
       if (done) return
-      for (const [id, peer] of Object.entries(peernet.connections || {}) as [string, any][]) {
+      for (const [id, peer] of Object.entries(peernet.connections || {}) as [string, P][]) {
         if (id === peernet.id || !peer?.connected || typeof peer.request !== 'function' || attempted.has(peer)) continue
         attempted.add(peer)
         active++

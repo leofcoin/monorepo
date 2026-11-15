@@ -39,43 +39,43 @@ import ConnectionMonitor from './connection-monitor.js'
 import { quorumThreshold } from './consensus/quorum.js'
 import { validateChainLink } from './consensus/chain-link.js'
 import type { CanonicalTransition } from './consensus/canonical-state-queue.js'
+import type { ChainConfig } from './types.js'
 import { validateBlockEconomics, validateCanonicalValidatorSet } from './consensus/block-economics.js'
-import { resolveTransactionReference } from './consensus/transaction-reference.js'
-import { signConsensusMessage, verifyConsensusMessage } from './consensus/signature.js'
-import { benchmarkBlockTime, DEFAULT_BLOCK_TIME_MS, nextBlockIndex, proposalDelay } from './consensus/cadence.js'
 import {
-  compareLegacyExecutionTransactions,
+  loadTransactionReferences, resolveTransactionReference, TRANSACTION_REFERENCE_BATCH_SIZE
+} from './consensus/transaction-reference.js'
+import { signConsensusMessage, verifyConsensusMessage, type ConsensusMessageData } from './consensus/signature.js'
+import { DEFAULT_BLOCK_TIME_MS, nextBlockIndex, proposalDelay } from './consensus/cadence.js'
+import {
   compareExecutionTransactions,
   enqueueTransaction,
   validateConsecutiveNonces
 } from './consensus/transaction-pool.js'
-import {
-  isBlockProtocolCompatibleAtHeight,
-  PROTOCOL_ACTIVATION_HEIGHT,
-  usesConsecutiveNoncesAtHeight
-} from './consensus/protocol-activation.js'
+import { isBlockProtocolCompatible } from './consensus/protocol-version.js'
 import { resolveLastBlockMessage } from './helpers/last-block.js'
 import { assertHashFormatState } from './helpers/hash-format-state.js'
 import { publishObserverEvent } from './observer-events.js'
 import { createChainIdentity, findChainPresence, assertChainId } from '@leofcoin/lib/chain-identity'
-import type { BlockInMemory } from './types.js'
+import type { Address, BlockInMemory, ChainPeer, PeerProtocols } from './types.js'
 import type { TransactionExecution } from '@leofcoin/workers/machine-worker'
 import { PQ_NETWORK } from '@leofcoin/lib/pq'
 import { reserveChain } from './pq-runtime.js'
 import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
 
 const debug = createDebugger('leofcoin/chain')
+type TransactionInput = ConstructorParameters<typeof TransactionMessage>[0] & { encoded?: Uint8Array }
+type SignedTransactionInput = TransactionMessage | (TransactionMessage['decoded'] & { hash?: string })
 
 // check if browser or local
 export default class Chain extends VersionControl {
-  #state
+  #state: unknown
 
   #slotTime = 10000
   #blockTime = DEFAULT_BLOCK_TIME_MS
   /** Wall-clock time of the last local proposal attempt. */
   #lastProposalAt = 0
-  #epochLength = 10 // Blocks per epoch (enables block-based epoch boundaries)
-  id
+  #epochLength = 60 // Approximately one minute at the one-second target cadence.
+  id?: string
   utils = {}
   /** {Address[]} */
   #validators = []
@@ -122,20 +122,19 @@ export default class Chain extends VersionControl {
   #castedVotes: Set<string> = new Set()
   // ────────────────────────────────────────────────────────────────────────────
 
-  #connectionMonitor: ConnectionMonitor
+  #connectionMonitor!: ConnectionMonitor
   #acceptingChainTraffic = false
   #peerHandshakes = new Map<string, { peer: unknown; promise: Promise<void> }>()
-  readyResolve: (value: boolean | PromiseLike<boolean>) => void
-  readyReject: (reason: unknown) => void
+  readyResolve!: (value: boolean | PromiseLike<boolean>) => void
+  readyReject!: (reason: unknown) => void
   ready = new Promise<boolean>((resolve, reject) => {
     this.readyResolve = resolve
     this.readyReject = reject
   })
 
-  constructor(config) {
+  constructor(config?: ChainConfig) {
     reserveChain(config?.network, config?.genesis)
     super(config)
-    this.#blockTime = benchmarkBlockTime(config, chainNetwork())
     this.#init().catch((error) => this.readyReject(error))
   }
 
@@ -161,6 +160,7 @@ export default class Chain extends VersionControl {
     return {
       ...await findChainPresence(chainId, peers.map(([id]) => id), async (id) => {
         const peer = peers.find(([peerId]) => peerId === id)?.[1]
+        if (!peer) throw new Error(`Peer unavailable: ${id}`)
         return this.#makeRequest(peer, 'chainIdentity')
       }),
       foundViaLocalNode: false
@@ -191,12 +191,12 @@ export default class Chain extends VersionControl {
     }
 
     if (rep.score < this.#minPeerScore) {
-      console.warn(`[peer-ban] Peer ${peerId} banned after ${rep.failures.length} failures`)
-      // Disconnect and don't reconnect
+      console.warn(`[peer-ban] Disconnecting peer ${peerId} after ${rep.failures.length} failures`)
       try {
-        await globalThis.peernet.disconnect(peerId)
+        const peer = globalThis.peernet.connections[peerId]
+        if (peer) peer.destroy()
       } catch (e) {
-        debug(`Failed to disconnect peer ${peerId}`)
+        console.warn(`[peer-ban] Failed to disconnect peer ${peerId}:`, e)
       }
     }
   }
@@ -205,7 +205,7 @@ export default class Chain extends VersionControl {
     return typeof address === 'string' && this.#jail.has(address)
   }
 
-  async #signConsensusMessage(type: 'proposal' | 'prevote' | 'precommit', message): Promise<string> {
+  async #signConsensusMessage(type: 'proposal' | 'prevote' | 'precommit', message: ConsensusMessageData): Promise<string> {
     const identity = globalThis.peernet?.identity
     return signConsensusMessage(this.chainAddresses.validators, type, message, identity)
   }
@@ -253,15 +253,14 @@ export default class Chain extends VersionControl {
     }
 
     if (
-      !(this.genesis ? blockMessage.decoded.protocolVersion === this.version : isBlockProtocolCompatibleAtHeight(
-        blockMessage.decoded.index,
+      !(this.genesis ? blockMessage.decoded.protocolVersion === this.version : isBlockProtocolCompatible(
         blockMessage.decoded.protocolVersion,
         this.version
       ))
     ) {
       throw new Error(
         `Block ${blockMessage.decoded.index} uses incompatible protocol version: ${blockMessage.decoded.protocolVersion} ` +
-          `(local: ${this.version}; activation height: ${PROTOCOL_ACTIVATION_HEIGHT}).`
+          `(local: ${this.version}; a fresh testnet genesis is required).`
       )
     }
 
@@ -321,32 +320,28 @@ export default class Chain extends VersionControl {
   }
 
   async #resolveBlockTransactions(blockMessage: BlockMessage): Promise<TransactionMessage[]> {
-    const transactions = await Promise.all(
-      blockMessage.decoded.transactions.map(async (expectedHash) => {
-        const data = await globalThis.peernet.get(expectedHash, 'transaction')
-        const transaction = await resolveTransactionReference(expectedHash, data)
-        await this.validateTransactionSignature(transaction)
-        return transaction
-      })
+    const references: unknown = blockMessage.decoded.transactions
+    if (!Array.isArray(references) || !references.every((hash): hash is string => typeof hash === 'string'))
+      throw new Error('Block transaction references must be an array of hashes')
+    const transactions = await loadTransactionReferences(
+      references,
+      hashes => globalThis.transactionPoolStore.batch(hashes.map(key => ({ type: 'get', key }))),
+      hash => globalThis.transactionPoolStore.get(hash),
+      hash => globalThis.peernet.get(hash, 'transaction')
     )
-    if (this.genesis || usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)) {
-      await validateConsecutiveNonces(transactions, async address => {
-        if (!(await globalThis.accountsStore.has(address))) return 0n
-        const raw = await globalThis.accountsStore.get(address)
-        return BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
-      })
-    }
+    for (let offset = 0; offset < transactions.length; offset += TRANSACTION_REFERENCE_BATCH_SIZE)
+      await Promise.all(transactions.slice(offset, offset + TRANSACTION_REFERENCE_BATCH_SIZE)
+        .map(transaction => this.validateTransactionSignature(transaction)))
+    await validateConsecutiveNonces(transactions, async address => {
+      if (!(await globalThis.accountsStore.has(address))) return 0n
+      const raw = await globalThis.accountsStore.get(address)
+      return BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
+    })
     const feesEnabled = supportsTransactionFees(blockMessage.decoded.protocolVersion)
     if (feesEnabled) await this.#assertFeeBurnSupported(blockMessage.decoded.protocolVersion)
     const adaptivePolicy = supportsMonetaryPolicy(blockMessage.decoded.protocolVersion)
     if (adaptivePolicy) await validateBlockResourceLimits(transactions)
     const policy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
-    const calculatedFees = feesEnabled
-      ? (await Promise.all(transactions.map((transaction) => calculateFee(transaction.decoded)))).reduce(
-          (total, fee) => total + BigInt(fee),
-          0n
-        )
-      : 0n
     const feeEntries = feesEnabled
       ? await Promise.all(
           transactions.map(async (transaction) => ({
@@ -355,6 +350,7 @@ export default class Chain extends VersionControl {
           }))
         )
       : []
+    const calculatedFees = feeEntries.reduce((total, entry) => total + entry.fee, 0n)
     const validatorAddresses = blockMessage.decoded.validators.map(({ address }) => address)
     const validatorFees = feesEnabled
       ? aggregateValidatorFees(feeEntries, validatorAddresses, policy.burnBasisPoints)
@@ -412,20 +408,16 @@ export default class Chain extends VersionControl {
     return (blockHeight + 1) % this.#epochLength === 0
   }
 
-  /** Handle epoch transition when a block crosses epoch boundary */
-  async #handleEpochBoundary(blockHeight: number): Promise<void> {
-    if (!this.#isEpochBoundary(blockHeight)) return
+  async #handleBlockCommit(blockHeight: number): Promise<void> {
+    if (this.#isEpochBoundary(blockHeight)) {
+      this.#currentEpochStartHeight = blockHeight + 1
+      this.#consensusRound = 0
+      debug(
+        `[consensus] Epoch boundary at block ${blockHeight}: new epoch starts at height ${this.#currentEpochStartHeight}`
+      )
+    }
 
-    // Epoch boundary crossed: update epoch start, reset round, trigger validator rotation
-    this.#currentEpochStartHeight = blockHeight + 1
-    this.#consensusRound = 0
-
-    debug(
-      `[consensus] Epoch boundary at block ${blockHeight}: new epoch starts at height ${this.#currentEpochStartHeight}`
-    )
-
-    // If we're participating as a validator, trigger immediate epoch to determine new proposer
-    if (this.#participating && !this.#runningEpoch) {
+    if (this.#participating && !this.#runningEpoch && this.pendingTransactions.size > 0) {
       // A single validator can commit its next proposal synchronously. Never
       // await that commit while this block still owns the canonical writer.
       void this.#runEpoch().catch((error) => {
@@ -445,7 +437,7 @@ export default class Chain extends VersionControl {
         this.#consensusRound = round + 1
         this.#runningEpoch = false
         if (this.#participating) await this.#runEpoch()
-      })().catch(error => debug('round timeout failed:', (error as Error)?.message ?? error))
+      })().catch(error => debug(`round timeout failed: ${String((error as Error)?.message ?? error)}`))
     }, this.#slotTime)
   }
 
@@ -528,10 +520,9 @@ export default class Chain extends VersionControl {
 
     const prepared = await Promise.all(
       contracts.map(async ({ address, message }) => {
-        // @ts-ignore
-        message = await new ContractMessage(Uint8Array.from(message.split(',').map((string) => Number(string))))
-        if (await message.hash() !== address) throw new Error(`genesis contract hash mismatch for ${address}`)
-        return { address, encoded: message.encoded }
+        const contract = new ContractMessage(Uint8Array.from(message.split(',').map((string) => Number(string))))
+        if (await contract.hash() !== address) throw new Error(`genesis contract hash mismatch for ${address}`)
+        return { address, encoded: contract.encoded }
       })
     )
     await Promise.all(prepared.map(({ address, encoded }) => globalThis.contractStore.put(address, encoded)))
@@ -571,7 +562,7 @@ export default class Chain extends VersionControl {
     // after super.init() has validated and replayed the canonical history.
     await globalThis.peernet.addRequestHandler('version', this.#versionHandler.bind(this))
     await globalThis.peernet.addRequestHandler('chainIdentity', async () =>
-      new globalThis.peernet.protos['peernet-response']({ response: await this.getChainIdentity() })
+      new (globalThis.peernet.protos as PeerProtocols)['peernet-response']({ response: await this.getChainIdentity() })
     )
 
     // this.#state = new State()
@@ -598,7 +589,7 @@ export default class Chain extends VersionControl {
     await globalThis.peernet.addRequestHandler('stateInfo', async () => {
       const lastblock = (await this.lastBlock) || { index: 0, hash: '0x0', previousHash: '0x0' }
       const values = this.machine?.states?.info || {}
-      return new globalThis.peernet.protos['peernet-response']({
+      return new (globalThis.peernet.protos as PeerProtocols)['peernet-response']({
         response: new StateMessage({ lastblock, values }).encoded
       })
     })
@@ -688,7 +679,7 @@ export default class Chain extends VersionControl {
     try {
       globalThis.peernet.publish(`consensus:${type}`, payload)
     } catch (e) {
-      debug(`peernet publish failed: consensus:${type}`, (e as Error)?.message ?? e)
+      debug(`peernet publish failed: consensus:${type}: ${String((e as Error)?.message ?? e)}`)
     }
 
     if (type === 'prevote') await this.#handlePrevote(payload)
@@ -700,7 +691,7 @@ export default class Chain extends VersionControl {
    * Validates the proposer is correct for height/round, fetches + validates
    * the block from peernet, then casts a prevote.
    */
-  #handleProposal = async (payload) => {
+  #handleProposal = async (payload: ConstructorParameters<typeof ProposalMessage>[0]) => {
     try {
       const message = new ProposalMessage(payload)
       const msg = message.decoded
@@ -754,7 +745,7 @@ export default class Chain extends VersionControl {
           await this.#resolveBlockTransactions(blockMessage)
         })
       } catch (e) {
-        debug(`[consensus] Invalid proposed block ${blockHash}:`, (e as Error)?.message)
+        debug(`[consensus] Invalid proposed block ${blockHash}: ${String((e as Error)?.message ?? e)}`)
         return
       }
 
@@ -772,7 +763,7 @@ export default class Chain extends VersionControl {
         await this.#castVote('prevote', blockHash, Number(index), Number(round))
       }
     } catch (e) {
-      debug('[consensus] Error handling proposal:', (e as Error)?.message)
+      debug(`[consensus] Error handling proposal: ${String((e as Error)?.message ?? e)}`)
     }
   }
 
@@ -780,7 +771,7 @@ export default class Chain extends VersionControl {
    * Phase 2 — collect prevotes. Once 2f+1 prevotes are seen for a block,
    * cast a precommit.
    */
-  #handlePrevote = async (payload) => {
+  #handlePrevote = async (payload: ConstructorParameters<typeof PrevoteMessage>[0]) => {
     try {
       const message = new PrevoteMessage(payload)
       const msg = message.decoded
@@ -814,7 +805,7 @@ export default class Chain extends VersionControl {
         await this.#castVote('precommit', blockHash, Number(index), Number(round))
       }
     } catch (e) {
-      debug('[consensus] Error handling prevote:', (e as Error)?.message)
+      debug(`[consensus] Error handling prevote: ${String((e as Error)?.message ?? e)}`)
     }
   }
 
@@ -823,7 +814,7 @@ export default class Chain extends VersionControl {
    * commit it: non-proposers call #addBlock, then broadcast on add-block for
    * syncing nodes.
    */
-  #handlePrecommit = async (payload) => {
+  #handlePrecommit = async (payload: ConstructorParameters<typeof PrecommitMessage>[0]) => {
     try {
       const message = new PrecommitMessage(payload)
       const msg = message.decoded
@@ -883,29 +874,29 @@ export default class Chain extends VersionControl {
           globalThis.peernet.publish('add-block', blockData)
           globalThis.pubsub.publish('add-block', blockData)
         } catch (e) {
-          debug(`[consensus] Failed to commit block ${blockHash}:`, (e as Error)?.message)
+          debug(`[consensus] Failed to commit block ${blockHash}: ${String((e as Error)?.message ?? e)}`)
         } finally {
           this.#committingHeights.delete(numericIndex)
         }
       }
     } catch (e) {
-      debug('[consensus] Error handling precommit:', (e as Error)?.message)
+      debug(`[consensus] Error handling precommit: ${String((e as Error)?.message ?? e)}`)
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  #addTransaction = async (message) => {
+  #addTransaction = async (message: TransactionInput) => {
     const hash = await this.#sendTransaction(message)
     debug(`added ${hash}`)
   }
 
-  async #prepareRequest(request) {
-    let node = await new globalThis.peernet.protos['peernet-request']({ request })
+  async #prepareRequest(request: string) {
+    let node = await new (globalThis.peernet.protos as PeerProtocols)['peernet-request']({ request })
     return globalThis.peernet.prepareMessage(node)
   }
 
-  async #makeRequest(peer, request) {
+  async #makeRequest(peer: ChainPeer, request: string) {
     const node = await this.#prepareRequest(request)
     try {
       let response = await peer.request(node.encoded)
@@ -915,7 +906,7 @@ export default class Chain extends VersionControl {
       return decodeResponsePayload(response)
     } catch (error) {
       const peerId = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || 'unknown'
-      debug(`peernet request failed: ${request} -> ${peerId}:`, (error as Error)?.message ?? error)
+      debug(`peernet request failed: ${request} -> ${peerId}: ${String((error as Error)?.message ?? error)}`)
       throw error
     }
   }
@@ -925,7 +916,7 @@ export default class Chain extends VersionControl {
     return { blocks: response }
   }
 
-  async getPeerTransactionPool(peer) {
+  async getPeerTransactionPool(peer: ChainPeer) {
     let transactionsInPool = await this.#makeRequest(peer, 'transactionPool')
     if (!Array.isArray(transactionsInPool) || transactionsInPool.some((hash) => typeof hash !== 'string')) {
       throw new Error('transactionPool response must be an array of transaction hashes')
@@ -942,13 +933,13 @@ export default class Chain extends VersionControl {
         const transaction = await resolveTransactionReference(hash, txData)
         recovered.push(await this.#sendTransaction(transaction))
       } catch (error) {
-        debug(`Failed to recover transaction ${hash}:`, (error as Error)?.message ?? error)
+        debug(`Failed to recover transaction ${hash}: ${String((error as Error)?.message ?? error)}`)
       }
     }
     return recovered
   }
 
-  async #peerConnected(peerId) {
+  async #peerConnected(peerId: unknown) {
     if (!this.#acceptingChainTraffic || !this.loaded) return
     if (typeof peerId !== 'string' || !peerId.trim() || peerId === 'undefined') {
       debug('ignored peer connection without a valid peer id')
@@ -958,7 +949,7 @@ export default class Chain extends VersionControl {
     const existing = this.#peerHandshakes.get(peerId)
     if (existing && existing.peer === peer) return existing.promise
     const handshake = this.#connectRecoveredPeer(peerId).catch(error => {
-      debug(`peer handshake failed: ${peerId}:`, (error as Error)?.message ?? error)
+      debug(`peer handshake failed: ${peerId}: ${String((error as Error)?.message ?? error)}`)
     }).finally(() => {
       if (this.#peerHandshakes.get(peerId)?.promise === handshake) this.#peerHandshakes.delete(peerId)
     })
@@ -966,9 +957,9 @@ export default class Chain extends VersionControl {
     return handshake
   }
 
-  async #connectRecoveredPeer(peerId) {
+  async #connectRecoveredPeer(peerId: string) {
     debug(`peer connected: ${peerId}`)
-    const peer = peernet.getConnection?.(peerId) ?? peernet.connections?.[peerId]
+    const peer: ChainPeer | undefined = peernet.getConnection?.(peerId) ?? peernet.connections?.[peerId]
 
     if (!peer) {
       debug(`peer not found: ${peerId}`)
@@ -1000,7 +991,7 @@ export default class Chain extends VersionControl {
           return
         }
       } catch (error) {
-        debug(`failed to request version from peer ${peerId}:`, (error as Error)?.message ?? error)
+        debug(`failed to request version from peer ${peerId}: ${String((error as Error)?.message ?? error)}`)
         return
       }
     }
@@ -1027,7 +1018,7 @@ export default class Chain extends VersionControl {
       lastBlock = lastBlockMessage.decoded
     } catch (error) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-      debug(`lastBlock request failed: ${peerName}:`, (error as Error)?.message ?? error)
+      debug(`lastBlock request failed: ${peerName}: ${String((error as Error)?.message ?? error)}`)
       await this.#recordPeerFailure(peerId, `lastBlock request failed: ${(error as Error)?.message ?? error}`)
       return
     }
@@ -1048,7 +1039,7 @@ export default class Chain extends VersionControl {
         await this.getPeerTransactionPool(peer)
       } catch (error) {
         const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-        debug(`transactionPool request failed: ${peerName}:`, (error as Error)?.message ?? error)
+        debug(`transactionPool request failed: ${peerName}: ${String((error as Error)?.message ?? error)}`)
       }
     }, 3000)
 
@@ -1079,10 +1070,7 @@ export default class Chain extends VersionControl {
           }
         } catch (error) {
           const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-          debug(
-            `knownBlocks request failed: ${peerName} (non-fatal), continuing sync without prefilled wantList:`,
-            (error as Error)?.message ?? error
-          )
+          debug(`knownBlocks request failed: ${peerName} (non-fatal), continuing sync without prefilled wantList: ${String((error as Error)?.message ?? error)}`)
         }
       }
     }
@@ -1102,26 +1090,26 @@ export default class Chain extends VersionControl {
       )
       await this.syncChain(lastBlock)
       debug(
-        `sync finished with peer ${peerId}: state=${this.syncState} localNow=${(await this.lastBlock)?.index ?? -1}`
+        `sync finished with peer ${peerId}: state=${this.state.sync} localNow=${(await this.lastBlock)?.index ?? -1}`
       )
       // Peer statistics must never overwrite the local committed snapshot.
     } catch (error) {
       const peerName = (peer as any)?.peerId || (peer as any)?.id || (peer as any)?.address || peerId || 'unknown'
-      debug(`stateInfo/syncChain failed: ${peerName}:`, (error as Error)?.message ?? error)
+      debug(`stateInfo/syncChain failed: ${peerName}: ${String((error as Error)?.message ?? error)}`)
       await this.#recordPeerFailure(peerId, `stateInfo/syncChain failed: ${(error as Error)?.message ?? error}`)
       return
     }
   }
 
-  #epochTimeout
+  #epochTimeout?: ReturnType<typeof setTimeout>
 
   async #transactionPoolHandler() {
     const pool = await globalThis.transactionPoolStore.keys()
-    return new globalThis.peernet.protos['peernet-response']({ response: pool })
+    return new (globalThis.peernet.protos as PeerProtocols)['peernet-response']({ response: pool })
   }
 
   async #versionHandler() {
-    return new globalThis.peernet.protos['peernet-response']({ response: this.version })
+    return new (globalThis.peernet.protos as PeerProtocols)['peernet-response']({ response: this.version })
   }
 
   async #executeTransaction({
@@ -1133,6 +1121,15 @@ export default class Chain extends VersionControl {
     nonce,
     executionTimestamp,
     feePayments = { payments: new Array<{ to: string; amount: bigint }>(), burned: 0n }
+  }: {
+    hash: string
+    from: string
+    to: string
+    method: string
+    params: unknown[]
+    nonce?: number
+    executionTimestamp: number
+    feePayments?: TransactionExecution['feePayments']
   }) {
     try {
       if (feePayments.payments.length > 0 || feePayments.burned > 0n) {
@@ -1164,13 +1161,14 @@ export default class Chain extends VersionControl {
         const transaction = await resolveTransactionReference(hash, await globalThis.peernet.get(hash, 'transaction'))
         await this.validateTransactionSignature(transaction)
         const { from, nonce } = transaction.decoded
+        if (nonce === undefined) throw new Error(`Transaction nonce required during recovery: ${hash}`)
         if (BigInt(nonce) > BigInt(accounts[from] ?? '0')) accounts[from] = String(nonce)
       }
     }
     return accounts
   }
 
-  async #addBlock(block) {
+  async #addBlock(block: BlockMessage | Uint8Array) {
     return this.withCanonicalState((transition) => this.#applyBlock(block, transition))
   }
 
@@ -1178,12 +1176,12 @@ export default class Chain extends VersionControl {
     return this.#applyBlock(block, transition, false)
   }
 
-  #recordValidatorSnapshot(index) {
+  #recordValidatorSnapshot(index: number | bigint) {
     // Protocol bookkeeping only: called from the serialized canonical writer.
     return this.machine.execute(this.chainAddresses.validators, 'recordValidatorSnapshot', [index], globalThis.peernet.selectedAccount)
   }
 
-  async #applyBlock(block, transition: CanonicalTransition, schedule = true) {
+  async #applyBlock(block: BlockMessage | Uint8Array, transition: CanonicalTransition, schedule = true) {
     // Store the original received encoded bytes for validation
     const receivedEncoded = block instanceof BlockMessage ? block.encoded : block
 
@@ -1247,11 +1245,7 @@ export default class Chain extends VersionControl {
     }
 
     // Combine and sort all transactions deterministically
-    const allTransactions = transactions.sort(
-      this.genesis || usesConsecutiveNoncesAtHeight(blockMessage.decoded.index)
-        ? compareExecutionTransactions
-        : compareLegacyExecutionTransactions
-    )
+    const allTransactions = transactions.sort(compareExecutionTransactions)
     const monetaryPolicy = await this.#monetaryPolicy(blockMessage.decoded.protocolVersion)
 
     const execution: TransactionExecution[] = []
@@ -1268,7 +1262,7 @@ export default class Chain extends VersionControl {
         committed = raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
       }
       const actual = BigInt(nonce)
-      if ((this.genesis || usesConsecutiveNoncesAtHeight(blockIndex)) ? actual !== committed + 1n : actual <= committed)
+      if (actual !== committed + 1n)
         throw new Error(`Transaction nonce out of sequence: ${transactionHash} (nonce ${nonce}, committed ${committed}, block ${blockIndex})`)
       noncesByAddress.set(from, actual)
       const feeDistribution = supportsTransactionFees(blockMessage.decoded.protocolVersion)
@@ -1287,7 +1281,7 @@ export default class Chain extends VersionControl {
     }
 
     // Deployment preparation can depend on preceding contract calls. Preserve
-    // the existing per-call path for those blocks and oversized legacy blocks.
+    // the existing per-call path for those blocks.
     const canBatch = allTransactions.length <= MAX_BLOCK_TRANSACTIONS && !execution.some(
       transaction => transaction.to === this.chainAddresses.contractFactory && transaction.method === 'registerContract'
     )
@@ -1345,7 +1339,7 @@ export default class Chain extends VersionControl {
 
     await this.updateState(blockMessage)
     for (const transaction of allTransactions)
-      this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+      this.removePendingNonce(transaction.decoded.from, transaction.decoded.nonce!)
     const canonicalHashes = new Set(execution.map(transaction => transaction.hash))
     const obsolete: string[] = []
     for (const [from, nonce] of noncesByAddress) {
@@ -1371,10 +1365,10 @@ export default class Chain extends VersionControl {
     }
     publishObserverEvent(globalThis.pubsub, 'block-processed', blockMessage.decoded)
     // Start follow-up production only once this block has a persisted snapshot.
-    if (schedule) await this.#handleEpochBoundary(blockIndex)
+    if (schedule) await this.#handleBlockCommit(blockIndex)
   }
 
-  async participate(address) {
+  async participate(address: string) {
     this.#assertRecoveryComplete()
     // TODO: validate participant
     // hold min amount of 50k ART for 7 days
@@ -1427,7 +1421,7 @@ export default class Chain extends VersionControl {
   }
 
   async #handleTransaction(
-    transaction, latestTransactions, block?,
+    transaction: TransactionMessage, latestTransactions: string[], block?: Pick<BlockMessage['decoded'], 'index' | 'timestamp'>,
     feePayments: TransactionExecution['feePayments'] = { payments: [], burned: 0n }
   ) {
     await this.validateTransactionSignature(transaction)
@@ -1436,18 +1430,14 @@ export default class Chain extends VersionControl {
     // Content availability is not proof of execution: replay and sync must have
     // transaction bodies in the store before applying their financial effects.
     if (latestTransactions.includes(hash)) throw new Error(`Duplicate canonical transaction: ${hash}`)
+    if (transaction.decoded.nonce === undefined) throw new Error('transaction nonce required')
     const nonce = BigInt(transaction.decoded.nonce)
     let committed = 0n
     if (await globalThis.accountsStore.has(transaction.decoded.from)) {
       const raw = await globalThis.accountsStore.get(transaction.decoded.from)
       committed = BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     }
-    const legacyBlock = !this.genesis && block && !usesConsecutiveNoncesAtHeight(block.index)
-    if (legacyBlock ? nonce <= committed : nonce !== committed + 1n) {
-      if (legacyBlock)
-        throw new Error(
-          `Transaction nonce already committed: ${hash} (nonce ${nonce}, committed ${committed}, block ${block.index})`
-        )
+    if (nonce !== committed + 1n) {
       throw new Error(
         `Transaction nonce out of sequence: ${hash} (nonce ${nonce}, expected ${committed + 1n}, block ${block?.index ?? 'unknown'})`
       )
@@ -1477,7 +1467,7 @@ export default class Chain extends VersionControl {
       console.log(hash)
       peernet.publish('invalid-transaction', encodeWire('invalid-transaction', hash))
 
-      await globalThis.transactionPoolStore.delete(e.hash)
+      await globalThis.transactionPoolStore.delete(hash)
       if (block) throw e
     }
   }
@@ -1541,7 +1531,7 @@ export default class Chain extends VersionControl {
 
     // CRITICAL FIX: Sort validators deterministically to avoid encoding divergence
     // Use canonical validator set from contract, sorted by address
-    const canonicalValidators = (await this.staticCall(this.chainAddresses.validators, 'validators')) as Validators['validators']
+    const canonicalValidators = (await this.staticCall(this.chainAddresses.validators, 'validators')) as string[]
     const sortedValidators = [...canonicalValidators].sort()
 
     if (sortedValidators.length === 0) throw new Error('cannot produce a block without validators')
@@ -1620,7 +1610,7 @@ export default class Chain extends VersionControl {
       try {
         globalThis.peernet.publish('consensus:propose', proposalPayload)
       } catch (publishError) {
-        debug('peernet publish failed: consensus:propose', (publishError as Error)?.message ?? publishError)
+        debug(`peernet publish failed: consensus:propose: ${String((publishError as Error)?.message ?? publishError)}`)
       }
       // Proposer casts their own prevote immediately
       await this.#castVote('prevote', hash, block.index, this.#consensusRound)
@@ -1636,8 +1626,8 @@ export default class Chain extends VersionControl {
     // transactionStore.put(message.hash, message.encoded)
   }
 
-  async #sendTransaction(transaction) {
-    transaction = await new TransactionMessage(transaction.encoded || transaction)
+  async #sendTransaction(input: TransactionInput) {
+    const transaction = await new TransactionMessage(input.encoded || input)
     await this.validateTransactionSignature(transaction)
     let hash: string | undefined
 
@@ -1645,6 +1635,7 @@ export default class Chain extends VersionControl {
       hash = await transaction.hash()
       if (typeof hash !== 'string' || !hash) throw new Error('transaction hash required')
       const { from, nonce } = transaction.decoded
+      if (nonce === undefined) throw new Error('transaction nonce required')
       const readCommitted = async () => {
         const raw = await globalThis.accountsStore.has(from) ? await globalThis.accountsStore.get(from) : undefined
         return raw === undefined ? 0n : BigInt(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
@@ -1680,12 +1671,12 @@ export default class Chain extends VersionControl {
         try {
           await globalThis.peernet.publish('add-transaction', transaction.encoded)
         } catch (publishError) {
-          debug('peernet publish failed: add-transaction relay', (publishError as Error)?.message ?? publishError)
+          debug(`peernet publish failed: add-transaction relay: ${String((publishError as Error)?.message ?? publishError)}`)
         }
       }
       if (this.#participating && !this.#runningEpoch) {
         void this.#runEpoch().catch((error) => {
-          debug('transaction epoch scheduling failed:', (error as Error)?.message ?? error)
+          debug(`transaction epoch scheduling failed: ${String((error as Error)?.message ?? error)}`)
         })
       }
       return hash
@@ -1698,9 +1689,11 @@ export default class Chain extends VersionControl {
    * data is undefined when nothing is returned
    * error is thrown on error so undefined data doesn't mean there is an error...
    **/
-  async sendTransaction(transaction) {
+  async sendTransaction(transaction: SignedTransactionInput) {
     this.#assertRecoveryComplete()
-    const { hash: ignoredHash, ...payload } = transaction instanceof TransactionMessage ? transaction.decoded : transaction
+    const decoded: TransactionMessage['decoded'] & { hash?: string } =
+      transaction instanceof TransactionMessage ? transaction.decoded : transaction
+    const { hash: ignoredHash, ...payload } = decoded
     // A caller-supplied cached hash is metadata, never authority for signed bytes.
     const transactionMessage = await new TransactionMessage(payload)
     const event = await super.sendTransaction(transactionMessage)
@@ -1709,9 +1702,40 @@ export default class Chain extends VersionControl {
     try {
       await globalThis.peernet.publish('send-transaction', transactionMessage.encoded)
     } catch (publishError) {
-      debug('peernet publish failed: send-transaction', (publishError as Error)?.message ?? publishError)
+      debug(`peernet publish failed: send-transaction: ${String((publishError as Error)?.message ?? publishError)}`)
     }
     return event
+  }
+
+  async sendTransactions(transactions: SignedTransactionInput[]) {
+    this.#assertRecoveryComplete()
+    if (!Array.isArray(transactions) || transactions.length === 0 || transactions.length > 128)
+      throw new Error('Transaction batch must contain between 1 and 128 transactions')
+    const messages = transactions.map(transaction => {
+      const decoded: TransactionMessage['decoded'] & { hash?: string } =
+        transaction instanceof TransactionMessage ? transaction.decoded : transaction
+      const { hash: ignoredHash, ...payload } = decoded
+      return new TransactionMessage(new TransactionMessage(payload).encoded)
+    })
+    const receipts = await this.admitTransactions(messages)
+    const results: Array<
+      | { status: 'fulfilled'; value: typeof receipts[number] }
+      | { status: 'rejected'; reason: unknown; receipt: typeof receipts[number] }
+    > = []
+    for (const receipt of receipts) {
+      try {
+        await this.#sendTransaction(receipt.message.encoded)
+        try {
+          await globalThis.peernet.publish('send-transaction', receipt.message.encoded)
+        } catch (error) {
+          debug(`peernet publish failed: send-transaction: ${String((error as Error)?.message ?? error)}`)
+        }
+        results.push({ status: 'fulfilled', value: receipt })
+      } catch (reason) {
+        results.push({ status: 'rejected', reason, receipt })
+      }
+    }
+    return results
   }
 
   #assertRecoveryComplete() {
@@ -1719,7 +1743,7 @@ export default class Chain extends VersionControl {
       throw new Error('Chain recovery is not complete; transactions and validator participation are disabled')
   }
 
-  async addContract(transaction, contractMessage) {
+  async addContract(transaction: SignedTransactionInput, contractMessage: ContractMessage) {
     const hash = await contractMessage.hash()
     const has = await this.staticCall(this.chainAddresses.contractFactory, 'isRegistered', [hash])
     if (has) throw new Error('contract exists')
@@ -1734,7 +1758,7 @@ export default class Chain extends VersionControl {
    * @param {Address} sender
    * @returns {globalMessage}
    */
-  #createMessage(sender = globalThis.peernet.selectedAccount, contract) {
+  #createMessage(sender = globalThis.peernet.selectedAccount, contract: string) {
     return {
       contract,
       sender,
@@ -1814,7 +1838,7 @@ export default class Chain extends VersionControl {
    *
    * @example chain.lookup('myCoolContractName') // qmqsfddfdgfg...
    */
-  lookup(name): Promise<{ owner; address }> {
+  lookup(name: string): Promise<{ owner: string; address: string } | undefined> {
     return this.staticCall(this.chainAddresses.nameService, 'lookup', [name])
   }
 
@@ -1837,7 +1861,7 @@ export default class Chain extends VersionControl {
         await globalThis.peernet.start()
       }
     } catch (error) {
-      console.warn('Failed to reconnect to peers:', error.message)
+      console.warn('Failed to reconnect to peers:', error instanceof Error ? error.message : error)
     }
   }
 }

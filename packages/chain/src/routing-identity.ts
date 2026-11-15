@@ -1,3 +1,5 @@
+import type { NodeOptions } from './constants.js'
+
 /** Transport identity only: never derive accounts, keys or voting power from it. */
 export function newRoutingId(crypto = globalThis.crypto): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))
@@ -17,6 +19,6 @@ export function nodeDataRoot(config: { root?: string; network?: string; storeNam
   return config.storeNamespace ? `${root}/${config.storeNamespace}` : root
 }
 
-export function routingScope(config): string {
+export function routingScope(config: NodeOptions): string {
   return `${config.network || 'leofcoin:peach'}:${nodeDataRoot(config)}`
 }

@@ -6,12 +6,15 @@ import { PQ_NETWORK } from '@leofcoin/lib/pq'
 import { validatePqGenesis } from '@leofcoin/lib/pq-genesis'
 export { chainNetwork } from './ledger-network.js'
 
+type DiscoveryOptions = NodeOptions & { network: string }
+
 /** Pin discovery to bundled genesis before starting the transport; never derive it from an untrusted peer. */
-export async function chainDiscoveryOptions(options: NodeOptions = {}): Promise<NodeOptions> {
+export async function chainDiscoveryOptions(options: NodeOptions = {}): Promise<DiscoveryOptions> {
   // Old launchers may still pass these internally. Do not expose or forward
   // them as competing SDK options, and never accept contradictory labels.
   const {networkVersion,version,...input} = options as NodeOptions & {networkVersion?:string;version?:string}
   const config = {...DEFAULT_NODE_OPTIONS,...input}
+  if (typeof config.network !== 'string' || !config.network) throw new Error('Chain discovery requires a network')
   if (config.network === PQ_NETWORK) {
     config.genesis = await validatePqGenesis(config.genesis)
     config.stars = [...(options.stars ?? [])]
@@ -34,7 +37,7 @@ export async function chainDiscoveryOptions(options: NodeOptions = {}): Promise<
 }
 
 /** Adapt chain wallet/ledger configuration; never pass its legacy aliases to Peernet. */
-export function chainPeernetOptions(config: NodeOptions) {
+export function chainPeernetOptions(config: DiscoveryOptions) {
   const {network,protocolVersion,chainId,...options} = config
   delete options.genesis
   delete options.identity
@@ -43,7 +46,7 @@ export function chainPeernetOptions(config: NodeOptions) {
   return {...options,root:nodeDataRoot(config),network:`${CHAIN_APP_ID}:${name}`,protocolVersion,chainId}
 }
 
-export function assertDiscoveryNamespace(peer: {namespace?:unknown}, config: NodeOptions) {
+export function assertDiscoveryNamespace(peer: {namespace?:unknown}, config: DiscoveryOptions) {
   const scope = peer.namespace as {protocolVersion?:string;network?:string;chainId?:string}
   if (!scope || scope.protocolVersion !== config.protocolVersion ||
     scope.network !== chainPeernetOptions(config).network || scope.chainId !== config.chainId)

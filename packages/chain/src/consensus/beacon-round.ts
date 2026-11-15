@@ -7,13 +7,13 @@ import {
   reconstructBeaconSignature,
   verifyBeaconProof,
   verifyBeaconSignatureShare
-} from './beacon.ts'
+} from './beacon.js'
 import {
   beaconEpochGroupPublicKey,
   beaconParticipants,
   canonicalBeaconEpochConfig,
   type BeaconEpochConfig
-} from './beacon-epoch.ts'
+} from './beacon-epoch.js'
 
 export type AcceptedBeaconShare = {
   from: string

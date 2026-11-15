@@ -1,17 +1,16 @@
 import { PROTOCOL_VERSION } from '../constants.js'
+import { isBlockProtocolCompatible } from '../consensus/protocol-version.js'
 export { PROTOCOL_VERSION }
 
 type ReadStore = { has(key: string): Promise<boolean>; get(key: string): Promise<Uint8Array> }
 
 // Run before bootstrap/state initialization. Never silently relabel or clear an
-// existing ledger when adopting a different content-address format.
+// existing ledger when adopting incompatible protocol rules.
 export const assertHashFormatState = async (chainStore: ReadStore, stateStore?: ReadStore) => {
   if (await chainStore.has('version')) {
-    const version = new TextDecoder().decode(await chainStore.get('version'))
-    const parsed = /^(\d+)\.(\d+)\.\d+$/.exec(version)
-    const current = PROTOCOL_VERSION.split('.')
-    if (parsed && parsed[1] === current[0] && parsed[2] === current[1]) return
-    throw new Error(`stored protocol ${version} is incompatible with canonical hash protocol ${PROTOCOL_VERSION}; explicit ledger migration or a testnet reset is required (preserve the wallet identity)`)
+    const version = new TextDecoder('utf-8', { fatal: true }).decode(await chainStore.get('version'))
+    if (isBlockProtocolCompatible(version, PROTOCOL_VERSION)) return
+    throw new Error(`stored protocol ${version} is incompatible with runtime protocol ${PROTOCOL_VERSION}; explicit ledger migration or a testnet reset is required (preserve the wallet identity)`)
   }
   if (await chainStore.has('lastBlock') || await chainStore.has('recoveryTarget') || await stateStore?.has('lastBlock') ||
     await stateStore?.has('checkpoint:0') || await stateStore?.has('checkpoint:1')) {

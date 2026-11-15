@@ -17,14 +17,26 @@ import { createCanonicalTransactionWaiter } from './transaction-finalization.js'
 import { PendingTransactionIndex } from './consensus/transaction-pool.js'
 import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
 import { PQ_NETWORK } from '@leofcoin/lib/pq'
+import type { ChainConfig } from './types.js'
+
+type TransactionInput = ConstructorParameters<typeof TransactionMessage>[0]
+type TransactionReceipt = {
+  hash: string
+  data: undefined
+  fee: Awaited<ReturnType<typeof calculateFee>>
+  wait: Promise<string>
+  message: TransactionMessage
+}
 
 export default class Transaction extends Protocol {
   #pendingNonces: Map<string, Set<number>> = new Map()
   #maxPendingNonce: Map<string, number> = new Map()
   #signatureChecks = new Map<string, Promise<void>>()
+  #signatureVerifiers = new Map<string, Promise<MultiWallet>>()
+  #localNonceReservations = new Set<string>()
   protected pendingTransactions = new PendingTransactionIndex()
 
-  constructor(config) {
+  constructor(config?: ChainConfig) {
     super(config)
   }
 
@@ -99,7 +111,7 @@ export default class Transaction extends Protocol {
    * @param {Address[]} transactions
    * @returns transactions to include
    */
-  async getTransactions(transactions) {
+  async getTransactions(transactions: TransactionInput[]) {
     return new Promise(async (resolve, reject) => {
       let size = 0
       const _transactions = []
@@ -121,9 +133,9 @@ export default class Transaction extends Protocol {
    * @param {Transaction[]} transactions An array containing Transactions
    * @returns {TransactionMessage}
    */
-  async promiseTransactions(transactions): Promise<TransactionMessage[]> {
-    transactions = await Promise.all(transactions.map((tx) => new TransactionMessage(tx.encoded || tx)))
-    return transactions
+  async promiseTransactions(transactions: Array<TransactionInput & { encoded?: Uint8Array }>): Promise<TransactionMessage[]> {
+    const messages = await Promise.all(transactions.map((tx) => new TransactionMessage(tx.encoded || tx)))
+    return messages
   }
 
   /**
@@ -131,8 +143,8 @@ export default class Transaction extends Protocol {
    * @param {Transaction[]} transactions An array containing Transactions
    * @returns {Object} {transaction.decoded, transaction.hash}
    */
-  async promiseTransactionsContent(transactions) {
-    transactions = await Promise.all(
+  async promiseTransactionsContent(transactions: TransactionMessage[]) {
+    const content = await Promise.all(
       transactions.map(
         (tx) =>
           new Promise(async (resolve, reject) => {
@@ -141,7 +153,7 @@ export default class Transaction extends Protocol {
       )
     )
 
-    return transactions
+    return content
   }
 
 
@@ -150,14 +162,14 @@ export default class Transaction extends Protocol {
    * @param {Address} address The address to get the nonce for
    * @returns {Number} nonce
    */
-  async getNonce(address) {
+  async getNonce(address: string) {
     const raw = await globalThis.accountsStore.has(address) ? await globalThis.accountsStore.get(address) : undefined
     const nonce = raw === undefined ? 0 : Number(typeof raw === 'string' ? raw : new TextDecoder().decode(raw))
     const maxPending = this.getMaxPendingNonce(address)
     return Math.max(nonce, maxPending)
   }
 
-  async validateNonce(address, nonce) {
+  async validateNonce(address: string, nonce: number) {
     // Compare only against the COMMITTED nonce (accountsStore), not the pool max.
     // The pool may hold many future nonces from batch sends — rejecting lower nonces
     // because a higher one is already queued would break concurrent batch submission.
@@ -171,12 +183,12 @@ export default class Transaction extends Protocol {
     if (pendingNonces.has(nonce)) throw new Error(`a transaction with the same nonce already exists`)
   }
 
-  isTransactionMessage(message) {
+  isTransactionMessage(message: unknown): message is TransactionMessage {
     if (message instanceof TransactionMessage) return true
     return false
   }
 
-  async createTransactionMessage(transaction, signature) {
+  async createTransactionMessage(transaction: object, signature: string) {
     return new TransactionMessage({ ...transaction, signature })
   }
 
@@ -200,9 +212,27 @@ export default class Transaction extends Protocol {
         if (this.genesis) {
           valid = await verifyIdentityDigest(from, signature, await createTransactionHash(transaction), network, this.genesis.chainId)
         } else {
-          // Keep the historical verification path and wire acceptance unchanged.
-          const verifier = new MultiWallet(network)
-          await verifier.fromAddress(from, null, network)
+          const verifierKey = JSON.stringify([network, from])
+          let verifierPromise = this.#signatureVerifiers.get(verifierKey)
+          if (!verifierPromise) {
+            verifierPromise = (async () => {
+              const verifier = new MultiWallet(network)
+              await verifier.fromAddress(from, undefined, network)
+              return verifier
+            })()
+            this.#signatureVerifiers.set(verifierKey, verifierPromise)
+            if (this.#signatureVerifiers.size > 512) {
+              const oldest = this.#signatureVerifiers.keys().next()
+              if (!oldest.done) this.#signatureVerifiers.delete(oldest.value)
+            }
+          }
+          let verifier: MultiWallet
+          try {
+            verifier = await verifierPromise
+          } catch (error) {
+            if (this.#signatureVerifiers.get(verifierKey) === verifierPromise) this.#signatureVerifiers.delete(verifierKey)
+            throw error
+          }
           valid = await verifier.verify(fromBase58(signature), await createTransactionHash(transaction))
         }
         if (!valid) throw new Error('signature does not match transaction sender')
@@ -212,7 +242,7 @@ export default class Transaction extends Protocol {
       }
     })()
     this.#signatureChecks.set(key, check)
-    if (this.#signatureChecks.size > 4096) {
+    if (this.#signatureChecks.size > 16_384) {
       const oldest = this.#signatureChecks.keys().next()
       if (!oldest.done) this.#signatureChecks.delete(oldest.value)
     }
@@ -225,7 +255,7 @@ export default class Transaction extends Protocol {
     }
   }
 
-  async createTransaction(transaction) {
+  async createTransaction<T extends { from: string; timestamp?: number; nonce?: number }>(transaction: T) {
     return {
       ...transaction,
       timestamp: transaction.timestamp || Date.now(),
@@ -233,11 +263,23 @@ export default class Transaction extends Protocol {
     }
   }
 
-  async sendTransaction(message) {
-    if (!this.isTransactionMessage(message)) message = await new TransactionMessage(message)
+  async sendTransaction(input: TransactionInput) {
+    const message = this.isTransactionMessage(input) ? input : await new TransactionMessage(input)
     if (message.decoded.nonce === undefined) throw new Error(`nonce required`)
 
     await this.validateTransactionSignature(message)
+    const reservation = JSON.stringify([message.decoded.from, message.decoded.nonce])
+    if (this.#localNonceReservations.has(reservation)) throw new Error('a transaction with the same nonce already exists')
+    this.#localNonceReservations.add(reservation)
+    try {
+      return await this.#admitTransaction(message)
+    } finally {
+      this.#localNonceReservations.delete(reservation)
+    }
+  }
+
+  async #admitTransaction(message: TransactionMessage) {
+    if (message.decoded.nonce === undefined) throw new Error('transaction nonce required')
     await this.validateNonce(message.decoded.from, message.decoded.nonce)
     const hash = await message.hash()
     // Finish fallible preparation before allocating a waiter or admitting a tx.
@@ -266,6 +308,55 @@ export default class Transaction extends Protocol {
         this.removePendingNonce(message.decoded.from, message.decoded.nonce)
       }
       throw error
+    }
+  }
+
+  protected async admitTransactions(inputs: TransactionInput[]): Promise<TransactionReceipt[]> {
+    if (!Array.isArray(inputs) || inputs.length === 0 || inputs.length > 128)
+      throw new Error('Transaction batch must contain between 1 and 128 transactions')
+    if (!globalThis.transactionPoolStore.atomicBatchWrites)
+      throw new Error('Transaction batching requires atomic pool writes')
+
+    const messages = inputs.map(input => this.isTransactionMessage(input) ? input : new TransactionMessage(input))
+    const reservations: string[] = []
+    const waiters: ReturnType<typeof createCanonicalTransactionWaiter>[] = []
+    try {
+      for (const message of messages) {
+        const { from, nonce } = message.decoded
+        if (nonce === undefined) throw new Error('transaction nonce required')
+        const key = JSON.stringify([from, nonce])
+        if (this.#localNonceReservations.has(key)) throw new Error('a transaction with the same nonce already exists')
+        this.#localNonceReservations.add(key)
+        reservations.push(key)
+      }
+
+      const prepared: { message: TransactionMessage; hash: string; fee: Awaited<ReturnType<typeof calculateFee>> }[] = []
+      const revision = this.pendingTransactions.revision
+      for (const message of messages) {
+        await this.validateTransactionSignature(message)
+        await this.validateNonce(message.decoded.from, message.decoded.nonce!)
+        prepared.push({ message, hash: await message.hash(), fee: await calculateFee(message.decoded) })
+      }
+      for (const entry of prepared) waiters.push(createCanonicalTransactionWaiter(pubsub, transactionPoolStore, entry.hash))
+      if (revision !== this.pendingTransactions.revision) throw new Error('canonical state changed during transaction batch')
+
+      await globalThis.transactionPoolStore.batch(prepared.map(({ hash, message }) =>
+        ({ type: 'put', key: hash, value: message.encoded })))
+      for (const { message } of prepared) this.addPendingNonce(message.decoded.from, message.decoded.nonce!)
+      for (const { message } of prepared) {
+        try {
+          await peernet.publish('add-transaction', message.encoded)
+        } catch (error) {
+          console.warn('peernet publish failed: add-transaction', (error as Error)?.message ?? error)
+        }
+      }
+      return prepared.map(({ hash, message, fee }, index) =>
+        ({ hash, message, fee, data: undefined, wait: waiters[index].wait }))
+    } catch (error) {
+      for (const waiter of waiters) waiter.cancel(error)
+      throw error
+    } finally {
+      for (const reservation of reservations) this.#localNonceReservations.delete(reservation)
     }
   }
 }

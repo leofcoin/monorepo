@@ -3,6 +3,8 @@ import { chainNetwork } from './ledger-network.js'
 import { Codec } from '@leofcoin/codec-format-interface'
 import { requestTimeout } from './protocol.js'
 import { requestRecoveryContent } from './recovery-transport.js'
+import type Peernet from '@leofcoin/peernet'
+import type { ChainPeer, PeerProtocols } from './types.js'
 
 const INITIAL_RECONNECT_DELAY = 5000
 const MAX_RECONNECT_DELAY = 30000
@@ -10,7 +12,7 @@ const MAX_RECONNECT_DELAY = 30000
 const isChainStore = (store: unknown): store is 'block' | 'transaction' | 'transactionPool' =>
   store === 'block' || store === 'transaction' || store === 'transactionPool'
 
-export const guardProviderDiscovery = (peernet) => {
+export const guardProviderDiscovery = (peernet: Peernet & { protos: PeerProtocols }) => {
   const handleData = peernet.handleData.bind(peernet)
   peernet.handleData = async (peer: Peer, id: string, proto: { decoded: { hash: string; store?: string } }) => {
     const { hash, store: storeName } = proto.decoded
@@ -47,7 +49,7 @@ export const guardProviderDiscovery = (peernet) => {
     if (!hash) throw new Error('hash expected for provider discovery')
     const request = new peernet.protos['peernet-dht']({ hash })
     const message = await peernet.prepareMessage(request)
-    const connections: Record<string, Peer> = peernet.connections
+    const connections: Record<string, ChainPeer> = peernet.connections
     const requests = Object.entries(connections).filter(
       ([id, peer]) => id !== peernet.id && peer.connected
     ).map(async ([id, peer]) => {
@@ -62,11 +64,13 @@ export const guardProviderDiscovery = (peernet) => {
         if (!(result instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
         const bytes = result
         if (new Codec(bytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
-        const response = new peernet.protos['peernet-dht-response'](bytes).decoded
+        const response = new peernet.protos['peernet-dht-response'](bytes).decoded as { hash?: unknown; has?: unknown }
         if (response.hash !== hash) throw new Error('provider response hash mismatch')
         // A fast negative response must not win over a slower content provider.
         if (!response.has) throw new Error('peer does not provide content')
-        peernet.dht.addProvider({ id, address: peer.remoteAddress }, hash)
+        const address = 'remoteAddress' in peer ? peer.remoteAddress : undefined
+        if (address !== undefined && typeof address !== 'string') throw new Error('invalid provider address')
+        peernet.dht.addProvider({ id, address: address || '127.0.0.1' }, hash)
       } catch (error) {
         if ((error as Error).message !== 'peer does not provide content') {
           console.warn(`Provider discovery failed for ${id}:`, (error as Error)?.message ?? error)
@@ -85,7 +89,7 @@ export const guardProviderDiscovery = (peernet) => {
     }
   }
   const requestData = peernet.requestData.bind(peernet)
-  peernet.requestData = async (hash, store, options) => {
+  peernet.requestData = async (hash: string, store: string | { name?: string }, options?: { providerIndex?: number }) => {
     const storeName = typeof store === 'string' ? store : store?.name
     if (!isChainStore(storeName)) {
       return requestData(hash, store, options)
@@ -93,18 +97,18 @@ export const guardProviderDiscovery = (peernet) => {
     const probe = await peernet.prepareMessage(new peernet.protos['peernet-dht']({ hash, store: storeName }))
     const request = await peernet.prepareMessage(new peernet.protos['peernet-data']({ hash, store: storeName }))
     try {
-      return await requestRecoveryContent(peernet, async (_id, peer: Peer) => {
+      return await requestRecoveryContent(peernet, async (_id, peer) => {
         const availability = await peer.request(probe.encoded)
         if (!(availability instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
         const probeBytes = availability
         if (new Codec(probeBytes).name !== 'peernet-dht-response') throw new Error('invalid provider response codec')
-        const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded
+        const provider = new peernet.protos['peernet-dht-response'](probeBytes).decoded as { hash?: unknown; has?: unknown }
         if (provider.hash !== hash || !provider.has) throw new Error('peer does not provide content in requested store')
         const result = await peer.request(request.encoded)
         if (!(result instanceof Uint8Array)) throw new TypeError('Peer response must be Uint8Array')
         const bytes = result
         if (new Codec(bytes).name !== 'peernet-data-response') throw new Error('invalid data response codec')
-        const response = new peernet.protos['peernet-data-response'](bytes).decoded
+        const response = new peernet.protos['peernet-data-response'](bytes).decoded as { hash?: unknown; data?: unknown }
         if (response.hash !== hash || !(response.data instanceof Uint8Array) || response.data.length === 0) {
           throw new Error('invalid content response')
         }
@@ -124,9 +128,9 @@ export const isSendablePeer = (peer: unknown): peer is Peer => {
   return typeof candidate.once === 'function' && typeof candidate.removeListener === 'function'
 }
 
-export const guardPeerMessages = (peernet) => {
+export const guardPeerMessages = (peernet: Peernet) => {
   const sendMessage = peernet.sendMessage.bind(peernet)
-  peernet.sendMessage = (peer, ...args) => {
+  peernet.sendMessage = (peer: unknown, ...args: [id: unknown, data: unknown]) => {
     if (isSendablePeer(peer)) return sendMessage(peer, ...args)
 
     for (const [peerId, connection] of Object.entries(peernet.connections || {})) {
@@ -145,7 +149,7 @@ export default class ConnectionMonitor {
   #reconnectDelay: number = INITIAL_RECONNECT_DELAY
   #reconnectTimer: NodeJS.Timeout | null = null
   #healthCheckInterval: number = 60000
-  #version: string
+  #version?: string
   #lastHealthCheckAt: number = 0
   #reconnecting: boolean = false
 
@@ -159,7 +163,7 @@ export default class ConnectionMonitor {
     return this.#isMonitoring
   }
 
-  get connectedPeers() {
+  get connectedPeers(): ChainPeer[] {
     return Object.values(globalThis.peernet?.connections || {}).filter((peer) => peer.connected)
   }
 
@@ -188,7 +192,7 @@ export default class ConnectionMonitor {
     }
   }
 
-  start(version) {
+  start(version: string) {
     this.#version = version
     console.log(`🔗 Connection Monitor initialized for version: ${this.#version}`)
 
@@ -430,7 +434,8 @@ export default class ConnectionMonitor {
           // Try to import network config
           const { default: networks } = await import('@leofcoin/networks')
           const [mainKey, subKey] = networkName.split(':')
-          const networkConfig = networks?.[mainKey]?.[subKey]
+          const networkMap: Record<string, Record<string, { stars: string[] }>> = networks
+          const networkConfig = networkMap[mainKey]?.[subKey]
 
           if (networkConfig?.stars && Array.isArray(networkConfig.stars)) {
             console.log('  → Attempting to dial star servers:', networkConfig.stars.join(', '))

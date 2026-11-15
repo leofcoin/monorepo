@@ -11,24 +11,30 @@ import { chainDiscoveryOptions, chainPeernetOptions, assertDiscoveryNamespace } 
 import { startRecoveryTransport } from './recovery-transport.js'
 import { reserveNode } from './pq-runtime.js'
 
+declare global {
+  var Peernet: typeof import('@leofcoin/peernet').default | undefined
+  var wrtc: typeof import('@vandeurenglenn/wrtc') | undefined
+  var __swarmWrtcImpl: string | undefined
+}
+
 export default class Node {
-  #node
+  #node?: Peernet
   ready: Promise<this>
 
   constructor(config: NodeOptions = {}, password?: string) {
     this.ready = this._init(config, password)
   }
 
-  async _init(config: NodeOptions = { autoStart: false }, password?: string) {
+  async _init(options: NodeOptions = { autoStart: false }, password?: string) {
     const SDK = globalThis.Peernet ?? Peernet
-    if ((SDK as any).discoveryProtocolVersion !== 3) throw new Error('Install the app-ID Peernet release before starting this node')
-    config = await chainDiscoveryOptions(config)
+    if (SDK.discoveryProtocolVersion !== 3) throw new Error('Install the app-ID Peernet release before starting this node')
+    let config = await chainDiscoveryOptions(options)
     reserveNode(config)
     const autoStart = config.autoStart
     config = { ...config, autoStart: false }
     // Load the chain's supported native version before swarm starts discovery.
     // Swarm otherwise resolves its own older optional dependency.
-    const backend = (config as any).transport?.webrtc?.backend ||
+    const backend = config.transport?.webrtc?.backend ||
       process.env.NETPEER_SWARM_WRTC_BACKEND || 'vandeurenglenn'
     if (backend === 'vandeurenglenn' && !globalThis.RTCPeerConnection && !globalThis.wrtc) {
       globalThis.wrtc = await import('@vandeurenglenn/wrtc')

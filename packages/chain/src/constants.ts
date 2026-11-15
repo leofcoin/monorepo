@@ -1,12 +1,11 @@
 import networks from '@leofcoin/networks'
 import type { PqGenesis } from '@leofcoin/lib/pq-genesis'
 
-// Consecutive sender nonces activate at block 14; earlier 0.5 blocks remain replayable.
-export const PROTOCOL_VERSION = '0.6.0'
+// Enlarged block limits; previous testnet ledgers require an explicit reset or migration.
+export const PROTOCOL_VERSION = '0.9.0'
 // Stable application identity, independent of protocol releases and genesis.
 export const CHAIN_APP_ID = 'e0e759e2-3f0b-4d6b-9bb6-b547f655545b'
 export const MACHINE_STATE_VERSION = '1' // Bump when state encoding changes
-export const REACHED_ONE_ZERO_ZERO = false // set to true when protocol reaches v1.0.0
 
 export type NodeOptions = {
   genesis?: PqGenesis
@@ -22,6 +21,7 @@ export type NodeOptions = {
   freshIdentity?: boolean
   routingId?: string
   routingAccount?: string
+  transport?: { webrtc?: { backend?: string; [key: string]: unknown }; [key: string]: unknown }
 }
 
 export const DEFAULT_NODE_OPTIONS = {

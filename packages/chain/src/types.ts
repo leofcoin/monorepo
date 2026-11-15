@@ -1,5 +1,8 @@
 import { Storage } from '@leofcoin/storage'
 import { base58String } from '@vandeurenglenn/base58'
+import type { BlockMessage } from '@leofcoin/messages'
+import type { BinaryFormat } from '@leofcoin/messages'
+import type Peernet from '@leofcoin/peernet'
 
 declare var transactionPoolStore: Storage
 
@@ -27,12 +30,21 @@ export interface globalMessage {
   staticDelegate: Function
 }
 
-export declare type BlockInMemory = {
-  index: number
+export type BlockInMemory = BlockMessage['decoded'] & {
   hash: string
-  transactions: string[]
   loaded?: boolean
 }
+
+export type ChainTip = {
+  index: number | bigint
+  hash: string
+  previousHash?: string
+  timestamp?: unknown
+  validators?: unknown
+}
+
+export type ChainPeer = ReturnType<Peernet['getConnection']> & { version?: string }
+export type PeerProtocols = Record<string, new (value: object) => BinaryFormat>
 
 export declare type RawBlock = {
   index: number
@@ -44,5 +56,6 @@ export declare type ChainConfig = {
   genesis?: import('@leofcoin/lib/pq-genesis').PqGenesis
   resolveTimeout?: number
   network?: string
-  benchmarkBlockTimeMs?: 1000 | 6000
+  networkVersion?: string
+  stars?: string[]
 }

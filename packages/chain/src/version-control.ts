@@ -1,17 +1,15 @@
-import semver from 'semver'
-import Contract from './contract.js'
 import State from './state.js'
-import { PROTOCOL_VERSION, REACHED_ONE_ZERO_ZERO } from './constants.js'
+import { PROTOCOL_VERSION } from './constants.js'
+import { isBlockProtocolCompatible } from './consensus/protocol-version.js'
+import type { ChainConfig } from './types.js'
 
 export class VersionControl extends State {
-  constructor(config) {
+  constructor(config?: ChainConfig) {
     super(config)
     // Startup recovery validates historical blocks before init() returns.
     this.version = PROTOCOL_VERSION
   }
   #currentVersion: string = PROTOCOL_VERSION
-
-  #reachedOneZeroZero = REACHED_ONE_ZERO_ZERO
 
   async #setCurrentVersion() {
     this.version = this.#currentVersion
@@ -20,59 +18,19 @@ export class VersionControl extends State {
   async init() {
     super.init && (await super.init())
 
-    try {
-      if (!(await globalThis.chainStore.has('version'))) {
-        await this.#setCurrentVersion()
-        return
-      }
-      const version = await globalThis.chainStore.get('version')
-
-      const storedVersion = new TextDecoder().decode(version)
-      console.log(storedVersion, this.#currentVersion)
-
-      // Always use current version, update store if different
-      this.version = this.#currentVersion
-
-      /**
-       * protocol version control!
-       * Note that before v1.2.2 everything gets deleted because of big changes,
-       * This will be removed in the future by setting the #reachedOneZeroZero flag to true
-       *
-       * This is because we are still in development and the protocol is still changing a lot.
-       *
-       * # this is not what we want in the future.
-       * In the future we want newer nodes to handle the new changes and still confirm old version transactions
-       * Unless there is a security issue!
-       */
-      // check if we are above v1.0.0 and if we still not reached v1.0.0
-      // if so, clear all data
-      // once v1.0.0 is reached this will not run and we can remove this check once every node is above v1.0.0
-      console.warn('the reachedZeroZero flag is set to false, this will clear all data on every start if above v1.0.0')
-      if (semver.compare(storedVersion, '1.0.0') === 1 && !this.#reachedOneZeroZero) {
-        console.warn('clearing all data because we are below v1.0.0')
-        await this.clearAll()
-      }
-
-      if (storedVersion !== this.#currentVersion) {
-        console.log(`Version mismatch: stored=${storedVersion}, current=${this.#currentVersion}. Updating...`)
-        await globalThis.chainStore.put('version', this.version)
-      }
-      // if (version)
-    } catch (e) {
-      console.log(e)
-
-      // await this.clearAll()
-      return this.#setCurrentVersion()
+    if (!(await globalThis.chainStore.has('version'))) {
+      await this.#setCurrentVersion()
+      return
     }
+    const storedVersion = new TextDecoder('utf-8', { fatal: true }).decode(await globalThis.chainStore.get('version'))
+    if (!isBlockProtocolCompatible(storedVersion, this.#currentVersion))
+      throw new Error(`Stored protocol ${storedVersion} is incompatible with ${this.#currentVersion}; explicit ledger migration or testnet reset required`)
+    if (storedVersion !== this.#currentVersion) await this.#setCurrentVersion()
   }
 
   protected isVersionCompatible(peerVersion?: string) {
-    if (!peerVersion || !this.version) return false
-
-    const [peerMajor, peerMinor] = peerVersion.split('.')
-    const [localMajor, localMinor] = this.version.split('.')
-
-    return peerMajor === localMajor && peerMinor === localMinor
+    return typeof peerVersion === 'string' && typeof this.version === 'string' &&
+      isBlockProtocolCompatible(peerVersion, this.version)
   }
 }
 

@@ -9,7 +9,7 @@ import {
   beaconMessage,
   signBeaconRound
 } from '../../src/consensus/beacon.ts'
-import { BeaconRound } from '../../src/consensus/beacon-round.ts'
+import { BeaconRound } from '../../exports/beacon-round.js'
 
 const validators = ['validator-a', 'validator-b', 'validator-c', 'validator-d']
 const participants = [1n, 2n, 3n, 4n]

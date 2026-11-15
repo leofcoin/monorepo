@@ -1,12 +1,14 @@
 import { newRoutingId, validateRoutingId, routingScope } from './routing-identity.js'
+import type { NodeOptions } from './constants.js'
 
 /** One factory per document; injectable storage/locks for isolated tests. */
 export function createBrowserRoutingIdentity({ storage = globalThis.localStorage,
   locks = globalThis.navigator?.locks, crypto = globalThis.crypto } = {}) {
   const loaded = new Map<string, Promise<string>>()
-  return (config): Promise<string> => {
+  return (config: NodeOptions): Promise<string> => {
     const scope = `${routingScope(config)}:${config.routingAccount || 'default'}`
-    if (loaded.has(scope)) return loaded.get(scope)
+    const existing = loaded.get(scope)
+    if (existing) return existing
     const result = (async () => {
       if (!locks?.request || !storage) throw new Error('Persistent storage and Web Locks are required for a safe node routing identity')
       const key = `leofcoin:node-routing:v1:${scope}`
@@ -25,8 +27,8 @@ export function createBrowserRoutingIdentity({ storage = globalThis.localStorage
   }
 }
 
-let resolveIdentity
-export function browserRoutingId(config): Promise<string> {
+let resolveIdentity: ReturnType<typeof createBrowserRoutingIdentity> | undefined
+export function browserRoutingId(config: NodeOptions): Promise<string> {
   resolveIdentity ||= createBrowserRoutingIdentity()
   return resolveIdentity(config)
 }

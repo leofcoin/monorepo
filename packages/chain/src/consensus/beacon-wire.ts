@@ -149,10 +149,15 @@ export const signBeaconActivationMessage = async (
   return (await signTransaction(activationSignableData(validatorsAddress, message), identity)).signature
 }
 
-const verifyIdentitySignature = async (message, signable, network: string, chainId?: string) => {
-  if (typeof message.signature !== 'string' || !message.signature) return false
+const verifyIdentitySignature = async (
+  message: { from: unknown; signature?: unknown },
+  signable: ReturnType<typeof commitmentSignableData> | ReturnType<typeof shareSignableData> | ReturnType<typeof activationSignableData>,
+  network: string,
+  chainId?: string
+) => {
+  if (typeof message.from !== 'string' || typeof message.signature !== 'string' || !message.signature) return false
   try {
-    return verifyIdentityDigest(message.from, message.signature, await createTransactionHash(signable), network, chainId)
+    return await verifyIdentityDigest(message.from, message.signature, await createTransactionHash(signable), network, chainId)
   } catch {
     return false
   }

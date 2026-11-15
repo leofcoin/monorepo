@@ -36,12 +36,12 @@ test('monorepo resolves one canonical codec and automatic-transport peernet grap
 })
 
 test('canonical hash protocol accepts fresh/current roots and rejects old or unversioned state without writes', async () => {
-  assert.equal(PROTOCOL_VERSION, '0.6.0')
+  assert.equal(PROTOCOL_VERSION, '0.9.0')
   await assertHashFormatState(store())
-  await assertHashFormatState(store({ version: '0.6.0', lastBlock: 'current' }))
-  await assertHashFormatState(store({ version: '0.6.9' }))
-  for (const version of ['0.5.0', '0.4.0', '0.3.0', '0.2.0', '1.0.0', '0.6.bad', 'not-a-version', '']) {
-    await assert.rejects(assertHashFormatState(store({ version })), /incompatible with canonical hash protocol/)
+  await assertHashFormatState(store({ version: '0.9.0', lastBlock: 'current' }))
+  await assertHashFormatState(store({ version: '0.9.9' }))
+  for (const version of ['0.8.0', '0.7.0', '0.6.0', '0.5.0', '0.4.0', '0.3.0', '0.2.0', '1.0.0', '0.9.bad', '0.9.00', 'not-a-version', '']) {
+    await assert.rejects(assertHashFormatState(store({ version })), /incompatible with runtime protocol/)
   }
   await assert.rejects(assertHashFormatState(store({ lastBlock: 'old' })), /no protocol version/)
   await assert.rejects(assertHashFormatState(store(), store({ lastBlock: 'old' })), /no protocol version/)
@@ -55,13 +55,13 @@ test('built Chain.ready rejects old protocol state before contract bootstrap', a
   const previous = { chainStore: globalThis.chainStore, stateStore: globalThis.stateStore, contractStore: globalThis.contractStore }
   let bootstrapped = false
   try {
-    globalThis.chainStore = store({ version: '0.3.0', lastBlock: 'preserve-old-tip' })
+    globalThis.chainStore = store({ version: '0.8.0', lastBlock: 'preserve-old-tip' })
     globalThis.stateStore = store()
     globalThis.contractStore = { has: async () => { bootstrapped = true; throw new Error('bootstrap must not run') } }
     const chain = new Chain({})
-    await assert.rejects(chain.ready, /incompatible with canonical hash protocol/)
+    await assert.rejects(chain.ready, /incompatible with runtime protocol/)
     assert.equal(bootstrapped, false)
-    assert.equal(new TextDecoder().decode(await globalThis.chainStore.get('version')), '0.3.0')
+    assert.equal(new TextDecoder().decode(await globalThis.chainStore.get('version')), '0.8.0')
     assert.equal(new TextDecoder().decode(await globalThis.chainStore.get('lastBlock')), 'preserve-old-tip')
   } finally {
     Object.assign(globalThis, previous)

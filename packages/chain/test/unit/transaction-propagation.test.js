@@ -20,6 +20,7 @@ const source = ts.transpile(`
     loaded = true
     wantList = []
     machine = { states: {} }
+    state = { sync: 'synced' }
     version = '0.4.0'
     lastBlock = { index: 921n, hash: 'tip' }
     nonces = []
@@ -111,6 +112,26 @@ const transaction = (overrides = {}) => new TransactionMessage({
   ...overrides
 })
 
+test('disconnects a peer once its accumulated failures exceed the reputation limit', async () => {
+  const peer = { destroyed: 0, destroy() { this.destroyed++ } }
+  const method = methods('../../src/chain.ts', 'Chain', ['#recordPeerFailure'])
+  const code = ts.transpile(`return class {
+    #peerReputations = new Map()
+    #maxPeerFailures = 100
+    #minPeerScore = -10
+    fail(id) { return this.#recordPeerFailure(id, 'failure') }
+    ${method}
+  }`, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS })
+  const Harness = new Function('globalThis', 'console', code)(
+    { peernet: { connections: { peer } } }, { warn() {} }
+  )
+  const chain = new Harness()
+  for (let count = 0; count < 10; count++) await chain.fail('peer')
+  assert.equal(peer.destroyed, 0)
+  await chain.fail('peer')
+  assert.equal(peer.destroyed, 1)
+})
+
 test('a concurrent canonical commit cannot reintroduce a stale durable pool entry into the index', async () => {
   const node = createNode()
   const message = transaction()
@@ -125,6 +146,45 @@ test('a concurrent canonical commit cannot reintroduce a stale durable pool entr
   assert.equal(node.pending.has(hash), false)
   assert.equal(node.chain.pendingTransactions.size, 0)
   assert.deepEqual(node.messages, [])
+})
+
+test('rejects a relayed transaction without a nonce before storing or broadcasting it', async () => {
+  const node = createNode()
+  await assert.rejects(node.chain.receive(transaction({ nonce: undefined })), /transaction nonce required/)
+  assert.equal(node.pending.size, 0)
+  assert.deepEqual(node.messages, [])
+})
+
+test('batch submission reports each post-admission failure and keeps its receipt', async () => {
+  const methodsSource = methods('../../src/chain.ts', 'Chain', ['sendTransactions', '#assertRecoveryComplete'])
+  const code = ts.transpile(`return class extends Base {
+    #acceptingChainTraffic = true
+    loaded = true
+    async #sendTransaction(bytes) {
+      if (new TransactionMessage(bytes).decoded.nonce === 2) throw new Error('index unavailable')
+    }
+    ${methodsSource}
+  }`, { target: ts.ScriptTarget.ES2022 })
+  class Base {
+    async admitTransactions(messages) {
+      return Promise.all(messages.map(async message => ({
+        hash: await message.hash(), message, wait: Promise.resolve(), fee: 1n, data: undefined
+      })))
+    }
+  }
+  const sent = []
+  const Harness = new Function('Base', 'TransactionMessage', 'globalThis', 'debug', code)(
+    Base, TransactionMessage, { peernet: { async publish(topic, bytes) { sent.push([topic, bytes]) } } }, () => {}
+  )
+  const batch = [transaction({ nonce: 1 }).decoded, transaction({ nonce: 2 }).decoded,
+    transaction({ nonce: 3 }).decoded]
+  batch[0].hash = 'untrusted'
+  const results = await new Harness().sendTransactions(batch)
+  assert.deepEqual(results.map(result => result.status), ['fulfilled', 'rejected', 'fulfilled'])
+  assert.equal(results[1].reason.message, 'index unavailable')
+  assert.equal(results[1].receipt.message.decoded.nonce, 2)
+  assert.notEqual(results[0].value.hash, 'untrusted')
+  assert.equal(sent.length, 2)
 })
 
 test('peer handshakes and pool catch-up stay disabled until recovery completes', async () => {
@@ -189,7 +249,7 @@ test('logs asynchronous relay failure but retains the accepted pool entry for re
 
   assert.equal(await node.chain.receive(message.encoded), await message.hash())
   assert.equal(node.pending.size, 1)
-  assert.ok(node.logs.some(args => args.join(' ').includes('disconnected')))
+  assert.ok(node.logs.some(args => args.length === 1 && args[0].includes('disconnected')))
 })
 
 test('recovers a missed publication on reconnect at equal height from the pending store', async () => {

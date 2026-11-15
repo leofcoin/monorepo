@@ -2,20 +2,30 @@ import EasyWorker from '@leofcoin/workers/binary-worker'
 import { jsonStringifyBigInt } from '@leofcoin/utils'
 import type { PqGenesis } from '@leofcoin/lib/pq-genesis'
 
+export type ReadSeed = { lastBlock: unknown; states: unknown; info: unknown }
+type WorkerMessage = {
+  type: string
+  id: string
+  question?: string
+  input?: unknown
+  message?: string
+  value?: unknown
+}
+
 /** No canonical worker handle, signer, network fetch or writable store is exposed. */
 export class ReadOnlyMachine {
-  #worker
-  #pending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void; timer: any }>()
+  #worker?: EasyWorker
+  #pending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
   #tail = Promise.resolve()
   #queued = 0
-  #seed
+  #seed?: ReadSeed
   #cache = new Map<string, any>()
   #cacheBytes = 0
   #closed = false
 
   constructor(private workerPath: string, private readContract: (hash: string) => Promise<Uint8Array>, private genesis?: PqGenesis) {}
 
-  read(seed, contract: string, method: string, params: any[] = [], sender = 'leofcoin:read-only') {
+  read(seed: ReadSeed, contract: string, method: string, params: any[] = [], sender = 'leofcoin:read-only') {
     if (this.#closed) return Promise.reject(new Error('Read-only machine is closed'))
     if (typeof contract !== 'string' || !contract || typeof method !== 'string' || !method ||
       ['constructor', '__proto__', 'prototype'].includes(method) || !Array.isArray(params))
@@ -47,6 +57,7 @@ export class ReadOnlyMachine {
         if (bytes > 4 * 1024 * 1024) throw new Error('Read-only result is too large')
         while (this.#cache.size && (this.#cache.size >= 64 || this.#cacheBytes + bytes > 4 * 1024 * 1024)) {
           const oldest = this.#cache.keys().next().value
+          if (oldest === undefined) break
           this.#cacheBytes -= this.#cache.get(oldest).bytes
           this.#cache.delete(oldest)
         }
@@ -67,14 +78,19 @@ export class ReadOnlyMachine {
     const worker = await new EasyWorker(this.workerPath, { serialization: 'advanced', type: 'module' })
     if (this.#closed) { worker.terminate(); throw new Error('Read-only machine is closed') }
     this.#worker = worker
-    worker.onmessage(async message => {
+    worker.onmessage(async (message: WorkerMessage) => {
       if (this.#worker !== worker) return
       if (message.type === 'ask') {
         try {
-          const input = message.question === 'peers' ? [] : message.question === 'contract'
-            ? await this.readContract(message.input) : undefined
+          let input
+          if (message.question === 'peers') input = []
+          else if (message.question === 'contract') {
+            if (typeof message.input !== 'string') throw new Error('Invalid read-only worker contract request')
+            input = await this.readContract(message.input)
+          }
           if (this.#worker === worker) worker.postMessage({ id: message.id, input })
-        } catch {
+        } catch (error) {
+          console.warn('[read-only] worker request failed:', error)
           if (this.#worker === worker) worker.postMessage({ id: message.id, input: undefined })
         }
         return
@@ -91,13 +107,15 @@ export class ReadOnlyMachine {
     worker.worker?.once?.('exit', () => { if (this.#worker === worker) this.#stop() })
   }
 
-  #request(type, input) {
+  #request(type: string, input: unknown) {
     return new Promise<any>((resolve, reject) => {
       const id = crypto.randomUUID()
       const timer = setTimeout(() => this.#stop(new Error('Read-only query timed out')), 10000)
       this.#pending.set(id, { resolve, reject, timer })
-      try { this.#worker.postMessage({ id, type, input }) }
-      catch (error) { this.#stop(error) }
+      try {
+        if (!this.#worker) throw new Error('Read-only worker is not running')
+        this.#worker.postMessage({ id, type, input })
+      } catch (error) { this.#stop(error instanceof Error ? error : new Error(String(error), { cause: error })) }
     })
   }
 

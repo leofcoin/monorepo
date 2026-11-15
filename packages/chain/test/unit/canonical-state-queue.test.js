@@ -251,15 +251,16 @@ test('the writer remains locked until all asynchronous state work finishes', asy
 test('epoch scheduling cannot deadlock a validator committing its next block', { timeout: 1000 }, async () => {
   const queue = new CanonicalStateQueue()
   const committed = deferred()
-  const epochMethods = methods('../../src/chain.ts', 'Chain', ['#isEpochBoundary', '#handleEpochBoundary'])
+  const epochMethods = methods('../../src/chain.ts', 'Chain', ['#isEpochBoundary', '#handleBlockCommit'])
   const source = `class Epoch {
     #epochLength = 10
     #currentEpochStartHeight = 0
     #consensusRound = 0
     #participating = true
     #runningEpoch = false
+    pendingTransactions = { size: 1 }
     async #runEpoch() { await queue.run(async () => committed.resolve()) }
-    boundary() { return this.#handleEpochBoundary(9) }
+    boundary() { return this.#handleBlockCommit(9) }
     ${epochMethods}
   }`
   const js = ts.transpileModule(source, {

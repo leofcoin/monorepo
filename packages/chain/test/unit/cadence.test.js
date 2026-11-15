@@ -1,21 +1,59 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import ts from 'typescript'
+import { methods } from '../helpers/canonical-state-harness.js'
 
-import { benchmarkBlockTime, nextBlockIndex, proposalDelay } from '../../src/consensus/cadence.ts'
+import { DEFAULT_BLOCK_TIME_MS, nextBlockIndex, proposalDelay } from '../../src/consensus/cadence.ts'
 
-test('one-second proposal timing is available only when both configured and actual networks are isolated', () => {
-  const config = { network: 'leofcoin:e2e', benchmarkBlockTimeMs: 1000 }
-  assert.equal(proposalDelay({ now: 10_001, lastBlockTimestamp: 10_000,
-    blockTime: benchmarkBlockTime(config, 'leofcoin:e2e') }), 999)
-  assert.throws(() => benchmarkBlockTime(config, 'leofcoin:peach'), /isolated/)
-  assert.throws(() => benchmarkBlockTime({ ...config, network: 'leofcoin:peach' }, 'leofcoin:e2e'), /isolated/)
-  assert.equal(benchmarkBlockTime({ network: 'leofcoin:peach' }, 'leofcoin:peach'), 6000)
+test('epoch transition resets the round after sixty blocks rather than ten', async () => {
+  const production = methods('../../src/chain.ts', 'Chain', ['#epochLength', '#isEpochBoundary', '#handleBlockCommit'])
+  const { outputText } = ts.transpileModule(`class Epoch {
+    ${production}
+    #currentEpochStartHeight = 0
+    #consensusRound = 5
+    #participating = false
+    #runningEpoch = false
+    async #runEpoch() {}
+    handle(height) { return this.#handleBlockCommit(height) }
+    get state() { return [this.#currentEpochStartHeight, this.#consensusRound] }
+  }`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } })
+  const Epoch = new Function('debug', `${outputText}; return Epoch`)(() => {})
+  const epoch = new Epoch()
+  await epoch.handle(9)
+  await epoch.handle(58)
+  assert.deepEqual(epoch.state, [0, 5])
+  await epoch.handle(59)
+  assert.deepEqual(epoch.state, [60, 0])
+  await epoch.handle(119)
+  assert.deepEqual(epoch.state, [120, 0])
 })
 
-test('invalid benchmark intervals fail instead of silently changing proposal cadence', () => {
-  for (const benchmarkBlockTimeMs of [0, -1, 2000, Number.NaN, Number.POSITIVE_INFINITY])
-    assert.throws(() => benchmarkBlockTime({ network: 'leofcoin:e2e', benchmarkBlockTimeMs }, 'leofcoin:e2e'),
-      /1000 or 6000/)
+test('ordinary durable commits wake the next proposer without waiting for new transactions', async () => {
+  const production = methods('../../src/chain.ts', 'Chain', ['#epochLength', '#isEpochBoundary', '#handleBlockCommit'])
+  const { outputText } = ts.transpileModule(`class Commit {
+    ${production}
+    #currentEpochStartHeight = 0
+    #consensusRound = 0
+    #participating
+    #runningEpoch
+    pendingTransactions
+    runs = 0
+    constructor(participating, running, pending) {
+      this.#participating = participating
+      this.#runningEpoch = running
+      this.pendingTransactions = { size: pending }
+    }
+    async #runEpoch() { this.runs++ }
+    handle() { return this.#handleBlockCommit(1) }
+  }`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } })
+  const Commit = new Function('debug', `${outputText}; return Commit`)(() => {})
+  for (const [participating, running, pending, expected] of [
+    [true, false, 512, 1], [false, false, 512, 0], [true, true, 512, 0], [true, false, 0, 0]
+  ]) {
+    const commit = new Commit(participating, running, pending)
+    await commit.handle()
+    assert.equal(commit.runs, expected)
+  }
 })
 
 test('derives the same numeric next height from number and bigint indexes', () => {
@@ -26,28 +64,28 @@ test('derives the same numeric next height from number and bigint indexes', () =
 
 test('paces proposals from the last canonical block during transaction backlog', () => {
   assert.equal(
-    proposalDelay({ now: 10_001, lastBlockTimestamp: 10_000, lastProposalAt: 0, blockTime: 6_000 }),
-    5_999
+    proposalDelay({ now: 10_001, lastBlockTimestamp: 10_000, lastProposalAt: 0, blockTime: DEFAULT_BLOCK_TIME_MS }),
+    999
   )
 })
 
 test('paces repeated attempts even when no new block was committed', () => {
   assert.equal(
-    proposalDelay({ now: 15_000, lastBlockTimestamp: 1_000, lastProposalAt: 12_000, blockTime: 6_000 }),
-    3_000
+    proposalDelay({ now: 12_500, lastBlockTimestamp: 1_000, lastProposalAt: 12_000, blockTime: DEFAULT_BLOCK_TIME_MS }),
+    500
   )
 })
 
 test('allows a proposal once both canonical and local cadence have elapsed', () => {
   assert.equal(
-    proposalDelay({ now: 20_000, lastBlockTimestamp: 10_000, lastProposalAt: 12_000, blockTime: 6_000 }),
+    proposalDelay({ now: 20_000, lastBlockTimestamp: 10_000, lastProposalAt: 12_000, blockTime: DEFAULT_BLOCK_TIME_MS }),
     0
   )
 })
 
 test('does not let a future canonical timestamp stall production indefinitely', () => {
   assert.equal(
-    proposalDelay({ now: 20_000, lastBlockTimestamp: 200_000, lastProposalAt: 0, blockTime: 6_000 }),
-    6_000
+    proposalDelay({ now: 20_000, lastBlockTimestamp: 200_000, lastProposalAt: 0, blockTime: DEFAULT_BLOCK_TIME_MS }),
+    1_000
   )
 })

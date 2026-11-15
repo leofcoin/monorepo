@@ -3,7 +3,7 @@ import test from 'node:test'
 import ts from 'typescript'
 import { TransactionMessage } from '@leofcoin/messages'
 import { ResolveError } from '@leofcoin/errors'
-import { resolveTransactionReference } from '../../src/consensus/transaction-reference.ts'
+import { loadTransactionReference } from '../../src/consensus/transaction-reference.ts'
 import { methods, deferred } from '../helpers/canonical-state-harness.js'
 import { publishObserverEvent } from '../../src/observer-events.ts'
 
@@ -43,6 +43,10 @@ const harness = (blocks, options = {}) => {
   }
   const transactionPoolStore = {
     async has(hash) { return pool.has(hash) },
+    async get(hash) {
+      if (!pool.has(hash)) throw new DOMException('pending transaction removed', 'NotFoundError')
+      return transaction.encoded
+    },
     async delete(hash) { pool.delete(hash) }
   }
   const peernet = { get: options.get ?? (async () => undefined) }
@@ -60,10 +64,10 @@ const harness = (blocks, options = {}) => {
   }
   const Harness = new Function(
     'boundary', 'globalThis', 'peernet', 'transactionStore', 'transactionPoolStore',
-    'resolveTransactionReference', 'ResolveError', 'debug', 'formatBytes', 'console', 'publishObserverEvent', source
+    'loadTransactionReference', 'ResolveError', 'debug', 'formatBytes', 'console', 'publishObserverEvent', source
   )(
     boundary, globals, peernet, transactionStore, transactionPoolStore,
-    resolveTransactionReference, ResolveError, () => {}, String,
+    loadTransactionReference, ResolveError, () => {}, String,
     { error(...args) { warnings.push(args) } }, publishObserverEvent
   )
   return { chain: new Harness(), reads, transactions, events, pool, warnings }
@@ -151,13 +155,23 @@ test('rejects mismatched transaction bytes without caching the block or corrupti
   assert.equal(state.transactions.size, 0)
 })
 
-test('resolving a speculative block does not remove its pending transaction', async () => {
+test('rejects block indices outside the safe integer range without caching them', async () => {
+  const blocks = ancestry(1)
+  blocks.get('block-0').index = 9007199254740992n
+  const state = harness(blocks)
+  await assert.rejects(state.chain.resolveBlock('block-0'), error =>
+    error.cause?.cause?.message.includes('invalid block index'))
+  assert.equal(state.chain.blocks.length, 0)
+})
+
+test('resolving reuses a pending body without fetching it again or removing it from the pool', async () => {
   const blocks = ancestry(1)
   const hash = await transaction.hash()
   blocks.get('block-0').transactions = [hash]
-  const state = harness(blocks, { get: async () => transaction.encoded })
+  const state = harness(blocks, { get: async () => { throw new Error('pending body must not be fetched again') } })
   state.pool.add(hash)
   await state.chain.resolveBlock('block-0')
+  assert.deepEqual(state.transactions.get(hash), transaction.encoded)
   assert.equal(state.pool.has(hash), true)
 })
 

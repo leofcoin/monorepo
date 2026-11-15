@@ -1,8 +1,8 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { fromBase58, toBase58 } from '@vandeurenglenn/typed-array-utils'
 
-import { deriveBeaconGroupPublicKey } from './beacon.ts'
-import { quorumThreshold } from './quorum.ts'
+import { deriveBeaconGroupPublicKey } from './beacon.js'
+import { quorumThreshold } from './quorum.js'
 
 const encoder = new TextEncoder()
 

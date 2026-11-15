@@ -11,7 +11,7 @@ import {
   BeaconEpochVotes,
   canonicalBeaconEpochConfig,
   validateBeaconEpochConfig
-} from '../../src/consensus/beacon-epoch.ts'
+} from '../../exports/beacon-epoch.js'
 
 const validators = ['validator-c', 'validator-a', 'validator-b', 'validator-d']
 const commitment = (value) => toBase58(bls.G1.Point.BASE.multiply(BigInt(value)).toBytes(true))

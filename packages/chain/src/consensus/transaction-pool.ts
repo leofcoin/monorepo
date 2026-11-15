@@ -9,7 +9,7 @@ export interface PendingTransaction<T extends HashableTransaction> {
 
 interface EnqueueableTransaction extends HashableTransaction {
   encoded: Uint8Array
-  decoded: { from: string; nonce: number }
+  decoded: { from: string; nonce?: number }
 }
 
 export interface TransactionPoolOps {
@@ -23,11 +23,13 @@ export const enqueueTransaction = async <T extends EnqueueableTransaction>(
   transaction: T,
   ops: TransactionPoolOps
 ): Promise<string> => {
+  const { from, nonce } = transaction.decoded
+  if (nonce === undefined) throw new Error('transaction nonce required')
   const hash = await transaction.hash()
   if (!(await ops.hasInPool(hash))) {
     await ops.putToPool(hash, transaction.encoded)
   }
-  ops.addPendingNonce(transaction.decoded.from, transaction.decoded.nonce)
+  ops.addPendingNonce(from, nonce)
   return hash
 }
 
@@ -48,11 +50,6 @@ type NonceTransaction = { decoded: { from: string; nonce?: number | bigint | str
 export const compareExecutionTransactions = (left: NonceTransaction, right: NonceTransaction): number =>
   compareTransactionNonces(left.decoded.nonce, right.decoded.nonce) ||
   Number(Boolean(right.decoded.priority)) - Number(Boolean(left.decoded.priority))
-
-/** Preserve the original 0.5 priority-first order when replaying historical blocks. */
-export const compareLegacyExecutionTransactions = (left: NonceTransaction, right: NonceTransaction): number =>
-  Number(Boolean(right.decoded.priority)) - Number(Boolean(left.decoded.priority)) ||
-  compareTransactionNonces(left.decoded.nonce, right.decoded.nonce)
 
 interface IndexedTransaction {
   hash: string

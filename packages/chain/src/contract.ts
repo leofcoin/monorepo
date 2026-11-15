@@ -3,11 +3,19 @@ import { createContractMessage, signTransaction } from '@leofcoin/lib'
 import type MultiWallet from '@leofcoin/multi-wallet'
 import { contractRegistry } from './contract-registry.js'
 import { isDerivedFrom, parseContractInheritance } from './contract-utils.js'
+import type { ChainConfig } from './types.js'
+import type { ContractMessage } from '@leofcoin/messages'
+
+async function signerAddress(signer: MultiWallet): Promise<string> {
+  const address = await signer.address
+  if (!address) throw new Error('Contract signer has no address')
+  return address
+}
 /**
  * @extends {Transaction}
  */
 export default class Contract extends Transaction {
-  constructor(config) {
+  constructor(config?: ChainConfig) {
     super(config)
   }
 
@@ -18,7 +26,7 @@ export default class Contract extends Transaction {
    * @param {Array} constructorParameters
    * @returns lib.createContractMessage
    */
-  async createContractMessage(creator, contract, constructorParameters = []) {
+  async createContractMessage(creator: string, contract: string | Uint8Array, constructorParameters: unknown[] = []) {
     return createContractMessage(creator, contract, constructorParameters)
   }
 
@@ -29,9 +37,9 @@ export default class Contract extends Transaction {
    * @param {Array} constructorParameters
    * @returns {Address}
    */
-  async createContractAddress(creator, contract, constructorParameters = []) {
-    contract = await this.createContractMessage(creator, contract, constructorParameters)
-    return contract.hash()
+  async createContractAddress(creator: string, contract: string | Uint8Array, constructorParameters: unknown[] = []) {
+    const message = await this.createContractMessage(creator, contract, constructorParameters)
+    return message.hash()
   }
 
   /**
@@ -40,8 +48,8 @@ export default class Contract extends Transaction {
    * @param {Array} parameters
    * @returns
    */
-  async deployContract(signer: MultiWallet, contract, constructorParameters = []) {
-    const message = await createContractMessage(await signer.address, contract, constructorParameters)
+  async deployContract(signer: MultiWallet, contract: string | Uint8Array, constructorParameters: unknown[] = []) {
+    const message = await createContractMessage(await signerAddress(signer), contract, constructorParameters)
     return this.deployContractMessage(signer, message)
   }
 
@@ -53,7 +61,7 @@ export default class Contract extends Transaction {
    * @param {Array} constructorParameters Constructor parameters
    * @returns {Promise<string>} The contract hash
    */
-  async registerBaseContract(name: string, contract: string, constructorParameters = []) {
+  async registerBaseContract(name: string, contract: string, constructorParameters: unknown[] = []) {
     const creator = this.chainAddresses.contractFactory
     // Base contracts are hashed without constructor parameters
     const message = await createContractMessage(creator, contract, [])
@@ -81,7 +89,7 @@ export default class Contract extends Transaction {
     signer: MultiWallet,
     contract: string,
     baseContractIdentifier?: string,
-    constructorParameters = []
+    constructorParameters: unknown[] = []
   ) {
     // Try to get base contract by name or hash
     if (baseContractIdentifier) {
@@ -99,7 +107,7 @@ export default class Contract extends Transaction {
     const inheritanceInfo = parseContractInheritance(contract)
 
     // Deploy the contract
-    const message = await createContractMessage(await signer.address, contract, constructorParameters)
+    const message = await createContractMessage(await signerAddress(signer), contract, constructorParameters)
 
     // If contract has dependencies, register them
     if (inheritanceInfo.hasInheritance && inheritanceInfo.baseClass && baseContractIdentifier) {
@@ -113,20 +121,21 @@ export default class Contract extends Transaction {
     return this.deployContractMessage(signer, message)
   }
 
-  async deployContractMessage(signer, message) {
+  async deployContractMessage(signer: MultiWallet, message: ContractMessage) {
+    const from = await signerAddress(signer)
     try {
       await globalThis.contractStore.put(await message.hash(), message.encoded)
     } catch (error) {
       throw error
     }
-    let transaction = {
-      from: await signer.address,
+    const transaction = {
+      from,
       to: this.chainAddresses.contractFactory,
       method: 'registerContract',
       params: [await message.hash()]
     }
-    transaction = await signTransaction(await this.createTransaction(transaction), signer)
-    return this.sendTransaction(transaction)
+    const signed = await signTransaction(await this.createTransaction(transaction), signer)
+    return this.sendTransaction(signed)
   }
 
   /**

@@ -12,6 +12,7 @@ import { calculateFee, calculateMonetaryPolicy, distributeTransactionFee, signTr
 import { jsonStringifyBigInt } from '@leofcoin/utils'
 import Machine from '../exports/machine.js'
 import Chain from '../exports/chain.js'
+import { PROTOCOL_VERSION } from '../exports/hash-format-state.js'
 import { CHECKPOINT_KEYS, readCheckpoint, writeCheckpoint } from '../exports/state-checkpoint.js'
 
 const [root, mode, invalid] = process.argv.slice(2)
@@ -20,13 +21,28 @@ const db = new ClassicLevel(root, { valueEncoding: 'view' })
 await db.open()
 const store = name => ({
   has: async key => (await db.get(`${name}:${key}`)) !== undefined,
-  get: key => db.get(`${name}:${key}`),
+  get: async key => {
+    const value = await db.get(`${name}:${key}`)
+    if (name === 'transactionPool' && value === undefined) throw new DOMException('Missing pending transaction', 'NotFoundError')
+    return value
+  },
   put: (key, value) => db.put(`${name}:${key}`, typeof value === 'string' ? new TextEncoder().encode(value) : value),
   delete: key => db.del(`${name}:${key}`),
-  batch: operations => db.batch(operations.map(operation => operation.type === 'put'
-    ? { type: 'put', key: `${name}:${operation.key}`, value: typeof operation.value === 'string'
-      ? new TextEncoder().encode(operation.value) : operation.value }
-    : { type: 'del', key: `${name}:${operation.key}` })),
+  batch: async operations => {
+    if (operations.every(operation => operation.type === 'get' || operation.type === undefined)) {
+      return Promise.all(operations.map(async operation => {
+        const value = await db.get(`${name}:${operation.key}`)
+        if (value === undefined) throw new DOMException('Missing batch entry', 'NotFoundError')
+        return value
+      }))
+    }
+    return db.batch(operations.map(operation => {
+      if (operation.type === 'put') return { type: 'put', key: `${name}:${operation.key}`, value: typeof operation.value === 'string'
+        ? new TextEncoder().encode(operation.value) : operation.value }
+      if (operation.type === 'del' || operation.type === 'delete') return { type: 'del', key: `${name}:${operation.key}` }
+      throw new Error('Unsupported mixed batch operation in recovery fixture')
+    }))
+  },
   values: () => db.values({ gte: `${name}:`, lt: `${name};` }).all(),
   keys: async () => (await db.keys({ gte: `${name}:`, lt: `${name};` }).all()).map(key => key.slice(name.length + 1)),
   clear: () => db.clear({ gte: `${name}:`, lt: `${name};` })
@@ -51,7 +67,7 @@ const conflictingTarget = async () => {
   const block = new BlockMessage({
     index: 0n, previousHash: '0x0', timestamp: 999, reward: 0n, fees: 0n,
     transactions: [], validators: [], producer: 'conflict-fixture',
-    producerProof: 'conflict-fixture', protocolVersion: '0.5.0'
+    producerProof: 'conflict-fixture', protocolVersion: PROTOCOL_VERSION
   })
   const hash = await block.hash()
   await blockStore.put(hash, block.encoded)
@@ -91,7 +107,7 @@ if (mode === 'prepare') {
     await stateStore.put('info', 'interrupted legacy counters')
     await accountsStore.put('uncommitted', '999')
     await chainStore.put('lastBlock', '0x0')
-    await chainStore.put('version', '0.6.0')
+    await chainStore.put('version', PROTOCOL_VERSION)
     await db.put('fixture:sender', new TextEncoder().encode(checkpoint.snapshot.states[addresses.nativeToken].creator))
     await close(machine)
     process.exit(0)
@@ -110,21 +126,6 @@ if (mode === 'prepare') {
   validators.currentValidator = sender
   validators.validatorHistory = { 0: [sender] }
   if (invalid === 'stale-nonce') checkpoint.snapshot.accounts[sender] = '11167'
-  if (invalid === 'nonce-gap') {
-    let previousHash = '0x0'
-    for (let index = 0; index < 14; index++) {
-      const historicalBlock = new BlockMessage({
-        index: BigInt(index), previousHash, timestamp: index, reward: 0n, fees: 0n,
-        transactions: [], validators: [], producer: sender, producerProof: '',
-        protocolVersion: '0.5.0'
-      })
-      previousHash = await historicalBlock.hash()
-      await blockStore.put(previousHash, historicalBlock.encoded)
-    }
-    checkpoint.snapshot.lastBlock = { index: 13, hash: previousHash }
-    checkpoint.snapshot.info.totalBlocks = 14n
-    checkpoint.snapshot.accounts[sender] = '11167'
-  }
   const customContracts = []
   for (const initial of ['7', '11']) {
     const definition = new ContractMessage({ creator: sender, constructorParameters: [initial],
@@ -159,7 +160,7 @@ if (mode === 'prepare') {
   let supply = BigInt(token.totalSupply)
   let previousHash = checkpoint.snapshot.lastBlock.hash
   const transactionHashes = []
-  const firstBlock = invalid === 'nonce-gap' ? 14 : 0
+  const firstBlock = 0
   for (let index = firstBlock; index < firstBlock + 2; index++) {
     const timestamp = 1000 + index
     const nested = invalid === 'nested-static'
@@ -175,7 +176,7 @@ if (mode === 'prepare') {
     const earned = payments.reduce((sum, payment) => sum + payment.amount, 0n)
     const block = { index: BigInt(index), previousHash, timestamp, reward: policy.subsidy, fees: fee,
       transactions: [hash], validators: [{ address: sender, reward: policy.subsidy + earned }],
-      producer: sender, producerProof: '', protocolVersion: index >= 14 ? '0.6.0' : '0.5.0' }
+      producer: sender, producerProof: '', protocolVersion: PROTOCOL_VERSION }
     const unsignedHash = await new BlockMessage(block).hash()
     block.producerProof = (await signTransaction({ from: sender, to: addresses.validators,
       method: 'produceBlock', params: [unsignedHash], timestamp }, wallet)).signature
@@ -195,7 +196,7 @@ if (mode === 'prepare') {
   if (invalid === 'recovery-target-conflict') {
     await conflictingTarget()
   }
-  await chainStore.put('version', '0.6.0')
+  await chainStore.put('version', PROTOCOL_VERSION)
   await db.put('fixture:sender', new TextEncoder().encode(sender))
   await close(machine)
   process.exit(0)
@@ -386,7 +387,7 @@ try {
     const earned = distributeTransactionFee(fee, await body.hash(), [sender], policy.burnBasisPoints).payments.reduce((sum, payment) => sum + payment.amount, 0n)
     const block = { index: 2n, previousHash: before.lastBlock.hash, timestamp: 2000, fees: fee, reward: policy.subsidy,
       transactions: [pending.hash], validators: [{ address: sender, reward: policy.subsidy + earned }],
-      producer: sender, producerProof: '', protocolVersion: '0.5.0' }
+      producer: sender, producerProof: '', protocolVersion: PROTOCOL_VERSION }
     block.producerProof = (await signTransaction({ from: sender, to: addresses.validators, method: 'produceBlock',
       params: [await new BlockMessage(block).hash()], timestamp: block.timestamp }, signer)).signature
     await handlers.get('add-block')(new BlockMessage(block).encoded)

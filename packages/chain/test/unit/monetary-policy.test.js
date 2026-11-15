@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  BLOCKS_PER_YEAR,
   calculateMonetaryPolicy,
   distributeAmount,
   supportsMonetaryPolicy
@@ -12,7 +11,9 @@ const target = 100_000_000n * 10n ** 18n
 
 test('mints at no more than two percent annually below the supply floor', () => {
   const policy = calculateMonetaryPolicy(0n, target)
-  assert.equal(policy.subsidy * BLOCKS_PER_YEAR, (target * 200n) / 10_000n - ((target * 200n) / 10_000n) % BLOCKS_PER_YEAR)
+  const secondsPerYear = 365n * 24n * 60n * 60n
+  const annualIssuance = (target * 200n) / 10_000n
+  assert.equal(policy.subsidy * secondsPerYear, annualIssuance - annualIssuance % secondsPerYear)
   assert.equal(policy.burnBasisPoints, 0n)
 })
 

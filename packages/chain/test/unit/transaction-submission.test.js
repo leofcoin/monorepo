@@ -13,24 +13,31 @@ import { methods } from '../helpers/canonical-state-harness.js'
 
 // Actual admission code, isolated from networking and real wallet/database state.
 const code = `return class Submission {
+  #localNonceReservations = new Set()
+  pendingTransactions = { revision: 0 }
   nonces = new Set()
   isTransactionMessage() { return true }
-  async validateTransactionSignature() {}
-  async validateNonce() {}
+  async validateTransactionSignature(message) { await this.checkSignature?.(message) }
+  async validateNonce(from, nonce) { await this.checkNonce?.(from, nonce) }
   addPendingNonce(_, nonce) { this.nonces.add(nonce) }
   removePendingNonce(_, nonce) { this.nonces.delete(nonce) }
-  ${methods('../../src/transaction.ts', 'Transaction', ['sendTransaction'])}
+  ${methods('../../src/transaction.ts', 'Transaction', ['sendTransaction', '#admitTransaction', 'admitTransactions'])}
 }`
 const js = ts.transpile(code, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS })
 const fixture = (options = {}) => {
   const pubsub = new LittlePubSub(), entries = new Map(), warnings = []
   const original = new Error('admission failed')
   const pool = {
+    atomicBatchWrites: true,
     async put(hash, bytes) { if (options.putFailure) throw original; entries.set(hash, bytes) },
+    async batch(operations) {
+      if (options.batchFailure) throw original
+      for (const { key, value } of operations) entries.set(key, value)
+    },
     async delete(hash) { if (options.deleteFailure) throw new Error('cleanup failed'); entries.delete(hash) }
   }
   const peernet = { async publish() {
-    assert.equal(pubsub.subscriberCount('block-processed'), 1, 'waiter must exist before propagation')
+    assert.ok(pubsub.subscriberCount('block-processed') >= 1, 'waiter must exist before propagation')
     options.publish?.(pubsub)
     if (options.publishFailure) throw new Error('transport failed')
   } }
@@ -39,8 +46,56 @@ const fixture = (options = {}) => {
     pubsub, pool, { transactionPoolStore: pool }, peernet, createCanonicalTransactionWaiter,
     async () => { if (options.feeFailure) throw original; return 1n }, { warn(...args) { warnings.push(args) } })
   const message = { decoded: { from: 'sender', nonce: 1 }, encoded: Uint8Array.of(1), async hash() { return 'tx' } }
-  return { pubsub, entries, warnings, original, instance: new Submission(), message }
+  return { pubsub, entries, pool, warnings, original, instance: new Submission(), message }
 }
+
+test('batch admission writes atomically and returns individual canonical waiters', async () => {
+  const state = fixture()
+  const messages = [1, 2].map(nonce => ({
+    decoded: { from: 'sender', nonce }, encoded: Uint8Array.of(nonce), async hash() { return `tx-${nonce}` }
+  }))
+  const receipts = await state.instance.admitTransactions(messages)
+  assert.deepEqual([...state.entries.keys()], ['tx-1', 'tx-2'])
+  assert.deepEqual([...state.instance.nonces], [1, 2])
+  state.pubsub.publish('block-processed', { transactions: ['tx-1', 'tx-2'] })
+  assert.deepEqual(await Promise.all(receipts.map(receipt => receipt.wait)), ['tx-1', 'tx-2'])
+})
+
+test('batch validation, duplicate nonces, non-atomic storage and write failures leave no admissions', async () => {
+  for (const mode of ['signature', 'duplicate', 'non-atomic', 'batchFailure', 'revision']) {
+    const state = fixture({ batchFailure: mode === 'batchFailure' })
+    const messages = [1, mode === 'duplicate' ? 1 : 2].map(nonce => ({
+      decoded: { from: 'sender', nonce }, encoded: Uint8Array.of(nonce), async hash() { return `tx-${nonce}` }
+    }))
+    if (mode === 'signature') state.instance.checkSignature = async message => {
+      if (message.decoded.nonce === 2) throw new Error('invalid signature')
+    }
+    if (mode === 'revision') state.instance.checkNonce = async () => { state.instance.pendingTransactions.revision++ }
+    if (mode === 'non-atomic') {
+      // The fixture uses the same store object in its global and closure bindings.
+      state.pool.atomicBatchWrites = false
+    }
+    await assert.rejects(state.instance.admitTransactions(messages))
+    assert.equal(state.entries.size, 0, mode)
+    assert.equal(state.instance.nonces.size, 0, mode)
+    assert.equal(state.pubsub.subscriberCount('block-processed'), 0, mode)
+  }
+})
+
+test('a concurrent single submission cannot reserve the same nonce as an in-flight batch', async () => {
+  const state = fixture()
+  let release, entered
+  const gate = new Promise(resolve => { release = resolve })
+  const started = new Promise(resolve => { entered = resolve })
+  state.instance.checkNonce = async () => { entered(); await gate }
+  const batching = state.instance.admitTransactions([state.message])
+  await started
+  await assert.rejects(state.instance.sendTransaction(state.message), /same nonce/)
+  release()
+  const [receipt] = await batching
+  state.pubsub.publish('block-processed', { transactions: ['tx'] })
+  assert.equal(await receipt.wait, 'tx')
+})
 
 for (const failure of ['putFailure', 'feeFailure', 'deleteFailure']) {
   test(`${failure} rejects admission without retaining transaction listeners or nonces`, async () => {
@@ -95,6 +150,7 @@ test('pending nonces never become committed state and storage failures are not t
 const signatureHarness = (Verifier = MultiWallet) => {
   const code = `return class Signatures {
     #signatureChecks = new Map()
+    #signatureVerifiers = new Map()
     isTransactionMessage(message) { return message instanceof TransactionMessage }
     ${methods('../../src/transaction.ts', 'Transaction', ['validateTransactionSignature'])}
   }`
@@ -105,6 +161,50 @@ const signatureHarness = (Verifier = MultiWallet) => {
   )(TransactionMessage, Verifier, fromBase58, createTransactionHash, sha256, bytesToHex, () => network)
   return { instance: new Signatures(), setNetwork(value) { network = value } }
 }
+
+test('reuses sender verifier initialization only within its network and retries initialization failures', async () => {
+  let initializations = 0, checks = 0
+  class Verifier {
+    async fromAddress(address) {
+      initializations++
+      if (address === 'bad') throw new Error('address unavailable')
+    }
+    async verify() { checks++; return true }
+  }
+  const { instance, setNetwork } = signatureHarness(Verifier)
+  const message = (from, nonce) => new TransactionMessage({
+    from, to: 'recipient', method: 'transfer', params: [], nonce, timestamp: 1, signature: '1'
+  })
+  await Promise.all([instance.validateTransactionSignature(message('alice', 1)),
+    instance.validateTransactionSignature(message('alice', 2))])
+  assert.equal(initializations, 1)
+  assert.equal(checks, 2)
+  await instance.validateTransactionSignature(message('bob', 1))
+  assert.equal(initializations, 2)
+  setNetwork('leofcoin:e2e')
+  await instance.validateTransactionSignature(message('alice', 3))
+  assert.equal(initializations, 3)
+  await assert.rejects(instance.validateTransactionSignature(message('bad', 1)), /address unavailable/)
+  await assert.rejects(instance.validateTransactionSignature(message('bad', 1)), /address unavailable/)
+  assert.equal(initializations, 5)
+})
+
+test('bounds cached sender verifiers and reinitializes an evicted sender', async () => {
+  let initializations = 0
+  class Verifier {
+    async fromAddress() { initializations++ }
+    async verify() { return true }
+  }
+  const { instance } = signatureHarness(Verifier)
+  const message = (from, nonce) => new TransactionMessage({
+    from, to: 'recipient', method: 'transfer', params: [], nonce, timestamp: 1, signature: '1'
+  })
+  for (let index = 0; index <= 512; index++)
+    await instance.validateTransactionSignature(message(`sender-${index}`, 1))
+  assert.equal(initializations, 513)
+  await instance.validateTransactionSignature(message('sender-0', 2))
+  assert.equal(initializations, 514)
+})
 
 test('identical signed bytes share verification, but changed signatures and payloads never reuse success', async () => {
   const signer = new MultiWallet('leofcoin:peach')
@@ -151,7 +251,7 @@ test('failed signature checks can retry and verification is scoped to the networ
   assert.equal(checks, 3)
 })
 
-test('signature verification cache evicts old successes instead of growing with the ledger', async () => {
+test('signature verification retains a deep pending batch but still evicts old successes', async () => {
   let checks = 0
   class Verifier {
     async fromAddress() {}
@@ -161,9 +261,12 @@ test('signature verification cache evicts old successes instead of growing with 
   const transaction = nonce => new TransactionMessage({
     from: 'sender', to: 'recipient', method: 'transfer', params: [], nonce, timestamp: 1, signature: '1'
   })
-  for (let nonce = 1; nonce <= 4097; nonce++) await instance.validateTransactionSignature(transaction(nonce))
-  await instance.validateTransactionSignature(transaction(4097))
-  assert.equal(checks, 4097)
+  for (let nonce = 1; nonce <= 8192; nonce++) await instance.validateTransactionSignature(transaction(nonce))
   await instance.validateTransactionSignature(transaction(1))
-  assert.equal(checks, 4098)
+  assert.equal(checks, 8192)
+  for (let nonce = 8193; nonce <= 16385; nonce++) await instance.validateTransactionSignature(transaction(nonce))
+  await instance.validateTransactionSignature(transaction(16385))
+  assert.equal(checks, 16385)
+  await instance.validateTransactionSignature(transaction(1))
+  assert.equal(checks, 16386)
 })

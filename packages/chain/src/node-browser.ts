@@ -16,17 +16,13 @@ declare global {
   var LeofcoinStorage: typeof Storage
 }
 
-export default class Node {
-  #node
+class Node {
+  #node?: Peernet
 
-  constructor(config, password: string) {
-    return this._init(config, password)
-  }
-
-  async _init(config: NodeOptions = {}, password: string): Promise<this> {
+  async _init(options: NodeOptions = {}, password?: string): Promise<this> {
     const SDK = globalThis.Peernet ?? Peernet
-    if ((SDK as any).discoveryProtocolVersion !== 3) throw new Error('Install the app-ID Peernet release before starting this node')
-    config = await chainDiscoveryOptions(config)
+    if (SDK.discoveryProtocolVersion !== 3) throw new Error('Install the app-ID Peernet release before starting this node')
+    let config = await chainDiscoveryOptions(options)
     reserveNode(config)
     const autoStart = config.autoStart
     config = { ...config, autoStart: false, routingId: await browserRoutingId(config) }
@@ -54,3 +50,16 @@ export default class Node {
     // this.config = await config()
   }
 }
+
+// A construct trap preserves the existing promise-returning browser API.
+const AsyncNode = new Proxy(Node, {
+  construct(target, args, newTarget) {
+    const node: Node = Reflect.construct(target, [], newTarget)
+    return node._init(args[0], args[1])
+  }
+})
+
+const BrowserNode: new (config?: NodeOptions, password?: string) => Promise<Node> =
+  AsyncNode as typeof AsyncNode & (new (config?: NodeOptions, password?: string) => Promise<Node>)
+
+export default BrowserNode

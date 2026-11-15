@@ -11,6 +11,7 @@
 import Contract from '../contract.js'
 import { hashContractCode } from '../contract-utils.js'
 import type MultiWallet from '@leofcoin/multi-wallet'
+import addresses from '@leofcoin/addresses'
 
 // Example 1: Basic Hash-Based Registration
 // ==========================================
@@ -50,6 +51,7 @@ export async function exampleHashBasedRegistration(contract: Contract, signer: M
   // Step 1: Hash the contract code using ContractMessage's method
   // Base contracts are hashed without constructor parameters
   const creator = await signer.address
+  if (!creator) throw new Error('Contract signer has no address')
   const codeHash = await hashContractCode(creator, baseToken, [])
   console.log(`Contract code hash: ${codeHash}`)
 
@@ -135,15 +137,14 @@ export async function exampleNameServiceIntegration(contract: Contract, signer: 
   }
   `
 
-  // Register with on-chain nameService integration
+  // Base contract registration is local; it does not register an on-chain name.
   const hash = await contract.registerBaseContract(
     'GovernanceToken',
     governanceToken,
-    [],
-    true // Register in nameService
+    []
   )
 
-  console.log(`Registered 'GovernanceToken' -> ${hash} in nameService`)
+  console.log(`Registered 'GovernanceToken' -> ${hash} in the local registry`)
 
   return { hash }
 }
@@ -312,7 +313,7 @@ export async function exampleVerifyContract(contract: Contract) {
   const registeredHash = await contract.registerBaseContract('Verifiable', code, [])
 
   // Anyone can hash the code and verify it matches
-  const creator = await contract.selectedAccount()
+  const creator = addresses.contractFactory
   const computedHash = await hashContractCode(creator, code, [])
 
   console.log('Registered hash:', registeredHash)
@@ -356,14 +357,14 @@ export async function exampleContractDiscovery(contract: Contract) {
   console.log('Registered contract hashes:', hashes)
 
   // Map each name to its hash
-  const nameToHash = {}
+  const nameToHash: Record<string, string | undefined> = {}
   for (const name of names) {
     nameToHash[name] = registry.getHashForName(name)
   }
   console.log('Name -> Hash mappings:', nameToHash)
 
   // Map each hash to its name
-  const hashToName = {}
+  const hashToName: Record<string, string | undefined> = {}
   for (const hash of hashes) {
     hashToName[hash] = registry.getNameForHash(hash)
   }
@@ -423,12 +424,11 @@ export async function exampleDependencyResolution(contract: Contract, signer: Mu
   const storageHash = await contract.registerBaseContract('Storage', storage, [])
   const validationHash = await contract.registerBaseContract('Validation', validation, [])
 
-  // Deploy with multiple base contracts
+  // Direct deployment does not record multiple base dependencies.
   const result = await contract.deployContract(
     signer,
     userStorage,
-    [],
-    ['Storage', 'Validation'] // Include both base contracts
+    []
   )
 
   console.log('Deployed complex contract with dependencies')

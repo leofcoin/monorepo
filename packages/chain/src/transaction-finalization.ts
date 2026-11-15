@@ -24,14 +24,14 @@ export const createCanonicalTransactionWaiter = (pubsub: PubSub, transactionPool
       pubsub.unsubscribe(completionTopic, transactionCompleted)
     }
 
-    const blockProcessed = (block) => {
+    const blockProcessed = (block: { transactions?: unknown } | null | undefined) => {
       if (settled || !Array.isArray(block?.transactions) || !block.transactions.includes(hash)) return
 
       settled = true
       resolve(hash)
     }
 
-    const transactionCompleted = async (result) => {
+    const transactionCompleted = async (result: { status?: string; error?: unknown } | null | undefined) => {
       // Execution may happen while a validator is only constructing a candidate
       // block. That success is speculative; canonical block processing below is
       // the only success signal exposed to callers.

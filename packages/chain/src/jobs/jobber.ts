@@ -1,17 +1,15 @@
-import { Protocol } from '../protocol.js'
-
 export default class Jobber {
   timeout: EpochTimeStamp
   busy: boolean = false
-  destroy: Function
+  destroy?: () => void
 
-  constructor(timeout) {
+  constructor(timeout: number) {
     this.timeout = timeout
   }
 
-  add(fn) {
+  add<T>(fn: () => T | Promise<T>): Promise<T | string> {
     this.busy = true
-    return new Promise(async (resolve, reject) => {
+    return new Promise<T | string>(async (resolve, reject) => {
       const timeout = setTimeout(() => {
         reject('timeout')
       }, this.timeout)

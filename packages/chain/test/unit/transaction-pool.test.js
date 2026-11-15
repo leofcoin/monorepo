@@ -6,7 +6,6 @@ import { methods } from '../helpers/canonical-state-harness.js'
 
 import {
   compareTransactionNonces,
-  compareLegacyExecutionTransactions,
   compareExecutionTransactions,
   enqueueTransaction,
   pruneCanonicalTransactions,
@@ -49,6 +48,18 @@ test('stores validated incoming transactions and tracks their pending nonce', as
   assert.equal(hash, 'tx-1')
   assert.deepEqual(stored, [['tx-1', tx.encoded]])
   assert.deepEqual(pending, [['alice', 7]])
+})
+
+test('rejects transactions without a nonce before touching the pool', async () => {
+  const operations = []
+  await assert.rejects(enqueueTransaction({
+    encoded: Uint8Array.of(1), decoded: { from: 'alice' }, hash: async () => 'tx'
+  }, {
+    putToPool: async () => operations.push('put'),
+    hasInPool: async () => { operations.push('has'); return false },
+    addPendingNonce: () => operations.push('index')
+  }), /transaction nonce required/)
+  assert.deepEqual(operations, [])
 })
 
 test('prunes lower and equal committed nonces even when their hashes are not canonical', async () => {
@@ -114,15 +125,6 @@ test('block nonces must be consecutive per sender, independent of priority or ar
   await assert.rejects(validateConsecutiveNonces([tx('bob', 1)], async () => { throw new Error('disk failure') }), /disk failure/)
 })
 
-test('historical blocks preserve 0.5 priority-first transaction execution order', () => {
-  const tx = (nonce, priority = false) => ({ decoded: { nonce, priority } })
-  const transactions = [tx(1), tx(2, true), tx(1, true), tx(0)]
-  assert.deepEqual(
-    transactions.sort(compareLegacyExecutionTransactions).map(({ decoded }) => [decoded.priority, decoded.nonce]),
-    [[true, 1], [true, 2], [false, 0], [false, 1]]
-  )
-})
-
 test('real proposal selection finds the missing nonce beyond the old pool limit and defers gaps', async () => {
   const source = methods('../../src/chain.ts', 'Chain', ['#createBlock'])
   const ast = ts.createSourceFile('proposal.ts', `class Proposal { ${source} }`, ts.ScriptTarget.Latest, true)
@@ -134,7 +136,7 @@ test('real proposal selection finds the missing nonce beyond the old pool limit 
   const script = ts.transpileModule(`class Proposal {
     #proposalInFlight = null
     transactionLimit = 2500
-    version = '0.6.0'
+    version = '0.9.0'
     machine = { latestTransactions: async () => [] }
     promiseTransactions(transactions) { return transactions }
     removePendingNonce() {}

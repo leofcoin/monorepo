@@ -55,3 +55,17 @@ test('detects ciphertext and authentication-tag tampering', async () => {
     decryptBeaconShare(envelope, recipient.privateKey, 'leofcoin', 1n, 'validator-a', 'validator-b')
   )
 })
+
+test('encrypts and decrypts with shared-buffer nonce and ciphertext views', async () => {
+  const recipient = createBeaconEncryptionKey(privateKey(3))
+  const sharedNonce = () => new Uint8Array(new SharedArrayBuffer(12)).fill(7)
+  const envelope = await encryptBeaconShare(
+    42n, recipient.publicKey, 'leofcoin', 1n, 'validator-a', 'validator-b', privateKey(5), sharedNonce
+  )
+  const ciphertext = new Uint8Array(new SharedArrayBuffer(envelope.ciphertext.length))
+  ciphertext.set(envelope.ciphertext)
+  assert.equal(
+    await decryptBeaconShare({ ...envelope, ciphertext }, recipient.privateKey, 'leofcoin', 1n, 'validator-a', 'validator-b'),
+    42n
+  )
+})

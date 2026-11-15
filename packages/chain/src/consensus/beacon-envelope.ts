@@ -44,9 +44,9 @@ const encryptionKey = (privateKey: Uint8Array, publicKey: Uint8Array, aad: Uint8
 }
 
 const importAesKey = (key: Uint8Array, usage: KeyUsage) =>
-  globalThis.crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, [usage])
+  globalThis.crypto.subtle.importKey('raw', Uint8Array.from(key), { name: 'AES-GCM' }, false, [usage])
 
-export const createBeaconEncryptionKey = (randomPrivateKey = () => secp256k1.utils.randomSecretKey()) => {
+export const createBeaconEncryptionKey = (randomPrivateKey: () => Uint8Array = () => secp256k1.utils.randomSecretKey()) => {
   const privateKey = randomPrivateKey()
   if (!secp256k1.utils.isValidSecretKey(privateKey)) throw new Error('invalid generated beacon encryption key')
   return { privateKey, publicKey: secp256k1.getPublicKey(privateKey, true) }
@@ -60,7 +60,7 @@ export const encryptBeaconShare = async (
   sender: string,
   recipient: string,
   randomPrivateKey?: () => Uint8Array,
-  randomNonce = () => globalThis.crypto.getRandomValues(new Uint8Array(12))
+  randomNonce: () => Uint8Array = () => globalThis.crypto.getRandomValues(new Uint8Array(12))
 ): Promise<BeaconShareEnvelope> => {
   const aad = context(network, epoch, sender, recipient)
   const ephemeral = createBeaconEncryptionKey(randomPrivateKey)
@@ -68,7 +68,7 @@ export const encryptBeaconShare = async (
   if (nonce.length !== 12) throw new Error('beacon share nonce must contain 12 bytes')
   const key = await importAesKey(encryptionKey(ephemeral.privateKey, recipientPublicKey, aad), 'encrypt')
   const ciphertext = await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+    { name: 'AES-GCM', iv: Uint8Array.from(nonce), additionalData: aad, tagLength: 128 },
     key,
     scalarBytes(share)
   )
@@ -89,9 +89,9 @@ export const decryptBeaconShare = async (
   const aad = context(network, epoch, sender, recipient)
   const key = await importAesKey(encryptionKey(recipientPrivateKey, envelope.ephemeralPublicKey, aad), 'decrypt')
   const plaintext = await globalThis.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: envelope.nonce, additionalData: aad, tagLength: 128 },
+    { name: 'AES-GCM', iv: Uint8Array.from(envelope.nonce), additionalData: aad, tagLength: 128 },
     key,
-    envelope.ciphertext
+    Uint8Array.from(envelope.ciphertext)
   )
   return bytesScalar(new Uint8Array(plaintext))
 }

@@ -58,14 +58,28 @@ test('hard-caps valid transaction fees instead of using congestion pricing', asy
   assert.equal(MAX_TRANSACTION_FEE, 320n)
 })
 
-test('caps transaction count per block', async () => {
+test('accepts 2048 transactions per block but rejects the next transaction', async () => {
   const transaction = new TransactionMessage({
     from: 'sender', to: 'contract', method: 'call', params: [], timestamp: 1, nonce: 1, signature: 'signature'
   })
-  await assert.rejects(
-    validateBlockResourceLimits(Array.from({ length: MAX_BLOCK_TRANSACTIONS + 1 }, () => transaction)),
-    /transaction protocol limit/
-  )
+  const full = Array.from({ length: 2048 }, () => transaction)
+  assert.equal(await validateBlockResourceLimits(full), 2048 * transaction.encoded.length)
+  await assert.rejects(validateBlockResourceLimits([...full, transaction]), /transaction protocol limit/)
+})
+
+test('accepts exactly 1 MiB of transaction bodies while preserving the 32 KiB transaction cap', async () => {
+  const data = {
+    from: 'sender', to: 'contract', method: 'call', timestamp: 1, nonce: 1, signature: 'signature'
+  }
+  const oversized = new TransactionMessage({ ...data, params: ['x'.repeat(MAX_TRANSACTION_BYTES)] })
+  const transaction = new TransactionMessage({
+    ...data, params: ['x'.repeat(2 * MAX_TRANSACTION_BYTES - oversized.encoded.length)]
+  })
+  assert.equal(await validateTransactionResourceLimits(transaction), 32 * 1024)
+  const full = Array.from({ length: 32 }, () => transaction)
+  assert.equal(await validateBlockResourceLimits(full), 1024 * 1024)
+  const extra = new TransactionMessage({ ...data, params: [] })
+  await assert.rejects(validateBlockResourceLimits([...full, extra]), /byte protocol limit/)
 })
 
 test('splits the minimum fee 90/10 and preserves every atom', () => {

@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
-import { distributeAmount } from '@leofcoin/lib'
+import { distributeAmount, MAX_BLOCK_TRANSACTIONS } from '@leofcoin/lib'
 import { encodeWire } from '@leofcoin/binary'
 import { CanonicalStateQueue } from '../../src/consensus/canonical-state-queue.ts'
 import { validateChainLink } from '../../src/consensus/chain-link.ts'
 import { publishObserverEvent } from '../../src/observer-events.ts'
 import {
-  compareExecutionTransactions,
-  compareLegacyExecutionTransactions
+  compareExecutionTransactions
 } from '../../src/consensus/transaction-pool.ts'
-import { usesConsecutiveNoncesAtHeight } from '../../src/consensus/protocol-activation.ts'
 import { ResolveError } from '@leofcoin/errors'
 
 // Exercise the actual private application methods without starting discovery,
@@ -157,7 +155,7 @@ export const createApplicationHarness = (options = {}) => {
     async #resolveBlockTransactions() { return [boundary.transaction] }
     async #loadBlockTransactions() { return [boundary.transaction] }
     async #monetaryPolicy() { return boundary.policy }
-    async #handleEpochBoundary() {}
+    async #handleBlockCommit() {}
     async #recordValidatorSnapshot() {}
     async call() {}
     async updateState() { boundary.snapshot() }
@@ -198,10 +196,10 @@ export const createApplicationHarness = (options = {}) => {
     },
     transactionStore, transactionPoolStore: pool, peernet: globalThis.peernet, encodeWire,
     console: { log() {}, error() {} }, debug: message => events.push(message),
-    compareExecutionTransactions, compareLegacyExecutionTransactions, usesConsecutiveNoncesAtHeight,
+    compareExecutionTransactions,
     supportsTransactionFees: () => true,
     supportsMonetaryPolicy: () => true, calculateFee: async () => 10n,
-    MAX_BLOCK_TRANSACTIONS: 256,
+    MAX_BLOCK_TRANSACTIONS,
     distributeTransactionFee: () => ({ payments: [{ to: 'validator', amount: 10n }], burned: 0n }),
     distributeAmount, calculateMonetaryPolicy: () => policy,
     validateBlockResourceLimits: async () => {}, nativeToken: 'token',

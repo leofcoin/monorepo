@@ -6,7 +6,7 @@ import {
   canonicalBeaconEpochConfig,
   type BeaconActivationVote,
   type BeaconEpochConfig
-} from './beacon-epoch.ts'
+} from './beacon-epoch.js'
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -46,7 +46,7 @@ const parse = (value: unknown) => {
 const stringify = (value: unknown) =>
   encoder.encode(JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? `${item}n` : item)))
 
-const revive = (value: unknown) => {
+const revive = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(revive)
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, revive(item)]))
@@ -67,7 +67,7 @@ const sealingKey = async (network: string, validator: string, sign: (bytes: Uint
 }
 
 const aesKey = (raw: Uint8Array, usage: KeyUsage) =>
-  globalThis.crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, [usage])
+  globalThis.crypto.subtle.importKey('raw', Uint8Array.from(raw), { name: 'AES-GCM' }, false, [usage])
 
 const validateCertificate = (config: BeaconEpochConfig, certificate: BeaconActivationVote[]) => {
   const digest = beaconEpochDigest(config)

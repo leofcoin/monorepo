@@ -1,4 +1,5 @@
 import pako from 'pako'
+import type { BlockMessage } from '@leofcoin/messages'
 
 export default class MachineState {
   constructor() {
@@ -14,17 +15,17 @@ export default class MachineState {
   //   return this
   // }
 
-  async put(key, value, isCompressed = true) {
+  async put(key: string, value: string | Uint8Array, isCompressed = true) {
     value = isCompressed ? value : await pako.deflate(value)
     await stateStore.put(key, value)
   }
 
-  async get(key, isCompressed = true) {
+  async get(key: string, isCompressed = true) {
     const value = await stateStore.get(key)
     return isCompressed === true ? pako.inflate(value) : value
   }
 
-  updateState(block) {
+  updateState(block: BlockMessage) {
     // block.decoded.index
     // this.#isUpdateNeeded()
   }

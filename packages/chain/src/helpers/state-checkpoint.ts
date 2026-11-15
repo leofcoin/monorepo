@@ -2,19 +2,31 @@ import { BlockMessage } from '@leofcoin/messages'
 import { jsonParseBigInt, jsonStringifyBigInt } from '@leofcoin/utils'
 import { validateChainLink } from '../consensus/chain-link.js'
 import type { ChainTip } from '../consensus/chain-link.js'
+import type { Storage } from '@leofcoin/storage'
 
 export const CHECKPOINT_KEYS = ['checkpoint:0', 'checkpoint:1']
 const counters = ['nativeCalls', 'nativeMints', 'nativeBurns', 'nativeTransfers', 'totalBurnAmount',
-  'totalMintAmount', 'totalTransferAmount', 'totalTransactions', 'totalBlocks']
-const record = value => value && typeof value === 'object' && !Array.isArray(value)
-const text = value => typeof value === 'string' ? value : new TextDecoder('utf-8', { fatal: true }).decode(value)
+  'totalMintAmount', 'totalTransferAmount', 'totalTransactions', 'totalBlocks'] as const
+export type CheckpointSnapshot = {
+  chainId: string
+  states: Record<string, unknown>
+  accounts: Record<string, string>
+  info: Record<(typeof counters)[number], bigint>
+  lastBlock: { index: number | bigint; hash: string }
+}
+export type Checkpoint = { generation: number; snapshot: CheckpointSnapshot }
+const record = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const text = (value: string | Uint8Array) =>
+  typeof value === 'string' ? value : new TextDecoder('utf-8', { fatal: true }).decode(value)
 const digest = async (value: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))]
   .map(byte => byte.toString(16).padStart(2, '0')).join('')
 
-export function validateCheckpoint(snapshot, chainId: string, requiredContracts: string[]) {
+export function validateCheckpoint(snapshot: unknown, chainId: string, requiredContracts: string[]): CheckpointSnapshot {
   if (!record(snapshot) || snapshot.chainId !== chainId || !record(snapshot.states) || !record(snapshot.accounts) || !record(snapshot.info))
     throw new Error('Invalid checkpoint or chain identity')
   const tip = snapshot.lastBlock
+  if (!record(tip)) throw new Error('Invalid checkpoint tip')
   const index = Number(tip?.index)
   if (!['bigint', 'number'].includes(typeof tip?.index) || !Number.isSafeInteger(index) || index < -1 ||
     (index === -1 ? tip.hash !== '0x0' : typeof tip.hash !== 'string' || !tip.hash || tip.hash === '0x0'))
@@ -22,22 +34,24 @@ export function validateCheckpoint(snapshot, chainId: string, requiredContracts:
   for (const contract of requiredContracts) if (!record(snapshot.states[contract])) throw new Error(`Incomplete checkpoint contract: ${contract}`)
   for (const [address, nonce] of Object.entries(snapshot.accounts))
     if (!address || typeof nonce !== 'string' || !/^(0|[1-9]\d*)$/.test(nonce)) throw new Error('Invalid checkpoint nonce')
-  for (const counter of counters)
-    if (typeof snapshot.info[counter] !== 'bigint' || snapshot.info[counter] < 0n) throw new Error(`Invalid checkpoint counter: ${counter}`)
+  for (const counter of counters) {
+    const value = snapshot.info[counter]
+    if (typeof value !== 'bigint' || value < 0n) throw new Error(`Invalid checkpoint counter: ${counter}`)
+  }
   if (snapshot.info.totalBlocks !== BigInt(index) + 1n) throw new Error('Checkpoint block count does not match tip')
-  return snapshot
+  return snapshot as CheckpointSnapshot
 }
 
 /** Alternate complete records: a torn write never destroys the previous slot. */
-export async function writeCheckpoint(store, snapshot, generation: number, requiredContracts: string[]) {
+export async function writeCheckpoint(store: Storage, snapshot: CheckpointSnapshot, generation: number, requiredContracts: string[]) {
   if (!Number.isSafeInteger(generation) || generation < 0) throw new Error('Invalid checkpoint generation')
   validateCheckpoint(snapshot, snapshot.chainId, requiredContracts)
   const payload = JSON.stringify({ generation, snapshot }, jsonStringifyBigInt)
   await store.put(CHECKPOINT_KEYS[generation % 2], new TextEncoder().encode(JSON.stringify({ schema: 1, payload, checksum: await digest(payload) })))
 }
 
-export async function readCheckpoint(store, chainId: string, requiredContracts: string[]) {
-  const valid = []
+export async function readCheckpoint(store: Storage, chainId: string, requiredContracts: string[]): Promise<Checkpoint | undefined> {
+  const valid: Checkpoint[] = []
   let present = 0
   const keys = new Set(await store.keys())
   for (const key of CHECKPOINT_KEYS) {
@@ -58,7 +72,7 @@ export async function readCheckpoint(store, chainId: string, requiredContracts: 
 }
 
 /** Read and hash-check complete ancestry before changing any derived account state. */
-export async function recoveryHistory(hash: string, readBlock, anchor: ChainTip = { index: -1, hash: '0x0' }) {
+export async function recoveryHistory(hash: string, readBlock: (hash: string) => Promise<Uint8Array | undefined>, anchor: ChainTip = { index: -1, hash: '0x0' }) {
   const reversed = []
   const seen = new Set<string>()
   while (hash !== '0x0' && hash !== anchor.hash) {
@@ -84,7 +98,7 @@ export async function recoveryHistory(hash: string, readBlock, anchor: ChainTip 
   return history
 }
 
-export async function restoreAccountNonces(store, accounts) {
+export async function restoreAccountNonces(store: Storage, accounts: Record<string, string>) {
   // This is derived nonce state, never wallet/identity data. It is always replaced
   // from the verified checkpoint so a crash during this step is safely repeatable.
   await store.clear()

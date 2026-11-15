@@ -11,10 +11,10 @@ export const syncTimeout = 30_000
 export class Protocol {
   protected readonly genesis?: PqGenesis
   protected get chainAddresses() { return this.genesis?.addresses ?? addresses }
-  version: string
+  version!: string
   resolveTimeout: EpochTimeStamp = 10_000
 
-  constructor(config: ChainConfig) {
+  constructor(config?: ChainConfig) {
     if (config?.network === PQ_NETWORK) {
       assertPqGenesis(config.genesis)
       Object.defineProperty(this, 'genesis', { value: config.genesis, writable: false, configurable: false })

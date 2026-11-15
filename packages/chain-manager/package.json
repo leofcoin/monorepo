@@ -22,7 +22,7 @@
     "@leofcoin/binary": "^1.1.0",
     "@leofcoin/lib": "^1.4.0",
     "@leofcoin/messages": "^2.0.0",
-    "@leofcoin/multi-wallet": "^3.1.11",
+    "@leofcoin/multi-wallet": "^4.0.1",
     "@leofcoin/utils": "^1.1.45",
     "buffer": "^6.0.3",
     "@noble/hashes": "^2.2.0",
