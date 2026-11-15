@@ -17,7 +17,7 @@ test.after(() => {
 test('consensus signatures authenticate every signed field', async () => {
   const network = 'leofcoin'
   const wallet = new MultiWallet(network)
-  await wallet.generate()
+  await wallet.generate('test BIP39 passphrase')
   const identity = await (await wallet.account(0)).external(0)
   const from = await identity.address
   const validatorsAddress = 'validators-contract'

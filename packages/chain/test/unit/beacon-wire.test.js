@@ -20,7 +20,7 @@ import {
 
 const identity = async () => {
   const wallet = new MultiWallet('leofcoin')
-  await wallet.generate()
+  await wallet.generate('test BIP39 passphrase')
   return (await wallet.account(0)).external(0)
 }
 

@@ -268,7 +268,7 @@ export class OperatorController extends EventTarget {
       if (password.length < 12) throw new Error('Use a password of at least 12 characters')
       const network = this.#network()
       const wallet = new MultiWallet(network)
-      await wallet.generate(undefined, network)
+      await wallet.generate(password, network)
       const backup: Backup = {
         schema: 'leofcoin:operator-wallet:v1', network,
         address: await (await operatorAccount(wallet)).address,

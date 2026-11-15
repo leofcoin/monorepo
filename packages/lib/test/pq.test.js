@@ -65,7 +65,7 @@ test('exact canonical keys/signatures and 32-byte digests; no suffix truncation 
 test('PQ and classical policies do not downgrade; legacy Schnorr verification is unchanged', async () => {
   const pq = new PqIdentity(randomBytes(64))
   const legacy = new MultiWallet('leofcoin')
-  await legacy.generate()
+  await legacy.generate('test BIP39 passphrase')
   const hash = randomBytes(32)
   pq.bindChainId(chain)
   try {
