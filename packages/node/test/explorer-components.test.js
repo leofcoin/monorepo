@@ -15,7 +15,7 @@ async function component(file) {
   const source = (await readFile(new URL(file, import.meta.url), 'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\n/gm, '')
   const prefix = `
     import { PAGE_SIZE, readBlockPage, transactionReferences, readTransactionRows, readPoolReferences, explorerLink,
-      shortId, nativeMovement, formatLfc, compactLfc, supplyChange, blockEconomics, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
+      shortId, nativeMovement, formatLfc, compactLfc, supplyChange, blockSubsidy, blockEconomics, readTransaction, boundedRead, stringify } from ${JSON.stringify(helpers)};
     import { rankActivity, rankHolders, formatRankingBalance } from ${JSON.stringify(rankings)};
     import { getExplorerSource } from ${JSON.stringify(publicExplorer)};
     import { resolveExplorerSearch } from ${JSON.stringify(search)};
@@ -180,7 +180,7 @@ function text(template) {
   return template === undefined || template === null || typeof template === 'function' ? '' : String(template)
 }
 
-test('supply cards show compact amounts with their exact value and distinguish unavailable data', async () => {
+test('supply chart preserves exact amounts and distinguishes unavailable data', async () => {
   const { default: Dashboard } = await component('../src/views/explorer/explorer-dashboard.ts')
   const dashboard = new Dashboard()
   Object.assign(dashboard, {
@@ -189,31 +189,35 @@ test('supply cards show compact amounts with their exact value and distinguish u
     totalSupply: '50000005707762557077625557',
     totalMintAmount: '5707762557077625557'
   })
-  const findSupply = value => {
-    if (Array.isArray(value)) {
-      const supply = value.find(item => item?.title === 'Native-token supply')
-      return supply ?? value.map(findSupply).find(Boolean)
-    }
-    return value?.values && findSupply(value.values)
-  }
-  const supply = findSupply(dashboard.render())
-  assert.equal(supply.icon, 'account-balance')
-  assert.equal(supply.wide, true)
-  assert.equal(supply.items[1].value, '50,000,005.707762…')
-  assert.equal(supply.items[1].exact, '50,000,005.707762557077625557 LFC')
-  assert.equal(supply.items[2].title, 'minted after genesis')
-  assert.equal(supply.items[2].exact, '5.707762557077625557 LFC')
-  assert.equal(supply.items[3].title, 'net supply change')
-  assert.equal(supply.items[3].exact, '5.707762557077625557 LFC')
-  assert.match(supply.hint, /issuance minus burns/)
-  dashboard.totalMintAmount = undefined
-  assert.equal(findSupply(dashboard.render()).items[2].value, '—')
-  assert.equal(findSupply(dashboard.render()).items[2].unit, undefined)
-  assert.equal(findSupply(dashboard.render()).items[2].exact, 'Unavailable')
-  dashboard.totalSupply = '49999999999999999999999999'
-  assert.equal(findSupply(dashboard.render()).items[3].exact, '−0.000000000000000001 LFC')
-  dashboard.totalSupply = undefined
-  assert.equal(findSupply(dashboard.render()).items[3].exact, 'Unavailable')
+  const dashboardOutput = text(dashboard.render())
+  assert.match(dashboardOutput, /\.metricsOnly=true/)
+  assert.match(dashboardOutput, /\.mintedSupply=5707762557077625557/)
+  assert.doesNotMatch(dashboardOutput, /explorer-dashboard-section/)
+
+  const { ExplorerDashboardCharts } = await component('../src/elements/explorer/dashboard-charts.ts')
+  const charts = new ExplorerDashboardCharts()
+  Object.assign(charts, {
+    metricsOnly: true, initialSupply: dashboard.initialSupply, currentSupply: dashboard.totalSupply,
+    mintedSupply: dashboard.totalMintAmount, totalContracts: '4', registeredContracts: '0',
+    poolCount: 0, poolSize: '0 Bytes', blocks: [{ index: 7, transactions: 12, subsidy: '5707762557077625557' }]
+  })
+  let output = text(charts.render())
+  assert.match(output, /Block subsidy per block in LFC/)
+  assert.match(output, /Block #7: 5\.707762557077625557 LFC/)
+  assert.match(output, /50,000,005\.707762557077625557 LFC/)
+  assert.match(output, /Minted after genesis/)
+  assert.match(output, /Last block/)
+  assert.match(output, /width:100%/)
+  assert.match(output, /width:0%/)
+  charts.currentSupply = '49999999999999999999999999'
+  charts.mintedSupply = undefined
+  charts.blocks = [{ index: 8, transactions: 0 }]
+  output = text(charts.render())
+  assert.match(output, /−0\.000000000000000001 LFC/)
+  assert.match(output, /Unavailable/)
+  assert.match(output, /Block subsidy data unavailable/)
+  charts.blocks = []
+  assert.match(text(charts.render()), /No blocks yet/)
 })
 
 test('overview does not label an unknown registry liveness or throughput as zero', async () => {

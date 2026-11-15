@@ -1,5 +1,6 @@
 import { LiteElement, html, css, property } from '@vandeurenglenn/lite'
 import { svg } from 'lit-html'
+import { compactLfc, formatLfc, supplyChange } from '../../controllers/explorer-data.js'
 
 export type DashboardBlockPoint = {
   index: number
@@ -9,11 +10,18 @@ export type DashboardBlockPoint = {
   hash?: string
   validators?: number
   fees?: string
+  subsidy?: string
 }
 
 type Tooltip = { x: number; y: number; title: string; rows: [string, string][]; hint?: string }
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+const unsigned = (value: string | number | undefined): bigint | null => {
+  if (typeof value === 'number' && (!Number.isSafeInteger(value) || value < 0)) return null
+  if ((typeof value !== 'string' && typeof value !== 'number') || !/^(0|[1-9]\d*)$/.test(String(value))) return null
+  return BigInt(value)
+}
 
 const formatNumber = (value: number | string, digits = 0) => {
   const number = Number(value)
@@ -164,6 +172,39 @@ export class ExplorerDashboardCharts extends LiteElement {
 
       .half {
         grid-column: span 6;
+      }
+
+      .full {
+        grid-column: span 12;
+      }
+
+      .supply-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin: 20px 0 0;
+      }
+
+      .supply-stat {
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+
+      .supply-stat strong {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+      }
+
+      .supply-stat small {
+        font-size: 12px;
+        color: var(--md-sys-color-on-surface-variant);
+      }
+
+      .supply-note {
+        margin: 16px 0 0;
+        line-height: 1.5;
       }
 
       header {
@@ -564,6 +605,9 @@ export class ExplorerDashboardCharts extends LiteElement {
         .value {
           font-size: 22px;
         }
+        .supply-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     `
   ]
@@ -577,6 +621,14 @@ export class ExplorerDashboardCharts extends LiteElement {
   @property({ type: Number }) accessor totalValidators = 0
   @property({ type: Number }) accessor onlineValidators: number | undefined
   @property({ type: Object }) accessor native: Record<string, string> = {}
+  @property({ type: Boolean }) accessor metricsOnly = false
+  @property({ type: String }) accessor totalContracts: string | number | undefined
+  @property({ type: String }) accessor registeredContracts: string | number | undefined
+  @property({ type: Number }) accessor poolCount: number | undefined
+  @property({ type: String }) accessor poolSize: string | undefined
+  @property({ type: String }) accessor initialSupply: string | undefined
+  @property({ type: String }) accessor currentSupply: string | undefined
+  @property({ type: String }) accessor mintedSupply: string | undefined
 
   @property({ type: Number }) accessor range = 24
   @property({ type: Number }) accessor hoverBar = -1
@@ -815,6 +867,94 @@ export class ExplorerDashboardCharts extends LiteElement {
     </div>`
   }
 
+  #comparisonRows(entries: { label: string; value: bigint | null }[]) {
+    const max = entries.reduce((largest, entry) => entry.value !== null && entry.value > largest ? entry.value : largest, 0n)
+    return html`<div class="rows">
+      ${entries.map(({ label, value }, i) => html`<div class="row">
+        <span>${label}</span>
+        <div class="track" aria-hidden="true"><div class="fill"
+          style="--i:${i};width:${value !== null && max > 0n ? Number(value * 10000n / max) / 100 : 0}%"></div></div>
+        <b>${value === null ? '—' : value.toLocaleString('en-US')}</b>
+      </div>`)}
+    </div>`
+  }
+
+  #subsidyChart() {
+    const blocks = this.#visibleBlocks
+    if (!blocks.length) return html`<div class="empty">No blocks yet</div>`
+    const amounts: bigint[] = []
+    for (const block of blocks) {
+      const amount = unsigned(block.subsidy)
+      if (amount === null) return html`<div class="empty">Block subsidy data unavailable</div>`
+      amounts.push(amount)
+    }
+    const max = amounts.reduce((largest, amount) => amount > largest ? amount : largest, 0n)
+    const width = 640, height = 180, slot = width / blocks.length, barWidth = Math.max(2, slot * 0.68)
+    return html`<svg viewBox="0 0 ${width} ${height + 20}" role="img" aria-label="Block subsidy per block in LFC">
+      ${svg`
+        <line class="grid" x1="0" x2="${width}" y1="${height}" y2="${height}"></line>
+        <line class="grid" x1="0" x2="${width}" y1="${height / 2}" y2="${height / 2}"></line>
+        <text class="axis" x="0" y="${height / 2 - 4}">${compactLfc(max / 2n)} LFC</text>
+        ${blocks.map((block, i) => {
+          const amount = amounts[i]
+          const barHeight = max > 0n ? Number(amount * BigInt(height - 14) * 100n / max) / 100 : 0
+          const exact = `${formatLfc(block.subsidy)} LFC`
+          return svg`<rect class="bar ${i === blocks.length - 1 ? 'latest' : ''}" style="--i:${i}" rx="3"
+            x="${i * slot + (slot - barWidth) / 2}" y="${height - barHeight}" width="${barWidth}" height="${barHeight}"
+            aria-hidden="true"></rect>
+            <rect x="${i * slot}" y="0" width="${slot}" height="${height}" fill="transparent" tabindex="0"
+              role="img" aria-label="Block #${block.index}: ${exact}"><title>Block #${block.index}: ${exact}</title></rect>`
+        })}
+        <text class="axis" x="0" y="${height + 16}">#${formatNumber(blocks[0].index)}</text>
+        <text class="axis" x="${width}" y="${height + 16}" text-anchor="end">#${formatNumber(blocks[blocks.length - 1].index)}</text>
+      `}
+    </svg>`
+  }
+
+  #supplyStats() {
+    const delta = supplyChange(this.initialSupply, this.currentSupply)
+    const entries = [
+      { label: 'Genesis supply', value: this.initialSupply, negative: false },
+      { label: 'Current supply', value: this.currentSupply, negative: false },
+      { label: 'Minted after genesis', value: this.mintedSupply, negative: false },
+      { label: 'Net supply change', value: delta === null ? undefined : (delta < 0n ? -delta : delta).toString(), negative: delta !== null && delta < 0n }
+    ]
+    return html`<div class="supply-stats">${entries.map(({ label, value, negative }) => {
+      const exact = formatLfc(value)
+      const prefix = negative ? '−' : ''
+      const accessible = exact === '—' ? 'Unavailable' : `${prefix}${exact} LFC`
+      return html`<div class="supply-stat"><small>${label}</small>
+        <strong title=${accessible} aria-label=${accessible}>${prefix}${compactLfc(value)}${exact === '—' ? '' : html` <small>LFC</small>`}</strong>
+      </div>`
+    })}</div>`
+  }
+
+  #metrics() {
+    const latest = this.blocks?.at(-1)
+    return html`
+      <section class="card half" style="--order:0">
+        <header><h3>Contracts</h3><span class="hint">current counts</span></header>
+        ${this.#comparisonRows([
+          { label: 'Total', value: unsigned(this.totalContracts) },
+          { label: 'Registered', value: unsigned(this.registeredContracts) }
+        ])}
+      </section>
+      <section class="card half" style="--order:1">
+        <header><h3>Pool</h3><span class="hint">${this.poolSize ?? '—'} in pool</span></header>
+        ${this.#comparisonRows([
+          { label: 'Pending', value: unsigned(this.poolCount) },
+          { label: 'Last block', value: latest ? unsigned(latest.transactions) : null }
+        ])}
+        <p class="hint supply-note">Pending transactions compared with transactions in the latest block.</p>
+      </section>
+      <section class="card full" style="--order:2">
+        <header><h3>Native-token supply</h3><span class="hint">block subsidy · last ${this.#visibleBlocks.length} blocks</span></header>
+        ${this.#subsidyChart()}
+        ${this.#supplyStats()}
+        <p class="hint supply-note">Block subsidies exclude fees and contract mints. Minted includes subsidies and contract mints; net supply change also reflects burns.</p>
+      </section>`
+  }
+
   #rangeControl() {
     return html`<div class="segmented" role="group" aria-label="Block range">
       ${[12, 24, 48].map(
@@ -833,6 +973,7 @@ export class ExplorerDashboardCharts extends LiteElement {
   }
 
   render() {
+    if (this.metricsOnly) return this.#metrics()
     const blocks = this.#visibleBlocks
     const averageTx = blocks.length ? blocks.reduce((sum, block) => sum + block.transactions, 0) / blocks.length : 0
     const times = this.#timePoints.map((block) => block.blockTime)

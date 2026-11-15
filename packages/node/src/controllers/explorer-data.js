@@ -1,4 +1,5 @@
 import { BlockMessage, TransactionMessage } from '@leofcoin/messages'
+import { supportsMonetaryPolicy } from '@leofcoin/lib'
 
 export const PAGE_SIZE = 25
 export const shortId = value => typeof value === 'string' && value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : String(value ?? '—')
@@ -31,6 +32,12 @@ export function supplyChange(initial, current) {
   const start = unsignedUnits(initial)
   const end = unsignedUnits(current)
   return start === null || end === null ? null : end - start
+}
+
+export function blockSubsidy(block) {
+  if (typeof block?.protocolVersion !== 'string' || !/^\d+\.\d+\.\d+/.test(block.protocolVersion)) return undefined
+  if (!supportsMonetaryPolicy(block.protocolVersion)) return '0'
+  return formatLfc(block.reward) === '—' ? undefined : String(block.reward)
 }
 
 export function blockEconomics(block) {

@@ -4,7 +4,6 @@ import '../../elements/explorer/info-container.js'
 import { formatBytes, formatUnits } from '@leofcoin/utils'
 import '@vandeurenglenn/flex-elements/wrap-around.js'
 import { BlockMessage } from '@leofcoin/messages'
-import './../../elements/explorer/dashboard-section.js'
 import './../../elements/explorer/dashboard-charts.js'
 import type { DashboardBlockPoint } from '../../elements/explorer/dashboard-charts.js'
 import { getSelectedNetwork } from '../../network-selection.js'
@@ -12,7 +11,7 @@ import '../../elements/explorer/dashboard-rankings.js'
 import { rankActivity, rankHolders } from '../../controllers/explorer-rankings.js'
 import { errorMessage } from '../../controllers/transfer.js'
 import { getExplorerSource, explorerSystemContracts } from '../../controllers/public-explorer.js'
-import { compactLfc, formatLfc, supplyChange } from '../../controllers/explorer-data.js'
+import { blockSubsidy } from '../../controllers/explorer-data.js'
 
 export default customElements.define(
   'explorer-dashboard',
@@ -134,6 +133,7 @@ export default customElements.define(
           timestamp: Number.isFinite(timestamp) ? timestamp : undefined,
           validators: block.validators?.length ?? 0,
           fees: block.fees !== undefined ? formatUnits(block.fees) : undefined,
+          subsidy: blockSubsidy(block),
           blockTime:
             previousTimestamp !== undefined && Number.isFinite(timestamp)
               ? Math.max(0, (timestamp - previousTimestamp) / 1000)
@@ -211,21 +211,6 @@ export default customElements.define(
     }
 
     render() {
-      const supplyMetric = (title: string, value: string | undefined) => {
-        const exact = formatLfc(value)
-        return {
-          title,
-          value: compactLfc(value),
-          unit: exact === '—' ? undefined : 'LFC',
-          exact: exact === '—' ? 'Unavailable' : `${exact} LFC`
-        }
-      }
-      const delta = supplyChange(this.initialSupply, this.totalSupply)
-      const netChange = supplyMetric('net supply change', delta === null ? undefined : (delta < 0n ? -delta : delta).toString())
-      if (delta !== null && delta < 0n) {
-        netChange.value = `−${netChange.value}`
-        netChange.exact = `−${netChange.exact}`
-      }
       return html`
         <style>
           :host {
@@ -307,37 +292,16 @@ export default customElements.define(
                 .holderError=${this.holderError}
                 .loading=${this.holdersLoading}></explorer-dashboard-rankings>
 
-              <explorer-dashboard-section
-                .items=${[
-                  {
-                    title: 'Contracts',
-                    icon: 'contract',
-                    items: [
-                      { title: 'total', value: this.totalContracts, icon: 'content_copy' },
-                      { title: 'registered', value: this.registeredContracts, icon: 'storage' }
-                    ]
-                  },
-                  {
-                    title: 'Pool',
-                    icon: 'pool',
-                    items: [
-                      { title: 'size', value: this.transactionPoolSize, icon: 'storage' },
-                      { title: 'transactions', value: this.transactionsInPool, icon: 'list' }
-                    ]
-                  },
-                  {
-                    title: 'Native-token supply',
-                    icon: 'account-balance',
-                    wide: true,
-                    hint: 'Minted includes block subsidies and contract mints. Net supply change is issuance minus burns.',
-                    items: [
-                      supplyMetric('genesis supply', this.initialSupply),
-                      supplyMetric('current supply', this.totalSupply),
-                      supplyMetric('minted after genesis', this.totalMintAmount),
-                      netChange
-                    ]
-                  }
-                ]}></explorer-dashboard-section>`
+              <explorer-dashboard-charts
+                .metricsOnly=${true}
+                .blocks=${this.chartBlocks}
+                .totalContracts=${this.totalContracts}
+                .registeredContracts=${this.registeredContracts}
+                .poolCount=${this.transactionsInPool}
+                .poolSize=${this.transactionPoolSize}
+                .initialSupply=${this.initialSupply}
+                .currentSupply=${this.totalSupply}
+                .mintedSupply=${this.totalMintAmount}></explorer-dashboard-charts>`
           : html`<h3>Loading dashboard data...</h3>`}
         <flex-wrap-around>
           ${map(

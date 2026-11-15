@@ -4,7 +4,7 @@ import { explorerFixture } from './explorer-fixture-data.js'
 import { CodecHash } from '@leofcoin/codec-format-interface'
 import { parseExplorerSearch, resolveExplorerSearch } from '../src/controllers/explorer-search.js'
 import { readBlockPage, readBlockContent, readPoolReferences, transactionReferences, readTransactionRows,
-  readTransaction, safeHeight, formatLfc, compactLfc, supplyChange, nativeMovement, blockEconomics, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
+  readTransaction, safeHeight, formatLfc, compactLfc, supplyChange, blockSubsidy, nativeMovement, blockEconomics, mapReads, boundedRead, explorerLink } from '../src/controllers/explorer-data.js'
 
 const fixture = await explorerFixture('fixture-public-address')
 const chain = { lastBlock: fixture.blocks.at(-1), getBlocks: async (from, to) => fixture.blocks.slice(from, to) }
@@ -133,6 +133,15 @@ test('net supply change is exact, signed and unavailable when either supply is i
   assert.equal(supplyChange(initial, undefined), null)
   assert.equal(supplyChange(-1n, initial), null)
   assert.equal(supplyChange(Number.MAX_SAFE_INTEGER + 1, initial), null)
+})
+
+test('subsidy chart uses actual protocol issuance and never invents missing rewards', () => {
+  assert.equal(blockSubsidy({ protocolVersion: '0.2.0', reward: 150n }), '0')
+  assert.equal(blockSubsidy({ protocolVersion: '0.3.0', reward: 1234567890123456789n }), '1234567890123456789')
+  assert.equal(blockSubsidy({ protocolVersion: '0.9.0', reward: 0n }), '0')
+  assert.equal(blockSubsidy({ protocolVersion: '0.9.0' }), undefined)
+  assert.equal(blockSubsidy({ protocolVersion: 'invalid', reward: 10n }), undefined)
+  assert.equal(blockSubsidy({ reward: 10n }), undefined)
 })
 
 test('block economics leaves unavailable or inconsistent amounts unknown', () => {
