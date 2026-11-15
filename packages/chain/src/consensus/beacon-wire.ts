@@ -1,5 +1,5 @@
 import { createTransactionHash, signTransaction } from '@leofcoin/lib'
-import MultiWallet from '@leofcoin/multi-wallet'
+import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
 import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
 
 export type BeaconCommitmentData = {
@@ -149,12 +149,10 @@ export const signBeaconActivationMessage = async (
   return (await signTransaction(activationSignableData(validatorsAddress, message), identity)).signature
 }
 
-const verifyIdentitySignature = async (message, signable, network: string) => {
+const verifyIdentitySignature = async (message, signable, network: string, chainId?: string) => {
   if (typeof message.signature !== 'string' || !message.signature) return false
   try {
-    const verifier = new MultiWallet(network)
-    await verifier.fromAddress(message.from, null, network)
-    return verifier.verify(fromBase58(message.signature), await createTransactionHash(signable))
+    return verifyIdentityDigest(message.from, message.signature, await createTransactionHash(signable), network, chainId)
   } catch {
     return false
   }
@@ -163,23 +161,26 @@ const verifyIdentitySignature = async (message, signable, network: string) => {
 export const verifyBeaconCommitmentMessage = async (
   validatorsAddress: string,
   message: BeaconCommitmentData,
-  network: string
+  network: string,
+  chainId?: string
 ): Promise<boolean> =>
   validateBeaconCommitmentData(message) &&
-  verifyIdentitySignature(message, commitmentSignableData(validatorsAddress, message), network)
+  verifyIdentitySignature(message, commitmentSignableData(validatorsAddress, message), network, chainId)
 
 export const verifyBeaconShareMessage = async (
   validatorsAddress: string,
   message: BeaconShareData,
-  network: string
+  network: string,
+  chainId?: string
 ): Promise<boolean> =>
   validateBeaconShareData(message) &&
-  verifyIdentitySignature(message, shareSignableData(validatorsAddress, message), network)
+  verifyIdentitySignature(message, shareSignableData(validatorsAddress, message), network, chainId)
 
 export const verifyBeaconActivationMessage = async (
   validatorsAddress: string,
   message: BeaconActivationData,
-  network: string
+  network: string,
+  chainId?: string
 ): Promise<boolean> =>
   validateBeaconActivationData(message) &&
-  verifyIdentitySignature(message, activationSignableData(validatorsAddress, message), network)
+  verifyIdentitySignature(message, activationSignableData(validatorsAddress, message), network, chainId)

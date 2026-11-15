@@ -9,6 +9,7 @@ import { createChainIdentity } from '@leofcoin/lib/chain-identity'
 import { writeCheckpoint } from './helpers/state-checkpoint.js'
 import { ReadOnlyMachine } from './read-only-machine.js'
 import type { TransactionExecution } from '@leofcoin/workers/machine-worker'
+import { assertPqGenesis, type PqGenesis } from '@leofcoin/lib/pq-genesis'
 const genesisContracts = { contractFactory: addresses.contractFactory, nativeToken: addresses.nativeToken,
   nameService: addresses.nameService, validators: addresses.validators }
 // import State from './state'
@@ -59,7 +60,8 @@ export default class Machine {
     this.worker?.terminate()
   }
 
-  constructor(blocks: any[] = [], checkpoint?) {
+  constructor(blocks: any[] = [], checkpoint?, private genesis?: PqGenesis) {
+    if (genesis) assertPqGenesis(genesis)
     this.init(blocks, checkpoint).then(() => this.readyResolve(this), error => {
       this.close()
       this.readyReject(error)
@@ -182,7 +184,7 @@ export default class Machine {
       }
       snapshot.accounts = accounts
       const generation = this.#checkpointGeneration + 1
-      await writeCheckpoint(stateStore, snapshot, generation, Object.values(genesisContracts))
+      await writeCheckpoint(stateStore, snapshot, generation, Object.values(this.genesis?.addresses ?? genesisContracts))
       // Advance the in-memory durable tip only after the complete record succeeds.
       this.#checkpointGeneration = generation
       this.states = snapshot
@@ -195,7 +197,7 @@ export default class Machine {
   }
 
   async #init(blocks, checkpoint?): Promise<void> {
-    const identity = await createChainIdentity(chainNetwork(), addresses)
+    const identity = await createChainIdentity(this.genesis ? 'leofcoin:pq' : chainNetwork(), this.genesis?.addresses ?? addresses)
     this.#chainId = identity.chainId
     if (checkpoint) {
       this.#checkpointGeneration = checkpoint.generation
@@ -208,8 +210,8 @@ export default class Machine {
     } catch { /* browser worker URL */ }
     this.#workerPath = pre + '@leofcoin/workers/machine-worker.js'
     const readContract = hash => globalThis.contractStore.get(hash)
-    this.#reader = new ReadOnlyMachine(this.#workerPath, readContract)
-    this.#contractReader = new ReadOnlyMachine(this.#workerPath, readContract)
+    this.#reader = new ReadOnlyMachine(this.#workerPath, readContract, this.genesis)
+    this.#contractReader = new ReadOnlyMachine(this.#workerPath, readContract, this.genesis)
     this.worker = await new EasyWorker(this.#workerPath, {
       serialization: 'advanced', type: 'module'
     })
@@ -217,6 +219,7 @@ export default class Machine {
     this.worker.onmessage(this.#onmessage.bind(this))
     const initialized = await this.#askWorker('init', {
       blocks,
+      genesis: this.genesis,
       fromState: Boolean(checkpoint),
       lastBlock: checkpoint?.snapshot.lastBlock,
       state: checkpoint?.snapshot.states,
@@ -267,7 +270,7 @@ export default class Machine {
   ): Promise<any> {
     if (this.#closed) throw new Error('State machine is closed')
     try {
-      if (contract === contractFactory && method === 'registerContract') {
+      if (contract === (this.genesis?.addresses.contractFactory ?? contractFactory) && method === 'registerContract') {
         if (await this.has(parameters[0])) throw new Error(`duplicate contract @${parameters[0]}`)
         let message
         if (!(await globalThis.contractStore.has(parameters[0]))) {

@@ -4,6 +4,14 @@
   "description": "Official javascript implementation",
   "private": false,
   "exports": {
+    "./pq": {
+      "import": "./exports/pq.js",
+      "types": "./types/pq.d.ts"
+    },
+    "./browser/pq": {
+      "import": "./exports/browser/pq.js",
+      "types": "./types/pq.d.ts"
+    },
     "./node": {
       "import": "./exports/node.js",
       "types": "./exports/node.d.ts"

@@ -1,6 +1,5 @@
 import Transaction from './transaction.js'
 import { createContractMessage, signTransaction } from '@leofcoin/lib'
-import addresses from '@leofcoin/addresses'
 import type MultiWallet from '@leofcoin/multi-wallet'
 import { contractRegistry } from './contract-registry.js'
 import { isDerivedFrom, parseContractInheritance } from './contract-utils.js'
@@ -55,7 +54,7 @@ export default class Contract extends Transaction {
    * @returns {Promise<string>} The contract hash
    */
   async registerBaseContract(name: string, contract: string, constructorParameters = []) {
-    const creator = addresses.contractFactory
+    const creator = this.chainAddresses.contractFactory
     // Base contracts are hashed without constructor parameters
     const message = await createContractMessage(creator, contract, [])
     const hash = await contractRegistry.registerBaseContract(name, message)
@@ -122,7 +121,7 @@ export default class Contract extends Transaction {
     }
     let transaction = {
       from: await signer.address,
-      to: addresses.contractFactory,
+      to: this.chainAddresses.contractFactory,
       method: 'registerContract',
       params: [await message.hash()]
     }

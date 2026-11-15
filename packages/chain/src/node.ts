@@ -9,6 +9,7 @@ import { guardPeerMessages, guardProviderDiscovery } from './connection-monitor.
 import { nodeRoutingId } from './routing-identity-node.js'
 import { chainDiscoveryOptions, chainPeernetOptions, assertDiscoveryNamespace } from './star-namespace.js'
 import { startRecoveryTransport } from './recovery-transport.js'
+import { reserveNode } from './pq-runtime.js'
 
 export default class Node {
   #node
@@ -22,6 +23,7 @@ export default class Node {
     const SDK = globalThis.Peernet ?? Peernet
     if ((SDK as any).discoveryProtocolVersion !== 3) throw new Error('Install the app-ID Peernet release before starting this node')
     config = await chainDiscoveryOptions(config)
+    reserveNode(config)
     const autoStart = config.autoStart
     config = { ...config, autoStart: false }
     // Load the chain's supported native version before swarm starts discovery.
@@ -37,11 +39,12 @@ export default class Node {
       config.root = `.${network}/${networkVersion || 'mainnet'}/${config.storeNamespace}`
     }
     config = { ...config, routingId: await nodeRoutingId(config) }
-    const peerOptions = {...chainPeernetOptions(config),identity:new Identity(config.network)}
+    const peerOptions = {...chainPeernetOptions(config),identity:config.identity ?? new Identity(config.network)}
     this.#node = globalThis.Peernet
       ? await new globalThis.Peernet(peerOptions, password)
       : await new Peernet(peerOptions, password)
     Object.defineProperty(this.#node,'ledgerNetwork',{value:config.network,enumerable:true})
+    if (config.genesis) Object.defineProperty(this.#node, 'pqGenesis', { value: config.genesis })
     assertDiscoveryNamespace(this.#node,config)
     installBinaryPeerProtocol(this.#node)
     guardPeerMessages(this.#node)

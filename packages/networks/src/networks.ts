@@ -5,6 +5,10 @@
 
 export default {
   leofcoin: {
+    pq: {
+      description: 'Experimental ML-DSA-87 private disposable chain; one node per realm',
+      stars: []
+    },
     mainnet: {
       // ports don't really matter since it is favorable to have it begind a ngninx proxy but if we change something to the proto it's easier maybe?
       port: 44444,

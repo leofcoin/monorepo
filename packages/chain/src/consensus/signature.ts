@@ -1,6 +1,5 @@
 import { createTransactionHash, signTransaction } from '@leofcoin/lib'
-import MultiWallet from '@leofcoin/multi-wallet'
-import { fromBase58 } from '@vandeurenglenn/typed-array-utils'
+import { verifyIdentityDigest } from '@leofcoin/lib/identity-signature'
 
 export type ConsensusMessageType = 'proposal' | 'prevote' | 'precommit'
 export type ConsensusMessageData = {
@@ -38,17 +37,14 @@ export const verifyConsensusMessage = async (
   validatorsAddress: string,
   type: ConsensusMessageType,
   message: ConsensusMessageData,
-  network: string
+  network: string,
+  chainId?: string
 ): Promise<boolean> => {
   if (typeof message.from !== 'string' || typeof message.signature !== 'string' || !message.signature) return false
 
   try {
-    const verifier = new MultiWallet(network)
-    await verifier.fromAddress(message.from, null, network)
-    return await verifier.verify(
-      fromBase58(message.signature),
-      await createTransactionHash(consensusSignableData(validatorsAddress, type, message))
-    )
+    return await verifyIdentityDigest(message.from, message.signature,
+      await createTransactionHash(consensusSignableData(validatorsAddress, type, message)), network, chainId)
   } catch {
     return false
   }

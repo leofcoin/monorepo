@@ -41,6 +41,7 @@ export declare type RawBlock = {
 }
 
 export declare type ChainConfig = {
+  genesis?: import('@leofcoin/lib/pq-genesis').PqGenesis
   resolveTimeout?: number
   network?: string
   benchmarkBlockTimeMs?: 1000 | 6000

@@ -68,6 +68,7 @@ function activationFixture(stage) {
         throw error
       }
     }
+    chainAddresses = addresses
     async staticCall() { return true }
     async hasTransactionToHandle() {
       if (this.proposals) this.fail('pool')
