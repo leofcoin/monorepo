@@ -11,7 +11,7 @@ test('PQ realm refuses classical providers, existing stores, mismatched and repe
   const genesis = await createPqGenesis({ creator: identity.selectedAccount, target: '100', initial: '100',
     allocations: [{ address: identity.selectedAccount, amount: '100' }] })
   const config = { network: PQ_NETWORK, genesis, identity }
-  assert.throws(() => reserveNode({ ...config, identity: { selectedAccount: 'classical' } }), /explicit PqIdentity/)
+  assert.throws(() => reserveNode({ ...config, identity: { selectedAccount: 'classical' } }), /explicit PQ identity provider/)
   assert.throws(() => reserveNode({ network: 'leofcoin', identity }), /forbidden/)
   const prebound = new PqIdentity(randomBytes(64))
   const otherChain = 'lfc:' + 'ff'.repeat(32)
@@ -21,7 +21,15 @@ test('PQ realm refuses classical providers, existing stores, mismatched and repe
   globalThis.walletStore = {}
   assert.throws(() => reserveNode(config), /not empty/)
   delete globalThis.walletStore
-  reserveNode(config)
+  const compatibleProvider = {
+    network: identity.network,
+    scheme: identity.scheme,
+    id: identity.id,
+    selectedAccount: identity.selectedAccount,
+    bindChainId: chainId => identity.bindChainId(chainId),
+    sign: digest => identity.sign(digest)
+  }
+  reserveNode({ ...config, identity: compatibleProvider })
   assert.throws(() => reserveNode(config), /already reserved/)
   assert.throws(() => reserveNode({ network: 'leofcoin' }), /already reserved/)
   assert.throws(() => reserveChain(PQ_NETWORK, genesis), /initialized/)

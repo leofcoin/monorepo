@@ -22,7 +22,8 @@ launchers.
   the canonical decimal uint32 account index (default `0`). No chain ID enters
   key derivation. Recovery requires the same BIP39 passphrase and account index.
 - Address: `lfc-pq1:` followed by exactly 5184 lowercase hex characters encoding
-  the full 2592-byte public key. It is not a MultiWallet ID/address/MultiWIF.
+  the full 2592-byte public key. It is not a classical MultiWallet address,
+  ID, or MultiWIF; the separate `PqWallet` provider uses this address scheme.
 - The **existing canonical 32-byte transaction digest** is the ML-DSA message,
   using the FIPS context `Leofcoin:ML-DSA-87:v1:<chainId>`. This is pure ML-DSA
   applied to that digest, not a new HashML-DSA wire variant. Signature fields
@@ -98,12 +99,13 @@ use `chain.nativeToken` or `genesis.addresses`, never bundled classical
 addresses. PQ blocks require the current protocol version and consecutive
 nonces starting at height zero; the classical height-14 schedule is unchanged.
 
-The identity is deliberately **volatile**. It never writes secrets to
-Peernet's stores; import/export/lock/unlock do not pretend to support classical
-wallet formats. Back up the original seed securely outside this prototype.
-`destroy()` best-effort erases the live secret key; JavaScript cannot guarantee
-complete memory erasure. No seed/private key is included in defaults or genesis
-artifacts.
+The chain-side `PqIdentity` helper is deliberately **volatile** and never writes
+secrets to Peernet's stores. The separate `PqWallet` provider in
+`@leofcoin/multi-wallet` uses the same derivation and signing scheme and offers
+an encrypted seed backup; it does not use or emit classical MultiWIF files.
+Back up the 24-word BIP39 phrase securely. `destroy()` best-effort erases live
+secret material; JavaScript cannot guarantee complete memory erasure. No
+seed/private key is included in defaults or genesis artifacts.
 
 ## Validation and limitations
 

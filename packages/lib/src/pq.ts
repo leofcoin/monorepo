@@ -1,4 +1,4 @@
-/** Private disposable chains only. This is not a MultiWallet wire format. */
+/** Private disposable chains only; this is not a classical MultiWIF format. */
 import { ml_dsa87 } from '@noble/post-quantum/ml-dsa.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256, sha512 } from '@noble/hashes/sha2.js'
@@ -12,6 +12,15 @@ export const PQ_PUBLIC_KEY_BYTES = 2592
 export const PQ_SIGNATURE_BYTES = 4627
 const utf8 = new TextEncoder()
 
+export interface PqIdentityProvider {
+  readonly network: typeof PQ_NETWORK
+  readonly scheme: typeof PQ_SCHEME
+  readonly id: string
+  readonly selectedAccount: string
+  bindChainId(chainId: string): void
+  sign(digest: Uint8Array): Promise<Uint8Array>
+}
+
 export function pqAddress(publicKey: Uint8Array): string {
   if (!(publicKey instanceof Uint8Array) || publicKey.length !== PQ_PUBLIC_KEY_BYTES)
     throw new Error('Invalid ML-DSA-87 public key length')
@@ -23,6 +32,20 @@ export function pqPublicKey(address: string): Uint8Array {
     !address.startsWith(PQ_ADDRESS_PREFIX) || !/^[0-9a-f]+$/.test(address.slice(PQ_ADDRESS_PREFIX.length)))
     throw new Error('Invalid canonical PQ address')
   return hexToBytes(address.slice(PQ_ADDRESS_PREFIX.length))
+}
+
+export function isPqIdentityProvider(value: unknown): value is PqIdentityProvider {
+  if (!value || typeof value !== 'object') return false
+  const provider = value as Partial<PqIdentityProvider>
+  if (provider.network !== PQ_NETWORK || provider.scheme !== PQ_SCHEME ||
+    typeof provider.id !== 'string' || typeof provider.selectedAccount !== 'string' ||
+    typeof provider.bindChainId !== 'function' || typeof provider.sign !== 'function') return false
+  try {
+    pqPublicKey(provider.selectedAccount)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function context(chainId: string): Uint8Array {
@@ -38,7 +61,7 @@ export function verifyPqDigest(address: string, signature: Uint8Array, digest: U
 }
 
 /** Volatile seed-recoverable provider. No secret is written to Peernet's stores. */
-export class PqIdentity {
+export class PqIdentity implements PqIdentityProvider {
   readonly network = PQ_NETWORK
   readonly scheme = PQ_SCHEME
   readonly id: string

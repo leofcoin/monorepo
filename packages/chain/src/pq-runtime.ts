@@ -1,4 +1,4 @@
-import { PQ_NETWORK, PqIdentity } from '@leofcoin/lib/pq'
+import { isPqIdentityProvider, PQ_NETWORK } from '@leofcoin/lib/pq'
 import { assertPqGenesis, type PqGenesis } from '@leofcoin/lib/pq-genesis'
 
 // One node per realm. Never release a reservation after failure: stores may have opened.
@@ -11,13 +11,13 @@ export function reserveNode(config: { network?: string; genesis?: PqGenesis; ide
     ? (identity as { selectedAccount?: unknown }).selectedAccount
     : undefined
   if (config.network !== PQ_NETWORK) {
-    if (config.genesis || config.identity instanceof PqIdentity ||
+    if (config.genesis || isPqIdentityProvider(config.identity) ||
       (typeof selectedAccount === 'string' && selectedAccount.startsWith('lfc-pq')))
       throw new Error('PQ genesis/identity forbidden on classical networks')
     return
   }
   assertPqGenesis(config.genesis)
-  if (!(config.identity instanceof PqIdentity)) throw new Error('PQ network requires an explicit PqIdentity')
+  if (!isPqIdentityProvider(config.identity)) throw new Error('PQ network requires an explicit PQ identity provider')
   config.identity.bindChainId(config.genesis.chainId)
   for (const name of ['peernet', 'chain', 'accountStore', 'walletStore', 'blockStore', 'transactionStore',
     'chainStore', 'stateStore', 'accountsStore', 'contractStore', 'transactionPoolStore']) {
