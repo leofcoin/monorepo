@@ -16,6 +16,7 @@ export async function chainDiscoveryOptions(options: NodeOptions = {}): Promise<
   const config = {...DEFAULT_NODE_OPTIONS,...input}
   if (typeof config.network !== 'string' || !config.network) throw new Error('Chain discovery requires a network')
   if (config.network === PQ_NETWORK) {
+    if (!config.genesis) throw new Error('PQ discovery requires a genesis bundle')
     config.genesis = await validatePqGenesis(config.genesis)
     config.stars = [...(options.stars ?? [])]
     Object.freeze(config.stars)

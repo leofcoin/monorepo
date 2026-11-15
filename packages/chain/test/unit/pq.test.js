@@ -43,6 +43,7 @@ test('all consensus vote kinds and beacon identity messages enforce PQ context a
 test('PQ discovery validates the bundle, defaults to no stars and rejects public bootstrap/foreign genesis', async () => {
   const identity = new PqIdentity(randomBytes(64))
   try {
+    await assert.rejects(chainDiscoveryOptions({ network: PQ_NETWORK }), /requires a genesis bundle/)
     const genesis = await createPqGenesis({ creator: identity.selectedAccount, target: '100', initial: '100',
       allocations: [{ address: identity.selectedAccount, amount: '100' }] })
     const config = await chainDiscoveryOptions({ network: PQ_NETWORK, genesis })

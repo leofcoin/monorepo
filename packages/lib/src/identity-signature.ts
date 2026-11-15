@@ -16,6 +16,6 @@ export async function verifyIdentityDigest(
   }
   if (typeof address !== 'string' || address.startsWith('lfc-pq')) return false
   const verifier = new MultiWallet(network)
-  await verifier.fromAddress(address, null, network)
+  await verifier.fromAddress(address, undefined, network)
   return await verifier.verify(fromBase58(signature), digest)
 }

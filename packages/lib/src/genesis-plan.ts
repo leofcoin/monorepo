@@ -96,7 +96,7 @@ export const normalizeGenesisPlan = (input: unknown): GenesisPlan => {
 export const validateGenesisPlan = async (input: unknown): Promise<GenesisPlan> => {
   const plan = normalizeGenesisPlan(input)
   for (const address of new Set([plan.genesisValidator, ...plan.allocations.map(entry => entry.address)])) {
-    try { await new MultiWallet(plan.network).fromAddress(address, null, plan.network) }
+    try { await new MultiWallet(plan.network).fromAddress(address, undefined, plan.network) }
     catch { throw new Error(`Invalid public account checksum/key: ${address}`) }
   }
   if ((await deriveGenesisPlanIdentity(plan)).chainId !== plan.chainId)
