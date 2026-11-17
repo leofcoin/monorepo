@@ -396,6 +396,10 @@ test('chat has compact safe messages, conversation drafts, accessible settings a
     await chat.updateComplete; chat.shadowRoot.querySelector('.space-item').click(); await chat.updateComplete; true;`)
   for (const [width, name] of [[1280, 'desktop'], [390, 'mobile']]) {
     await resize(width, 900)
+    // Measure the settled page, rather than its translateY entry transition.
+    await evaluate(`await Promise.all(chat.getAnimations().filter(animation =>
+      animation.effect?.getComputedTiming().iterations !== Infinity
+    ).map(animation => animation.finished.catch(() => {}))); true`)
     const bounds = await evaluate(`(() => {
       const page = chat.getBoundingClientRect(), composer = chat.shadowRoot.querySelector('.composer').getBoundingClientRect();
       return { overflow: chat.shadowRoot.querySelector('.layout').scrollWidth > page.width,
@@ -498,7 +502,7 @@ async function createShellFixture(t) {
   }
   const resize = async (width, height = 900) => {
     await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
-    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+    await evaluate('await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); true')
   }
   const click = async expression => {
     const coordinates = await evaluate(`await (async () => {
