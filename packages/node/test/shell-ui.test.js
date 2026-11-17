@@ -474,14 +474,14 @@ async function createShellFixture(t) {
     if (message.id) {
       const request = pending.get(message.id)
       pending.delete(message.id)
-      if (message.error) request.reject(new Error(message.error.message))
+      if (message.error) request.reject(new Error(`${request.method}: ${message.error.message} ${message.error.data || ''}`))
       else request.accept(message.result)
     }
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text)
   })
   const call = (method, params = {}) => new Promise((accept, reject) => {
     const id = ++nextId
-    pending.set(id, { accept, reject })
+    pending.set(id, { accept, reject, method })
     socket.send(JSON.stringify({ id, method, params }))
   })
   const evaluate = async expression => {
@@ -501,7 +501,7 @@ async function createShellFixture(t) {
     await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
   }
   const click = async expression => {
-    const { x, y } = await evaluate(`(async () => {
+    const coordinates = await evaluate(`await (async () => {
       const target = (${expression});
       if (!target) throw new Error('Click target is missing');
       // Follow composed ancestors too: a drawer can be transitioning while its
@@ -516,8 +516,9 @@ async function createShellFixture(t) {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (!target.isConnected) throw new Error('Click target was replaced');
       const rect = target.getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+      return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
     })()`)
+    const { x, y } = JSON.parse(coordinates)
     await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 })
     await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 })
   }
@@ -1537,7 +1538,7 @@ test('explorer block details show encoded size, transactions, recovery and lates
   assert.equal(await evaluate(`blockPage.size`), encoded.byteLength)
   assert.equal(await evaluate(`blockPage.shadowRoot.querySelector('tbody tr').textContent.includes('transfer')`), true)
   assert.equal(await evaluate(`blockPage.shadowRoot.querySelector('tbody tr').textContent.includes('sender-address')`), true)
-  assert.equal(await evaluate(`blockPage.shadowRoot.querySelectorAll('.metrics article').length`), 4)
+  assert.equal(await evaluate(`blockPage.shadowRoot.querySelectorAll('.metrics article').length`), 6)
   assert.equal(await evaluate(`blockPage.shadowRoot.textContent.includes('fees burnt')`), false)
   assert.equal(await evaluate(`blockPage.shadowRoot.querySelector('nav a:last-child').getAttribute('href')`),
     '#!/explorer/block?selected=previous-block-hash')
