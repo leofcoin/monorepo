@@ -37,6 +37,7 @@ import {
 
 const navigation = [
   { route: 'wallet', label: 'Wallet', icon: 'wallet', group: 'Your wallet' },
+  { route: 'dex', label: 'DEX', icon: 'swap_horiz', group: 'Your wallet' },
   { route: 'address-book', label: 'Address book', icon: 'contacts', group: 'Your wallet' },
   { route: 'identity', label: 'Identity', icon: 'account_circle', group: 'Your wallet' },
   { route: 'explorer', label: 'Explorer', icon: 'travel_explore', group: 'Network' },
@@ -47,7 +48,7 @@ const navigation = [
   { route: 'faucet', label: 'Testnet faucet', icon: 'water_drop', group: 'Tools & community' },
   { route: 'settings', label: 'Settings', icon: 'settings', group: 'Preferences' }
 ]
-const walletRoutes = ['wallet', 'identity', 'chat', 'validator', 'faucet']
+const walletRoutes = ['wallet', 'dex', 'identity', 'chat', 'validator', 'faucet']
 
 interface SyncProgress {
   phase: 'syncing' | 'synced'
@@ -418,7 +419,7 @@ class AppShell extends LiteElement {
       page.isDesktop = this.isDesktop
       page.wallet = this.wallet
     }
-    if (view === 'address-book' || view === 'faucet') page.wallet = this.wallet
+    if (view === 'address-book' || view === 'dex' || view === 'faucet') page.wallet = this.wallet
     if (view === 'stats') page.nodeStatus = this.nodeStatus
   }
 

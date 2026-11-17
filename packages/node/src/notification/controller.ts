@@ -139,8 +139,10 @@ export class NotificationController extends LitElement {
         ${recent.length > 3 ? html`<button class="more" @click=${() => { this.open = true }}>View ${recent.length - 3} more notifications</button>` : ''}
       </div>
       <dialog aria-labelledby="notifications-title"
-        @cancel=${() => { this.open = false }}
-        @close=${() => { this.open = false }}
+        @cancel=${(event: Event) => { event.preventDefault(); this.open = false }}
+        @close=${(event: Event) => {
+          if (!(event.currentTarget as HTMLDialogElement).open) this.open = false
+        }}
         @click=${(event: MouseEvent) => {
           if (isBackdropClick(event)) this.open = false
         }}>

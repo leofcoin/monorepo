@@ -150,7 +150,7 @@ export class SettingsView extends LitElement {
     .passkey-form { display:grid; gap:12px; margin-top:20px; max-width:480px; }
     .passkey-form label { display:grid; gap:8px; } .passkey-form input { box-sizing:border-box; width:100%; }
     .preference-field { display:grid; gap:8px; max-width:480px; margin-top:16px; }
-    .preference-field select { box-sizing:border-box; min-height:44px; padding:8px 12px; border:1px solid var(--lfc-glass-border,#45414c);
+    .preference-field select { box-sizing:border-box; min-width:0; width:100%; min-height:44px; padding:8px 12px; border:1px solid var(--lfc-glass-border,#45414c);
       border-radius:10px; background:var(--md-sys-color-surface-container-low,#1d1b20); color:inherit; font:inherit; }
     .warning { margin-top:16px; padding:14px; border:1px solid var(--lfc-glass-border,#45414c); border-radius:12px; }
     dialog { width:min(540px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; margin:auto; padding:24px;
