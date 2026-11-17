@@ -898,7 +898,7 @@ test('responsive shell, wallet navigation and notification lifecycle', {
 }, async t => {
   const { evaluate, waitFor, resize, click, call, errors } = await createShellFixture(t)
   assert.equal(await evaluate(`shell.isDesktop`), true)
-  assert.equal(await evaluate(`shell.shadowRoot.querySelectorAll('.primary-nav a').length`), 10)
+  assert.equal(await evaluate(`shell.shadowRoot.querySelectorAll('.primary-nav a').length`), 11)
   assert.equal(await evaluate(`shell.shadowRoot.querySelector('account-select').networkKey`), 'peach')
   await evaluate(`globalThis.originalConfirm = window.confirm;
     window.confirm = message => { window.networkSwitchPrompt = message; return false };
@@ -1095,6 +1095,59 @@ test('responsive shell, wallet navigation and notification lifecycle', {
   assert.deepEqual(errors, [])
 })
 
+test('DEX tab discovers pools, quotes without signing and confirms approval before swap', {
+  skip: !runShellUiTests, timeout: 30000
+}, async t => {
+  const { evaluate, waitFor, resize, errors } = await createShellFixture(t)
+  await evaluate(`
+    localStorage.setItem('leofcoin:dex-factory:peach', 'fixture-factory');
+    globalThis.dexSent = []; globalThis.dexSignatures = 0; globalThis.dexNonce = 0;
+    Object.assign(chain, {
+      contracts: Promise.resolve(['fixture-factory']),
+      getNonce: async () => dexNonce++,
+      staticCall: async (contract, method) => {
+        const values = {
+          'fixture-factory:pools': ['fixture-pool'], 'fixture-factory:totalPools': 1n,
+          'fixture-pool:token0': 'fixture-lfc', 'fixture-pool:token1': 'fixture-usd',
+          'fixture-pool:feeBasisPoints': 30n, 'fixture-pool:reserve0': 1000000000000000000000n,
+          'fixture-pool:reserve1': 2000000000n, 'fixture-pool:totalLiquidity': 1000000n,
+          'fixture-pool:liquidityOf': 1000n, 'fixture-pool:getAmountOut': 1990000n,
+          'fixture-lfc:name': 'Leofcoin', 'fixture-lfc:symbol': 'LFC', 'fixture-lfc:decimals': 18,
+          'fixture-lfc:balanceOf': 50000000000000000000n, 'fixture-lfc:allowance': 0n,
+          'fixture-usd:name': 'Test USD', 'fixture-usd:symbol': 'tUSD', 'fixture-usd:decimals': 6,
+          'fixture-usd:balanceOf': 100000000n
+        };
+        const key = contract + ':' + method;
+        if (!(key in values)) throw Error('Missing fixture call ' + key);
+        return values[key];
+      },
+      sendTransaction: async transaction => {
+        dexSent.push(transaction);
+        return { hash: 'fixture-dex-' + dexSent.length, wait: Promise.resolve() };
+      }
+    });
+    globalThis.identityController = { signer: async () => ({ sign: async () => { dexSignatures++; return new Uint8Array(64) } }) };
+    location.hash = '#!/dex'; true`)
+  await waitFor(`shell.currentRoute === 'dex' && shell.shadowRoot.querySelector('dex-view')?.pools.length === 1`)
+  await evaluate(`globalThis.dexView = shell.shadowRoot.querySelector('dex-view'); true`)
+  assert.equal(await evaluate(`dexView.shadowRoot.querySelector('select').textContent.includes('LFC / tUSD')`), true)
+  assert.equal(await evaluate('dexSignatures'), 0)
+  await evaluate(`const input = dexView.shadowRoot.querySelector('[aria-label="Swap input amount"]');
+    input.value = '1'; input.dispatchEvent(new Event('input')); await dexView.updateComplete;
+    [...dexView.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Review swap').click(); true`)
+  await waitFor(`dexView.quote && dexView.shadowRoot.textContent.includes('1.99 tUSD')`)
+  assert.equal(await evaluate('dexSignatures'), 0, 'quotes never request a private signer')
+  await evaluate(`[...dexView.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Confirm swap').click(); true`)
+  await waitFor(`dexSent.length === 2 && dexView.message.includes('Swap confirmed')`)
+  assert.deepEqual(await evaluate(`dexSent.map(transaction => transaction.method)`), ['approve', 'swapExactTokensForTokens'])
+  assert.equal(await evaluate('dexSignatures'), 2)
+  for (const width of [1280, 390, 320]) {
+    await resize(width)
+    assert.equal(await evaluate('dexView.scrollWidth <= dexView.clientWidth + 1'), true, `DEX overflow at ${width}`)
+  }
+  assert.deepEqual(errors, [])
+})
+
 test('wallet-required views automatically open the unlock dialog and preserve deep links', {
   skip: !runShellUiTests, timeout: 30000
 }, async t => {
@@ -1102,7 +1155,7 @@ test('wallet-required views automatically open the unlock dialog and preserve de
   await evaluate(`globalThis.lockedFixtureWallet = shell.wallet; shell.wallet = undefined;
     globalThis.walletStore = { has: async () => true }; location.hash = '#!/stats'`)
   await waitFor(`shell.currentRoute === 'stats'`)
-  for (const route of ['wallet/send', 'identity/accounts', 'chat', 'validator', 'faucet']) {
+  for (const route of ['wallet/send', 'dex', 'identity/accounts', 'chat', 'validator', 'faucet']) {
     await evaluate(`location.hash = '#!/${route}'`)
     await waitFor(`shell.currentRoute === '${route.split('/')[0]}' && shell.shadowRoot.querySelector('login-screen')?.shown`)
     assert.equal(await evaluate(`shell.shadowRoot.querySelector('wallet-required') === null`), true)
