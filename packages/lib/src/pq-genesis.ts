@@ -1,6 +1,6 @@
 import { ContractMessage } from '@leofcoin/messages'
 import bytecodes from './bytecodes.json' with { type: 'json' }
-import { buildGenesisContracts, type GenesisSources } from './genesis-contracts.js'
+import { buildGenesisContracts, dexFactorySource, type GenesisSources } from './genesis-contracts.js'
 import { createChainIdentity, type GenesisContracts } from './chain-identity.js'
 import { PQ_NETWORK, pqPublicKey } from './pq.js'
 
@@ -11,7 +11,7 @@ export type PqGenesis = Readonly<{
   network: typeof PQ_NETWORK
   chainId: string
   addresses: Readonly<GenesisContracts>
-  bytecodes: Readonly<Record<Name, string>>
+  bytecodes: Readonly<Record<Name, string> & { dexFactory?: string }>
 }>
 const validated = new WeakSet<object>()
 
@@ -22,7 +22,9 @@ export function assertPqGenesis(value: unknown): asserts value is PqGenesis {
 /** Amounts are canonical integer base units, not decimal LFC. No secrets accepted. */
 export async function createPqGenesis(input: {
   creator: string; target: string; initial: string; allocations: Array<{ address: string; amount: string }>
+  dexFactory?: boolean
 }): Promise<PqGenesis> {
+  if (input.dexFactory !== undefined && typeof input.dexFactory !== 'boolean') throw new Error('dexFactory must be a boolean')
   pqPublicKey(input.creator)
   const amount = (value: string) => {
     if (typeof value !== 'string' || !/^[1-9]\d{0,77}$/.test(value)) throw new Error('Supply/allocation must be positive integer base units')
@@ -43,10 +45,11 @@ export async function createPqGenesis(input: {
   if (total !== initial || !seen.has(input.creator)) throw new Error('PQ genesis must allocate its initial supply and fund its creator')
   const sources = {} as GenesisSources
   for (const name of names) sources[name] = new ContractMessage(bytecodes[name]).decoded.contract
+  if (input.dexFactory !== false) sources.dexFactory = dexFactorySource
   const built = await buildGenesisContracts(input.creator, input.target, input.initial, allocations, sources)
   const identity = await createChainIdentity(PQ_NETWORK, built.contracts)
-  const encoded = {} as Record<Name, string>
-  for (const name of names) encoded[name] = built.messages[name].encoded.toString()
+  const encoded = {} as Record<Name, string> & { dexFactory?: string }
+  for (const name of Object.keys(built.messages) as Array<keyof typeof encoded>) encoded[name] = built.messages[name]!.encoded.toString()
   const result: PqGenesis = Object.freeze({
     schema: 'leofcoin:pq-genesis:v1', network: PQ_NETWORK, chainId: identity.chainId,
     addresses: Object.freeze({ ...built.contracts }), bytecodes: Object.freeze(encoded)
@@ -62,9 +65,11 @@ export async function validatePqGenesis(value: PqGenesis): Promise<PqGenesis> {
   if (JSON.stringify(value).length > 2 * 1024 * 1024) throw new Error('PQ genesis bundle is too large')
   const native = new ContractMessage(value.bytecodes.nativeToken).decoded
   const [target, initial, allocations] = native.constructorParameters
-  const rebuilt = await createPqGenesis({ creator: native.creator, target: String(target), initial: String(initial), allocations })
+  if (Boolean(value.addresses.dexFactory) !== Boolean(value.bytecodes.dexFactory)) throw new Error('PQ genesis content/hash mismatch')
+  const rebuilt = await createPqGenesis({ creator: native.creator, target: String(target), initial: String(initial), allocations,
+    dexFactory: value.addresses.dexFactory !== undefined })
   if (value.chainId !== rebuilt.chainId ||
-    names.some(name => value.addresses[name] !== rebuilt.addresses[name] || value.bytecodes[name] !== rebuilt.bytecodes[name]))
+    [...names, 'dexFactory' as const].some(name => value.addresses[name] !== rebuilt.addresses[name] || value.bytecodes[name] !== rebuilt.bytecodes[name]))
     throw new Error('PQ genesis content/hash mismatch')
   return rebuilt
 }

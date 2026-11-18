@@ -19,7 +19,7 @@ test('generated bundle contains actual reproducible genesis contract messages an
   const bundle = await generateGenesisBundle(plan)
   assert.equal(bundle.schema, 'leofcoin:genesis-bundle:v1')
   assert.equal((await verifyChainIdentity(bundle.identity)).chainId, plan.chainId)
-  for (const name of ['nativeToken', 'contractFactory', 'validators', 'nameService']) {
+  for (const name of ['nativeToken', 'contractFactory', 'validators', 'nameService', 'dexFactory']) {
     const message = new ContractMessage(bundle.bytecodes[name])
     assert.equal(await message.hash(), bundle.addresses[name])
     assert.equal(bundle.identity.genesisContracts[name], bundle.addresses[name])

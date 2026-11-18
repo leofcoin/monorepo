@@ -1138,10 +1138,12 @@ test('DEX tab discovers pools, quotes without signing and confirms approval befo
   assert.equal(await evaluate(`dexView.shadowRoot.querySelector('select').textContent.includes('LFC / tUSD')`), true)
   assert.equal(await evaluate('dexSignatures'), 0)
   await evaluate(`const input = dexView.shadowRoot.querySelector('[aria-label="Swap input amount"]');
-    input.value = '1'; input.dispatchEvent(new Event('input')); await dexView.updateComplete;
-    [...dexView.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Review swap').click(); true`)
+    input.value = '1'; input.dispatchEvent(new Event('input')); true`)
   await waitFor(`dexView.quote && dexView.shadowRoot.textContent.includes('1.99 tUSD')`)
   assert.equal(await evaluate('dexSignatures'), 0, 'quotes never request a private signer')
+  await evaluate(`dexView.shadowRoot.querySelector('.swap-action').click(); await dexView.updateComplete; true`)
+  assert.equal(await evaluate(`dexView.shadowRoot.querySelector('.review').textContent.includes('Minimum received')`), true)
+  assert.equal(await evaluate('dexSignatures'), 0)
   await evaluate(`[...dexView.shadowRoot.querySelectorAll('button')].find(button => button.textContent.trim() === 'Confirm swap').click(); true`)
   await waitFor(`dexSent.length === 2 && dexView.message.includes('Swap confirmed')`)
   assert.deepEqual(await evaluate(`dexSent.map(transaction => transaction.method)`), ['approve', 'swapExactTokensForTokens'])

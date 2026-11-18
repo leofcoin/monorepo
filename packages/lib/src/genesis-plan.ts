@@ -1,9 +1,9 @@
 import MultiWallet from '@leofcoin/multi-wallet'
 import { ContractMessage } from '@leofcoin/messages'
 import bytecodes from './bytecodes.json' with { type: 'json' }
-import { createChainIdentity, assertChainId } from './chain-identity.js'
-import { buildGenesisContracts, type GenesisSources } from './genesis-contracts.js'
-export { buildGenesisContracts } from './genesis-contracts.js'
+import { createChainIdentity, assertChainId, GENESIS_CONTRACT_NAMES } from './chain-identity.js'
+import { buildGenesisContracts, dexFactorySource, type GenesisSources } from './genesis-contracts.js'
+export { buildGenesisContracts, dexFactorySource } from './genesis-contracts.js'
 import { parseGenesisAllocations, validateGenesisSupply } from './genesis-allocations.js'
 export { parseGenesisAllocations, validateGenesisSupply } from './genesis-allocations.js'
 
@@ -19,6 +19,7 @@ export type GenesisPlan = {
   token: { name: string; symbol: string; decimals: number }
   genesisValidator: string; targetSupply: string; initialSupply: string
   allocations: Array<{ address: string; amount: string }>; stars: string[]
+  dexFactory?: boolean
 }
 
 function objectKeys(value: unknown, allowed: string[], label: string): asserts value is Record<string, unknown> {
@@ -60,7 +61,8 @@ const star = (value: unknown) => {
 /** Strict public data only: no identity, wallet or persistent-store access. */
 export const normalizeGenesisPlan = (input: unknown): GenesisPlan => {
   objectKeys(input, ['schema', 'version', 'chainId', 'label', 'network', 'networkVersion', 'protocolVersion', 'token',
-    'genesisValidator', 'targetSupply', 'initialSupply', 'allocations', 'stars'], 'plan')
+    'genesisValidator', 'targetSupply', 'initialSupply', 'allocations', 'stars', 'dexFactory'], 'plan')
+  if (input.dexFactory !== undefined && typeof input.dexFactory !== 'boolean') throw new Error('dexFactory must be a boolean')
   if (input.schema !== GENESIS_PLAN_SCHEMA || input.version !== 1) throw new Error('Unsupported genesis plan schema/version')
   const chainId = assertChainId(input.chainId)
   for (const key of ['network', 'networkVersion', 'protocolVersion'] as const) {
@@ -89,7 +91,8 @@ export const normalizeGenesisPlan = (input: unknown): GenesisPlan => {
   return {
     schema: GENESIS_PLAN_SCHEMA, version: 1, chainId, label,
     ...GENESIS_RUNTIME, token: { ...GENESIS_RUNTIME.token }, genesisValidator,
-    targetSupply, initialSupply, allocations, stars
+    targetSupply, initialSupply, allocations, stars,
+    ...(input.dexFactory === undefined ? {} : { dexFactory: input.dexFactory as boolean })
   }
 }
 
@@ -106,8 +109,9 @@ export const validateGenesisPlan = async (input: unknown): Promise<GenesisPlan> 
 
 const deriveGenesisPlanIdentity = async (plan: GenesisPlan) => {
   const sources = {} as GenesisSources
-  for (const name of Object.keys(bytecodes) as Array<keyof GenesisSources>)
+  for (const name of GENESIS_CONTRACT_NAMES)
     sources[name] = new ContractMessage(bytecodes[name]).decoded.contract
+  if (plan.dexFactory) sources.dexFactory = dexFactorySource
   const allocations = parseGenesisAllocations(JSON.stringify(plan.allocations), units)
   const { target, initial } = validateGenesisSupply(plan.targetSupply, plan.initialSupply, allocations, units)
   const { contracts } = await buildGenesisContracts(plan.genesisValidator, target, initial, allocations, sources)
@@ -116,7 +120,7 @@ const deriveGenesisPlanIdentity = async (plan: GenesisPlan) => {
 
 /** Create an ID only from genesis contents. Imported IDs must instead be verified. */
 export const createGenesisPlan = async (input: unknown): Promise<GenesisPlan> => {
-  const plan = normalizeGenesisPlan({ ...(input as Record<string,unknown>), chainId: 'lfc:' + '0'.repeat(64) })
+  const plan = normalizeGenesisPlan({ dexFactory: true, ...(input as Record<string,unknown>), chainId: 'lfc:' + '0'.repeat(64) })
   const identity = await deriveGenesisPlanIdentity(plan)
   return validateGenesisPlan({ ...plan, chainId: identity.chainId })
 }

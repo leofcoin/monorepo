@@ -13,7 +13,8 @@ test('planner construction and active bundled genesis have the exact same chain 
   const plan = await createGenesisPlan({
     schema: GENESIS_PLAN_SCHEMA, version: 1, label: 'Existing chain', ...GENESIS_RUNTIME,
     genesisValidator: native.creator, targetSupply: formatUnits(target), initialSupply: formatUnits(initial),
-    allocations: allocations.map(entry => ({ address: entry.address, amount: formatUnits(entry.amount) })), stars: []
+    allocations: allocations.map(entry => ({ address: entry.address, amount: formatUnits(entry.amount) })), stars: [],
+    dexFactory: false
   })
   const identity = await createChainIdentity('leofcoin:peach', addresses)
   assert.equal(plan.chainId, identity.chainId)
@@ -35,6 +36,15 @@ test('discovery distinguishes announcements, non-observation and unavailable pee
   assert.equal(partial.status, 'unknown')
   assert.equal(partial.unavailablePeers, 1)
   assert.equal((await findChainPresence(identity.chainId, ['forged'], async () => ({ ...other, chainId: identity.chainId }))).status, 'unknown')
+})
+
+test('optional DEX genesis is bound into the identity without changing legacy identities', async () => {
+  const legacy = await createChainIdentity('leofcoin:peach', addresses)
+  const withDex = await createChainIdentity('leofcoin:peach', { ...addresses, dexFactory: addresses.validators })
+  assert.notEqual(withDex.chainId, legacy.chainId)
+  assert.equal(withDex.genesisContracts.dexFactory, addresses.validators)
+  await assert.rejects(verifyChainIdentity({ ...withDex, genesisContracts: addresses }), /does not match/)
+  await assert.rejects(createChainIdentity('leofcoin:peach', { ...addresses, dexFactory: '' }), /Invalid genesis contract hash/)
 })
 
 test('discovery is bounded, times out safely and ignores late responses', async () => {

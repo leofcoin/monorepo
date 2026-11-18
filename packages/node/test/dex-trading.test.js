@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import addresses from '@leofcoin/addresses'
+import { createChainIdentity } from '@leofcoin/lib/chain-identity'
 
 import {
   addDexLiquidity,
   discoverDexFactories,
   executeSwap,
   formatTokenAmount,
+  genesisDexFactory,
   loadDexPools,
   parseLiquidityUnits, parseTokenAmount,
   quoteSwap,
@@ -13,6 +16,22 @@ import {
 } from '../src/controllers/dex-trading.ts'
 
 const account = 'alice'
+
+test('loads the DEX factory from a verified genesis identity and rejects forged identities', async () => {
+  const identity = await createChainIdentity('leofcoin:peach', { ...addresses, dexFactory: addresses.validators })
+  const chain = {
+    getChainIdentity: async () => identity,
+    staticCall: async (contract, method) => {
+      assert.equal(contract, addresses.validators)
+      assert.equal(method, 'pools')
+      return []
+    }
+  }
+  assert.equal(await genesisDexFactory(chain), addresses.validators)
+  chain.getChainIdentity = async () => ({ ...identity, chainId: 'lfc:' + '0'.repeat(64) })
+  await assert.rejects(genesisDexFactory(chain), /does not match/)
+  assert.equal(await genesisDexFactory({}), undefined)
+})
 const pool = {
   address: 'pool', token0: 'lfc', token1: 'usd', feeBasisPoints: 30n,
   reserve0: 1000n * 10n ** 18n, reserve1: 2000n * 10n ** 6n, totalLiquidity: 1_000_000_000_000n,
@@ -87,6 +106,31 @@ test('blocks trading while disconnected', async () => {
   peernet.connections = {}
   await assert.rejects(executeSwap({ chain, identity, peernet, factory: 'factory', pool, account,
     tokenIn: 'lfc', amountIn: 1n, minimumAmountOut: 1n }), /connected and synced/)
+})
+
+test('an account change while signing an approval prevents submission', async () => {
+  const { chain, peernet, sent } = fixture()
+  let current = true
+  const identity = { signer: async () => ({ sign: async () => {
+    current = false
+    return new Uint8Array(64)
+  } }) }
+  await assert.rejects(executeSwap({
+    chain, identity, peernet, factory: 'factory', pool, account,
+    tokenIn: 'lfc', amountIn: 1n, minimumAmountOut: 1n,
+    check: () => { if (!current) throw new Error('Account changed') }
+  }), /Account changed/)
+  assert.deepEqual(sent, [])
+})
+
+test('a price below the reviewed minimum never authorizes an approval', async () => {
+  const { chain, peernet, sent } = fixture()
+  const identity = { signer: async () => assert.fail('A stale quote must not request a signer') }
+  await assert.rejects(executeSwap({
+    chain, identity, peernet, factory: 'factory', pool, account,
+    tokenIn: 'lfc', amountIn: 1n, minimumAmountOut: values['pool:getAmountOut'] + 1n
+  }), /pool price changed/)
+  assert.deepEqual(sent, [])
 })
 
 test('protects liquidity minting and withdrawals with non-zero minimums', async () => {

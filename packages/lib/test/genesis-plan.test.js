@@ -22,6 +22,14 @@ const definition = () => ({
 const basePlan = await createGenesisPlan(definition())
 const fixture = () => structuredClone(basePlan)
 
+test('new plans include a DEX factory while explicit legacy plans retain four-contract identities', async () => {
+  assert.equal(basePlan.dexFactory, true)
+  const legacy = await createGenesisPlan({ ...definition(), dexFactory: false })
+  assert.notEqual(legacy.chainId, basePlan.chainId)
+  await assert.rejects(validateGenesisPlan({ ...basePlan, dexFactory: false }), /does not match/)
+  assert.throws(() => normalizeGenesisPlan({ ...basePlan, dexFactory: 'yes' }), /boolean/)
+})
+
 test('validates accounts and produces canonical decimal values, ordering and fingerprints', async () => {
   const plan = fixture()
   const first = await validateGenesisPlan(plan)

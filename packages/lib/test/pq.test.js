@@ -8,7 +8,7 @@ import { PqIdentity, PQ_NETWORK, pqAddress, pqPublicKey, verifyPqDigest } from '
 import { createPqGenesis, validatePqGenesis } from '../exports/pq-genesis.js'
 import { verifyIdentityDigest } from '../exports/identity-signature.js'
 import { signTransaction, createTransactionHash, MAX_TRANSACTION_BYTES } from '../exports/index.js'
-import { TransactionMessage } from '@leofcoin/messages'
+import { TransactionMessage, ContractMessage } from '@leofcoin/messages'
 import MultiWallet from '@leofcoin/multi-wallet'
 import { toBase58, fromBase58 } from '@vandeurenglenn/typed-array-utils'
 import addresses from '@leofcoin/addresses'
@@ -94,12 +94,20 @@ test('PQ genesis is deterministic, immutable, chain-ID verified, linked, and lea
     assert.deepEqual(a, b)
     assert.ok(Object.isFrozen(a) && Object.isFrozen(a.addresses) && Object.isFrozen(a.bytecodes))
     assert.deepEqual(await validatePqGenesis(JSON.parse(JSON.stringify(a))), a)
+    const dexMessage = new ContractMessage(a.bytecodes.dexFactory)
+    assert.equal(await dexMessage.hash(), a.addresses.dexFactory)
+    assert.equal(dexMessage.decoded.creator, pq.selectedAccount)
+    const legacy = await createPqGenesis({ ...input, dexFactory: false })
+    assert.equal(legacy.addresses.dexFactory, undefined)
+    assert.deepEqual(await validatePqGenesis(JSON.parse(JSON.stringify(legacy))), legacy)
+    assert.notEqual(legacy.chainId, a.chainId)
     const changed = await createPqGenesis({ ...input, target: '2000000' })
     assert.notEqual(changed.chainId, a.chainId)
     for (const corrupt of [
       { ...a, chainId: changed.chainId },
       { ...a, addresses: { ...a.addresses, validators: original.validators } },
-      { ...a, bytecodes: { ...a.bytecodes, validators: a.bytecodes.nativeToken } }
+      { ...a, bytecodes: { ...a.bytecodes, validators: a.bytecodes.nativeToken } },
+      { ...a, bytecodes: { ...a.bytecodes, dexFactory: a.bytecodes.nativeToken } }
     ]) await assert.rejects(validatePqGenesis(corrupt), /mismatch/)
     await assert.rejects(createPqGenesis({ ...input, creator: 'classical' }), /canonical/)
     await assert.rejects(createPqGenesis({ ...input, initial: '99999' }), /allocate/)

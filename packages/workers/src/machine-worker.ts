@@ -545,6 +545,7 @@ const _ = {
       if (!contracts[addresses.nameService]) await setState(addresses.nameService)
       if (!contracts[addresses.validators]) await setState(addresses.validators)
       if (!contracts[addresses.nativeToken]) await setState(addresses.nativeToken)
+      if (addresses.dexFactory && !contracts[addresses.dexFactory]) await setState(addresses.dexFactory)
       // contracts = await Promise.all(
       //   contracts.map(async (contract) => {
       //     contract = await new ContractMessage(new Uint8Array(contract.split(',')))
@@ -554,8 +555,13 @@ const _ = {
       // )
     } else {
       const initialContracts = pqGenesis
-        ? ['contractFactory', 'nativeToken', 'nameService', 'validators'].map(name => pqGenesis.bytecodes[name])
+        ? Object.values(pqGenesis.bytecodes)
         : [contractFactoryMessage, nativeTokenMessage, nameServiceMessage, validatorsMessage]
+      if (!pqGenesis && addresses.dexFactory) {
+        const message = (bytecodes as Record<string, string>).dexFactory
+        if (!message) throw new Error('DEX genesis factory bytecode is missing')
+        initialContracts.push(message)
+      }
       for (const contract of initialContracts) {
         const contractMessage: ContractMessage = await new ContractMessage(new Uint8Array(contract.split(',')))
         await _.runContract({

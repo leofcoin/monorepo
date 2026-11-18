@@ -26,7 +26,8 @@ type WorkerEvent =
 const responseError = (message: unknown): unknown =>
   message && typeof message === 'object' && 'error' in message ? message.error : undefined
 const genesisContracts = { contractFactory: addresses.contractFactory, nativeToken: addresses.nativeToken,
-  nameService: addresses.nameService, validators: addresses.validators }
+  nameService: addresses.nameService, validators: addresses.validators,
+  ...(addresses.dexFactory ? { dexFactory: addresses.dexFactory } : {}) }
 // import State from './state'
 const debug = createDebugger('leofcoin/machine')
 export default class Machine {

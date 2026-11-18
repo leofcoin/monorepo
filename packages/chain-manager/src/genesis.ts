@@ -1,6 +1,6 @@
 import {
   validateGenesisPlan, buildGenesisContracts, parseGenesisAllocations, validateGenesisSupply,
-  fingerprintGenesisPlan, type GenesisPlan
+  fingerprintGenesisPlan, dexFactorySource, type GenesisPlan
 } from '@leofcoin/lib/genesis-plan'
 import { nativeTokenMessage, contractFactoryMessage, validatorsMessage, nameServiceMessage } from '@leofcoin/lib'
 import { createChainIdentity } from '@leofcoin/lib/chain-identity'
@@ -18,7 +18,8 @@ export async function generateGenesisBundle(input: GenesisPlan) {
     nativeToken: new ContractMessage(originals.nativeToken).decoded.contract,
     contractFactory: new ContractMessage(originals.contractFactory).decoded.contract,
     validators: new ContractMessage(originals.validators).decoded.contract,
-    nameService: new ContractMessage(originals.nameService).decoded.contract
+    nameService: new ContractMessage(originals.nameService).decoded.contract,
+    ...(plan.dexFactory ? { dexFactory: dexFactorySource } : {})
   }
   const allocations = parseGenesisAllocations(JSON.stringify(plan.allocations), parseUnits)
   const { target, initial } = validateGenesisSupply(plan.targetSupply, plan.initialSupply, allocations, parseUnits)
@@ -29,7 +30,8 @@ export async function generateGenesisBundle(input: GenesisPlan) {
     nativeToken: await messages.nativeToken.toString(),
     contractFactory: await messages.contractFactory.toString(),
     validators: await messages.validators.toString(),
-    nameService: await messages.nameService.toString()
+    nameService: await messages.nameService.toString(),
+    ...(messages.dexFactory ? { dexFactory: await messages.dexFactory.toString() } : {})
   }
   return {
     schema: 'leofcoin:genesis-bundle:v1', plan,

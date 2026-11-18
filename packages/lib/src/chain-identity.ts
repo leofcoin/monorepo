@@ -1,6 +1,6 @@
 export const CHAIN_ID_SCHEMA = 'leofcoin:chain-identity:v1'
 export const GENESIS_CONTRACT_NAMES = ['contractFactory', 'nativeToken', 'nameService', 'validators'] as const
-export type GenesisContracts = Record<typeof GENESIS_CONTRACT_NAMES[number], string>
+export type GenesisContracts = Record<typeof GENESIS_CONTRACT_NAMES[number], string> & { dexFactory?: string }
 export type ChainIdentity = { schema: string; chainId: string; network: string; genesisContracts: GenesisContracts }
 
 export const assertChainId = (value: unknown): string => {
@@ -12,7 +12,8 @@ export const assertChainId = (value: unknown): string => {
 export const createChainIdentity = async (network: string, contracts: GenesisContracts): Promise<ChainIdentity> => {
   if (typeof network !== 'string' || !/^[a-z0-9][a-z0-9:-]{0,79}$/.test(network)) throw new Error('Invalid genesis network namespace')
   const genesisContracts = {} as GenesisContracts
-  for (const name of GENESIS_CONTRACT_NAMES) {
+  const names = [...GENESIS_CONTRACT_NAMES, ...(Object.hasOwn(contracts ?? {}, 'dexFactory') ? ['dexFactory'] : [])] as Array<keyof GenesisContracts>
+  for (const name of names) {
     const hash = contracts?.[name]
     if (typeof hash !== 'string' || !/^[A-Z2-7]{32,128}$/.test(hash)) throw new Error(`Invalid genesis contract hash: ${name}`)
     genesisContracts[name] = hash

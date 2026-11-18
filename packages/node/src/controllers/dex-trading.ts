@@ -1,5 +1,6 @@
 import DexClient, { type DexTransaction, type PoolState } from '@leofcoin/endpoint-clients/dex'
-import { signTransaction } from '@leofcoin/lib'
+import { calculateFee, signTransaction } from '@leofcoin/lib'
+import { verifyChainIdentity } from '@leofcoin/lib/chain-identity'
 import { formatUnits, parseUnits } from '@leofcoin/utils'
 import { networkStatus } from './transfer.js'
 
@@ -19,13 +20,21 @@ export type DexPool = PoolState & {
 
 export type ChainLike = {
   state?: { sync?: string }
+  nativeToken?: string
+  balanceOf?(account: string): Promise<bigint>
   contracts?: Promise<unknown> | unknown
+  getChainIdentity?(): Promise<unknown>
   staticCall(contract: string, method: string, params?: unknown[]): Promise<unknown>
   getNonce(address: string): Promise<number | string | bigint>
   sendTransaction(transaction: unknown): Promise<unknown>
 }
 
 type IdentityLike = { signer(address: string): Promise<{ sign(hash: Uint8Array): Promise<Uint8Array> | Uint8Array }> }
+type Submission = {
+  check?: () => void
+  onPending?: (method: string, hash: string) => void
+  nativeSpend?: bigint
+}
 
 const wholeNumber = (value: unknown, fallback = 18) => {
   const number = Number(value)
@@ -74,6 +83,15 @@ export async function validateFactory(chain: ChainLike, factory: string): Promis
   return pools
 }
 
+/** Prefer the immutable chain identity to a scanned or locally saved registry. */
+export async function genesisDexFactory(chain: ChainLike): Promise<string | undefined> {
+  if (typeof chain.getChainIdentity !== 'function') return undefined
+  const identity = await verifyChainIdentity(await chain.getChainIdentity())
+  const factory = identity.genesisContracts.dexFactory
+  if (factory) await validateFactory(chain, factory)
+  return factory
+}
+
 export async function discoverDexFactories(chain: ChainLike, limit = 250): Promise<string[]> {
   const registered = await Promise.resolve(chain.contracts)
   if (!Array.isArray(registered)) throw new Error('The registered contract list is unavailable.')
@@ -114,7 +132,7 @@ export async function loadDexPools(chain: ChainLike, factory: string, account: s
   if (!account) throw new Error('Unlock your wallet and select an account.')
   const dex = createDexClient(chain, factory)
   const pools = await dex.pools()
-  return Promise.all(pools.map(async address => {
+  const loadPool = async (address: string) => {
     const state = await dex.poolState(address)
     const [token0Info, token1Info, liquidity] = await Promise.all([
       tokenInfo(chain, state.token0, account),
@@ -122,17 +140,32 @@ export async function loadDexPools(chain: ChainLike, factory: string, account: s
       dex.liquidityOf(address, account)
     ])
     return { ...state, token0Info, token1Info, liquidity }
-  }))
+  }
+  const results: DexPool[] = []
+  // Keep concurrent reads under the local VM's bounded query queue.
+  for (let index = 0; index < pools.length; index += 2)
+    results.push(...await Promise.all(pools.slice(index, index + 2).map(loadPool)))
+  return results
 }
 
-async function sendAndConfirm(chain: ChainLike, identity: IdentityLike, account: string, raw: DexTransaction) {
-  const signed = await signTransaction(raw as any, await identity.signer(account))
+async function sendAndConfirm(chain: ChainLike, identity: IdentityLike, account: string, raw: DexTransaction, submission: Submission) {
+  submission.check?.()
+  const signer = await identity.signer(account)
+  submission.check?.()
+  const signed = await signTransaction(raw as any, signer)
+  if (chain.balanceOf) {
+    const [fee, balance] = await Promise.all([calculateFee(signed), chain.balanceOf(account)])
+    if (BigInt(balance) < BigInt(fee) + (submission.nativeSpend ?? 0n))
+      throw new Error('Your LFC balance does not cover the amount and network fee.')
+  }
+  submission.check?.()
   const pending = await chain.sendTransaction(signed)
   if (!pending || typeof pending !== 'object' || !('hash' in pending) || !('wait' in pending))
     throw new Error('The node did not return a transaction confirmation handle.')
   const confirmation = pending as { hash: string; wait: Promise<unknown> }
   if (!confirmation.hash || !confirmation.wait || typeof confirmation.wait.then !== 'function')
     throw new Error('The node did not return a transaction confirmation handle.')
+  submission.onPending?.(raw.method, confirmation.hash)
   await confirmation.wait
   return confirmation.hash
 }
@@ -151,11 +184,11 @@ async function approveIfNeeded(options: {
   token: string
   pool: string
   amount: bigint
-}) {
+} & Submission) {
   const allowance = BigInt(await options.chain.staticCall(options.token, 'allowance', [options.account, options.pool]) as bigint | string | number)
   if (allowance >= options.amount) return undefined
   const raw = await options.dex.approve(options.account, options.token, options.pool, options.amount)
-  return sendAndConfirm(options.chain, options.identity, options.account, raw)
+  return sendAndConfirm(options.chain, options.identity, options.account, raw, options)
 }
 
 export async function quoteSwap(chain: ChainLike, factory: string, pool: DexPool, tokenIn: string, input: string, slippageBasisPoints: number) {
@@ -167,10 +200,12 @@ export async function quoteSwap(chain: ChainLike, factory: string, pool: DexPool
   const dex = createDexClient(chain, factory)
   const amountIn = parseTokenAmount(input, info.decimals)
   const amountOut = await dex.quoteExactInput(pool.address, tokenIn, amountIn)
+  if (amountOut <= 0n) throw new Error('This amount is too small to swap.')
+  const minimumAmountOut = dex.minimumAmountOut(amountOut, BigInt(slippageBasisPoints))
   return {
     amountIn,
     amountOut,
-    minimumAmountOut: dex.minimumAmountOut(amountOut, BigInt(slippageBasisPoints)),
+    minimumAmountOut: minimumAmountOut || 1n,
     input: info,
     output
   }
@@ -186,15 +221,36 @@ export async function executeSwap(options: {
   tokenIn: string
   amountIn: bigint
   minimumAmountOut: bigint
-}) {
+  deadline?: number
+} & Submission) {
   assertTradingReady(options.chain, options.peernet, options.account)
+  if (options.minimumAmountOut <= 0n) throw new Error('A positive minimum received is required.')
+  const deadline = options.deadline ?? Date.now() + 20 * 60 * 1000
+  const check = () => {
+    options.check?.()
+    if (Date.now() >= deadline) throw new Error('The quote expired. Review a new quote before swapping.')
+  }
+  check()
   const dex = createDexClient(options.chain, options.factory)
-  const approvalHash = await approveIfNeeded({ ...options, dex, token: options.tokenIn, pool: options.pool.address, amount: options.amountIn })
+  if (options.tokenIn !== options.pool.token0 && options.tokenIn !== options.pool.token1)
+    throw new Error('Select an input token from this pool.')
+  const [currentOutput, tokenBalance] = await Promise.all([
+    dex.quoteExactInput(options.pool.address, options.tokenIn, options.amountIn),
+    options.chain.staticCall(options.tokenIn, 'balanceOf', [options.account])
+  ])
+  if (BigInt(tokenBalance as bigint | string | number) < options.amountIn)
+    throw new Error('Your token balance does not cover the swap amount.')
+  if (currentOutput < options.minimumAmountOut)
+    throw new Error('The pool price changed. Review a new quote before swapping.')
+  const nativeSpend = options.tokenIn === options.chain.nativeToken ? options.amountIn : 0n
+  const submission = { ...options, check, nativeSpend }
+  const approvalHash = await approveIfNeeded({ ...submission, dex, token: options.tokenIn, pool: options.pool.address, amount: options.amountIn })
+  check()
   const raw = await dex.swapExactInput(
     options.account, options.pool.address, options.tokenIn, options.amountIn,
-    options.minimumAmountOut, options.account, Date.now() + 20 * 60 * 1000
+    options.minimumAmountOut, options.account, deadline
   )
-  return { approvalHash, hash: await sendAndConfirm(options.chain, options.identity, options.account, raw) }
+  return { approvalHash, hash: await sendAndConfirm(options.chain, options.identity, options.account, raw, submission) }
 }
 
 export async function addDexLiquidity(options: {
@@ -207,7 +263,7 @@ export async function addDexLiquidity(options: {
   amount0: string
   amount1: string
   slippageBasisPoints?: number
-}) {
+} & Submission) {
   assertTradingReady(options.chain, options.peernet, options.account)
   const amount0 = parseTokenAmount(options.amount0, options.pool.token0Info.decimals)
   const amount1 = parseTokenAmount(options.amount1, options.pool.token1Info.decimals)
@@ -226,7 +282,7 @@ export async function addDexLiquidity(options: {
   approvals.push(await approveIfNeeded({ ...options, dex, token: options.pool.token0, pool: options.pool.address, amount: amount0 }))
   approvals.push(await approveIfNeeded({ ...options, dex, token: options.pool.token1, pool: options.pool.address, amount: amount1 }))
   const raw = await dex.addLiquidity(options.account, options.pool.address, amount0, amount1, minimumLiquidity)
-  return { approvals: approvals.filter(Boolean), hash: await sendAndConfirm(options.chain, options.identity, options.account, raw) }
+  return { approvals: approvals.filter(Boolean), hash: await sendAndConfirm(options.chain, options.identity, options.account, raw, options) }
 }
 
 export async function removeDexLiquidity(options: {
@@ -238,7 +294,7 @@ export async function removeDexLiquidity(options: {
   account: string
   liquidity: string
   slippageBasisPoints?: number
-}) {
+} & Submission) {
   assertTradingReady(options.chain, options.peernet, options.account)
   const liquidity = parseLiquidityUnits(options.liquidity)
   if (liquidity > options.pool.liquidity) throw new Error('You do not have that much pool liquidity.')
@@ -251,7 +307,7 @@ export async function removeDexLiquidity(options: {
   const minimum1 = expected1 * (10_000n - slippage) / 10_000n
   const dex = createDexClient(options.chain, options.factory)
   const raw = await dex.removeLiquidity(options.account, options.pool.address, liquidity, minimum0, minimum1, options.account)
-  return { hash: await sendAndConfirm(options.chain, options.identity, options.account, raw) }
+  return { hash: await sendAndConfirm(options.chain, options.identity, options.account, raw, options) }
 }
 
 const minBigInt = (left: bigint, right: bigint) => left < right ? left : right
