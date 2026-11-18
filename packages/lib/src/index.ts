@@ -26,6 +26,7 @@ declare type signable = {
 }
 export const contractFactoryMessage = bytecodes.contractFactory
 export const nativeTokenMessage = bytecodes.nativeToken
+export const dexFactoryMessage = (bytecodes as Record<string, string>).dexFactory
 
 export const nameServiceMessage = bytecodes.nameService
 export const validatorsMessage = bytecodes.validators

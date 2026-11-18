@@ -59,6 +59,9 @@ try {
   assert.equal((await chain.getChainIdentity()).chainId, genesis.chainId)
   assert.deepEqual(await chain.staticCall(genesis.addresses.validators, 'validators'), [identity.selectedAccount])
   assert.equal(chain.nativeToken, genesis.addresses.nativeToken)
+  assert.equal((await chain.getChainIdentity()).genesisContracts.dexFactory, genesis.addresses.dexFactory)
+  assert.deepEqual(await chain.staticCall(genesis.addresses.dexFactory, 'pools'), [])
+  assert.equal(await chain.staticCall(genesis.addresses.dexFactory, 'creator'), identity.selectedAccount)
   if (process.argv.includes('create')) {
     await chain.participate(identity.selectedAccount)
     const raw = { from: identity.selectedAccount, to: genesis.addresses.nativeToken, method: 'transfer',

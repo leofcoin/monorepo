@@ -78,7 +78,8 @@ import {
   console.log('Copy the complete credentials directory to encrypted offline storage.')
   const sources = {}
   for (const [name, filename] of Object.entries({
-    nativeToken: 'native-token.js', contractFactory: 'factory.js', validators: 'validators.js', nameService: 'name-service.js'
+    nativeToken: 'native-token.js', contractFactory: 'factory.js', validators: 'validators.js', nameService: 'name-service.js',
+    dexFactory: 'liquidity-pool-factory.js'
   })) {
     sources[name] = new TextEncoder().encode(prepareGenesisContractSource(
       await read(join('node_modules/@leofcoin/contracts/exports', filename))
@@ -99,7 +100,8 @@ import {
     contractFactory: await factory.toString(),
     nativeToken: await nativeToken.toString(),
     nameService: await nameService.toString(),
-    validators: await validators.toString()
+    validators: await validators.toString(),
+    dexFactory: await messages.dexFactory.toString()
   }
   await write(join(process.cwd(), 'packages/addresses/src/addresses.json'), JSON.stringify(addresses, null, '\t'))
   await write(join(process.cwd(), 'packages/lib/src/bytecodes.json'), JSON.stringify(bytecodes, null, '\t'))

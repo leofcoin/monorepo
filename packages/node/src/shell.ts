@@ -169,6 +169,7 @@ class AppShell extends LiteElement {
       this.#applyViewData('chat')
       this.#applyViewData('faucet')
       this.#applyViewData('address-book')
+      this.#applyViewData('dex')
       if (this.wallet && this.#lockedRoute) {
         this.#lockedRoute = false
         void this.rendered.then(() => globalThis.dispatchEvent(new HashChangeEvent('hashchange')))

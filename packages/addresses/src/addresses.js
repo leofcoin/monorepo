@@ -4,9 +4,11 @@ export const contractFactory = addresses.contractFactory
 export const nameService = addresses.nameService
 export const nativeToken = addresses.nativeToken
 export const validators = addresses.validators
+export const dexFactory = addresses.dexFactory
 export default {
   contractFactory,
   nameService,
   nativeToken,
-  validators
+  validators,
+  ...(dexFactory ? { dexFactory } : {})
 }

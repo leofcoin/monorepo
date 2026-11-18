@@ -18,6 +18,7 @@ import {
   signTransaction,
   contractFactoryMessage,
   nativeTokenMessage,
+  dexFactoryMessage,
   validatorsMessage,
   nameServiceMessage,
   calculateFee,
@@ -517,6 +518,11 @@ export default class Chain extends VersionControl {
         message: this.genesis?.bytecodes.nameService ?? nameServiceMessage
       }
     ]
+    if (this.chainAddresses.dexFactory) {
+      const message = this.genesis?.bytecodes.dexFactory ?? dexFactoryMessage
+      if (!message) throw new Error('DEX genesis factory bytecode is missing')
+      contracts.push({ address: this.chainAddresses.dexFactory, message })
+    }
 
     const prepared = await Promise.all(
       contracts.map(async ({ address, message }) => {
